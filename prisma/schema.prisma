@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  DEN
+}
+
+enum Rank {
+  LION
+  TIGER
+  WOLF
+  BEAR
+  WEBELOS
+  AOL
+}
+
+enum AdventureType {
+  REQUIRED
+  ELECTIVE
+}
+
+model User {
+  id               String    @id @default(cuid())
+  username         String    @unique
+  passwordHash     String
+  role             Role
+  denId            String?
+  den              Den?      @relation(fields: [denId], references: [id])
+  displayName      String
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Den {
+  id           String   @id @default(cuid())
+  rank         Rank
+  scoutingYear String
+  label        String   @default("")
+  scouts       Scout[]
+  users        User[]
+  createdAt    DateTime @default(now())
+
+  @@unique([rank, scoutingYear, label])
+}
+
+model Scout {
+  id        String              @id @default(cuid())
+  denId     String
+  den       Den                 @relation(fields: [denId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  notes     String?
+  createdAt DateTime            @default(now())
+  records   AdvancementRecord[]
+}
+
+model Adventure {
+  id        String              @id @default(cuid())
+  rank      Rank
+  name      String
+  type      AdventureType
+  sortOrder Int
+  note      String?
+  records   AdvancementRecord[]
+
+  @@unique([rank, name])
+}
+
+model AdvancementRecord {
+  id            String    @id @default(cuid())
+  scoutId       String
+  scout         Scout     @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  adventureId   String
+  adventure     Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+  completed     Boolean   @default(false)
+  completedDate DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([scoutId, adventureId])
+}
