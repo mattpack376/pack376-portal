@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   description: "Resources for Pack 376 den leaders and committee members: rosters, forms, and links to BSA tools.",
 };
 
+const CALENDAR_URL =
+  "https://docs.google.com/document/d/e/2PACX-1vTt7ZYfxypgB9-HXM7inLi7vznfwXyszYWvKKrSrPmCPfoa1CJzaxnBweqPetUUuC7Bz6J7KeItwDc9/pub";
+
 export default function LeaderResourcesPage() {
   return (
     <>
@@ -68,9 +71,9 @@ export default function LeaderResourcesPage() {
             <div className="eyebrow">Toolbox</div>
             <h2>Documents &amp; Tools</h2>
             <p>
-              Pack-specific files (advancement trackers, calendars, rosters) are shared with
+              Live links for the pack calendar and shared tools, plus roster files shared with
               registered leaders by email / shared drive. Reach out to the Committee Chair if
-              you need access.
+              you need access to something else.
             </p>
           </div>
           <div className="resource-grid">
@@ -86,8 +89,8 @@ export default function LeaderResourcesPage() {
               <div className="icon-badge">🗓️</div>
               <div>
                 <h3>Calendar of Events</h3>
-                <p>The full 2026–2027 pack calendar: campouts, pack nights, and one-day events.</p>
-                <Link className="link" href="/contact">Request a copy →</Link>
+                <p>The live 2026–2027 pack calendar — updates to the published document appear automatically.</p>
+                <a className="link" href={CALENDAR_URL} target="_blank" rel="noopener">Open Live Calendar →</a>
               </div>
             </div>
             <div className="resource-card">
@@ -95,7 +98,7 @@ export default function LeaderResourcesPage() {
               <div>
                 <h3>Recruitment Flyer</h3>
                 <p>Share-ready flyer for school events and National Night Out.</p>
-                <Link className="link" href="/contact">Request a copy →</Link>
+                <a className="link" href="/pack-376-recruitment-flyer.jpeg" target="_blank" rel="noopener">Open Recruitment Flyer →</a>
               </div>
             </div>
             <div className="resource-card">

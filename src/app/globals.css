@@ -283,26 +283,32 @@ section { padding: 64px 0; }
 }
 .wave-divider svg { width: 100%; height: 100%; }
 
-/* ---------- Ticket strip ---------- */
-.ticket-strip {
-  background: var(--scout-gold);
-  border-top: 3px dashed var(--scout-blue-dark);
-  border-bottom: 3px dashed var(--scout-blue-dark);
+/* ---------- Fact bar (floats over the hero/section boundary) ---------- */
+.fact-bar-wrap {
+  position: relative;
+  z-index: 3;
+  margin-top: -40px;
+  padding: 0 24px;
 }
-.ticket-strip .container {
+.fact-bar {
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--white);
+  border-radius: 18px;
+  box-shadow: var(--shadow-pop);
+  padding: 18px 28px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px 32px;
   justify-content: center;
   align-items: center;
-  padding: 18px 24px;
   font-family: var(--font-display);
   font-weight: 700;
   color: var(--scout-blue-dark);
   font-size: 15px;
   text-align: center;
 }
-.ticket-strip .dot { opacity: 0.5; }
+.fact-bar .dot { opacity: 0.4; color: var(--carnival-red); }
 
 /* ---------- Cards ---------- */
 .card-grid {

@@ -3,6 +3,8 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
+const JOIN_URL = "https://my.scouting.org/VES/OnlineReg/1.0.0/?tu=UF-MB-640paa3376";
+
 export default function HomePage() {
   return (
     <>
@@ -28,7 +30,7 @@ export default function HomePage() {
               kindergarten through 5th grade.
             </p>
             <div className="hero-actions">
-              <Link className="btn btn-primary" href="/contact">Join Pack 376</Link>
+              <a className="btn btn-primary" href={JOIN_URL} target="_blank" rel="noopener">Join Pack 376</a>
               <Link className="btn btn-outline" href="/rank-requirements">See Rank Requirements</Link>
             </div>
           </div>
@@ -69,8 +71,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <div className="ticket-strip">
-        <div className="container">
+      <div className="fact-bar-wrap">
+        <div className="fact-bar">
           <span>📍 Veltri Hall, Our Lady of Grace — 430 Avenue W, Brooklyn, NY</span>
           <span className="dot">•</span>
           <span>🗓️ Weekly Meetings — Fridays, 7:00–9:30 PM</span>
