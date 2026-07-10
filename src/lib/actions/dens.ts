@@ -8,6 +8,7 @@ import { assertAdmin } from "@/lib/authorize";
 import { hashPassword } from "@/lib/auth";
 import { generatePassword } from "@/lib/passwords";
 import { nextRank as computeNextRank } from "@/lib/rankConfig";
+import { parseScoutingYear } from "@/lib/attendanceSchedule";
 import type { Rank } from "@/generated/prisma/enums";
 
 export type CreatedCredential = { username: string; password: string };
@@ -47,6 +48,11 @@ export async function createDenAction(
 
   if (!rank || !scoutingYear) {
     return { error: "Rank and scouting year are required." };
+  }
+  try {
+    parseScoutingYear(scoutingYear);
+  } catch {
+    return { error: 'Scouting year must look like "2026-2027" (two consecutive years).' };
   }
 
   const existing = await prisma.den.findUnique({
@@ -120,6 +126,11 @@ export async function promoteDenAction(
   const next = computeNextRank(den.rank);
   if (!next) return { error: "Arrow of Light is the final rank — there's no next den to promote to." };
   if (!scoutingYear) return { error: "Enter the new scouting year." };
+  try {
+    parseScoutingYear(scoutingYear);
+  } catch {
+    return { error: 'Scouting year must look like "2027-2028" (two consecutive years).' };
+  }
 
   const existing = await prisma.den.findUnique({
     where: { rank_scoutingYear_label: { rank: next, scoutingYear, label: den.label } },

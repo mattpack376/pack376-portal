@@ -26,6 +26,11 @@ enum AdventureType {
   ELECTIVE
 }
 
+enum MeetingStatus {
+  SCHEDULED
+  NO_MEETING
+}
+
 model User {
   id               String    @id @default(cuid())
   username         String    @unique
@@ -61,6 +66,7 @@ model Scout {
   notes     String?
   createdAt DateTime            @default(now())
   records   AdvancementRecord[]
+  attendances Attendance[]
 }
 
 model Adventure {
@@ -86,4 +92,23 @@ model AdvancementRecord {
   updatedAt     DateTime  @updatedAt
 
   @@unique([scoutId, adventureId])
+}
+
+model MeetingDate {
+  id          String        @id @default(cuid())
+  date        DateTime      @unique @db.Date
+  status      MeetingStatus @default(SCHEDULED)
+  attendances Attendance[]
+}
+
+model Attendance {
+  id            String      @id @default(cuid())
+  scoutId       String
+  scout         Scout       @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  meetingDateId String
+  meetingDate   MeetingDate @relation(fields: [meetingDateId], references: [id], onDelete: Cascade)
+  present       Boolean
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([scoutId, meetingDateId])
 }
