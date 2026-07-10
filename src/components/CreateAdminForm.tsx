@@ -52,8 +52,8 @@ export default function CreateAdminForm() {
           value={role}
           onChange={(e) => setRole(e.target.value as "ADMIN" | "ATTENDANCE_ADMIN")}
         >
-          <option value="ADMIN">Full Admin — dens, advancement, users, attendance</option>
-          <option value="ATTENDANCE_ADMIN">Attendance Only — every den&apos;s attendance, no advancement</option>
+          <option value="ADMIN">Admin — Full Privileges</option>
+          <option value="ATTENDANCE_ADMIN">Attendance/Photos — pack-wide attendance, add/edit albums (can&apos;t delete)</option>
         </select>
       </div>
       {error && <p className="form-error">{error}</p>}

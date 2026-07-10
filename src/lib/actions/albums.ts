@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAttendanceAccess } from "@/lib/authorize";
+import { assertAdmin, assertAttendanceAccess } from "@/lib/authorize";
 
 export type AlbumActionState = { error?: string };
 
@@ -111,7 +111,7 @@ export async function toggleAlbumVisibilityAction(albumId: string, isVisible: bo
 export async function deleteAlbumAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertAttendanceAccess(session);
+  assertAdmin(session);
 
   const albumId = String(formData.get("albumId") || "");
   if (!albumId) throw new Error("Missing album id.");

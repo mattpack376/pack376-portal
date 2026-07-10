@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 import { deleteAlbumAction } from "@/lib/actions/albums";
 import AlbumVisibilityToggle from "@/components/AlbumVisibilityToggle";
 
@@ -8,6 +9,8 @@ function formatDate(date: Date) {
 }
 
 export default async function AdminAlbumsPage() {
+  const session = await getSession();
+  const canDelete = session?.role === "ADMIN";
   const albums = await prisma.photoAlbum.findMany({ orderBy: { eventDate: "desc" } });
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -28,19 +31,25 @@ export default async function AdminAlbumsPage() {
         <td>{formatDate(album.eventDate)}</td>
         <td className="actions">
           <AlbumVisibilityToggle albumId={album.id} isVisible={album.isVisible} />
-          <Link className="btn btn-outline btn-small" href={`/portal/admin/albums/${album.id}`}>
+          <Link
+            className="btn btn-outline btn-small"
+            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+            href={`/portal/admin/albums/${album.id}`}
+          >
             Edit
           </Link>
-          <form action={deleteAlbumAction}>
-            <input type="hidden" name="albumId" value={album.id} />
-            <button
-              type="submit"
-              className="btn btn-outline btn-small"
-              style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
-            >
-              Delete
-            </button>
-          </form>
+          {canDelete && (
+            <form action={deleteAlbumAction}>
+              <input type="hidden" name="albumId" value={album.id} />
+              <button
+                type="submit"
+                className="btn btn-outline btn-small"
+                style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+              >
+                Delete
+              </button>
+            </form>
+          )}
         </td>
       </tr>
     ));

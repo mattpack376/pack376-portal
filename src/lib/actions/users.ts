@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession, hashPassword } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
@@ -70,38 +71,46 @@ export async function resetPasswordAction(userId: string) {
   return { ok: true as const, credential };
 }
 
+export type UpdateUserRoleState = { error?: string };
+
 /**
  * Changes an account between the two admin-tier roles (full Admin and
- * Attendance Only). Den logins aren't editable here — they're tied to a
+ * Attendance/Photos). Den logins aren't editable here — they're tied to a
  * specific den and managed from that den's page. Master admins can't be
  * changed through the UI at all; see src/lib/masterAdmins.ts.
  */
-export async function updateUserRoleAction(userId: string, role: "ADMIN" | "ATTENDANCE_ADMIN") {
+export async function updateUserRoleAction(
+  _prevState: UpdateUserRoleState,
+  formData: FormData
+): Promise<UpdateUserRoleState> {
   const session = await getSession();
-  if (!session) return { ok: false as const, error: "Not authorized." };
+  if (!session) return { error: "Not authorized." };
   try {
     assertAdmin(session);
   } catch {
-    return { ok: false as const, error: "Not authorized." };
+    return { error: "Not authorized." };
   }
 
+  const userId = String(formData.get("userId") || "");
+  const role = String(formData.get("role") || "");
   if (role !== "ADMIN" && role !== "ATTENDANCE_ADMIN") {
-    return { ok: false as const, error: "Invalid role." };
+    return { error: "Invalid role." };
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return { ok: false as const, error: "User not found." };
+  if (!user) return { error: "User not found." };
   if (isMasterAdminUsername(user.username)) {
-    return { ok: false as const, error: "Master admins can't be changed from the admin panel." };
+    return { error: "Master admins can't be changed from the admin panel." };
   }
   if (user.role === "DEN") {
-    return { ok: false as const, error: "Den logins can't be changed to an admin role here." };
+    return { error: "Den logins can't be changed to an admin role here." };
   }
 
   await prisma.user.update({ where: { id: userId }, data: { role } });
 
   revalidatePath("/portal/admin/users");
-  return { ok: true as const };
+  revalidatePath(`/portal/admin/users/${userId}`);
+  redirect("/portal/admin/users");
 }
 
 export async function deleteUserAction(userId: string) {
@@ -125,5 +134,6 @@ export async function deleteUserAction(userId: string) {
   await prisma.user.delete({ where: { id: userId } });
 
   revalidatePath("/portal/admin/users");
+  revalidatePath(`/portal/admin/users/${userId}`);
   return { ok: true as const };
 }

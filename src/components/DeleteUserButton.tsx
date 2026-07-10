@@ -15,6 +15,7 @@ export default function DeleteUserButton({ userId, username }: { userId: string;
       const result = await deleteUserAction(userId);
       if (result.ok) {
         setError(null);
+        router.push("/portal/admin/users");
         router.refresh();
       } else {
         setError(result.error || "Something went wrong.");

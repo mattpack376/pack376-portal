@@ -53,7 +53,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/portal/login", request.url));
   }
 
-  if (pathname.startsWith("/portal/admin/attendance")) {
+  const attendanceAccessiblePrefixes = ["/portal/admin/attendance", "/portal/admin/albums"];
+  const isAttendanceAccessible = attendanceAccessiblePrefixes.some((prefix) => pathname.startsWith(prefix));
+
+  if (isAttendanceAccessible) {
     if (session.role !== "ADMIN" && session.role !== "ATTENDANCE_ADMIN") {
       return NextResponse.redirect(new URL(homeForRole(session.role), request.url));
     }
