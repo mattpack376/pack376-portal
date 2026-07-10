@@ -26,8 +26,8 @@ export default function HomePage() {
             </h1>
             <p className="lead">
               Pack 376 brings the boardwalk to Cub Scouting — real adventures, lifelong
-              skills, and a pack family that feels like Brooklyn. Open to all families,
-              kindergarten through 5th grade.
+              skills, and a pack family that feels like Brooklyn. All families welcome —
+              boys and girls, kindergarten through 5th grade.
             </p>
             <div className="hero-actions">
               <a className="btn btn-primary" href={JOIN_URL} target="_blank" rel="noopener">Join Pack 376</a>
@@ -76,6 +76,8 @@ export default function HomePage() {
           <span>📍 Veltri Hall, Our Lady of Grace — 430 Avenue W, Brooklyn, NY</span>
           <span className="dot">•</span>
           <span>🗓️ Weekly Meetings — Fridays, 7:00–9:30 PM</span>
+          <span className="dot">•</span>
+          <span>👦👧 All Families Welcome — Boys &amp; Girls</span>
         </div>
       </div>
 
