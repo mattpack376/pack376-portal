@@ -75,11 +75,11 @@ export default function LeaderResourcesPage() {
           </div>
           <div className="resource-grid">
             <div className="resource-card">
-              <div className="icon-badge">📋</div>
+              <div className="icon-badge">💻</div>
               <div>
-                <h3>Advancement Tracker</h3>
-                <p>The master spreadsheet tracking every scout&apos;s rank &amp; adventure progress for the year.</p>
-                <Link className="link" href="/contact">Request access →</Link>
+                <h3>Den Advancement Portal</h3>
+                <p>Track your den&apos;s adventure progress online — log in with your den&apos;s account.</p>
+                <Link className="link" href="/portal/login">Open the portal →</Link>
               </div>
             </div>
             <div className="resource-card">
@@ -99,14 +99,6 @@ export default function LeaderResourcesPage() {
               </div>
             </div>
             <div className="resource-card">
-              <div className="icon-badge">🦁</div>
-              <div>
-                <h3>Lion Printable Tracker</h3>
-                <p>A kindergarten-friendly rank tracker for Lion den leaders.</p>
-                <Link className="link" href="/contact">Request a copy →</Link>
-              </div>
-            </div>
-            <div className="resource-card">
               <div className="icon-badge">📖</div>
               <div>
                 <h3>Scoutbook</h3>
@@ -120,14 +112,6 @@ export default function LeaderResourcesPage() {
                 <h3>BSA Program Resources</h3>
                 <p>Official Cub Scout program guides, adventure requirements, and leader training.</p>
                 <a className="link" href="https://www.scouting.org/programs/cub-scouts/" target="_blank" rel="noopener">Visit scouting.org →</a>
-              </div>
-            </div>
-            <div className="resource-card">
-              <div className="icon-badge">💻</div>
-              <div>
-                <h3>Den Advancement Portal</h3>
-                <p>Track your den&apos;s adventure progress online — log in with your den&apos;s account.</p>
-                <Link className="link" href="/portal/login">Open the portal →</Link>
               </div>
             </div>
           </div>
