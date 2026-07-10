@@ -10,15 +10,25 @@ function secretKey() {
   return new TextEncoder().encode(secret);
 }
 
+type ProxyRole = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN";
+
 async function readSession(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secretKey(), { algorithms: ["HS256"] });
-    return payload as { userId: string; role: "ADMIN" | "DEN"; denId: string | null };
+    return payload as { userId: string; role: ProxyRole; denId: string | null };
   } catch {
     return null;
   }
+}
+
+/** Mirrors src/lib/authorize.ts homeForRole — kept in sync manually since
+ * middleware runs in a separate bundle from the rest of the app. */
+function homeForRole(role: ProxyRole) {
+  if (role === "ADMIN") return "/portal/admin";
+  if (role === "ATTENDANCE_ADMIN") return "/portal/admin/attendance";
+  return "/portal/den";
 }
 
 /**
@@ -43,8 +53,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/portal/login", request.url));
   }
 
-  if (pathname.startsWith("/portal/admin") && session.role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/portal/den", request.url));
+  if (pathname.startsWith("/portal/admin/attendance")) {
+    if (session.role !== "ADMIN" && session.role !== "ATTENDANCE_ADMIN") {
+      return NextResponse.redirect(new URL(homeForRole(session.role), request.url));
+    }
+  } else if (pathname.startsWith("/portal/admin") && session.role !== "ADMIN") {
+    return NextResponse.redirect(new URL(homeForRole(session.role), request.url));
   }
 
   return NextResponse.next();

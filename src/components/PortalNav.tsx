@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export default function PortalNav({ role }: { role: "ADMIN" | "DEN" }) {
+export default function PortalNav({ role }: { role: "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" }) {
   const pathname = usePathname();
   const links =
     role === "ADMIN"
@@ -12,6 +12,8 @@ export default function PortalNav({ role }: { role: "ADMIN" | "DEN" }) {
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/admin/users", label: "Users" },
         ]
+      : role === "ATTENDANCE_ADMIN"
+      ? [{ href: "/portal/admin/attendance", label: "Attendance" }]
       : [
           { href: "/portal/den", label: "My Den" },
           { href: "/portal/den/attendance", label: "Attendance" },

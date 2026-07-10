@@ -26,8 +26,16 @@ export default async function AuthedPortalLayout({
           </div>
           <PortalNav role={session.role} />
           <div className="portal-user">
-            <span className={`badge-pill ${session.role === "ADMIN" ? "badge-admin" : "badge-den"}`}>
-              {session.role === "ADMIN" ? "Admin" : "Den Leader"}
+            <span
+              className={`badge-pill ${
+                session.role === "ADMIN"
+                  ? "badge-admin"
+                  : session.role === "ATTENDANCE_ADMIN"
+                  ? "badge-attendance"
+                  : "badge-den"
+              }`}
+            >
+              {session.role === "ADMIN" ? "Admin" : session.role === "ATTENDANCE_ADMIN" ? "Attendance Admin" : "Den Leader"}
             </span>
             <span>{session.displayName}</span>
             <LogoutButton />

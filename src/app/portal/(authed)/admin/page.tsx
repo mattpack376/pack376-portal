@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, RANK_INFO, denDisplayName } from "@/lib/rankConfig";
+import { requireAdminSession } from "@/lib/authorize";
 
 export default async function AdminDashboardPage() {
+  await requireAdminSession();
+
   const dens = await prisma.den.findMany({
     include: { _count: { select: { scouts: true } }, users: { select: { username: true } } },
   });

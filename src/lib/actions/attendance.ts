@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin, assertDenAccess } from "@/lib/authorize";
+import { assertAttendanceAccess, assertAttendanceDenAccess } from "@/lib/authorize";
 
 async function assertMeetingIsSchedulable(meetingDateId: string) {
   const meeting = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { status: true } });
@@ -18,7 +18,7 @@ export async function setAttendanceAction(scoutId: string, meetingDateId: string
   if (!scout) return { ok: false as const };
 
   try {
-    assertDenAccess(session, scout.denId);
+    assertAttendanceDenAccess(session, scout.denId);
   } catch {
     return { ok: false as const };
   }
@@ -44,7 +44,7 @@ export async function markDenPresentAction(denId: string, meetingDateId: string)
   if (!session) return { ok: false as const };
 
   try {
-    assertDenAccess(session, denId);
+    assertAttendanceDenAccess(session, denId);
   } catch {
     return { ok: false as const };
   }
@@ -74,7 +74,7 @@ export async function setMeetingStatusAction(meetingDateId: string, status: "SCH
   const session = await getSession();
   if (!session) return { ok: false as const };
   try {
-    assertAdmin(session);
+    assertAttendanceAccess(session);
   } catch {
     return { ok: false as const };
   }

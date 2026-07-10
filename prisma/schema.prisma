@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   ADMIN
   DEN
+  ATTENDANCE_ADMIN
 }
 
 enum Rank {

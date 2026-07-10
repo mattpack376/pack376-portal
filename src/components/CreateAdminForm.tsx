@@ -8,6 +8,7 @@ import type { CreatedCredential } from "@/lib/actions/dens";
 export default function CreateAdminForm() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [role, setRole] = useState<"ADMIN" | "ATTENDANCE_ADMIN">("ADMIN");
   const [isPending, startTransition] = useTransition();
   const [credential, setCredential] = useState<CreatedCredential | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -15,12 +16,13 @@ export default function CreateAdminForm() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const result = await createAdminAction(username, displayName);
+      const result = await createAdminAction(username, displayName, role);
       if (result.ok) {
         setCredential(result.credential);
         setError(null);
         setUsername("");
         setDisplayName("");
+        setRole("ADMIN");
       } else {
         setError(result.error || "Something went wrong.");
       }
@@ -43,9 +45,20 @@ export default function CreateAdminForm() {
           placeholder="e.g. Cubmaster Howell Woods"
         />
       </div>
+      <div className="form-field">
+        <label htmlFor="new-admin-role">Access Level</label>
+        <select
+          id="new-admin-role"
+          value={role}
+          onChange={(e) => setRole(e.target.value as "ADMIN" | "ATTENDANCE_ADMIN")}
+        >
+          <option value="ADMIN">Full Admin — dens, advancement, users, attendance</option>
+          <option value="ATTENDANCE_ADMIN">Attendance Only — every den&apos;s attendance, no advancement</option>
+        </select>
+      </div>
       {error && <p className="form-error">{error}</p>}
       <button type="submit" className="btn btn-primary" disabled={isPending}>
-        {isPending ? "Creating…" : "Create Admin Account"}
+        {isPending ? "Creating…" : "Create Account"}
       </button>
       {credential && <CredentialReveal credential={credential} />}
     </form>

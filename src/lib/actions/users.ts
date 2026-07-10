@@ -7,13 +7,21 @@ import { assertAdmin } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
 import type { CreatedCredential } from "@/lib/actions/dens";
 
-export async function createAdminAction(username: string, displayName: string) {
+export async function createAdminAction(
+  username: string,
+  displayName: string,
+  role: "ADMIN" | "ATTENDANCE_ADMIN" = "ADMIN"
+) {
   const session = await getSession();
   if (!session) return { ok: false as const, error: "Not authorized." };
   try {
     assertAdmin(session);
   } catch {
     return { ok: false as const, error: "Not authorized." };
+  }
+
+  if (role !== "ADMIN" && role !== "ATTENDANCE_ADMIN") {
+    return { ok: false as const, error: "Invalid role." };
   }
 
   const clean = username.trim().toLowerCase();
@@ -28,7 +36,7 @@ export async function createAdminAction(username: string, displayName: string) {
     data: {
       username: clean,
       passwordHash: await hashPassword(password),
-      role: "ADMIN",
+      role,
       displayName: name,
     },
   });

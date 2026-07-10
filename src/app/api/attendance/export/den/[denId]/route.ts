@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertDenAccess } from "@/lib/authorize";
+import { assertAttendanceDenAccess } from "@/lib/authorize";
 import { fridaysForScoutingYear } from "@/lib/attendanceSchedule";
 import { buildAttendanceCsv, type AttendanceCsvRow } from "@/lib/attendanceCsv";
 
@@ -12,7 +12,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   const { denId } = await params;
   try {
-    assertDenAccess(session, denId);
+    assertAttendanceDenAccess(session, denId);
   } catch {
     return new NextResponse("Not authorized.", { status: 403 });
   }
