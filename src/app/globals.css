@@ -414,6 +414,58 @@ section { padding: 64px 0; }
 .event-ticket--camping { grid-column: span 2; }
 .event-ticket--camping .event-body p { margin-bottom: 0; font-weight: 700; line-height: 1.9; }
 
+/* ---------- Instagram callout ---------- */
+.instagram-home {
+  background: linear-gradient(135deg, #fff2f7 0%, #f4efff 48%, #fff6e7 100%);
+}
+.instagram-home-card {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 26px;
+  align-items: center;
+  padding: 34px;
+  border-radius: 24px;
+  background: var(--white);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(131, 58, 180, 0.16);
+}
+.instagram-home-icon {
+  width: 96px;
+  height: 96px;
+  border-radius: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--white);
+  background: linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045);
+  box-shadow: 0 14px 30px rgba(131, 58, 180, 0.28);
+}
+.instagram-home-copy h2 { margin-bottom: 10px; }
+.instagram-home-copy p { max-width: 720px; color: var(--ink-soft); }
+.instagram-home-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 13px 20px;
+  border-radius: 999px;
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 800;
+  background: linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045);
+  box-shadow: 0 10px 22px rgba(131, 58, 180, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.instagram-home-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(131, 58, 180, 0.28);
+  color: var(--white);
+}
+@media (max-width: 700px) {
+  .instagram-home-card { grid-template-columns: 1fr; text-align: center; }
+  .instagram-home-icon { margin: 0 auto; }
+  .instagram-home-button { justify-content: center; }
+}
+
 /* ---------- Leadership ---------- */
 .leader-grid {
   display: grid;
