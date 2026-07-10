@@ -92,6 +92,22 @@ export async function updateAlbumAction(
   redirect("/portal/admin/albums");
 }
 
+export async function toggleAlbumVisibilityAction(albumId: string, isVisible: boolean) {
+  const session = await getSession();
+  if (!session) return { ok: false as const };
+  try {
+    assertAttendanceAccess(session);
+  } catch {
+    return { ok: false as const };
+  }
+
+  await prisma.photoAlbum.update({ where: { id: albumId }, data: { isVisible } });
+
+  revalidatePath("/portal/admin/albums");
+  revalidatePath("/gallery");
+  return { ok: true as const };
+}
+
 export async function deleteAlbumAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");

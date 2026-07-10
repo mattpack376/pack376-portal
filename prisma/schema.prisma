@@ -121,6 +121,7 @@ model PhotoAlbum {
   description     String?
   coverImageUrl   String?
   googlePhotosUrl String
+  isVisible       Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

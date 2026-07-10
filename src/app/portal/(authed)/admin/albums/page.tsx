@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { deleteAlbumAction } from "@/lib/actions/albums";
+import AlbumVisibilityToggle from "@/components/AlbumVisibilityToggle";
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -15,10 +16,18 @@ export default async function AdminAlbumsPage() {
 
   const renderRows = (list: typeof albums) =>
     list.map((album) => (
-      <tr key={album.id}>
-        <td>{album.title}</td>
+      <tr key={album.id} style={album.isVisible ? undefined : { opacity: 0.55 }}>
+        <td>
+          {album.title}
+          {!album.isVisible && (
+            <span className="badge-pill badge-den" style={{ marginLeft: 8 }}>
+              Hidden
+            </span>
+          )}
+        </td>
         <td>{formatDate(album.eventDate)}</td>
         <td className="actions">
+          <AlbumVisibilityToggle albumId={album.id} isVisible={album.isVisible} />
           <Link className="btn btn-outline btn-small" href={`/portal/admin/albums/${album.id}`}>
             Edit
           </Link>

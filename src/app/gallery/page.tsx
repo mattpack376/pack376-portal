@@ -14,7 +14,7 @@ function formatDate(date: Date) {
 }
 
 export default async function GalleryPage() {
-  const albums = await prisma.photoAlbum.findMany({ orderBy: { eventDate: "desc" } });
+  const albums = await prisma.photoAlbum.findMany({ where: { isVisible: true }, orderBy: { eventDate: "desc" } });
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const upcoming = albums.filter((a) => a.eventDate >= today).reverse();
