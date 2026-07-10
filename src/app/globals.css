@@ -411,6 +411,8 @@ section { padding: 64px 0; }
 .event-body { margin-top: 14px; }
 .event-body h4 { margin: 0 0 6px; font-size: 17px; color: var(--scout-blue-dark); }
 .event-body p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+.event-ticket--camping { grid-column: span 2; }
+.event-ticket--camping .event-body p { margin-bottom: 0; font-weight: 700; line-height: 1.9; }
 
 /* ---------- Leadership ---------- */
 .leader-grid {
@@ -839,8 +841,10 @@ section { padding: 64px 0; }
   .rank-detail-card { grid-template-columns: 1fr; }
   .rank-detail-side { flex-direction: row; padding: 16px 20px; }
   .event-list { grid-template-columns: repeat(2, 1fr); }
+  .event-ticket--camping { grid-column: span 2; }
 }
 @media (max-width: 560px) {
   .rank-ladder { grid-template-columns: repeat(2, 1fr); }
   .event-list { grid-template-columns: 1fr; }
+  .event-ticket--camping { grid-column: span 1; }
 }

@@ -173,20 +173,40 @@ export default function HomePage() {
           </div>
           <div className="event-list">
             <div className="event-ticket">
+              <span className="event-date">Oct 9–12</span>
+              <div className="event-body"><h4>Camp Conron Weekend</h4><p>Friday through Monday over Columbus Day weekend — four days of camping and Pack 376 adventure.</p></div>
+            </div>
+            <div className="event-ticket">
               <span className="event-date">Oct 30</span>
-              <div className="event-body"><h4>Pack Halloween Party</h4><p>Costumes, games, and trick-or-treating with the whole pack.</p></div>
+              <div className="event-body"><h4>Halloween Pack Night</h4><p>Costumes are encouraged. Enjoy games, activities, and Halloween fun with the whole pack.</p></div>
+            </div>
+            <div className="event-ticket">
+              <span className="event-date">Nov 7 or 8</span>
+              <div className="event-body"><h4>Parish Anniversary Celebration</h4><p>Pack 376 joins Our Lady of Grace in celebrating our chartering organization.</p></div>
+            </div>
+            <div className="event-ticket">
+              <span className="event-date">Nov 20</span>
+              <div className="event-body"><h4>Pie Night &amp; Bring-a-Friend Night</h4><p>Bring a pie to share and invite a friend to experience Pack 376.</p></div>
             </div>
             <div className="event-ticket">
               <span className="event-date">Jan 31</span>
-              <div className="event-body"><h4>Klondike Derby — Coney Island</h4><p>Our own backyard boardwalk hosts this pack favorite.</p></div>
+              <div className="event-body"><h4>Klondike Derby</h4><p>A Coney Island favorite in our own backyard.</p></div>
             </div>
             <div className="event-ticket">
               <span className="event-date">Mar 5–6</span>
-              <div className="event-body"><h4>Pinewood Derby + Lock-In</h4><p>Build, race, and stay overnight at Veltri Hall.</p></div>
+              <div className="event-body"><h4>Pinewood Derby Overnight</h4></div>
             </div>
-            <div className="event-ticket">
-              <span className="event-date">Jun 18</span>
-              <div className="event-body"><h4>Graduation Night</h4><p>Our Crossing-Over Ceremony celebrating a year of adventure.</p></div>
+            <div className="event-ticket event-ticket--camping">
+              <span className="event-date">Camping Trips</span>
+              <div className="event-body">
+                <h4>2026–2027 Campouts</h4>
+                <p>
+                  Camp Conron — Oct 9–12<br />
+                  Camp Pouch — Mar 19–21<br />
+                  Camp Alpine — May 7–9<br />
+                  Memorial Day Camping — May 28–31
+                </p>
+              </div>
             </div>
           </div>
         </div>
