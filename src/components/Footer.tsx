@@ -31,6 +31,7 @@ export default function Footer() {
             <li><Link href="/parent-resources">Parent Resources</Link></li>
             <li><Link href="/leader-resources">Leader Resources</Link></li>
             <li><Link href="/rank-requirements">Rank Requirements</Link></li>
+            <li><Link href="/gallery">Photo Albums</Link></li>
             <li><Link href="/contact">Contact Us</Link></li>
             <li><Link href="/portal/login">Den Leader Login</Link></li>
           </ul>

@@ -10,6 +10,7 @@ export default function PortalNav({ role }: { role: "ADMIN" | "DEN" | "ATTENDANC
       ? [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
+          { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/admin/users", label: "Users" },
         ]
       : role === "ATTENDANCE_ADMIN"

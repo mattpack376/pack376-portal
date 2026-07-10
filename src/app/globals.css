@@ -789,6 +789,15 @@ section { padding: 64px 0; }
 .den-tile h3 { font-size: 17px; margin-bottom: 4px; }
 .den-tile p { font-size: 13px; margin-bottom: 0; }
 
+.album-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; margin-top: 24px; }
+.album-tile { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-card); overflow: hidden; }
+.album-tile-cover { position: relative; width: 100%; aspect-ratio: 4 / 3; background: var(--cream); }
+.album-tile-body { padding: 18px 20px; }
+.album-tile-date { font-family: var(--font-display); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--scout-blue); margin-bottom: 4px; }
+.album-tile-body h3 { font-size: 17px; margin-bottom: 6px; }
+.album-tile-body p { font-size: 14px; margin-bottom: 10px; }
+.album-tile-body a.link { color: var(--scout-blue); font-weight: 700; font-size: 14px; }
+
 .scout-checklist { display: flex; flex-direction: column; gap: 20px; }
 .scout-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 20px; }
 .scout-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
