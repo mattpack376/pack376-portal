@@ -20,7 +20,10 @@ export default function HomePage() {
               width={116}
               height={116}
             />
-            <div className="hero-ticket">🎟️ Admit One Family — Open House Anytime</div>
+            <div className="hero-ticket">
+              🎟️ Admit One Family — Boys and Girls
+              <small>Open House Anytime</small>
+            </div>
             <h1>
               You Belong <span className="hi">In Scouts</span>
             </h1>
@@ -168,21 +171,21 @@ export default function HomePage() {
             <h2>Upcoming Attractions</h2>
             <p>A few highlights from our 2026–2027 calendar — see the full schedule at a pack meeting.</p>
           </div>
-          <div className="event-list" style={{ gridTemplateColumns: "repeat(2, 1fr)", display: "grid" }}>
+          <div className="event-list">
             <div className="event-ticket">
-              <div className="event-date"><span className="month">Oct</span><span className="day">30</span></div>
+              <span className="event-date">Oct 30</span>
               <div className="event-body"><h4>Pack Halloween Party</h4><p>Costumes, games, and trick-or-treating with the whole pack.</p></div>
             </div>
             <div className="event-ticket">
-              <div className="event-date"><span className="month">Jan</span><span className="day">31</span></div>
+              <span className="event-date">Jan 31</span>
               <div className="event-body"><h4>Klondike Derby — Coney Island</h4><p>Our own backyard boardwalk hosts this pack favorite.</p></div>
             </div>
             <div className="event-ticket">
-              <div className="event-date"><span className="month">Mar</span><span className="day">5–6</span></div>
+              <span className="event-date">Mar 5–6</span>
               <div className="event-body"><h4>Pinewood Derby + Lock-In</h4><p>Build, race, and stay overnight at Veltri Hall.</p></div>
             </div>
             <div className="event-ticket">
-              <div className="event-date"><span className="month">Jun</span><span className="day">18</span></div>
+              <span className="event-date">Jun 18</span>
               <div className="event-body"><h4>Graduation Night</h4><p>Our Crossing-Over Ceremony celebrating a year of adventure.</p></div>
             </div>
           </div>
