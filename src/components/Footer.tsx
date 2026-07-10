@@ -43,7 +43,6 @@ export default function Footer() {
             <br />
             Brooklyn, NY 11223
           </p>
-          <p><a href="tel:6467502836">646-750-2836</a></p>
         </div>
       </div>
       <div className="footer-bottom">

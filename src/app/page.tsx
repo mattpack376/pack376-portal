@@ -198,19 +198,16 @@ export default function HomePage() {
               <div className="leader-avatar">HW</div>
               <h3>Howell Woods</h3>
               <div className="leader-role">Cubmaster</div>
-              <div className="leader-contact"><a href="tel:6467502836">646-750-2836</a></div>
             </div>
             <div className="leader-card">
               <div className="leader-avatar">CL</div>
               <h3>Chris LaRosa</h3>
               <div className="leader-role">Assistant Cubmaster</div>
-              <div className="leader-contact">Reach out via the pack Contact page</div>
             </div>
             <div className="leader-card">
               <div className="leader-avatar">MR</div>
               <h3>Matt Rosen</h3>
               <div className="leader-role">Committee Chair</div>
-              <div className="leader-contact">Reach out via the pack Contact page</div>
             </div>
           </div>
         </div>

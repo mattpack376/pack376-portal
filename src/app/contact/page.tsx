@@ -36,13 +36,6 @@ export default function ContactPage() {
             <div className="info-card" style={{ marginBottom: 24 }}>
               <h3 style={{ marginTop: 0 }}>Reach a Leader</h3>
               <div className="contact-method">
-                <div className="icon-badge">📞</div>
-                <div>
-                  <h4>Howell Woods, Cubmaster</h4>
-                  <a href="tel:6467502836">646-750-2836</a>
-                </div>
-              </div>
-              <div className="contact-method">
                 <div className="icon-badge">📍</div>
                 <div>
                   <h4>Meeting Location</h4>

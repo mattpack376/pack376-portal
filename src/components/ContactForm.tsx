@@ -46,9 +46,6 @@ export default function ContactForm() {
       <button type="submit" className="btn btn-primary" style={{ width: "100%" }}>
         Send Message
       </button>
-      <p className="form-note">
-        Prefer to talk? Call Cubmaster Howell Woods directly at <a href="tel:6467502836">646-750-2836</a>.
-      </p>
     </form>
   );
 }
