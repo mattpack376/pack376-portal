@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: "/parent-resources", label: "Parent Resources" },
   { href: "/leader-resources", label: "Leader Resources" },
   { href: "/rank-requirements", label: "Rank Requirements" },
+  { href: "/gallery", label: "Photo Albums" },
   { href: "/contact", label: "Contact Us" },
 ];
 

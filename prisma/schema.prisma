@@ -113,3 +113,14 @@ model Attendance {
 
   @@unique([scoutId, meetingDateId])
 }
+
+model PhotoAlbum {
+  id              String   @id @default(cuid())
+  title           String
+  eventDate       DateTime @db.Date
+  description     String?
+  coverImageUrl   String?
+  googlePhotosUrl String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
