@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 import { getDenChecklist } from "@/lib/denData";
 import { denDisplayName, nextRank } from "@/lib/rankConfig";
 import { addScoutAction, removeScoutAction } from "@/lib/actions/dens";
@@ -15,9 +16,12 @@ export default async function AdminDenDetailPage({
   const data = await getDenChecklist(denId);
   if (!data) notFound();
 
+  const session = await getSession();
+  const isFullAdmin = session?.role === "ADMIN";
+
   const { den, scouts } = data;
   const users = await prisma.user.findMany({ where: { denId }, select: { username: true } });
-  const canPromote = nextRank(den.rank) !== null;
+  const canPromote = isFullAdmin && nextRank(den.rank) !== null;
 
   return (
     <>
@@ -49,7 +53,7 @@ export default async function AdminDenDetailPage({
               <tr>
                 <th>Name</th>
                 <th>Progress</th>
-                <th></th>
+                {isFullAdmin && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -60,33 +64,37 @@ export default async function AdminDenDetailPage({
                     {scout.requiredDone}/{scout.requiredTotal} required · {scout.electivesDone}/
                     {scout.electivesRequired}+ electives
                   </td>
-                  <td className="actions">
-                    <form action={removeScoutAction}>
-                      <input type="hidden" name="scoutId" value={scout.id} />
-                      <input type="hidden" name="denId" value={den.id} />
-                      <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
-                        Remove
-                      </button>
-                    </form>
-                  </td>
+                  {isFullAdmin && (
+                    <td className="actions">
+                      <form action={removeScoutAction}>
+                        <input type="hidden" name="scoutId" value={scout.id} />
+                        <input type="hidden" name="denId" value={den.id} />
+                        <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                          Remove
+                        </button>
+                      </form>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         )}
 
-        <form action={addScoutAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <input type="hidden" name="denId" value={den.id} />
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
-            <label htmlFor="firstName">First Name</label>
-            <input id="firstName" name="firstName" type="text" required />
-          </div>
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
-            <label htmlFor="lastName">Last Name</label>
-            <input id="lastName" name="lastName" type="text" required />
-          </div>
-          <button type="submit" className="btn btn-primary">Add Scout</button>
-        </form>
+        {isFullAdmin && (
+          <form action={addScoutAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <input type="hidden" name="denId" value={den.id} />
+            <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
+              <label htmlFor="firstName">First Name</label>
+              <input id="firstName" name="firstName" type="text" required />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
+              <label htmlFor="lastName">Last Name</label>
+              <input id="lastName" name="lastName" type="text" required />
+            </div>
+            <button type="submit" className="btn btn-primary">Add Scout</button>
+          </form>
+        )}
       </div>
 
       <ScoutChecklist scouts={scouts} editable />

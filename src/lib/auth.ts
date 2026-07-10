@@ -16,7 +16,7 @@ function secretKey() {
 
 export type SessionPayload = {
   userId: string;
-  role: "ADMIN" | "DEN" | "ATTENDANCE_ADMIN";
+  role: "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER";
   denId: string | null;
   displayName: string;
 };

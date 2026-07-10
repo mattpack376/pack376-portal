@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin, assertAttendanceAccess } from "@/lib/authorize";
+import { assertAdmin, assertAlbumEditAccess } from "@/lib/authorize";
 
 export type AlbumActionState = { error?: string };
 
@@ -24,7 +24,7 @@ export async function createAlbumAction(
   const session = await getSession();
   if (!session) return { error: "Not authorized." };
   try {
-    assertAttendanceAccess(session);
+    assertAlbumEditAccess(session);
   } catch {
     return { error: "Not authorized." };
   }
@@ -60,7 +60,7 @@ export async function updateAlbumAction(
   const session = await getSession();
   if (!session) return { error: "Not authorized." };
   try {
-    assertAttendanceAccess(session);
+    assertAlbumEditAccess(session);
   } catch {
     return { error: "Not authorized." };
   }
@@ -96,7 +96,7 @@ export async function toggleAlbumVisibilityAction(albumId: string, isVisible: bo
   const session = await getSession();
   if (!session) return { ok: false as const };
   try {
-    assertAttendanceAccess(session);
+    assertAlbumEditAccess(session);
   } catch {
     return { ok: false as const };
   }

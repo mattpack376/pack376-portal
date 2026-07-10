@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { denDisplayName } from "@/lib/rankConfig";
 import { requireAdminSession } from "@/lib/authorize";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
+import type { AssignableRole } from "@/lib/roleLabels";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
 import DeleteUserButton from "@/components/DeleteUserButton";
 import ManageUserRoleForm from "@/components/ManageUserRoleForm";
@@ -48,7 +49,7 @@ export default async function ManageUserPage({
       {roleEditable && (
         <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
           <h3 style={{ marginTop: 0 }}>Permission Level</h3>
-          <ManageUserRoleForm userId={user.id} role={user.role as "ADMIN" | "ATTENDANCE_ADMIN"} />
+          <ManageUserRoleForm userId={user.id} role={user.role as AssignableRole} />
         </div>
       )}
 

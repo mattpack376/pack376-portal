@@ -1,6 +1,6 @@
-import { requireAttendanceSession } from "@/lib/authorize";
+import { requireAlbumSession } from "@/lib/authorize";
 
 export default async function AdminAlbumsLayout({ children }: { children: React.ReactNode }) {
-  await requireAttendanceSession();
+  await requireAlbumSession();
   return <>{children}</>;
 }

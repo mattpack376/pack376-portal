@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { updateUserRoleAction, type UpdateUserRoleState } from "@/lib/actions/users";
+import type { AssignableRole } from "@/lib/roleLabels";
 
 const initialState: UpdateUserRoleState = {};
 
@@ -10,7 +11,7 @@ export default function ManageUserRoleForm({
   role,
 }: {
   userId: string;
-  role: "ADMIN" | "ATTENDANCE_ADMIN";
+  role: AssignableRole;
 }) {
   const [state, formAction, pending] = useActionState(updateUserRoleAction, initialState);
 
@@ -21,7 +22,9 @@ export default function ManageUserRoleForm({
         <label htmlFor="role">Permission Level</label>
         <select id="role" name="role" defaultValue={role}>
           <option value="ADMIN">Admin — Full Privileges</option>
-          <option value="ATTENDANCE_ADMIN">Attendance/Photos — pack-wide attendance, add/edit albums</option>
+          <option value="JUNIOR_ADMIN">Junior Admin — attendance, albums (no delete), advancement, all dens</option>
+          <option value="ATTENDANCE_ADMIN">Attendance Only — attendance for all dens</option>
+          <option value="PHOTOGRAPHER">Photographer — add/edit albums only (no delete)</option>
         </select>
       </div>
       {state?.error && <p className="form-error">{state.error}</p>}

@@ -10,7 +10,7 @@ function secretKey() {
   return new TextEncoder().encode(secret);
 }
 
-type ProxyRole = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN";
+type ProxyRole = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER";
 
 async function readSession(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
@@ -27,15 +27,32 @@ async function readSession(request: NextRequest) {
  * middleware runs in a separate bundle from the rest of the app. */
 function homeForRole(role: ProxyRole) {
   if (role === "ADMIN") return "/portal/admin";
+  if (role === "JUNIOR_ADMIN") return "/portal/admin";
   if (role === "ATTENDANCE_ADMIN") return "/portal/admin/attendance";
+  if (role === "PHOTOGRAPHER") return "/portal/admin/albums";
   return "/portal/den";
 }
 
 /**
+ * Coarse route -> allowed-roles rules, checked in order (most specific
+ * first). Mirrors the requireXSession() guards in src/lib/authorize.ts —
+ * kept in sync manually since middleware runs in a separate bundle.
+ */
+const ADMIN_ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[] = [
+  { test: (p) => p.startsWith("/portal/admin/attendance"), roles: ["ADMIN", "JUNIOR_ADMIN", "ATTENDANCE_ADMIN"] },
+  { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "JUNIOR_ADMIN", "PHOTOGRAPHER"] },
+  { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },
+  { test: (p) => p.endsWith("/promote"), roles: ["ADMIN"] },
+  { test: (p) => p.startsWith("/portal/admin/dens/new"), roles: ["ADMIN"] },
+  { test: (p) => p.startsWith("/portal/admin/dens"), roles: ["ADMIN", "JUNIOR_ADMIN"] },
+  { test: (p) => p.startsWith("/portal/admin"), roles: ["ADMIN", "JUNIOR_ADMIN"] },
+];
+
+/**
  * Optimistic route gating only — reads the session cookie, no DB access.
  * Every Server Action independently re-verifies via requireSession()/assertAdmin()/
- * assertDenAccess() in src/lib/authorize.ts; this is just a fast redirect layer
- * so unauthenticated users never see portal HTML at all.
+ * assertAttendanceDenAccess() in src/lib/authorize.ts; this is just a fast redirect
+ * layer so unauthenticated users never see portal HTML at all.
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -53,14 +70,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/portal/login", request.url));
   }
 
-  const attendanceAccessiblePrefixes = ["/portal/admin/attendance", "/portal/admin/albums"];
-  const isAttendanceAccessible = attendanceAccessiblePrefixes.some((prefix) => pathname.startsWith(prefix));
-
-  if (isAttendanceAccessible) {
-    if (session.role !== "ADMIN" && session.role !== "ATTENDANCE_ADMIN") {
-      return NextResponse.redirect(new URL(homeForRole(session.role), request.url));
-    }
-  } else if (pathname.startsWith("/portal/admin") && session.role !== "ADMIN") {
+  const rule = ADMIN_ROUTE_RULES.find((r) => r.test(pathname));
+  if (rule && !rule.roles.includes(session.role)) {
     return NextResponse.redirect(new URL(homeForRole(session.role), request.url));
   }
 

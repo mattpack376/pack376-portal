@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { createAdminAction } from "@/lib/actions/users";
+import type { AssignableRole } from "@/lib/roleLabels";
 import CredentialReveal from "@/components/CredentialReveal";
 import type { CreatedCredential } from "@/lib/actions/dens";
 
 export default function CreateAdminForm() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [role, setRole] = useState<"ADMIN" | "ATTENDANCE_ADMIN">("ADMIN");
+  const [role, setRole] = useState<AssignableRole>("ADMIN");
   const [isPending, startTransition] = useTransition();
   const [credential, setCredential] = useState<CreatedCredential | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,10 +51,12 @@ export default function CreateAdminForm() {
         <select
           id="new-admin-role"
           value={role}
-          onChange={(e) => setRole(e.target.value as "ADMIN" | "ATTENDANCE_ADMIN")}
+          onChange={(e) => setRole(e.target.value as AssignableRole)}
         >
           <option value="ADMIN">Admin — Full Privileges</option>
-          <option value="ATTENDANCE_ADMIN">Attendance/Photos — pack-wide attendance, add/edit albums (can&apos;t delete)</option>
+          <option value="JUNIOR_ADMIN">Junior Admin — attendance, albums (no delete), advancement, all dens</option>
+          <option value="ATTENDANCE_ADMIN">Attendance Only — attendance for all dens</option>
+          <option value="PHOTOGRAPHER">Photographer — add/edit albums only (no delete)</option>
         </select>
       </div>
       {error && <p className="form-error">{error}</p>}

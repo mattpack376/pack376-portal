@@ -7,13 +7,10 @@ import { getSession, hashPassword } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
+import { ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/roleLabels";
 import type { CreatedCredential } from "@/lib/actions/dens";
 
-export async function createAdminAction(
-  username: string,
-  displayName: string,
-  role: "ADMIN" | "ATTENDANCE_ADMIN" = "ADMIN"
-) {
+export async function createAdminAction(username: string, displayName: string, role: AssignableRole = "ADMIN") {
   const session = await getSession();
   if (!session) return { ok: false as const, error: "Not authorized." };
   try {
@@ -22,7 +19,7 @@ export async function createAdminAction(
     return { ok: false as const, error: "Not authorized." };
   }
 
-  if (role !== "ADMIN" && role !== "ATTENDANCE_ADMIN") {
+  if (!ASSIGNABLE_ROLES.includes(role)) {
     return { ok: false as const, error: "Invalid role." };
   }
 
@@ -74,10 +71,10 @@ export async function resetPasswordAction(userId: string) {
 export type UpdateUserRoleState = { error?: string };
 
 /**
- * Changes an account between the two admin-tier roles (full Admin and
- * Attendance/Photos). Den logins aren't editable here — they're tied to a
- * specific den and managed from that den's page. Master admins can't be
- * changed through the UI at all; see src/lib/masterAdmins.ts.
+ * Changes an account between the four assignable roles (Admin, Junior
+ * Admin, Attendance Only, Photographer). Den logins aren't editable here —
+ * they're tied to a specific den and managed from that den's page. Master
+ * admins can't be changed through the UI at all; see src/lib/masterAdmins.ts.
  */
 export async function updateUserRoleAction(
   _prevState: UpdateUserRoleState,
@@ -93,7 +90,7 @@ export async function updateUserRoleAction(
 
   const userId = String(formData.get("userId") || "");
   const role = String(formData.get("role") || "");
-  if (role !== "ADMIN" && role !== "ATTENDANCE_ADMIN") {
+  if (!ASSIGNABLE_ROLES.includes(role as AssignableRole)) {
     return { error: "Invalid role." };
   }
 
@@ -106,7 +103,7 @@ export async function updateUserRoleAction(
     return { error: "Den logins can't be changed to an admin role here." };
   }
 
-  await prisma.user.update({ where: { id: userId }, data: { role } });
+  await prisma.user.update({ where: { id: userId }, data: { role: role as AssignableRole } });
 
   revalidatePath("/portal/admin/users");
   revalidatePath(`/portal/admin/users/${userId}`);

@@ -2,20 +2,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName } from "@/lib/rankConfig";
 import { requireAdminSession } from "@/lib/authorize";
+import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
 import CreateAdminForm from "@/components/CreateAdminForm";
-
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Admin",
-  ATTENDANCE_ADMIN: "Attendance/Photos",
-  DEN: "Den Leader",
-};
-
-const ROLE_BADGE_CLASSES: Record<string, string> = {
-  ADMIN: "badge-admin",
-  ATTENDANCE_ADMIN: "badge-attendance",
-  DEN: "badge-den",
-};
 
 export default async function AdminUsersPage() {
   await requireAdminSession();
@@ -76,7 +65,7 @@ export default async function AdminUsersPage() {
       </table>
 
       <div className="info-card" style={{ maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Add an Admin or Attendance/Photos Account</h3>
+        <h3 style={{ marginTop: 0 }}>Add an Admin, Junior Admin, Attendance Only, or Photographer Account</h3>
         <CreateAdminForm />
       </div>
     </>

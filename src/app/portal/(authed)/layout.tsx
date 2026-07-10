@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { requireSession } from "@/lib/authorize";
+import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import PortalNav from "@/components/PortalNav";
 import LogoutButton from "@/components/LogoutButton";
 
@@ -26,16 +27,8 @@ export default async function AuthedPortalLayout({
           </div>
           <PortalNav role={session.role} />
           <div className="portal-user">
-            <span
-              className={`badge-pill ${
-                session.role === "ADMIN"
-                  ? "badge-admin"
-                  : session.role === "ATTENDANCE_ADMIN"
-                  ? "badge-attendance"
-                  : "badge-den"
-              }`}
-            >
-              {session.role === "ADMIN" ? "Admin" : session.role === "ATTENDANCE_ADMIN" ? "Attendance Admin" : "Den Leader"}
+            <span className={`badge-pill ${ROLE_BADGE_CLASSES[session.role]}`}>
+              {ROLE_LABELS[session.role]}
             </span>
             <span>{session.displayName}</span>
             <LogoutButton />

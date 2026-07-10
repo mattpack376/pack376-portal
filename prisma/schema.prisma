@@ -11,6 +11,8 @@ enum Role {
   ADMIN
   DEN
   ATTENDANCE_ADMIN
+  JUNIOR_ADMIN
+  PHOTOGRAPHER
 }
 
 enum Rank {

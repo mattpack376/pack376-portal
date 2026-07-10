@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertDenAccess } from "@/lib/authorize";
+import { assertAdvancementDenAccess } from "@/lib/authorize";
 
 export async function toggleAdventureAction(scoutId: string, adventureId: string, completed: boolean) {
   const session = await getSession();
@@ -13,7 +13,7 @@ export async function toggleAdventureAction(scoutId: string, adventureId: string
   if (!scout) return { ok: false as const };
 
   try {
-    assertDenAccess(session, scout.denId);
+    assertAdvancementDenAccess(session, scout.denId);
   } catch {
     return { ok: false as const };
   }

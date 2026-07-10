@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, RANK_INFO, denDisplayName } from "@/lib/rankConfig";
-import { requireAdminSession } from "@/lib/authorize";
+import { requireAdvancementSession } from "@/lib/authorize";
 
 export default async function AdminDashboardPage() {
-  await requireAdminSession();
+  const session = await requireAdvancementSession();
 
   const dens = await prisma.den.findMany({
     include: { _count: { select: { scouts: true } }, users: { select: { username: true } } },
@@ -24,7 +24,9 @@ export default async function AdminDashboardPage() {
           <div className="eyebrow">All Dens</div>
           <h2>Admin Dashboard</h2>
         </div>
-        <Link className="btn btn-primary" href="/portal/admin/dens/new">+ New Den</Link>
+        {session.role === "ADMIN" && (
+          <Link className="btn btn-primary" href="/portal/admin/dens/new">+ New Den</Link>
+        )}
       </div>
 
       {dens.length === 0 && <div className="info-card">No dens yet — create the first one to get started.</div>}
