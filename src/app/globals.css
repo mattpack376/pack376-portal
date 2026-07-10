@@ -759,6 +759,8 @@ section { padding: 64px 0; }
 .badge-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  text-align: center;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 11px;
