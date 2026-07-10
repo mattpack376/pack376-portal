@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireAdminSession } from "@/lib/authorize";
 import { deleteAlbumAction } from "@/lib/actions/albums";
 
 function formatDate(date: Date) {
@@ -8,8 +7,6 @@ function formatDate(date: Date) {
 }
 
 export default async function AdminAlbumsPage() {
-  await requireAdminSession();
-
   const albums = await prisma.photoAlbum.findMany({ orderBy: { eventDate: "desc" } });
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
