@@ -173,6 +173,10 @@ export default function HomePage() {
           </div>
           <div className="event-list">
             <div className="event-ticket">
+              <span className="event-date">Sep 25</span>
+              <div className="event-body"><h4>First Scout Meeting</h4><p>Kicking off the 2026–2027 program year. Returning scouts should be in full uniform — new scouts are welcome to join without one.</p></div>
+            </div>
+            <div className="event-ticket">
               <span className="event-date">Oct 9–12</span>
               <div className="event-body"><h4>Camp Conron Weekend</h4><p>Friday through Monday over Columbus Day weekend — four days of camping and Pack 376 adventure.</p></div>
             </div>
@@ -241,7 +245,12 @@ export default function HomePage() {
         </p>
         <div className="hero-actions" style={{ justifyContent: "center", marginTop: 24 }}>
           <Link className="btn btn-primary" href="/contact">Get In Touch</Link>
-          <Link className="btn btn-outline" href="/leader-resources">Leader Resources</Link>
+          <a className="btn btn-outline" href="https://instagram.com/pack.376" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zm0 10.162a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+            </svg>
+            Connect With Us on Instagram
+          </a>
         </div>
       </section>
 
