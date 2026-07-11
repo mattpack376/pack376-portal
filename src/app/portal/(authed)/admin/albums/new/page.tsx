@@ -33,7 +33,11 @@ export default function NewAlbumPage() {
           <div className="form-field">
             <label htmlFor="coverImageUrl">Cover Image URL (optional)</label>
             <input id="coverImageUrl" name="coverImageUrl" type="url" placeholder="https://…" />
-            <p className="form-note">Link to any photo online. If left blank, a default pack emblem is shown instead.</p>
+            <p className="form-note">
+              Must be a direct image link, not a Google Photos share link (those are viewer pages, not
+              images, so they won&apos;t display). Open the shared album, right-click a photo, choose
+              &quot;Open image in new tab,&quot; and paste that URL here. Leave blank to use the pack emblem.
+            </p>
           </div>
           <div className="form-field">
             <label htmlFor="googlePhotosUrl">Google Photos Album Link</label>

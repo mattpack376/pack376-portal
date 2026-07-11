@@ -42,6 +42,11 @@ export default function EditAlbumForm({
         <div className="form-field">
           <label htmlFor="coverImageUrl">Cover Image URL (optional)</label>
           <input id="coverImageUrl" name="coverImageUrl" type="url" defaultValue={album.coverImageUrl ?? ""} />
+          <p className="form-note">
+            Must be a direct image link, not a Google Photos share link (those are viewer pages, not
+            images, so they won&apos;t display). Open the shared album, right-click a photo, choose
+            &quot;Open image in new tab,&quot; and paste that URL here.
+          </p>
         </div>
         <div className="form-field">
           <label htmlFor="googlePhotosUrl">Google Photos Album Link</label>

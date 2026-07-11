@@ -17,6 +17,18 @@ function readAlbumFields(formData: FormData) {
   return { title, eventDateRaw, description, coverImageUrl, googlePhotosUrl };
 }
 
+// Google Photos share pages (photos.app.goo.gl/... or photos.google.com/share/...)
+// are HTML viewer pages, not image files — they can't be hotlinked as a cover
+// photo. Catch this at save time instead of silently storing a broken link.
+const GOOGLE_PHOTOS_SHARE_LINK = /photos\.(app\.goo\.gl|google\.com\/share)/i;
+
+function validateCoverImageUrl(coverImageUrl: string): string | null {
+  if (coverImageUrl && GOOGLE_PHOTOS_SHARE_LINK.test(coverImageUrl)) {
+    return "That's a Google Photos share link, not a direct image link — Google Photos share pages can't be used as a cover photo. Open the shared album, right-click a photo, choose \"Open image in new tab,\" and paste that image URL here instead.";
+  }
+  return null;
+}
+
 export async function createAlbumAction(
   _prevState: AlbumActionState,
   formData: FormData
@@ -37,6 +49,8 @@ export async function createAlbumAction(
   if (Number.isNaN(eventDate.getTime())) {
     return { error: "Enter a valid event date." };
   }
+  const coverImageError = validateCoverImageUrl(coverImageUrl);
+  if (coverImageError) return { error: coverImageError };
 
   await prisma.photoAlbum.create({
     data: {
@@ -75,6 +89,8 @@ export async function updateAlbumAction(
   if (Number.isNaN(eventDate.getTime())) {
     return { error: "Enter a valid event date." };
   }
+  const coverImageError = validateCoverImageUrl(coverImageUrl);
+  if (coverImageError) return { error: coverImageError };
 
   await prisma.photoAlbum.update({
     where: { id: albumId },
