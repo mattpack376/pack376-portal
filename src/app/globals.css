@@ -905,6 +905,7 @@ section { padding: 64px 0; }
   .contact-grid { grid-template-columns: 1fr; }
   .rank-detail-card { grid-template-columns: 1fr; }
   .rank-detail-side { flex-direction: row; justify-content: flex-start; text-align: left; padding: 16px 20px; }
+  .rank-detail-side .rank-star { margin: 0; }
   .event-list { grid-template-columns: repeat(2, 1fr); }
   .event-ticket--camping { grid-column: span 2; }
 }
