@@ -54,6 +54,7 @@ export async function createSessionCookie(payload: SessionPayload) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
+    domain: process.env.NODE_ENV === "production" ? ".pack376nyc.org" : undefined,
     maxAge: SESSION_DURATION_SECONDS,
   });
 }
