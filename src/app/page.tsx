@@ -193,6 +193,10 @@ export default function HomePage() {
               <div className="event-body"><h4>Pie Night &amp; Bring-a-Friend Night</h4><p>Bring a pie to share and invite a friend to experience Pack 376.</p></div>
             </div>
             <div className="event-ticket">
+              <span className="event-date">Dec 18</span>
+              <div className="event-body"><h4>🎅 Holiday Pack Night Celebration 🕎</h4><p>Ring in the season with the whole pack — holiday cheer, treats, and fun for every family and every tradition.</p></div>
+            </div>
+            <div className="event-ticket">
               <span className="event-date">Jan 31</span>
               <div className="event-body"><h4>Klondike Derby</h4><p>A Coney Island favorite in our own backyard.</p></div>
             </div>
