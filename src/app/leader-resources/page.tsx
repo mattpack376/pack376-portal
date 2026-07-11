@@ -36,7 +36,7 @@ export default function LeaderResourcesPage() {
         </svg>
       </div>
 
-      <section style={{ paddingTop: 24, background: "var(--white)" }}>
+      <section style={{ paddingTop: 0, background: "var(--white)" }}>
         <div className="container">
           <div className="section-head center">
             <div className="eyebrow">Toolbox</div>
