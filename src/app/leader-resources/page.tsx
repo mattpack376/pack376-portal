@@ -53,7 +53,7 @@ export default function LeaderResourcesPage() {
               <div>
                 <h3>Den Advancement Portal</h3>
                 <p>Track your den&apos;s adventure progress online — log in with your den&apos;s account.</p>
-                <Link className="link" href="/portal/login">Open the portal →</Link>
+                <a className="link" href="https://portal.pack376nyc.org">Open the portal →</a>
               </div>
             </div>
             <div className="resource-card">
