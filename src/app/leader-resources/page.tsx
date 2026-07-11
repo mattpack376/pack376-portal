@@ -39,7 +39,7 @@ export default function LeaderResourcesPage() {
       <section style={{ paddingTop: 0, background: "var(--white)" }}>
         <div className="container">
           <div className="section-head center">
-            <div className="eyebrow">Toolbox</div>
+            <div className="eyebrow" style={{ marginTop: 10 }}>Toolbox</div>
             <h2>Documents &amp; Tools</h2>
             <p>
               Live links for the pack calendar and shared tools, plus roster files shared with

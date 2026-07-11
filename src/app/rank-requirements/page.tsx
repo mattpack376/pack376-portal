@@ -129,7 +129,7 @@ export default function RankRequirementsPage() {
                   href={rank.pdf}
                   target="_blank"
                   rel="noopener"
-                  style={{ display: "inline-block", marginTop: 14 }}
+                  style={{ display: "inline-block", marginTop: 14, fontWeight: 700 }}
                 >
                   📄 Download {rank.name} Adventure Requirements (PDF)
                 </a>
