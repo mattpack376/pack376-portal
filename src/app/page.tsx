@@ -21,7 +21,7 @@ export default function HomePage() {
               height={116}
             />
             <div className="hero-ticket">
-              🎟️ Admit One Family — Boys and Girls
+              🎟️ Admit One Family — All Kids Welcome
               <small>Open House Anytime</small>
             </div>
             <h1>
@@ -30,7 +30,7 @@ export default function HomePage() {
             <p className="lead">
               Pack 376 brings the boardwalk to Cub Scouting — real adventures, lifelong
               skills, and a pack family that feels like Brooklyn. All families welcome —
-              boys and girls, kindergarten through 5th grade.
+              all kids, kindergarten through 5th grade.
             </p>
             <div className="hero-actions">
               <a className="btn btn-primary" href={JOIN_URL} target="_blank" rel="noopener">Join Pack 376</a>
@@ -80,7 +80,7 @@ export default function HomePage() {
           <span className="dot">•</span>
           <span>🗓️ Weekly Meetings — Fridays, 7:00–9:30 PM</span>
           <span className="dot">•</span>
-          <span>👦👧 All Families Welcome — Boys &amp; Girls</span>
+          <span>👨‍👩‍👧‍👦 All Families Welcome — All Kids</span>
         </div>
       </div>
 

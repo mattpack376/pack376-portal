@@ -63,7 +63,7 @@ const RANKS: RankCard[] = [
     badgeClass: "rk-webelos",
     star: "WEB",
     grade: "4th Grade",
-    tagline: "Bridging Toward Boy-Led Adventure",
+    tagline: "Bridging Toward Youth-Led Adventure",
     name: "Webelos",
     blurb: "Webelos scouts take on more challenging, self-directed adventures and start building the outdoor and leadership skills that prepare them for Scouts BSA.",
     tags: ["Webelos Walkabout", "Stronger, Faster, Higher", "My Community", "My Safety", "My Family"],
@@ -140,7 +140,7 @@ export default function RankRequirementsPage() {
           <div className="info-card" style={{ textAlign: "center", marginTop: 12 }}>
             <h3 style={{ marginTop: 0 }}>Full, Up-to-Date Requirements</h3>
             <p>
-              Adventure requirements are set and periodically updated by the Boy Scouts of
+              Adventure requirements are set and periodically updated by Scouting
               America. For the complete, official checklist for each rank, visit the BSA
               program pages — your den leader can also walk you through exactly what&apos;s
               needed this year.

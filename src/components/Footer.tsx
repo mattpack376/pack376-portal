@@ -15,7 +15,7 @@ export default function Footer() {
           </div>
           <p>
             Cub Scout Pack 376, chartered by Our Lady of Grace, Brooklyn, NY. All families
-            welcome — boys and girls, K–5. Real adventures, lifelong skills, boardwalk spirit.
+            welcome — all kids, K–5. Real adventures, lifelong skills, boardwalk spirit.
           </p>
           <a className="footer-instagram" href="https://instagram.com/pack.376" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
