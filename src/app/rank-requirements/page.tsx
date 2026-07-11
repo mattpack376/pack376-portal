@@ -150,6 +150,7 @@ export default function RankRequirementsPage() {
               href="https://www.scouting.org/programs/cub-scouts/adventures/"
               target="_blank"
               rel="noopener"
+              style={{ whiteSpace: "normal", maxWidth: "100%", textAlign: "center" }}
             >
               Official BSA Adventure Requirements
             </a>

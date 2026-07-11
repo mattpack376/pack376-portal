@@ -21,7 +21,7 @@ export default function HomePage() {
               height={116}
             />
             <div className="hero-ticket">
-              🎟️ Admit One Family — All Kids Welcome
+              🎟️ Admit One Family — Boys and Girls
               <small>Open House Anytime</small>
             </div>
             <h1>
@@ -30,7 +30,7 @@ export default function HomePage() {
             <p className="lead">
               Pack 376 brings the boardwalk to Cub Scouting — real adventures, lifelong
               skills, and a pack family that feels like Brooklyn. All families welcome —
-              all kids, kindergarten through 5th grade.
+              boys and girls, kindergarten through 5th grade.
             </p>
             <div className="hero-actions">
               <a className="btn btn-primary" href={JOIN_URL} target="_blank" rel="noopener">Join Pack 376</a>
@@ -80,7 +80,7 @@ export default function HomePage() {
           <span className="dot">•</span>
           <span>🗓️ Weekly Meetings — Fridays, 7:00–9:30 PM</span>
           <span className="dot">•</span>
-          <span>👨‍👩‍👧‍👦 All Families Welcome — All Kids</span>
+          <span>👦👧 All Families Welcome — Boys &amp; Girls</span>
         </div>
       </div>
 
@@ -229,32 +229,6 @@ export default function HomePage() {
               </svg>
               Follow @pack.376 on Instagram
             </a>
-          </div>
-        </div>
-      </section>
-
-      <section style={{ background: "var(--white)" }}>
-        <div className="container">
-          <div className="section-head center">
-            <div className="eyebrow">Meet the Team</div>
-            <h2>Pack 376 Leadership</h2>
-          </div>
-          <div className="leader-grid">
-            <div className="leader-card">
-              <div className="leader-avatar">HW</div>
-              <h3>Howell Woods</h3>
-              <div className="leader-role">Cubmaster</div>
-            </div>
-            <div className="leader-card">
-              <div className="leader-avatar">CL</div>
-              <h3>Chris LaRosa</h3>
-              <div className="leader-role">Assistant Cubmaster</div>
-            </div>
-            <div className="leader-card">
-              <div className="leader-avatar">MR</div>
-              <h3>Matt Rosen</h3>
-              <div className="leader-role">Committee Chair</div>
-            </div>
           </div>
         </div>
       </section>
