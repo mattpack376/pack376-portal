@@ -496,6 +496,59 @@ section { padding: 64px 0; }
 .leader-contact { font-size: 14px; color: var(--ink-soft); }
 .leader-contact a { color: var(--scout-blue); font-weight: 600; }
 
+/* ---------- Construction notice ---------- */
+.construction-notice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--cream-dark);
+  border: 2px dashed var(--scout-gold-dark);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin: 0 0 36px;
+}
+.construction-notice .icon-badge { flex-shrink: 0; }
+.construction-notice p { margin: 0; color: var(--ink-soft); font-weight: 600; }
+
+/* ---------- Den Leaders' Corner ---------- */
+.exec-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 22px;
+}
+.corner-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+.corner-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  text-align: center;
+}
+.corner-card-stripe { height: 8px; }
+.corner-card-body { padding: 24px; }
+.corner-photo {
+  width: 88px; height: 88px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 2px dashed var(--scout-blue-light);
+  background: var(--cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: var(--scout-blue-light);
+}
+.corner-card-body h3 { font-size: 19px; margin-bottom: 2px; }
+.corner-role { color: var(--carnival-red); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+.corner-bio { font-size: 14px; margin-bottom: 12px; }
+.corner-note { font-size: 12.5px; color: var(--ink-soft); font-style: italic; margin: -6px 0 12px; }
+.corner-email { font-size: 13.5px; color: var(--ink-soft); font-style: italic; }
+.stripe-exec { background: var(--scout-gold-dark); }
+
 /* ---------- CTA banner ---------- */
 .cta-banner {
   background: var(--carnival-red);
@@ -899,6 +952,8 @@ section { padding: 64px 0; }
   .card-grid { grid-template-columns: 1fr; }
   .rank-ladder { grid-template-columns: repeat(3, 1fr); }
   .leader-grid { grid-template-columns: 1fr; }
+  .exec-grid { grid-template-columns: repeat(2, 1fr); }
+  .corner-grid { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr; }
   .two-col { grid-template-columns: 1fr; }
   .resource-grid { grid-template-columns: 1fr; }
@@ -913,4 +968,5 @@ section { padding: 64px 0; }
   .rank-ladder { grid-template-columns: repeat(2, 1fr); }
   .event-list { grid-template-columns: 1fr; }
   .event-ticket--camping { grid-column: span 1; }
+  .exec-grid { grid-template-columns: 1fr; }
 }

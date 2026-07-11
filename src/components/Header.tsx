@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/parent-resources", label: "Parent Resources" },
   { href: "/leader-resources", label: "Leader Resources" },
+  { href: "/den-leaders-corner", label: "Den Leaders' Corner" },
   { href: "/rank-requirements", label: "Rank Requirements" },
   { href: "/gallery", label: "Photo Albums" },
   { href: "/contact", label: "Contact Us" },
