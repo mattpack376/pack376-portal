@@ -36,32 +36,6 @@ export default function LeaderResourcesPage() {
         </svg>
       </div>
 
-      <section style={{ paddingTop: 24 }}>
-        <div className="container">
-          <div className="section-head center">
-            <div className="eyebrow">Meet the Team</div>
-            <h2>Pack Leadership</h2>
-          </div>
-          <div className="leader-grid">
-            <div className="leader-card">
-              <div className="leader-avatar">HW</div>
-              <h3>Howell Woods</h3>
-              <div className="leader-role">Cubmaster</div>
-            </div>
-            <div className="leader-card">
-              <div className="leader-avatar">CL</div>
-              <h3>Chris LaRosa</h3>
-              <div className="leader-role">Assistant Cubmaster</div>
-            </div>
-            <div className="leader-card">
-              <div className="leader-avatar">MR</div>
-              <h3>Matt Rosen</h3>
-              <div className="leader-role">Committee Chair</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section style={{ background: "var(--white)" }}>
         <div className="container">
           <div className="section-head center">
