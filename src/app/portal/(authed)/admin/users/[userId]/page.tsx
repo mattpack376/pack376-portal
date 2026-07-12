@@ -5,7 +5,7 @@ import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
 import { requireAdminSession } from "@/lib/authorize";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
 import { updateUserDensAction, updateUserEmailAction } from "@/lib/actions/users";
-import type { AssignableRole } from "@/lib/roleLabels";
+import { DEN_ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/roleLabels";
 import type { Rank } from "@/generated/prisma/enums";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
 import DeleteUserButton from "@/components/DeleteUserButton";
@@ -28,8 +28,9 @@ export default async function ManageUserPage({
   const protectedAccount = isMasterAdminUsername(user.username);
   const roleEditable = !protectedAccount;
   const assignedDenIds = new Set(user.denAssignments.map((a) => a.denId));
+  const canAssignDens = DEN_ASSIGNABLE_ROLES.includes(user.role as (typeof DEN_ASSIGNABLE_ROLES)[number]);
 
-  const allDens = user.role === "DEN" ? await prisma.den.findMany() : [];
+  const allDens = canAssignDens ? await prisma.den.findMany() : [];
   allDens.sort((a, b) => {
     if (a.scoutingYear !== b.scoutingYear) return b.scoutingYear.localeCompare(a.scoutingYear);
     return RANK_ORDER.indexOf(a.rank as Rank) - RANK_ORDER.indexOf(b.rank as Rank);
@@ -83,10 +84,14 @@ export default async function ManageUserPage({
         </form>
       </div>
 
-      {user.role === "DEN" && (
+      {canAssignDens && (
         <div className="info-card" style={{ marginBottom: 24 }}>
           <h3 style={{ marginTop: 0 }}>Assigned Dens</h3>
-          <p>Check every den this leader should have advancement &amp; attendance access to.</p>
+          <p>
+            {user.role === "DEN"
+              ? "Check every den this leader should have advancement & attendance access to."
+              : "Optional — check any den(s) this account should be listed as a leader of on the dashboard and roster. Admins and Junior Admins already have access to every den regardless."}
+          </p>
           {allDens.length === 0 ? (
             <p style={{ marginBottom: 0 }}>No dens exist yet.</p>
           ) : (

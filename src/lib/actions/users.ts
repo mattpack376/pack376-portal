@@ -7,7 +7,7 @@ import { getSession, hashPassword } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
-import { ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/roleLabels";
+import { ASSIGNABLE_ROLES, DEN_ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/roleLabels";
 import { sendCredentialEmail } from "@/lib/email";
 import type { CreatedCredential } from "@/lib/actions/dens";
 
@@ -153,7 +153,9 @@ export async function updateUserDensAction(formData: FormData) {
   const userId = String(formData.get("userId") || "");
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("User not found.");
-  if (user.role !== "DEN") throw new Error("Only Den Leader accounts can be assigned to dens.");
+  if (!DEN_ASSIGNABLE_ROLES.includes(user.role as (typeof DEN_ASSIGNABLE_ROLES)[number])) {
+    throw new Error("This account's role can't be assigned to dens.");
+  }
 
   const denIds = formData.getAll("denIds").map(String);
 
