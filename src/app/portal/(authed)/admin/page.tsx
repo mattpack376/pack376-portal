@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, RANK_INFO, denDisplayName } from "@/lib/rankConfig";
 import { requireAdvancementSession } from "@/lib/authorize";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
+import EmailAllButton from "@/components/EmailAllButton";
 
 export default async function AdminDashboardPage() {
   const session = await requireAdvancementSession();
@@ -16,6 +17,14 @@ export default async function AdminDashboardPage() {
       denAssignments: { include: { user: { select: { displayName: true } } } },
     },
   });
+
+  const [parentEmails, userEmails] = session.role === "ADMIN"
+    ? await Promise.all([
+        prisma.parent.findMany({ where: { email: { not: null } }, select: { email: true } }),
+        prisma.user.findMany({ where: { email: { not: null } }, select: { email: true } }),
+      ])
+    : [[], []];
+  const everyoneEmails = [...parentEmails, ...userEmails].map((r) => r.email);
 
   dens.sort((a, b) => {
     if (a.scoutingYear !== b.scoutingYear) return b.scoutingYear.localeCompare(a.scoutingYear);
@@ -35,6 +44,17 @@ export default async function AdminDashboardPage() {
           <Link className="btn btn-primary" href="/portal/admin/dens/new">+ New Den</Link>
         )}
       </div>
+
+      {session.role === "ADMIN" && (
+        <div className="info-card" style={{ marginBottom: 24 }}>
+          <h3 style={{ marginTop: 0 }}>Email Everyone</h3>
+          <p style={{ marginBottom: 12 }}>
+            Every scout&apos;s parent/guardian and every user account (den leaders, admins, etc.) that has an
+            email address on file. Opens your own email app with everyone bcc&apos;d — nothing is sent from here.
+          </p>
+          <EmailAllButton label="Email All Parents & Leaders" emails={everyoneEmails} />
+        </div>
+      )}
 
       {dens.length === 0 && <div className="info-card">No dens yet — create the first one to get started.</div>}
 

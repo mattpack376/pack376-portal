@@ -15,6 +15,8 @@ const NAV_LINKS = [
   { href: "/contact", label: "Contact Us" },
 ];
 
+const EXTERNAL_LINKS = [{ href: "https://www.troop376nyc.org", label: "Troop 376" }];
+
 export default function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -52,6 +54,11 @@ export default function Header() {
             >
               {link.label}
             </Link>
+          ))}
+          {EXTERNAL_LINKS.map((link) => (
+            <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer">
+              {link.label}
+            </a>
           ))}
         </div>
       </nav>

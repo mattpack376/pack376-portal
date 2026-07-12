@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
 import { addParentAction, updateParentAction, removeParentAction } from "@/lib/actions/parents";
+import EmailAllButton from "@/components/EmailAllButton";
 
 const inputStyle = {
   padding: "8px 12px",
@@ -47,6 +48,13 @@ export default async function ParentContactsPage() {
         </div>
         <h2>Cub&apos;s Parents&apos; Contact Information</h2>
         <p style={{ fontSize: 17 }}>Parent/guardian name, email, and phone for each scout.</p>
+        {(session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") && (
+          <p style={{ fontSize: 15 }}>
+            <a href="/api/parents/export" className="btn btn-outline btn-small">
+              Export All Parent Contacts (CSV)
+            </a>
+          </p>
+        )}
       </div>
 
       {dens.length === 0 && <div className="info-card" style={{ fontSize: 16 }}>No dens yet.</div>}
@@ -58,7 +66,27 @@ export default async function ParentContactsPage() {
             .filter((d) => d.scoutingYear === year)
             .map((den) => (
               <div className="info-card" key={den.id} style={{ marginBottom: 20 }}>
-                <h3 style={{ marginTop: 0, fontSize: 19 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    flexWrap: "wrap",
+                    gap: 12,
+                    marginBottom: 8,
+                  }}
+                >
+                  <h3 style={{ marginTop: 0, fontSize: 19 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <a href={`/api/parents/export/den/${den.id}`} className="btn btn-outline btn-small">
+                      Export CSV
+                    </a>
+                    <EmailAllButton
+                      label="Email This Den's Parents"
+                      emails={den.scouts.flatMap((scout) => scout.parents.map((parent) => parent.email))}
+                    />
+                  </div>
+                </div>
                 {den.scouts.length === 0 ? (
                   <p style={{ marginBottom: 0, fontSize: 16 }}>No scouts yet.</p>
                 ) : (

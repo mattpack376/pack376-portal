@@ -104,6 +104,13 @@ export function assertAlbumEditAccess(session: SessionPayload) {
   }
 }
 
+/** Full admin or junior admin for any den's parent contacts; a den login only for its assigned den(s). */
+export function assertParentContactsDenAccess(session: SessionPayload, denId: string) {
+  if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") return;
+  if (session.role === "DEN" && session.denIds.includes(denId)) return;
+  throw new Error("Not authorized for this den.");
+}
+
 /** Full admin, junior admin, or Attendance Only for any den; a den login only for its assigned den(s). */
 export function assertAttendanceDenAccess(session: SessionPayload, denId: string) {
   if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "ATTENDANCE_ADMIN") return;
