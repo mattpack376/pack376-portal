@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 
+const ALWAYS_CC = ["pack376.brooklyn@gmail.com", "matt.pack376@gmail.com"];
+
 /**
- * Opens the user's own email client with every address bcc'd, so nothing is
- * ever sent from the server — the leader/admin reviews and sends it
- * themselves. Also offers a copy button since some mail clients truncate very
- * long mailto: URLs (bcc lists on big rosters can exceed that).
+ * Opens the user's own email client with every address in the To: field and
+ * the pack's two standing addresses always cc'd, so nothing is ever sent from
+ * the server — the leader/admin reviews and sends it themselves. Also offers
+ * a copy button since some mail clients truncate very long mailto: URLs
+ * (recipient lists on big rosters can exceed that).
  */
 export default function EmailAllButton({ emails, label }: { emails: (string | null)[]; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -16,7 +19,7 @@ export default function EmailAllButton({ emails, label }: { emails: (string | nu
     return <span style={{ fontSize: 14, color: "var(--ink-soft)" }}>No email addresses on file yet.</span>;
   }
 
-  const mailto = `mailto:?bcc=${encodeURIComponent(unique.join(","))}`;
+  const mailto = `mailto:?to=${encodeURIComponent(unique.join(","))}&cc=${encodeURIComponent(ALWAYS_CC.join(","))}`;
 
   const copyAddresses = async () => {
     await navigator.clipboard.writeText(unique.join(", "));

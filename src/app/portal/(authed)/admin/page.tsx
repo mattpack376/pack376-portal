@@ -50,7 +50,8 @@ export default async function AdminDashboardPage() {
           <h3 style={{ marginTop: 0 }}>Email Everyone</h3>
           <p style={{ marginBottom: 12 }}>
             Every scout&apos;s parent/guardian and every user account (den leaders, admins, etc.) that has an
-            email address on file. Opens your own email app with everyone bcc&apos;d — nothing is sent from here.
+            email address on file. Opens your own email app with everyone in the To: field and pack376.brooklyn@gmail.com
+            + matt.pack376@gmail.com cc&apos;d — nothing is sent from here.
           </p>
           <EmailAllButton label="Email All Parents & Leaders" emails={everyoneEmails} />
         </div>
