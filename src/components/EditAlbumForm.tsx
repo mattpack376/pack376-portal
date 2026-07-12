@@ -18,7 +18,7 @@ export default function EditAlbumForm({
     eventDate: Date;
     description: string | null;
     coverImageUrl: string | null;
-    googlePhotosUrl: string;
+    photoAlbumUrl: string;
   };
 }) {
   const [state, formAction, pending] = useActionState(updateAlbumAction, initialState);
@@ -43,14 +43,14 @@ export default function EditAlbumForm({
           <label htmlFor="coverImageUrl">Cover Image URL (optional)</label>
           <input id="coverImageUrl" name="coverImageUrl" type="url" defaultValue={album.coverImageUrl ?? ""} />
           <p className="form-note">
-            Must be a direct image link, not a Google Photos share link (those are viewer pages, not
+            Must be a direct image link, not an album share/viewer page (those are HTML pages, not
             images, so they won&apos;t display). Open the shared album, right-click a photo, choose
             &quot;Open image in new tab,&quot; and paste that URL here.
           </p>
         </div>
         <div className="form-field">
-          <label htmlFor="googlePhotosUrl">Google Photos Album Link</label>
-          <input id="googlePhotosUrl" name="googlePhotosUrl" type="url" defaultValue={album.googlePhotosUrl} required />
+          <label htmlFor="photoAlbumUrl">Photo Album Link</label>
+          <input id="photoAlbumUrl" name="photoAlbumUrl" type="url" defaultValue={album.photoAlbumUrl} required />
         </div>
         {state?.error && <p className="form-error">{state.error}</p>}
         <button type="submit" className="btn btn-primary" disabled={pending}>

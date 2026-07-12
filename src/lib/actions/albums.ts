@@ -13,18 +13,19 @@ function readAlbumFields(formData: FormData) {
   const eventDateRaw = String(formData.get("eventDate") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const coverImageUrl = String(formData.get("coverImageUrl") || "").trim();
-  const googlePhotosUrl = String(formData.get("googlePhotosUrl") || "").trim();
-  return { title, eventDateRaw, description, coverImageUrl, googlePhotosUrl };
+  const photoAlbumUrl = String(formData.get("photoAlbumUrl") || "").trim();
+  return { title, eventDateRaw, description, coverImageUrl, photoAlbumUrl };
 }
 
-// Google Photos share pages (photos.app.goo.gl/... or photos.google.com/share/...)
-// are HTML viewer pages, not image files — they can't be hotlinked as a cover
-// photo. Catch this at save time instead of silently storing a broken link.
-const GOOGLE_PHOTOS_SHARE_LINK = /photos\.(app\.goo\.gl|google\.com\/share)/i;
+// Album share pages (Google Photos' photos.app.goo.gl/... and photos.google.com/share/...,
+// or a PhotoPrism share link's /s/... path) are HTML viewer pages, not image files —
+// they can't be hotlinked as a cover photo. Catch this at save time instead of
+// silently storing a broken link.
+const ALBUM_SHARE_LINK = /photos\.(app\.goo\.gl|google\.com\/share)|\/s\/[\w-]+\/?$/i;
 
 function validateCoverImageUrl(coverImageUrl: string): string | null {
-  if (coverImageUrl && GOOGLE_PHOTOS_SHARE_LINK.test(coverImageUrl)) {
-    return "That's a Google Photos share link, not a direct image link — Google Photos share pages can't be used as a cover photo. Open the shared album, right-click a photo, choose \"Open image in new tab,\" and paste that image URL here instead.";
+  if (coverImageUrl && ALBUM_SHARE_LINK.test(coverImageUrl)) {
+    return "That looks like an album share link, not a direct image link — share pages can't be used as a cover photo. Open the shared album, right-click a photo, choose \"Open image in new tab,\" and paste that image URL here instead.";
   }
   return null;
 }
@@ -41,9 +42,9 @@ export async function createAlbumAction(
     return { error: "Not authorized." };
   }
 
-  const { title, eventDateRaw, description, coverImageUrl, googlePhotosUrl } = readAlbumFields(formData);
-  if (!title || !eventDateRaw || !googlePhotosUrl) {
-    return { error: "Title, event date, and Google Photos link are required." };
+  const { title, eventDateRaw, description, coverImageUrl, photoAlbumUrl } = readAlbumFields(formData);
+  if (!title || !eventDateRaw || !photoAlbumUrl) {
+    return { error: "Title, event date, and photo album link are required." };
   }
   const eventDate = new Date(eventDateRaw);
   if (Number.isNaN(eventDate.getTime())) {
@@ -58,7 +59,7 @@ export async function createAlbumAction(
       eventDate,
       description: description || null,
       coverImageUrl: coverImageUrl || null,
-      googlePhotosUrl,
+      photoAlbumUrl,
     },
   });
 
@@ -80,10 +81,10 @@ export async function updateAlbumAction(
   }
 
   const albumId = String(formData.get("albumId") || "");
-  const { title, eventDateRaw, description, coverImageUrl, googlePhotosUrl } = readAlbumFields(formData);
+  const { title, eventDateRaw, description, coverImageUrl, photoAlbumUrl } = readAlbumFields(formData);
   if (!albumId) return { error: "Missing album id." };
-  if (!title || !eventDateRaw || !googlePhotosUrl) {
-    return { error: "Title, event date, and Google Photos link are required." };
+  if (!title || !eventDateRaw || !photoAlbumUrl) {
+    return { error: "Title, event date, and photo album link are required." };
   }
   const eventDate = new Date(eventDateRaw);
   if (Number.isNaN(eventDate.getTime())) {
@@ -99,7 +100,7 @@ export async function updateAlbumAction(
       eventDate,
       description: description || null,
       coverImageUrl: coverImageUrl || null,
-      googlePhotosUrl,
+      photoAlbumUrl,
     },
   });
 

@@ -61,15 +61,15 @@ model Den {
 }
 
 model Scout {
-  id        String              @id @default(cuid())
-  denId     String
-  den       Den                 @relation(fields: [denId], references: [id], onDelete: Cascade)
-  firstName String
-  lastName  String
-  notes     String?
-  createdAt DateTime            @default(now())
-  records   AdvancementRecord[]
-  attendances Attendance[]
+  id           String              @id @default(cuid())
+  denId        String
+  den          Den                 @relation(fields: [denId], references: [id], onDelete: Cascade)
+  firstName    String
+  lastName     String
+  notes        String?
+  createdAt    DateTime            @default(now())
+  records      AdvancementRecord[]
+  attendances  Attendance[]
   duesPayments DuesPayment[]
 }
 
@@ -135,13 +135,13 @@ model DuesPayment {
 }
 
 model PhotoAlbum {
-  id              String   @id @default(cuid())
-  title           String
-  eventDate       DateTime @db.Date
-  description     String?
-  coverImageUrl   String?
-  googlePhotosUrl String
-  isVisible       Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(cuid())
+  title         String
+  eventDate     DateTime @db.Date
+  description   String?
+  coverImageUrl String?
+  photoAlbumUrl String
+  isVisible     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

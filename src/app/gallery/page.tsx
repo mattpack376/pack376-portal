@@ -38,7 +38,7 @@ export default async function GalleryPage() {
             <div className="album-tile-date">{formatDate(album.eventDate)}</div>
             <h3>{album.title}</h3>
             {album.description && <p>{album.description}</p>}
-            <a className="link" href={album.googlePhotosUrl} target="_blank" rel="noopener">
+            <a className="link" href={album.photoAlbumUrl} target="_blank" rel="noopener">
               View Photos →
             </a>
           </div>
@@ -57,8 +57,8 @@ export default async function GalleryPage() {
         </div>
         <h1>Photo Albums</h1>
         <p>
-          Photos live in Google Photos — click into an album to browse and download. Ask a den
-          leader if you&apos;d like to add photos to an album.
+          Photos live in our private, pack-only photo library — click into an album to browse and
+          download. Ask a den leader if you&apos;d like to add photos to an album.
         </p>
       </section>
       <div className="wave-divider" style={{ marginTop: -1 }}>

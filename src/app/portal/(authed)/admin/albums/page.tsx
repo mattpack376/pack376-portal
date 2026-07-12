@@ -63,7 +63,7 @@ export default async function AdminAlbumsPage() {
         <div>
           <div className="eyebrow">Admin</div>
           <h2>Photo Albums</h2>
-          <p>Link out to a Google Photos album for each event — leaders keep the photos there, this just curates the list.</p>
+          <p>Link out to a photo album for each event — leaders keep the photos there, this just curates the list.</p>
         </div>
         <Link className="btn btn-primary" href="/portal/admin/albums/new">+ New Album</Link>
       </div>
