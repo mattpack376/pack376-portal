@@ -1,6 +1,6 @@
-/** Roles that can be assigned from the admin panel — everything except DEN,
- * which is structurally tied to a specific den and managed from that den's page. */
-export const ASSIGNABLE_ROLES = ["ADMIN", "JUNIOR_ADMIN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER"] as const;
+/** Every role assignable from the admin panel, including Den Leader — a Den
+ * Leader's specific den(s) are assigned separately (see DenAssignment). */
+export const ASSIGNABLE_ROLES = ["ADMIN", "JUNIOR_ADMIN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER", "DEN"] as const;
 export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
 
 export const ROLE_LABELS: Record<string, string> = {

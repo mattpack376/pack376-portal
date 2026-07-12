@@ -25,6 +25,7 @@ export default function ManageUserRoleForm({
           <option value="JUNIOR_ADMIN">Junior Admin — attendance, albums (no delete), advancement, all dens</option>
           <option value="ATTENDANCE_ADMIN">Attendance Only — attendance for all dens</option>
           <option value="PHOTOGRAPHER">Photographer — add/edit albums only (no delete)</option>
+          <option value="DEN">Den Leader — advancement & attendance for their assigned den(s)</option>
         </select>
       </div>
       {state?.error && <p className="form-error">{state.error}</p>}

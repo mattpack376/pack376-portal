@@ -1,6 +1,8 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { getSession, type SessionPayload } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { isMasterAdminUsername } from "@/lib/masterAdmins";
 
 /** Where a role lands after login / when bounced from a route it can't access. */
 export function homeForRole(role: SessionPayload["role"]) {
@@ -88,16 +90,37 @@ export function assertAlbumEditAccess(session: SessionPayload) {
   }
 }
 
-/** Full admin, junior admin, or Attendance Only for any den; a den login only for its own den. */
+/** Full admin, junior admin, or Attendance Only for any den; a den login only for its assigned den(s). */
 export function assertAttendanceDenAccess(session: SessionPayload, denId: string) {
   if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "ATTENDANCE_ADMIN") return;
-  if (session.role === "DEN" && session.denId === denId) return;
+  if (session.role === "DEN" && session.denIds.includes(denId)) return;
   throw new Error("Not authorized for this den.");
 }
 
-/** Full admin or junior admin for any den's advancement; a den login only for its own den. */
+/** Full admin or junior admin for any den's advancement; a den login only for its assigned den(s). */
 export function assertAdvancementDenAccess(session: SessionPayload, denId: string) {
   if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") return;
-  if (session.role === "DEN" && session.denId === denId) return;
+  if (session.role === "DEN" && session.denIds.includes(denId)) return;
   throw new Error("Not authorized for this den.");
+}
+
+/**
+ * For Server Components / pages: only the three protected master admin
+ * accounts (src/lib/masterAdmins.ts) can reach the page; every other role,
+ * including regular and junior admins, gets bounced.
+ */
+export async function requireMasterAdminSession(): Promise<SessionPayload> {
+  const session = await requireAdminSession();
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { username: true } });
+  if (!user || !isMasterAdminUsername(user.username)) redirect("/portal/admin");
+  return session;
+}
+
+/** For Server Actions: throws unless the acting user is one of the three protected master admins. */
+export async function assertMasterAdmin(session: SessionPayload) {
+  if (session.role !== "ADMIN") throw new Error("Not authorized: master admin only.");
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { username: true } });
+  if (!user || !isMasterAdminUsername(user.username)) {
+    throw new Error("Not authorized: master admin only.");
+  }
 }

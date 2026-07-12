@@ -916,6 +916,7 @@ section { padding: 64px 0; }
   border-radius: 999px;
   box-shadow: var(--shadow-card);
 }
+.attendance-jump-links a.active { background: var(--scout-blue); color: var(--white); }
 
 .attendance-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 8px 18px; }
 .attendance-row {

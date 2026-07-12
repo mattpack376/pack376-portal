@@ -70,15 +70,15 @@ async function main() {
       continue;
     }
     const password = generatePassword();
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         username,
         passwordHash: await hash(password),
         role: "DEN",
-        denId: den.id,
         displayName: `${rank} ${CURRENT_SCOUTING_YEAR}`,
       },
     });
+    await prisma.denAssignment.create({ data: { userId: user.id, denId: den.id } });
     credentials.push({ username, password, role: `DEN (${rank})` });
   }
 

@@ -99,15 +99,36 @@ export async function updateUserRoleAction(
   if (isMasterAdminUsername(user.username)) {
     return { error: "Master admins can't be changed from the admin panel." };
   }
-  if (user.role === "DEN") {
-    return { error: "Den logins can't be changed to an admin role here." };
-  }
 
   await prisma.user.update({ where: { id: userId }, data: { role: role as AssignableRole } });
+  if (user.role === "DEN" && role !== "DEN") {
+    await prisma.denAssignment.deleteMany({ where: { userId } });
+  }
 
   revalidatePath("/portal/admin/users");
   revalidatePath(`/portal/admin/users/${userId}`);
   redirect("/portal/admin/users");
+}
+
+export async function updateUserDensAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const userId = String(formData.get("userId") || "");
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("User not found.");
+  if (user.role !== "DEN") throw new Error("Only Den Leader accounts can be assigned to dens.");
+
+  const denIds = formData.getAll("denIds").map(String);
+
+  await prisma.$transaction([
+    prisma.denAssignment.deleteMany({ where: { userId } }),
+    prisma.denAssignment.createMany({ data: denIds.map((denId) => ({ userId, denId })) }),
+  ]);
+
+  revalidatePath(`/portal/admin/users/${userId}`);
+  revalidatePath("/portal/admin");
 }
 
 export async function deleteUserAction(userId: string) {

@@ -3,14 +3,22 @@ import { requireSession } from "@/lib/authorize";
 import { getDenChecklist } from "@/lib/denData";
 import { denDisplayName } from "@/lib/rankConfig";
 import ScoutChecklist from "@/components/ScoutChecklist";
+import DenSwitcher from "@/components/DenSwitcher";
 
-export default async function DenPortalPage() {
+export default async function DenPortalPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ denId?: string }>;
+}) {
   const session = await requireSession();
-  if (session.role !== "DEN" || !session.denId) {
+  if (session.role !== "DEN" || session.denIds.length === 0) {
     redirect("/portal/admin");
   }
 
-  const data = await getDenChecklist(session.denId);
+  const { denId: requestedDenId } = await searchParams;
+  const denId = requestedDenId && session.denIds.includes(requestedDenId) ? requestedDenId : session.denIds[0];
+
+  const data = await getDenChecklist(denId);
   if (!data) {
     return <div className="info-card">Your den could not be found. Contact an admin.</div>;
   }
@@ -27,6 +35,7 @@ export default async function DenPortalPage() {
           mark it complete.
         </p>
       </div>
+      <DenSwitcher denIds={session.denIds} currentDenId={denId} basePath="/portal/den" />
       <ScoutChecklist scouts={scouts} editable />
     </>
   );

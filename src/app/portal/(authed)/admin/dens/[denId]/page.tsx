@@ -20,7 +20,10 @@ export default async function AdminDenDetailPage({
   const isFullAdmin = session?.role === "ADMIN";
 
   const { den, scouts } = data;
-  const users = await prisma.user.findMany({ where: { denId }, select: { username: true } });
+  const assignments = await prisma.denAssignment.findMany({
+    where: { denId },
+    include: { user: { select: { id: true, username: true, displayName: true } } },
+  });
   const canPromote = isFullAdmin && nextRank(den.rank) !== null;
 
   return (
@@ -32,9 +35,21 @@ export default async function AdminDenDetailPage({
           </div>
           <h2>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h2>
           <p>
-            {users.length > 0
-              ? `Login${users.length > 1 ? "s" : ""}: ${users.map((u) => u.username).join(", ")}`
-              : "No login created for this den yet."}
+            {assignments.length > 0 ? (
+              <>
+                Leader{assignments.length > 1 ? "s" : ""}:{" "}
+                {assignments.map((a, i) => (
+                  <span key={a.user.id}>
+                    {i > 0 && ", "}
+                    <Link href={`/portal/admin/users/${a.user.id}`}>
+                      {a.user.displayName} ({a.user.username})
+                    </Link>
+                  </span>
+                ))}
+              </>
+            ) : (
+              "No leader assigned to this den yet."
+            )}
           </p>
         </div>
         {canPromote && (

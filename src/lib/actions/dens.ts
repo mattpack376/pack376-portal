@@ -16,15 +16,15 @@ export type DenActionState = { error?: string; credential?: CreatedCredential };
 
 async function createDenAccount(denId: string, rank: Rank, scoutingYear: string, username: string) {
   const password = generatePassword();
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       username: username.toLowerCase(),
       passwordHash: await hashPassword(password),
       role: "DEN",
-      denId,
       displayName: `${rank} ${scoutingYear}`,
     },
   });
+  await prisma.denAssignment.create({ data: { userId: user.id, denId } });
   return { username: username.toLowerCase(), password };
 }
 

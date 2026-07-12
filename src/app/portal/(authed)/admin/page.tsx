@@ -2,12 +2,19 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, RANK_INFO, denDisplayName } from "@/lib/rankConfig";
 import { requireAdvancementSession } from "@/lib/authorize";
+import { isMasterAdminUsername } from "@/lib/masterAdmins";
 
 export default async function AdminDashboardPage() {
   const session = await requireAdvancementSession();
+  const sessionUser =
+    session.role === "ADMIN" ? await prisma.user.findUnique({ where: { id: session.userId }, select: { username: true } }) : null;
+  const isMasterAdmin = !!sessionUser && isMasterAdminUsername(sessionUser.username);
 
   const dens = await prisma.den.findMany({
-    include: { _count: { select: { scouts: true } }, users: { select: { username: true } } },
+    include: {
+      _count: { select: { scouts: true } },
+      denAssignments: { include: { user: { select: { displayName: true } } } },
+    },
   });
 
   dens.sort((a, b) => {
@@ -42,7 +49,9 @@ export default async function AdminDashboardPage() {
                   <h3>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
                   <p>
                     {den._count.scouts} scout{den._count.scouts === 1 ? "" : "s"}
-                    {den.users.length > 0 ? ` · ${den.users.map((u) => u.username).join(", ")}` : " · no login yet"}
+                    {den.denAssignments.length > 0
+                      ? ` · ${den.denAssignments.map((a) => a.user.displayName).join(", ")}`
+                      : " · no leader assigned yet"}
                   </p>
                 </Link>
               ))}
@@ -57,6 +66,14 @@ export default async function AdminDashboardPage() {
           scouting year. Use &quot;Promote Den&quot; on a den&apos;s page each fall to carry the roster forward.
         </p>
       </div>
+
+      {isMasterAdmin && (
+        <p style={{ marginTop: 16 }}>
+          <Link href="/portal/admin/reset" style={{ color: "var(--carnival-red)", fontWeight: 700, fontSize: 13 }}>
+            Danger Zone: Start a Fresh Year →
+          </Link>
+        </p>
+      )}
     </>
   );
 }

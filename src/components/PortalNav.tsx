@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER";
 
 export default function PortalNav({ role }: { role: Role }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const denId = searchParams.get("denId");
+  const withDenId = (href: string) => (denId ? `${href}?denId=${denId}` : href);
 
   const links = (() => {
     switch (role) {
@@ -29,17 +32,23 @@ export default function PortalNav({ role }: { role: Role }) {
       case "PHOTOGRAPHER":
         return [{ href: "/portal/admin/albums", label: "Photo Albums" }];
       default:
+        // Preserves the currently selected den (for leaders assigned to more
+        // than one) when switching between "My Den" and "Attendance" tabs.
         return [
-          { href: "/portal/den", label: "My Den" },
-          { href: "/portal/den/attendance", label: "Attendance" },
+          { href: withDenId("/portal/den"), label: "My Den" },
+          { href: withDenId("/portal/den/attendance"), label: "Attendance" },
         ];
     }
   })();
 
   // Longest matching href wins, so nested routes (e.g. /portal/den/attendance/xyz)
-  // highlight "Attendance" and not the shorter "/portal/den" prefix.
+  // highlight "Attendance" and not the shorter "/portal/den" prefix. Compared
+  // on path only, since DEN links may carry a `?denId=` query string.
   const activeHref = links
-    .filter((link) => pathname === link.href || pathname.startsWith(`${link.href}/`))
+    .filter((link) => {
+      const linkPath = link.href.split("?")[0];
+      return pathname === linkPath || pathname.startsWith(`${linkPath}/`);
+    })
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (

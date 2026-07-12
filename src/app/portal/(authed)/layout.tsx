@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Suspense } from "react";
 import { requireSession } from "@/lib/authorize";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import PortalNav from "@/components/PortalNav";
@@ -25,7 +26,9 @@ export default async function AuthedPortalLayout({
               <span className="pack-name">Pack 376 Portal</span>
             </span>
           </div>
-          <PortalNav role={session.role} />
+          <Suspense fallback={null}>
+            <PortalNav role={session.role} />
+          </Suspense>
           <div className="portal-user">
             <span className={`badge-pill ${ROLE_BADGE_CLASSES[session.role]}`}>
               {ROLE_LABELS[session.role]}

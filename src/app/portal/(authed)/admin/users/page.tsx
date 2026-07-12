@@ -10,7 +10,7 @@ export default async function AdminUsersPage() {
   await requireAdminSession();
 
   const users = await prisma.user.findMany({
-    include: { den: true },
+    include: { denAssignments: { include: { den: true } } },
     orderBy: [{ role: "asc" }, { username: "asc" }],
   });
   // eslint-disable-next-line react-hooks/purity -- Server Component, runs once per request; not a client re-render purity concern.
@@ -45,7 +45,13 @@ export default async function AdminUsersPage() {
                 </span>
               </td>
               <td>{user.displayName}</td>
-              <td>{user.den ? denDisplayName(user.den.rank, user.den.scoutingYear, user.den.label) : "—"}</td>
+              <td>
+                {user.denAssignments.length > 0
+                  ? user.denAssignments
+                      .map((a) => denDisplayName(a.den.rank, a.den.scoutingYear, a.den.label))
+                      .join(", ")
+                  : "—"}
+              </td>
               <td>
                 {user.lockedUntil && user.lockedUntil.getTime() > now ? "🔒 Locked" : "Active"}
               </td>

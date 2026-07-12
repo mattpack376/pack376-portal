@@ -39,8 +39,6 @@ model User {
   username           String              @unique
   passwordHash       String
   role               Role
-  denId              String?
-  den                Den?                @relation(fields: [denId], references: [id])
   displayName        String
   failedLoginCount   Int                 @default(0)
   lockedUntil        DateTime?
@@ -49,18 +47,29 @@ model User {
   advancementUpdates AdvancementRecord[]
   attendanceUpdates  Attendance[]
   duesPaymentsLogged DuesPayment[]
+  denAssignments     DenAssignment[]
 }
 
 model Den {
-  id           String   @id @default(cuid())
-  rank         Rank
-  scoutingYear String
-  label        String   @default("")
-  scouts       Scout[]
-  users        User[]
-  createdAt    DateTime @default(now())
+  id             String          @id @default(cuid())
+  rank           Rank
+  scoutingYear   String
+  label          String          @default("")
+  scouts         Scout[]
+  denAssignments DenAssignment[]
+  createdAt      DateTime        @default(now())
 
   @@unique([rank, scoutingYear, label])
+}
+
+model DenAssignment {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  denId  String
+  den    Den    @relation(fields: [denId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, denId])
 }
 
 model Scout {

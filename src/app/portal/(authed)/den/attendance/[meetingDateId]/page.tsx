@@ -9,16 +9,20 @@ import MarkAllPresentButton from "@/components/MarkAllPresentButton";
 
 export default async function DenMeetingAttendancePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ meetingDateId: string }>;
+  searchParams: Promise<{ denId?: string }>;
 }) {
   const session = await requireSession();
-  if (session.role !== "DEN" || !session.denId) {
+  if (session.role !== "DEN" || session.denIds.length === 0) {
     redirect("/portal/admin/attendance");
   }
 
   const { meetingDateId } = await params;
-  const data = await getMeetingDetailForDen(session.denId, meetingDateId);
+  const { denId: requestedDenId } = await searchParams;
+  const denId = requestedDenId && session.denIds.includes(requestedDenId) ? requestedDenId : session.denIds[0];
+  const data = await getMeetingDetailForDen(denId, meetingDateId);
   if (!data) notFound();
 
   const { den, meeting, scouts } = data;
@@ -28,7 +32,7 @@ export default async function DenMeetingAttendancePage({
     <>
       <div className="section-head">
         <div className="eyebrow">
-          <Link href="/portal/den/attendance">← All Meetings</Link>
+          <Link href={`/portal/den/attendance?denId=${denId}`}>← All Meetings</Link>
         </div>
         <h2>{formatMeetingDate(meeting.date)}</h2>
         <p>{denDisplayName(den.rank, den.scoutingYear, den.label)}</p>
