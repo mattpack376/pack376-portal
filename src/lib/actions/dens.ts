@@ -90,6 +90,22 @@ export async function addScoutAction(formData: FormData) {
   revalidatePath(`/portal/admin/dens/${denId}`);
 }
 
+export async function updateScoutNameAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const scoutId = String(formData.get("scoutId") || "");
+  const denId = String(formData.get("denId") || "");
+  const firstName = String(formData.get("firstName") || "").trim();
+  const lastName = String(formData.get("lastName") || "").trim();
+  if (!scoutId || !firstName || !lastName) throw new Error("First and last name are required.");
+
+  await prisma.scout.update({ where: { id: scoutId }, data: { firstName, lastName } });
+  revalidatePath(`/portal/admin/dens/${denId}`);
+  revalidatePath("/portal/roster");
+}
+
 export async function removeScoutAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");

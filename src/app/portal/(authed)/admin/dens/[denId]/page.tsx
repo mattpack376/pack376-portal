@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { getDenChecklist } from "@/lib/denData";
 import { denDisplayName, nextRank } from "@/lib/rankConfig";
-import { addScoutAction, removeScoutAction } from "@/lib/actions/dens";
+import { addScoutAction, removeScoutAction, updateScoutNameAction } from "@/lib/actions/dens";
 import ScoutChecklist from "@/components/ScoutChecklist";
 
 export default async function AdminDenDetailPage({
@@ -74,7 +74,50 @@ export default async function AdminDenDetailPage({
             <tbody>
               {scouts.map((scout) => (
                 <tr key={scout.id}>
-                  <td>{scout.firstName} {scout.lastName}</td>
+                  <td>
+                    {isFullAdmin ? (
+                      <form
+                        action={updateScoutNameAction}
+                        style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}
+                      >
+                        <input type="hidden" name="scoutId" value={scout.id} />
+                        <input type="hidden" name="denId" value={den.id} />
+                        <input
+                          name="firstName"
+                          defaultValue={scout.firstName}
+                          required
+                          aria-label="First name"
+                          style={{
+                            width: 100,
+                            padding: "7px 10px",
+                            borderRadius: 8,
+                            border: "2px solid var(--cream-dark)",
+                            background: "var(--cream)",
+                            fontSize: 14,
+                          }}
+                        />
+                        <input
+                          name="lastName"
+                          defaultValue={scout.lastName}
+                          required
+                          aria-label="Last name"
+                          style={{
+                            width: 100,
+                            padding: "7px 10px",
+                            borderRadius: 8,
+                            border: "2px solid var(--cream-dark)",
+                            background: "var(--cream)",
+                            fontSize: 14,
+                          }}
+                        />
+                        <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+                          Save
+                        </button>
+                      </form>
+                    ) : (
+                      `${scout.firstName} ${scout.lastName}`
+                    )}
+                  </td>
                   <td>
                     {scout.requiredDone}/{scout.requiredTotal} required · {scout.electivesDone}/
                     {scout.electivesRequired}+ electives
