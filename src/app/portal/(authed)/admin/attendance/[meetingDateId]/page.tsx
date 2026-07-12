@@ -3,9 +3,11 @@ import Link from "next/link";
 import { getMeetingDetailForAdmin } from "@/lib/attendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { RANK_INFO } from "@/lib/rankConfig";
+import { getSession } from "@/lib/auth";
 import AttendanceControl from "@/components/AttendanceControl";
 import MarkAllPresentButton from "@/components/MarkAllPresentButton";
 import MeetingStatusToggle from "@/components/MeetingStatusToggle";
+import ResetDenAttendanceButton from "@/components/ResetDenAttendanceButton";
 
 export default async function AdminMeetingAttendancePage({
   params,
@@ -13,8 +15,9 @@ export default async function AdminMeetingAttendancePage({
   params: Promise<{ meetingDateId: string }>;
 }) {
   const { meetingDateId } = await params;
-  const data = await getMeetingDetailForAdmin(meetingDateId);
+  const [data, session] = await Promise.all([getMeetingDetailForAdmin(meetingDateId), getSession()]);
   if (!data) notFound();
+  const canReset = session?.role === "ADMIN" || session?.role === "JUNIOR_ADMIN";
 
   const { meeting, scoutingYear, dens } = data;
   const cancelled = meeting.status === "NO_MEETING";
@@ -58,9 +61,16 @@ export default async function AdminMeetingAttendancePage({
                     {den.scouts.length === 0 ? "No scouts" : `${presentCount}/${den.scouts.length} present`}
                   </span>
                 </div>
-                {den.scouts.length > 1 && (
-                  <div style={{ margin: "10px 0" }}>
-                    <MarkAllPresentButton denId={den.id} meetingDateId={meeting.id} />
+                {(den.scouts.length > 1 || canReset) && (
+                  <div style={{ margin: "10px 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {den.scouts.length > 1 && <MarkAllPresentButton denId={den.id} meetingDateId={meeting.id} />}
+                    {canReset && den.scouts.length > 0 && (
+                      <ResetDenAttendanceButton
+                        denId={den.id}
+                        meetingDateId={meeting.id}
+                        denName={`${RANK_INFO[den.rank].label}${den.label ? ` ${den.label}` : ""}`}
+                      />
+                    )}
                   </div>
                 )}
                 <div className="attendance-card">

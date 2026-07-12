@@ -70,6 +70,24 @@ export async function markDenPresentAction(denId: string, meetingDateId: string)
   return { ok: true as const };
 }
 
+/** Full admin or junior admin only — clears every attendance mark for one den on one meeting date. */
+export async function resetDenAttendanceAction(denId: string, meetingDateId: string) {
+  const session = await getSession();
+  if (!session) return { ok: false as const };
+  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
+    return { ok: false as const };
+  }
+
+  await prisma.attendance.deleteMany({
+    where: { meetingDateId, scout: { denId } },
+  });
+
+  revalidatePath("/portal/den/attendance");
+  revalidatePath(`/portal/den/attendance/${meetingDateId}`);
+  revalidatePath(`/portal/admin/attendance/${meetingDateId}`);
+  return { ok: true as const };
+}
+
 export async function setMeetingStatusAction(meetingDateId: string, status: "SCHEDULED" | "NO_MEETING") {
   const session = await getSession();
   if (!session) return { ok: false as const };
