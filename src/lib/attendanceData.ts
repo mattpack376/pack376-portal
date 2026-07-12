@@ -60,7 +60,12 @@ export async function getMeetingDetailForDen(denId: string, meetingDateId: strin
   const scouts = await prisma.scout.findMany({
     where: { denId },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-    include: { attendances: { where: { meetingDateId } } },
+    include: {
+      attendances: {
+        where: { meetingDateId },
+        include: { updatedByUser: { select: { username: true } } },
+      },
+    },
   });
 
   return {
@@ -71,6 +76,8 @@ export async function getMeetingDetailForDen(denId: string, meetingDateId: strin
       firstName: s.firstName,
       lastName: s.lastName,
       present: s.attendances[0]?.present ?? null,
+      updatedAt: s.attendances[0]?.updatedAt ?? null,
+      updatedByUsername: s.attendances[0]?.updatedByUser?.username ?? null,
     })),
   };
 }
@@ -118,7 +125,12 @@ export async function getMeetingDetailForAdmin(meetingDateId: string) {
     include: {
       scouts: {
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-        include: { attendances: { where: { meetingDateId } } },
+        include: {
+          attendances: {
+            where: { meetingDateId },
+            include: { updatedByUser: { select: { username: true } } },
+          },
+        },
       },
     },
   });
@@ -137,6 +149,8 @@ export async function getMeetingDetailForAdmin(meetingDateId: string) {
         firstName: s.firstName,
         lastName: s.lastName,
         present: s.attendances[0]?.present ?? null,
+        updatedAt: s.attendances[0]?.updatedAt ?? null,
+        updatedByUsername: s.attendances[0]?.updatedByUser?.username ?? null,
       })),
     })),
   };

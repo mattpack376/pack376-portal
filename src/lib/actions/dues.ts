@@ -48,7 +48,7 @@ export async function addDuesPaymentAction(formData: FormData) {
   if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
 
   await prisma.duesPayment.create({
-    data: { scoutId, amountCents, paidOn, note },
+    data: { scoutId, amountCents, paidOn, note, recordedByUserId: session.userId },
   });
 
   revalidatePath(`/portal/admin/dues/${scoutId}`);

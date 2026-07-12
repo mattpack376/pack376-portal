@@ -35,17 +35,20 @@ enum MeetingStatus {
 }
 
 model User {
-  id               String    @id @default(cuid())
-  username         String    @unique
-  passwordHash     String
-  role             Role
-  denId            String?
-  den              Den?      @relation(fields: [denId], references: [id])
-  displayName      String
-  failedLoginCount Int       @default(0)
-  lockedUntil      DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id                 String              @id @default(cuid())
+  username           String              @unique
+  passwordHash       String
+  role               Role
+  denId              String?
+  den                Den?                @relation(fields: [denId], references: [id])
+  displayName        String
+  failedLoginCount   Int                 @default(0)
+  lockedUntil        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  advancementUpdates AdvancementRecord[]
+  attendanceUpdates  Attendance[]
+  duesPaymentsLogged DuesPayment[]
 }
 
 model Den {
@@ -86,14 +89,16 @@ model Adventure {
 }
 
 model AdvancementRecord {
-  id            String    @id @default(cuid())
-  scoutId       String
-  scout         Scout     @relation(fields: [scoutId], references: [id], onDelete: Cascade)
-  adventureId   String
-  adventure     Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
-  completed     Boolean   @default(false)
-  completedDate DateTime?
-  updatedAt     DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  scoutId         String
+  scout           Scout     @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  adventureId     String
+  adventure       Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+  completed       Boolean   @default(false)
+  completedDate   DateTime?
+  updatedAt       DateTime  @updatedAt
+  updatedByUserId String?
+  updatedByUser   User?     @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([scoutId, adventureId])
 }
@@ -106,13 +111,15 @@ model MeetingDate {
 }
 
 model Attendance {
-  id            String      @id @default(cuid())
-  scoutId       String
-  scout         Scout       @relation(fields: [scoutId], references: [id], onDelete: Cascade)
-  meetingDateId String
-  meetingDate   MeetingDate @relation(fields: [meetingDateId], references: [id], onDelete: Cascade)
-  present       Boolean
-  updatedAt     DateTime    @updatedAt
+  id              String      @id @default(cuid())
+  scoutId         String
+  scout           Scout       @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  meetingDateId   String
+  meetingDate     MeetingDate @relation(fields: [meetingDateId], references: [id], onDelete: Cascade)
+  present         Boolean
+  updatedAt       DateTime    @updatedAt
+  updatedByUserId String?
+  updatedByUser   User?       @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([scoutId, meetingDateId])
 }
@@ -125,13 +132,15 @@ model DuesSettings {
 }
 
 model DuesPayment {
-  id          String   @id @default(cuid())
-  scoutId     String
-  scout       Scout    @relation(fields: [scoutId], references: [id], onDelete: Cascade)
-  amountCents Int
-  paidOn      DateTime @db.Date
-  note        String?
-  createdAt   DateTime @default(now())
+  id               String   @id @default(cuid())
+  scoutId          String
+  scout            Scout    @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  amountCents      Int
+  paidOn           DateTime @db.Date
+  note             String?
+  createdAt        DateTime @default(now())
+  recordedByUserId String?
+  recordedByUser   User?    @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
 }
 
 model PhotoAlbum {

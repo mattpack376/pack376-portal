@@ -945,6 +945,42 @@ section { padding: 64px 0; }
 .att-btn.att-absent.active { background: var(--carnival-red); border-color: var(--carnival-red); color: var(--white); }
 .attendance-unmarked { font-size: 12px; color: var(--ink-soft); font-style: italic; }
 
+/* ---------- Audit hover tooltip ---------- */
+/* Attach to any inline/inline-block element with a `data-audit` attribute holding
+   the tooltip text (see formatAuditTooltip in src/lib/auditTooltip.ts). Pure CSS so
+   it works the same whether the element is server- or client-rendered. */
+.audit-hover { position: relative; }
+.audit-hover[data-audit]:hover::after {
+  content: attr(data-audit);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  background: var(--ink);
+  color: var(--white);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-pop);
+  z-index: 30;
+  pointer-events: none;
+}
+.audit-hover[data-audit]:hover::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 2px;
+  border: 5px solid transparent;
+  border-top-color: var(--ink);
+  z-index: 30;
+  pointer-events: none;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .hero-grid { grid-template-columns: 1fr; }

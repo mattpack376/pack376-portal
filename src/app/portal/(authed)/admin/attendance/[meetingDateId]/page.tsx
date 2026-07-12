@@ -73,6 +73,8 @@ export default async function AdminMeetingAttendancePage({
                       firstName={scout.firstName}
                       lastName={scout.lastName}
                       initialPresent={scout.present}
+                      updatedAt={scout.updatedAt}
+                      updatedByUsername={scout.updatedByUsername}
                     />
                   ))}
                 </div>

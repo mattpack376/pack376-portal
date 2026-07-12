@@ -29,8 +29,8 @@ export async function setAttendanceAction(scoutId: string, meetingDateId: string
 
   await prisma.attendance.upsert({
     where: { scoutId_meetingDateId: { scoutId, meetingDateId } },
-    update: { present },
-    create: { scoutId, meetingDateId, present },
+    update: { present, updatedByUserId: session.userId },
+    create: { scoutId, meetingDateId, present, updatedByUserId: session.userId },
   });
 
   revalidatePath("/portal/den/attendance");
@@ -58,8 +58,8 @@ export async function markDenPresentAction(denId: string, meetingDateId: string)
     scouts.map((scout) =>
       prisma.attendance.upsert({
         where: { scoutId_meetingDateId: { scoutId: scout.id, meetingDateId } },
-        update: { present: true },
-        create: { scoutId: scout.id, meetingDateId, present: true },
+        update: { present: true, updatedByUserId: session.userId },
+        create: { scoutId: scout.id, meetingDateId, present: true, updatedByUserId: session.userId },
       })
     )
   );

@@ -20,8 +20,14 @@ export async function toggleAdventureAction(scoutId: string, adventureId: string
 
   await prisma.advancementRecord.upsert({
     where: { scoutId_adventureId: { scoutId, adventureId } },
-    update: { completed, completedDate: completed ? new Date() : null },
-    create: { scoutId, adventureId, completed, completedDate: completed ? new Date() : null },
+    update: { completed, completedDate: completed ? new Date() : null, updatedByUserId: session.userId },
+    create: {
+      scoutId,
+      adventureId,
+      completed,
+      completedDate: completed ? new Date() : null,
+      updatedByUserId: session.userId,
+    },
   });
 
   revalidatePath("/portal/den");

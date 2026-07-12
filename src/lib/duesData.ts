@@ -55,7 +55,10 @@ export async function getScoutDuesDetail(scoutId: string) {
     where: { id: scoutId },
     include: {
       den: true,
-      duesPayments: { orderBy: { paidOn: "desc" } },
+      duesPayments: {
+        orderBy: { paidOn: "desc" },
+        include: { recordedByUser: { select: { username: true } } },
+      },
     },
   });
   if (!scout) return null;
@@ -70,6 +73,13 @@ export async function getScoutDuesDetail(scoutId: string) {
     amountCents,
     paidCents,
     remainingCents: amountCents === null ? null : amountCents - paidCents,
-    payments: scout.duesPayments,
+    payments: scout.duesPayments.map((p) => ({
+      id: p.id,
+      amountCents: p.amountCents,
+      paidOn: p.paidOn,
+      note: p.note,
+      createdAt: p.createdAt,
+      recordedByUsername: p.recordedByUser?.username ?? null,
+    })),
   };
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getScoutDuesDetail, formatCents } from "@/lib/duesData";
+import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { denDisplayName } from "@/lib/rankConfig";
 import { addDuesPaymentAction, deleteDuesPaymentAction } from "@/lib/actions/dues";
 
@@ -75,7 +76,12 @@ export default async function AdminScoutDuesPage({
           <tbody>
             {payments.map((payment) => (
               <tr key={payment.id}>
-                <td>{payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}</td>
+                <td
+                  className="audit-hover"
+                  data-audit={formatAuditTooltip("Recorded", payment.createdAt, payment.recordedByUsername)}
+                >
+                  {payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}
+                </td>
                 <td>{formatCents(payment.amountCents)}</td>
                 <td>{payment.note || "—"}</td>
                 <td className="actions">

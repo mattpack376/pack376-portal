@@ -57,6 +57,8 @@ export default async function DenMeetingAttendancePage({
                 firstName={scout.firstName}
                 lastName={scout.lastName}
                 initialPresent={scout.present}
+                updatedAt={scout.updatedAt}
+                updatedByUsername={scout.updatedByUsername}
               />
             ))}
           </div>

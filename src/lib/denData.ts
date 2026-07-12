@@ -11,6 +11,8 @@ export type ChecklistAdventure = {
   note: string | null;
   completed: boolean;
   completedDate: Date | null;
+  updatedAt: Date | null;
+  updatedByUsername: string | null;
 };
 
 export type ChecklistScout = {
@@ -30,7 +32,7 @@ export async function getDenChecklist(denId: string) {
     include: {
       scouts: {
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-        include: { records: true },
+        include: { records: { include: { updatedByUser: { select: { username: true } } } } },
       },
     },
   });
@@ -53,6 +55,8 @@ export async function getDenChecklist(denId: string) {
         note: adv.note,
         completed: rec?.completed ?? false,
         completedDate: rec?.completedDate ?? null,
+        updatedAt: rec?.updatedAt ?? null,
+        updatedByUsername: rec?.updatedByUser?.username ?? null,
       };
     });
     const required = list.filter((a) => a.type === "REQUIRED");

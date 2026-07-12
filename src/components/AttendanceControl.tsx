@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { setAttendanceAction } from "@/lib/actions/attendance";
+import { formatAuditTooltip } from "@/lib/auditTooltip";
 
 export default function AttendanceControl({
   scoutId,
@@ -9,6 +10,8 @@ export default function AttendanceControl({
   firstName,
   lastName,
   initialPresent,
+  updatedAt,
+  updatedByUsername,
   disabled,
 }: {
   scoutId: string;
@@ -16,6 +19,8 @@ export default function AttendanceControl({
   firstName: string;
   lastName: string;
   initialPresent: boolean | null;
+  updatedAt?: Date | null;
+  updatedByUsername?: string | null;
   disabled?: boolean;
 }) {
   const [present, setPresent] = useState<boolean | null>(initialPresent);
@@ -31,8 +36,16 @@ export default function AttendanceControl({
     });
   }
 
+  const tooltip = updatedAt
+    ? formatAuditTooltip(
+        present === true ? "Marked present" : present === false ? "Marked absent" : "Marked",
+        updatedAt,
+        updatedByUsername ?? null
+      )
+    : null;
+
   return (
-    <div className="attendance-row">
+    <div className="attendance-row audit-hover" data-audit={tooltip ?? undefined}>
       <span className="attendance-name">
         {firstName} {lastName}
       </span>
