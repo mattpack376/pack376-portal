@@ -70,6 +70,7 @@ model Scout {
   createdAt DateTime            @default(now())
   records   AdvancementRecord[]
   attendances Attendance[]
+  duesPayments DuesPayment[]
 }
 
 model Adventure {
@@ -114,6 +115,23 @@ model Attendance {
   updatedAt     DateTime    @updatedAt
 
   @@unique([scoutId, meetingDateId])
+}
+
+model DuesSettings {
+  id           String   @id @default(cuid())
+  scoutingYear String   @unique
+  amountCents  Int
+  updatedAt    DateTime @updatedAt
+}
+
+model DuesPayment {
+  id          String   @id @default(cuid())
+  scoutId     String
+  scout       Scout    @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  amountCents Int
+  paidOn      DateTime @db.Date
+  note        String?
+  createdAt   DateTime @default(now())
 }
 
 model PhotoAlbum {
