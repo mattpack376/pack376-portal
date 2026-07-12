@@ -53,12 +53,12 @@ export async function requireAttendanceSession(): Promise<SessionPayload> {
 
 /**
  * For Server Components / pages: allows every role that can touch photo
- * albums — full admin, junior admin, and Photographer. Attendance Only and
+ * albums — full admin and Photographer. Junior Admin, Attendance Only, and
  * den leaders don't get album access.
  */
 export async function requireAlbumSession(): Promise<SessionPayload> {
   const session = await requireSession();
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "PHOTOGRAPHER") {
+  if (session.role !== "ADMIN" && session.role !== "PHOTOGRAPHER") {
     redirect(homeForRole(session.role));
   }
   return session;
@@ -83,9 +83,9 @@ export function assertAttendanceAccess(session: SessionPayload) {
   }
 }
 
-/** Full admin, junior admin, or Photographer — album create/edit/hide actions. Delete stays admin-only. */
+/** Full admin or Photographer — album create/edit/hide actions. Delete stays admin-only. */
 export function assertAlbumEditAccess(session: SessionPayload) {
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "PHOTOGRAPHER") {
+  if (session.role !== "ADMIN" && session.role !== "PHOTOGRAPHER") {
     throw new Error("Not authorized: album edit access required.");
   }
 }

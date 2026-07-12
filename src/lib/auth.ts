@@ -61,7 +61,14 @@ export async function createSessionCookie(payload: SessionPayload) {
 
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE);
+  // Must match the domain/path the cookie was set with (createSessionCookie
+  // above) — a bare delete(name) omits domain, so the browser treats it as a
+  // different cookie and the original session cookie never actually clears.
+  cookieStore.delete({
+    name: SESSION_COOKIE,
+    path: "/",
+    domain: process.env.NODE_ENV === "production" ? ".pack376nyc.org" : undefined,
+  });
 }
 
 export async function getSession(): Promise<SessionPayload | null> {

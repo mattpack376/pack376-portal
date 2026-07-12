@@ -26,7 +26,6 @@ export default function PortalNav({ role }: { role: Role }) {
         return [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
-          { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/roster", label: "Roster" },
         ];
       case "ATTENDANCE_ADMIN":

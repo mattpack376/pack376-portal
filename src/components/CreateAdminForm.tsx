@@ -66,7 +66,7 @@ export default function CreateAdminForm() {
           onChange={(e) => setRole(e.target.value as AssignableRole)}
         >
           <option value="ADMIN">Admin — Full Privileges</option>
-          <option value="JUNIOR_ADMIN">Junior Admin — attendance, albums (no delete), advancement, all dens</option>
+          <option value="JUNIOR_ADMIN">Junior Admin — attendance, advancement, all dens (no albums)</option>
           <option value="ATTENDANCE_ADMIN">Attendance Only — attendance for all dens</option>
           <option value="PHOTOGRAPHER">Photographer — add/edit albums only (no delete)</option>
           <option value="DEN">Den Leader — advancement & attendance for their assigned den(s)</option>
