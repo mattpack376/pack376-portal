@@ -84,6 +84,17 @@ model Scout {
   records      AdvancementRecord[]
   attendances  Attendance[]
   duesPayments DuesPayment[]
+  parents      Parent[]
+}
+
+model Parent {
+  id        String   @id @default(cuid())
+  scoutId   String
+  scout     Scout    @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  name      String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
 }
 
 model Adventure {

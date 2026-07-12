@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
 import { requireAdminSession } from "@/lib/authorize";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
-import { updateUserDensAction, updateUserEmailAction } from "@/lib/actions/users";
+import { updateUserDensAction, updateUserEmailAction, updateUserDisplayNameAction } from "@/lib/actions/users";
 import { DEN_ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/roleLabels";
 import type { Rank } from "@/generated/prisma/enums";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
@@ -70,6 +70,18 @@ export default async function ManageUserPage({
           <ManageUserRoleForm userId={user.id} role={user.role as AssignableRole} />
         </div>
       )}
+
+      <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
+        <h3 style={{ marginTop: 0 }}>Display Name</h3>
+        <form action={updateUserDisplayNameAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+          <input type="hidden" name="userId" value={user.id} />
+          <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
+            <label htmlFor="displayName">Display Name</label>
+            <input id="displayName" name="displayName" type="text" defaultValue={user.displayName} required />
+          </div>
+          <button type="submit" className="btn btn-primary">Save</button>
+        </form>
+      </div>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
         <h3 style={{ marginTop: 0 }}>Contact Email</h3>

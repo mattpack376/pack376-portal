@@ -65,6 +65,20 @@ export async function requireAlbumSession(): Promise<SessionPayload> {
 }
 
 /**
+ * For Server Components / pages: parent contact info — full admin and junior
+ * admin see every den, a den leader sees only their own assigned den(s)
+ * (enforced by the caller via session.denIds). Attendance Only and
+ * Photographer don't need this contact info.
+ */
+export async function requireParentContactsSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "DEN") {
+    redirect(homeForRole(session.role));
+  }
+  return session;
+}
+
+/**
  * For Server Actions (mutations): throws instead of redirecting, since a
  * legitimate user should never hit this via the normal UI — this only fires
  * on a tampered request. Never trust a client-submitted denId; always check

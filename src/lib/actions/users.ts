@@ -103,6 +103,23 @@ export async function updateUserEmailAction(formData: FormData) {
   revalidatePath(`/portal/admin/users/${userId}`);
 }
 
+export async function updateUserDisplayNameAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const userId = String(formData.get("userId") || "");
+  const displayName = String(formData.get("displayName") || "").trim();
+  if (!displayName) throw new Error("Display name is required.");
+
+  await prisma.user.update({ where: { id: userId }, data: { displayName } });
+
+  revalidatePath(`/portal/admin/users/${userId}`);
+  revalidatePath("/portal/admin/users");
+  revalidatePath("/portal/admin");
+  revalidatePath("/portal/roster");
+}
+
 export type UpdateUserRoleState = { error?: string };
 
 /**

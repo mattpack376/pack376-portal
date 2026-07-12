@@ -1,10 +1,12 @@
+import Link from "next/link";
 import { requireSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
 
 export default async function RosterPage() {
-  await requireSession();
+  const session = await requireSession();
+  const canSeeParentContacts = session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "DEN";
 
   const dens = await prisma.den.findMany({
     include: {
@@ -25,6 +27,11 @@ export default async function RosterPage() {
         <div className="eyebrow">Roster</div>
         <h2>Pack Roster</h2>
         <p>Every den, its leader(s), and its scouts — a clean master list, no advancement or attendance detail.</p>
+        {canSeeParentContacts && (
+          <p>
+            <Link href="/portal/roster/parents">→ Cub&apos;s Parents&apos; Contact Information</Link>
+          </p>
+        )}
       </div>
 
       {dens.length === 0 && <div className="info-card">No dens yet.</div>}
@@ -39,9 +46,12 @@ export default async function RosterPage() {
                 <div className="info-card" key={den.id}>
                   <h3 style={{ marginTop: 0, fontSize: 16 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
                   <p style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 12 }}>
-                    {den.denAssignments.length > 0
-                      ? den.denAssignments.map((a) => a.user.displayName).join(", ")
-                      : "No leader assigned yet"}
+                    Den Leader(s):{" "}
+                    {den.denAssignments.length > 0 ? (
+                      <strong>{den.denAssignments.map((a) => a.user.displayName).join(", ")}</strong>
+                    ) : (
+                      "No leader assigned yet"
+                    )}
                   </p>
                   {den.scouts.length === 0 ? (
                     <p style={{ marginBottom: 0, fontSize: 14 }}>No scouts yet.</p>
