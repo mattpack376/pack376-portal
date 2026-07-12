@@ -20,23 +20,32 @@ export default function PortalNav({ role }: { role: Role }) {
           { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/admin/dues", label: "Dues" },
           { href: "/portal/admin/users", label: "Users" },
+          { href: "/portal/roster", label: "Roster" },
         ];
       case "JUNIOR_ADMIN":
         return [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/admin/albums", label: "Photo Albums" },
+          { href: "/portal/roster", label: "Roster" },
         ];
       case "ATTENDANCE_ADMIN":
-        return [{ href: "/portal/admin/attendance", label: "Attendance" }];
+        return [
+          { href: "/portal/admin/attendance", label: "Attendance" },
+          { href: "/portal/roster", label: "Roster" },
+        ];
       case "PHOTOGRAPHER":
-        return [{ href: "/portal/admin/albums", label: "Photo Albums" }];
+        return [
+          { href: "/portal/admin/albums", label: "Photo Albums" },
+          { href: "/portal/roster", label: "Roster" },
+        ];
       default:
         // Preserves the currently selected den (for leaders assigned to more
         // than one) when switching between "My Den" and "Attendance" tabs.
         return [
           { href: withDenId("/portal/den"), label: "My Den" },
           { href: withDenId("/portal/den/attendance"), label: "Attendance" },
+          { href: "/portal/roster", label: "Roster" },
         ];
     }
   })();

@@ -39,6 +39,7 @@ model User {
   username           String              @unique
   passwordHash       String
   role               Role
+  email              String?
   displayName        String
   failedLoginCount   Int                 @default(0)
   lockedUntil        DateTime?

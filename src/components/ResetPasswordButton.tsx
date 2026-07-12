@@ -7,18 +7,18 @@ import type { CreatedCredential } from "@/lib/actions/dens";
 
 export default function ResetPasswordButton({ userId }: { userId: string }) {
   const [isPending, startTransition] = useTransition();
-  const [credential, setCredential] = useState<CreatedCredential | null>(null);
+  const [result, setResult] = useState<{ credential?: CreatedCredential; emailedTo?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function handleClick() {
     if (!window.confirm("Reset this account's password? The old password will stop working immediately.")) return;
     startTransition(async () => {
-      const result = await resetPasswordAction(userId);
-      if (result.ok) {
-        setCredential(result.credential);
+      const outcome = await resetPasswordAction(userId);
+      if (outcome.ok) {
+        setResult(outcome.emailedTo ? { emailedTo: outcome.emailedTo } : { credential: outcome.credential });
         setError(null);
       } else {
-        setError(result.error || "Something went wrong.");
+        setError(outcome.error || "Something went wrong.");
       }
     });
   }
@@ -35,7 +35,7 @@ export default function ResetPasswordButton({ userId }: { userId: string }) {
         {isPending ? "Resetting…" : "Reset Password"}
       </button>
       {error && <p className="form-error" style={{ marginTop: 8 }}>{error}</p>}
-      {credential && <CredentialReveal credential={credential} />}
+      {result && <CredentialReveal credential={result.credential} emailedTo={result.emailedTo} />}
     </div>
   );
 }

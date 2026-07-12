@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
 import { requireAdminSession } from "@/lib/authorize";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
-import { updateUserDensAction } from "@/lib/actions/users";
+import { updateUserDensAction, updateUserEmailAction } from "@/lib/actions/users";
 import type { AssignableRole } from "@/lib/roleLabels";
 import type { Rank } from "@/generated/prisma/enums";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
@@ -69,6 +69,19 @@ export default async function ManageUserPage({
           <ManageUserRoleForm userId={user.id} role={user.role as AssignableRole} />
         </div>
       )}
+
+      <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
+        <h3 style={{ marginTop: 0 }}>Contact Email</h3>
+        <p>When set, password resets and new-account credentials are emailed here instead of shown on screen.</p>
+        <form action={updateUserEmailAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+          <input type="hidden" name="userId" value={user.id} />
+          <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
+            <label htmlFor="email">Email</label>
+            <input id="email" name="email" type="email" defaultValue={user.email ?? ""} />
+          </div>
+          <button type="submit" className="btn btn-primary">Save</button>
+        </form>
+      </div>
 
       {user.role === "DEN" && (
         <div className="info-card" style={{ marginBottom: 24 }}>

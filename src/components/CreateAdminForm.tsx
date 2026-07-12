@@ -9,23 +9,25 @@ import type { CreatedCredential } from "@/lib/actions/dens";
 export default function CreateAdminForm() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState<AssignableRole>("ADMIN");
   const [isPending, startTransition] = useTransition();
-  const [credential, setCredential] = useState<CreatedCredential | null>(null);
+  const [result, setResult] = useState<{ credential?: CreatedCredential; emailedTo?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const result = await createAdminAction(username, displayName, role);
-      if (result.ok) {
-        setCredential(result.credential);
+      const outcome = await createAdminAction(username, displayName, role, email);
+      if (outcome.ok) {
+        setResult(outcome.emailedTo ? { emailedTo: outcome.emailedTo } : { credential: outcome.credential });
         setError(null);
         setUsername("");
         setDisplayName("");
+        setEmail("");
         setRole("ADMIN");
       } else {
-        setError(result.error || "Something went wrong.");
+        setError(outcome.error || "Something went wrong.");
       }
     });
   }
@@ -47,6 +49,16 @@ export default function CreateAdminForm() {
         />
       </div>
       <div className="form-field">
+        <label htmlFor="new-admin-email">Email (optional)</label>
+        <input
+          id="new-admin-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Emails the login instead of showing it on screen"
+        />
+      </div>
+      <div className="form-field">
         <label htmlFor="new-admin-role">Access Level</label>
         <select
           id="new-admin-role"
@@ -64,7 +76,7 @@ export default function CreateAdminForm() {
       <button type="submit" className="btn btn-primary" disabled={isPending}>
         {isPending ? "Creating…" : "Create Account"}
       </button>
-      {credential && <CredentialReveal credential={credential} />}
+      {result && <CredentialReveal credential={result.credential} emailedTo={result.emailedTo} />}
     </form>
   );
 }

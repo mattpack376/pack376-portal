@@ -1,1 +1,3 @@
-export const RESET_CONFIRMATION_PHRASE = "RESET PACK 376";
+export function resetConfirmationPhrase(scoutingYear: string) {
+  return `RESET ${scoutingYear}`;
+}

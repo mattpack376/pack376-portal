@@ -8,9 +8,15 @@ import { assertAdmin } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
 import { ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/roleLabels";
+import { sendCredentialEmail } from "@/lib/email";
 import type { CreatedCredential } from "@/lib/actions/dens";
 
-export async function createAdminAction(username: string, displayName: string, role: AssignableRole = "ADMIN") {
+export async function createAdminAction(
+  username: string,
+  displayName: string,
+  role: AssignableRole = "ADMIN",
+  email?: string
+) {
   const session = await getSession();
   if (!session) return { ok: false as const, error: "Not authorized." };
   try {
@@ -25,6 +31,7 @@ export async function createAdminAction(username: string, displayName: string, r
 
   const clean = username.trim().toLowerCase();
   const name = displayName.trim();
+  const cleanEmail = email?.trim() || null;
   if (!clean || !name) return { ok: false as const, error: "Username and display name are required." };
 
   const existing = await prisma.user.findUnique({ where: { username: clean } });
@@ -37,10 +44,16 @@ export async function createAdminAction(username: string, displayName: string, r
       passwordHash: await hashPassword(password),
       role,
       displayName: name,
+      email: cleanEmail,
     },
   });
 
   revalidatePath("/portal/admin/users");
+
+  if (cleanEmail) {
+    const { sent } = await sendCredentialEmail(cleanEmail, { username: clean, password, isNewAccount: true });
+    if (sent) return { ok: true as const, emailedTo: cleanEmail };
+  }
   const credential: CreatedCredential = { username: clean, password };
   return { ok: true as const, credential };
 }
@@ -64,8 +77,30 @@ export async function resetPasswordAction(userId: string) {
   });
 
   revalidatePath("/portal/admin/users");
+
+  if (user.email) {
+    const { sent } = await sendCredentialEmail(user.email, {
+      username: user.username,
+      password,
+      isNewAccount: false,
+    });
+    if (sent) return { ok: true as const, emailedTo: user.email };
+  }
   const credential: CreatedCredential = { username: user.username, password };
   return { ok: true as const, credential };
+}
+
+export async function updateUserEmailAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const userId = String(formData.get("userId") || "");
+  const email = String(formData.get("email") || "").trim();
+
+  await prisma.user.update({ where: { id: userId }, data: { email: email || null } });
+
+  revalidatePath(`/portal/admin/users/${userId}`);
 }
 
 export type UpdateUserRoleState = { error?: string };
