@@ -29,7 +29,9 @@ export default async function RosterPage() {
         <p>Every den, its leader(s), and its scouts — a clean master list, no advancement or attendance detail.</p>
         {canSeeParentContacts && (
           <p>
-            <Link href="/portal/roster/parents">→ Cub&apos;s Parents&apos; Contact Information</Link>
+            <Link href="/portal/roster/parents" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
+              → Cub&apos;s Parents&apos; Contact Information
+            </Link>
           </p>
         )}
       </div>
