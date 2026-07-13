@@ -32,7 +32,12 @@ export default function EmailAllButton({ emails, label }: { emails: (string | nu
       <a href={mailto} className="btn btn-primary btn-small">
         {label} ({unique.length})
       </a>
-      <button type="button" onClick={copyAddresses} className="btn btn-outline btn-small">
+      <button
+        type="button"
+        onClick={copyAddresses}
+        className="btn btn-outline btn-small"
+        style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+      >
         {copied ? "Copied!" : "Copy Addresses"}
       </button>
     </div>

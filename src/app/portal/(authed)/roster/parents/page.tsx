@@ -69,12 +69,20 @@ export default async function ParentContactsPage({
         <p style={{ fontSize: 15, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           {printView && <PrintButton />}
           {isMasterAdmin && !printView && (
-            <Link href="/portal/roster/parents?view=print" className="btn btn-outline btn-small no-print">
+            <Link
+              href="/portal/roster/parents?view=print"
+              className="btn btn-outline btn-small no-print"
+              style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+            >
               Printable View
             </Link>
           )}
           {(session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") && !printView && (
-            <a href="/api/parents/export" className="btn btn-outline btn-small no-print">
+            <a
+              href="/api/parents/export"
+              className="btn btn-outline btn-small no-print"
+              style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+            >
               Export All Parent Contacts (CSV)
             </a>
           )}
@@ -103,7 +111,11 @@ export default async function ParentContactsPage({
                   <h3 style={{ marginTop: 0, fontSize: 19 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
                   {!printView && (
                     <div className="no-print" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <a href={`/api/parents/export/den/${den.id}`} className="btn btn-outline btn-small">
+                      <a
+                        href={`/api/parents/export/den/${den.id}`}
+                        className="btn btn-outline btn-small"
+                        style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                      >
                         Export CSV
                       </a>
                       <EmailAllButton
