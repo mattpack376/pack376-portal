@@ -19,7 +19,7 @@ export default function DenLeadersCornerPage() {
         </div>
         <h1>Den Leaders&apos; Corner</h1>
         <p>
-          Say hello to the volunteers who run the pack — from our executive leadership team
+          Say hello to the volunteers who run the pack — from our key leadership team
           down to each den.
         </p>
       </section>
@@ -43,7 +43,7 @@ export default function DenLeadersCornerPage() {
 
           <div className="section-head center">
             <div className="eyebrow">Pack Leadership</div>
-            <h2>Executive Leadership</h2>
+            <h2>Key Leadership</h2>
           </div>
           <div className="exec-grid" style={{ marginBottom: 48 }}>
             <div className="corner-card">

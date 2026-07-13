@@ -1007,3 +1007,19 @@ section { padding: 64px 0; }
   .event-ticket--camping { grid-column: span 1; }
   .exec-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- Print ---------- */
+@media print {
+  .portal-header,
+  .no-print {
+    display: none !important;
+  }
+  .portal-shell { min-height: 0; background: var(--white); }
+  .portal-main { padding: 0; }
+  .portal-container { max-width: none; }
+  .info-card {
+    box-shadow: none;
+    border: 1px solid #999;
+    break-inside: avoid;
+  }
+}

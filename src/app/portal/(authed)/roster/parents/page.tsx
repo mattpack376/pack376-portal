@@ -5,6 +5,7 @@ import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
 import { addParentAction, updateParentAction, removeParentAction } from "@/lib/actions/parents";
 import EmailAllButton from "@/components/EmailAllButton";
+import PrintButton from "@/components/PrintButton";
 
 const inputStyle = {
   padding: "8px 12px",
@@ -17,9 +18,16 @@ const inputStyle = {
 
 const buttonStyle = { fontSize: 15 };
 
-export default async function ParentContactsPage() {
+export default async function ParentContactsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const session = await requireParentContactsSession();
-  const canEdit = session.role === "ADMIN";
+  const { view } = await searchParams;
+  const isMasterAdmin = session.role === "ADMIN";
+  const printView = isMasterAdmin && view === "print";
+  const canEdit = isMasterAdmin && !printView;
 
   if (session.role === "DEN" && session.denIds.length === 0) {
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
@@ -43,18 +51,34 @@ export default async function ParentContactsPage() {
   return (
     <>
       <div className="section-head">
-        <div className="eyebrow">
-          <Link href="/portal/roster">← Roster</Link>
+        <div className="eyebrow no-print">
+          {printView ? (
+            <Link href="/portal/roster/parents">← Exit Printable View</Link>
+          ) : (
+            <Link href="/portal/roster">← Roster</Link>
+          )}
         </div>
         <h2>Cub&apos;s Parents&apos; Contact Information</h2>
-        <p style={{ fontSize: 17 }}>Parent/guardian name, email, and phone for each scout.</p>
-        {(session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") && (
+        {printView ? (
           <p style={{ fontSize: 15 }}>
-            <a href="/api/parents/export" className="btn btn-outline btn-small">
+            Printable roster · generated {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+          </p>
+        ) : (
+          <p style={{ fontSize: 17 }}>Parent/guardian name, email, and phone for each scout.</p>
+        )}
+        <p style={{ fontSize: 15, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          {printView && <PrintButton />}
+          {isMasterAdmin && !printView && (
+            <Link href="/portal/roster/parents?view=print" className="btn btn-outline btn-small no-print">
+              Printable View
+            </Link>
+          )}
+          {(session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") && !printView && (
+            <a href="/api/parents/export" className="btn btn-outline btn-small no-print">
               Export All Parent Contacts (CSV)
             </a>
-          </p>
-        )}
+          )}
+        </p>
       </div>
 
       {dens.length === 0 && <div className="info-card" style={{ fontSize: 16 }}>No dens yet.</div>}
@@ -77,15 +101,17 @@ export default async function ParentContactsPage() {
                   }}
                 >
                   <h3 style={{ marginTop: 0, fontSize: 19 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <a href={`/api/parents/export/den/${den.id}`} className="btn btn-outline btn-small">
-                      Export CSV
-                    </a>
-                    <EmailAllButton
-                      label="Email This Den's Parents"
-                      emails={den.scouts.flatMap((scout) => scout.parents.map((parent) => parent.email))}
-                    />
-                  </div>
+                  {!printView && (
+                    <div className="no-print" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <a href={`/api/parents/export/den/${den.id}`} className="btn btn-outline btn-small">
+                        Export CSV
+                      </a>
+                      <EmailAllButton
+                        label="Email This Den's Parents"
+                        emails={den.scouts.flatMap((scout) => scout.parents.map((parent) => parent.email))}
+                      />
+                    </div>
+                  )}
                 </div>
                 {den.scouts.length === 0 ? (
                   <p style={{ marginBottom: 0, fontSize: 16 }}>No scouts yet.</p>
