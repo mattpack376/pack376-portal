@@ -1009,6 +1009,30 @@ section { padding: 64px 0; }
 }
 
 /* ---------- Print ---------- */
+.print-roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 22px;
+}
+.print-roster-table th,
+.print-roster-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cream-dark);
+  font-size: 13.5px;
+}
+.print-roster-table th {
+  font-family: var(--font-display);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  background: var(--cream);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.print-roster-table tr:last-child td { border-bottom: none; }
+
 @media print {
   .portal-header,
   .no-print {
@@ -1022,4 +1046,5 @@ section { padding: 64px 0; }
     border: 1px solid #999;
     break-inside: avoid;
   }
+  .print-roster-table { break-inside: avoid; }
 }

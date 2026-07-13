@@ -91,7 +91,56 @@ export default async function ParentContactsPage({
 
       {dens.length === 0 && <div className="info-card" style={{ fontSize: 16 }}>No dens yet.</div>}
 
-      {years.map((year) => (
+      {printView ? (
+        years.map((year) => {
+          const yearDens = dens.filter((d) => d.scoutingYear === year && d.scouts.length > 0);
+          if (yearDens.length === 0) return null;
+          return (
+            <div key={year} style={{ marginBottom: 22 }}>
+              <h3 style={{ fontSize: 15, marginBottom: 8, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                {year}
+              </h3>
+              {yearDens.map((den) => (
+                <div key={den.id} style={{ marginBottom: 18 }}>
+                  <h4 style={{ fontSize: 16, marginBottom: 6, color: "var(--scout-blue)" }}>
+                    {denDisplayName(den.rank, den.scoutingYear, den.label)}
+                  </h4>
+                  <table className="print-roster-table">
+                    <thead>
+                      <tr>
+                        <th>Scout</th>
+                        <th>Parent / Guardian</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {den.scouts.flatMap((scout) =>
+                        scout.parents.length === 0 ? (
+                          <tr key={scout.id}>
+                            <td>{scout.firstName} {scout.lastName}</td>
+                            <td colSpan={3} style={{ color: "var(--ink-soft)" }}>No contacts on file</td>
+                          </tr>
+                        ) : (
+                          scout.parents.map((parent, i) => (
+                            <tr key={parent.id}>
+                              <td>{i === 0 ? `${scout.firstName} ${scout.lastName}` : ""}</td>
+                              <td>{parent.name}</td>
+                              <td>{parent.email || "—"}</td>
+                              <td>{parent.phone || "—"}</td>
+                            </tr>
+                          ))
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          );
+        })
+      ) : (
+        years.map((year) => (
         <div key={year} style={{ marginBottom: 32 }}>
           <h3 style={{ fontSize: 19, marginBottom: 14 }}>{year}</h3>
           {dens
@@ -222,7 +271,8 @@ export default async function ParentContactsPage({
               </div>
             ))}
         </div>
-      ))}
+        ))
+      )}
     </>
   );
 }
