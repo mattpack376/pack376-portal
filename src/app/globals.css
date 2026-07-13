@@ -1017,13 +1017,13 @@ section { padding: 64px 0; }
 .print-roster-table th,
 .print-roster-table td {
   text-align: left;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--cream-dark);
-  font-size: 13.5px;
+  font-size: 17px;
 }
 .print-roster-table th {
   font-family: var(--font-display);
-  font-size: 11px;
+  font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ink-soft);

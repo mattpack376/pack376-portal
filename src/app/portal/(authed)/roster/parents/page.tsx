@@ -60,7 +60,7 @@ export default async function ParentContactsPage({
         </div>
         <h2>Cub&apos;s Parents&apos; Contact Information</h2>
         {printView ? (
-          <p style={{ fontSize: 15 }}>
+          <p style={{ fontSize: 17 }}>
             Printable roster · generated {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
           </p>
         ) : (
@@ -97,12 +97,12 @@ export default async function ParentContactsPage({
           if (yearDens.length === 0) return null;
           return (
             <div key={year} style={{ marginBottom: 22 }}>
-              <h3 style={{ fontSize: 15, marginBottom: 8, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              <h3 style={{ fontSize: 17, marginBottom: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                 {year}
               </h3>
               {yearDens.map((den) => (
                 <div key={den.id} style={{ marginBottom: 18 }}>
-                  <h4 style={{ fontSize: 16, marginBottom: 6, color: "var(--scout-blue)" }}>
+                  <h4 style={{ fontSize: 19, marginBottom: 8, color: "var(--scout-blue)" }}>
                     {denDisplayName(den.rank, den.scoutingYear, den.label)}
                   </h4>
                   <table className="print-roster-table">
