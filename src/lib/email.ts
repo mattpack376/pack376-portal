@@ -11,24 +11,26 @@ function getClient() {
 }
 
 /**
- * Emails a login's credentials to its account holder. Returns { sent: false }
- * without throwing whenever RESEND_API_KEY isn't configured (local dev, or
- * before the pack sets one up) or the send fails, so callers can fall back to
- * showing the credential on screen like before.
+ * Emails a one-time link that lets the account holder set their own password
+ * — never a plaintext password itself. Returns { sent: false } without
+ * throwing whenever RESEND_API_KEY isn't configured (local dev, or before the
+ * pack sets one up) or the send fails, so callers can fall back to showing
+ * the link on screen for the admin to relay manually.
  */
-export async function sendCredentialEmail(
+export async function sendAccountLinkEmail(
   to: string,
-  opts: { username: string; password: string; isNewAccount: boolean }
+  opts: { username: string; url: string; isNewAccount: boolean }
 ): Promise<{ sent: boolean }> {
   const resend = getClient();
   if (!resend) return { sent: false };
 
   const subject = opts.isNewAccount
-    ? "Your Pack 376 Portal account"
-    : "Your Pack 376 Portal password was reset";
+    ? "Set up your Pack 376 Portal account"
+    : "Reset your Pack 376 Portal password";
   const intro = opts.isNewAccount
-    ? "An account has been created for you on the Pack 376 Portal."
-    : "Your Pack 376 Portal password has been reset.";
+    ? `An account has been created for you on the Pack 376 Portal.<br/><strong>Username:</strong> ${opts.username}`
+    : `A password reset was requested for your Pack 376 Portal account.<br/><strong>Username:</strong> ${opts.username}`;
+  const expiryNote = opts.isNewAccount ? "This link expires in 48 hours" : "This link expires in 60 minutes";
 
   const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
@@ -36,8 +38,8 @@ export async function sendCredentialEmail(
     subject,
     html: `
       <p>${intro}</p>
-      <p><strong>Username:</strong> ${opts.username}<br/><strong>Password:</strong> ${opts.password}</p>
-      <p>Sign in at <a href="https://portal.pack376nyc.org/portal/login">portal.pack376nyc.org</a>.</p>
+      <p><a href="${opts.url}">${opts.isNewAccount ? "Set your password" : "Choose a new password"}</a></p>
+      <p>${expiryNote} and can only be used once. If you weren't expecting this, you can ignore this email.</p>
     `,
   });
 

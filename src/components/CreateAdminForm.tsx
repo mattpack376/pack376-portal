@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { createAdminAction } from "@/lib/actions/users";
 import type { AssignableRole } from "@/lib/roleLabels";
 import CredentialReveal from "@/components/CredentialReveal";
-import type { CreatedCredential } from "@/lib/actions/dens";
+import type { CreatedInvite } from "@/lib/actions/dens";
 
 export default function CreateAdminForm() {
   const [username, setUsername] = useState("");
@@ -12,7 +12,7 @@ export default function CreateAdminForm() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AssignableRole>("ADMIN");
   const [isPending, startTransition] = useTransition();
-  const [result, setResult] = useState<{ credential?: CreatedCredential; emailedTo?: string } | null>(null);
+  const [result, setResult] = useState<{ invite?: CreatedInvite; emailedTo?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
@@ -20,7 +20,7 @@ export default function CreateAdminForm() {
     startTransition(async () => {
       const outcome = await createAdminAction(username, displayName, role, email);
       if (outcome.ok) {
-        setResult(outcome.emailedTo ? { emailedTo: outcome.emailedTo } : { credential: outcome.credential });
+        setResult(outcome.emailedTo ? { emailedTo: outcome.emailedTo } : { invite: outcome.invite });
         setError(null);
         setUsername("");
         setDisplayName("");
@@ -55,7 +55,7 @@ export default function CreateAdminForm() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Emails the login instead of showing it on screen"
+          placeholder="Emails a setup link instead of showing it on screen"
         />
       </div>
       <div className="form-field">
@@ -76,7 +76,7 @@ export default function CreateAdminForm() {
       <button type="submit" className="btn btn-primary" disabled={isPending}>
         {isPending ? "Creating…" : "Create Account"}
       </button>
-      {result && <CredentialReveal credential={result.credential} emailedTo={result.emailedTo} />}
+      {result && <CredentialReveal invite={result.invite} emailedTo={result.emailedTo} />}
     </form>
   );
 }

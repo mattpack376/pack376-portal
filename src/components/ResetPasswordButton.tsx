@@ -3,11 +3,11 @@
 import { useState, useTransition } from "react";
 import { resetPasswordAction } from "@/lib/actions/users";
 import CredentialReveal from "@/components/CredentialReveal";
-import type { CreatedCredential } from "@/lib/actions/dens";
+import type { CreatedInvite } from "@/lib/actions/dens";
 
 export default function ResetPasswordButton({ userId }: { userId: string }) {
   const [isPending, startTransition] = useTransition();
-  const [result, setResult] = useState<{ credential?: CreatedCredential; emailedTo?: string } | null>(null);
+  const [result, setResult] = useState<{ invite?: CreatedInvite; emailedTo?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function handleClick() {
@@ -15,7 +15,7 @@ export default function ResetPasswordButton({ userId }: { userId: string }) {
     startTransition(async () => {
       const outcome = await resetPasswordAction(userId);
       if (outcome.ok) {
-        setResult(outcome.emailedTo ? { emailedTo: outcome.emailedTo } : { credential: outcome.credential });
+        setResult(outcome.emailedTo ? { emailedTo: outcome.emailedTo } : { invite: outcome.invite });
         setError(null);
       } else {
         setError(outcome.error || "Something went wrong.");
@@ -35,7 +35,7 @@ export default function ResetPasswordButton({ userId }: { userId: string }) {
         {isPending ? "Resetting…" : "Reset Password"}
       </button>
       {error && <p className="form-error" style={{ marginTop: 8 }}>{error}</p>}
-      {result && <CredentialReveal credential={result.credential} emailedTo={result.emailedTo} />}
+      {result && <CredentialReveal invite={result.invite} emailedTo={result.emailedTo} />}
     </div>
   );
 }

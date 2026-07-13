@@ -6,10 +6,12 @@ import { prisma } from "@/lib/prisma";
 import { getSession, hashPassword } from "@/lib/auth";
 import { assertAdmin, assertMasterAdmin } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
+import { issueInviteToken, issueResetToken } from "@/lib/resetTokens";
+import { getAppBaseUrl } from "@/lib/appUrl";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
 import { ASSIGNABLE_ROLES, DEN_ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/roleLabels";
-import { sendCredentialEmail } from "@/lib/email";
-import type { CreatedCredential } from "@/lib/actions/dens";
+import { sendAccountLinkEmail } from "@/lib/email";
+import type { CreatedInvite } from "@/lib/actions/dens";
 
 export async function createAdminAction(
   username: string,
@@ -37,11 +39,13 @@ export async function createAdminAction(
   const existing = await prisma.user.findUnique({ where: { username: clean } });
   if (existing) return { ok: false as const, error: "That username is already taken." };
 
-  const password = generatePassword();
-  await prisma.user.create({
+  // No password is ever generated server-side for anyone to see — the account
+  // starts with a random, immediately-discarded hash, and the new user sets
+  // their own password via a one-time invite link.
+  const user = await prisma.user.create({
     data: {
       username: clean,
-      passwordHash: await hashPassword(password),
+      passwordHash: await hashPassword(generatePassword()),
       role,
       displayName: name,
       email: cleanEmail,
@@ -50,12 +54,15 @@ export async function createAdminAction(
 
   revalidatePath("/portal/admin/users");
 
+  const token = await issueInviteToken(user.id);
+  const url = `${getAppBaseUrl()}/portal/reset/${token}`;
+
   if (cleanEmail) {
-    const { sent } = await sendCredentialEmail(cleanEmail, { username: clean, password, isNewAccount: true });
+    const { sent } = await sendAccountLinkEmail(cleanEmail, { username: clean, url, isNewAccount: true });
     if (sent) return { ok: true as const, emailedTo: cleanEmail };
   }
-  const credential: CreatedCredential = { username: clean, password };
-  return { ok: true as const, credential };
+  const invite: CreatedInvite = { username: clean, url };
+  return { ok: true as const, invite };
 }
 
 export async function resetPasswordAction(userId: string) {
@@ -81,30 +88,35 @@ export async function resetPasswordAction(userId: string) {
     }
   }
 
-  const password = generatePassword();
+  // Immediately kill the current password and any live sessions — matching
+  // the confirm dialog's promise that "the old password will stop working
+  // immediately" — then send a one-time link so the user picks their own
+  // replacement. The server never generates or sees the new password.
   await prisma.user.update({
     where: { id: userId },
     data: {
-      passwordHash: await hashPassword(password),
+      passwordHash: await hashPassword(generatePassword()),
       failedLoginCount: 0,
       lockedUntil: null,
-      // Revoke any sessions still signed in with the old password.
       sessionVersion: { increment: 1 },
     },
   });
 
   revalidatePath("/portal/admin/users");
 
+  const token = await issueResetToken(userId);
+  const url = `${getAppBaseUrl()}/portal/reset/${token}`;
+
   if (user.email) {
-    const { sent } = await sendCredentialEmail(user.email, {
+    const { sent } = await sendAccountLinkEmail(user.email, {
       username: user.username,
-      password,
+      url,
       isNewAccount: false,
     });
     if (sent) return { ok: true as const, emailedTo: user.email };
   }
-  const credential: CreatedCredential = { username: user.username, password };
-  return { ok: true as const, credential };
+  const invite: CreatedInvite = { username: user.username, url };
+  return { ok: true as const, invite };
 }
 
 export async function updateUserEmailAction(formData: FormData) {

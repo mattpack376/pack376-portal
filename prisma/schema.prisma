@@ -53,6 +53,26 @@ model User {
   attendanceUpdates  Attendance[]
   duesPaymentsLogged DuesPayment[]
   denAssignments     DenAssignment[]
+  resetTokens        PasswordResetToken[]
+}
+
+/**
+ * One-time, expiring tokens used both for new-account invites and password
+ * resets, so a real password is never generated server-side, emailed, or
+ * shown on screen — the account holder always sets it themselves via the
+ * link. Only tokenHash is stored; the plaintext token lives in the emailed
+ * or displayed URL and is never persisted (see src/lib/resetTokens.ts).
+ */
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Den {

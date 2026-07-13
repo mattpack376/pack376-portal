@@ -7,25 +7,34 @@ import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { hashPassword } from "@/lib/auth";
 import { generatePassword } from "@/lib/passwords";
+import { issueInviteToken } from "@/lib/resetTokens";
+import { getAppBaseUrl } from "@/lib/appUrl";
 import { nextRank as computeNextRank } from "@/lib/rankConfig";
 import { parseScoutingYear } from "@/lib/attendanceSchedule";
 import type { Rank } from "@/generated/prisma/enums";
 
-export type CreatedCredential = { username: string; password: string };
-export type DenActionState = { error?: string; credential?: CreatedCredential };
+export type CreatedInvite = { username: string; url: string };
+export type DenActionState = { error?: string; invite?: CreatedInvite };
 
+/**
+ * Den logins never collect an email address, so their setup link always has
+ * to be relayed on screen for the admin to share manually. The account's
+ * initial passwordHash is a random value that's discarded immediately — no
+ * one, including the creating admin, ever knows it. The den leader sets
+ * their own password by following the link.
+ */
 async function createDenAccount(denId: string, rank: Rank, scoutingYear: string, username: string) {
-  const password = generatePassword();
   const user = await prisma.user.create({
     data: {
       username: username.toLowerCase(),
-      passwordHash: await hashPassword(password),
+      passwordHash: await hashPassword(generatePassword()),
       role: "DEN",
       displayName: `${rank} ${scoutingYear}`,
     },
   });
   await prisma.denAssignment.create({ data: { userId: user.id, denId } });
-  return { username: username.toLowerCase(), password };
+  const token = await issueInviteToken(user.id);
+  return { username: user.username, url: `${getAppBaseUrl()}/portal/reset/${token}` };
 }
 
 export async function createDenAction(
@@ -64,16 +73,16 @@ export async function createDenAction(
 
   const den = await prisma.den.create({ data: { rank, scoutingYear, label } });
 
-  let credential: CreatedCredential | undefined;
+  let invite: CreatedInvite | undefined;
   if (createLogin) {
     if (!username) return { error: "Den created, but a username is required to create its login." };
     const usernameTaken = await prisma.user.findUnique({ where: { username: username.toLowerCase() } });
     if (usernameTaken) return { error: "Den created, but that username is already taken." };
-    credential = await createDenAccount(den.id, rank, scoutingYear, username);
+    invite = await createDenAccount(den.id, rank, scoutingYear, username);
   }
 
   revalidatePath("/portal/admin");
-  return { credential };
+  return { invite };
 }
 
 export async function addScoutAction(formData: FormData) {
@@ -167,17 +176,17 @@ export async function promoteDenAction(
     });
   }
 
-  let credential: CreatedCredential | undefined;
+  let invite: CreatedInvite | undefined;
   if (createLogin) {
     if (!username) return { error: "Den promoted, but a username is required to create its login." };
     const usernameTaken = await prisma.user.findUnique({ where: { username: username.toLowerCase() } });
     if (usernameTaken) return { error: "Den promoted, but that username is already taken." };
-    credential = await createDenAccount(newDen.id, next, scoutingYear, username);
+    invite = await createDenAccount(newDen.id, next, scoutingYear, username);
   }
 
   revalidatePath("/portal/admin");
-  if (!credential) {
+  if (!invite) {
     redirect(`/portal/admin/dens/${newDen.id}`);
   }
-  return { credential };
+  return { invite };
 }

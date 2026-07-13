@@ -22,13 +22,13 @@ export default function PromoteDenForm({
 }) {
   const [state, formAction, pending] = useActionState(promoteDenAction, initialState);
 
-  if (state?.credential) {
+  if (state?.invite) {
     return (
       <div className="info-card" style={{ maxWidth: 480 }}>
         <p>
           {fromLabel} promoted to {toLabel}!
         </p>
-        <CredentialReveal credential={state.credential} />
+        <CredentialReveal invite={state.invite} />
         <Link className="btn btn-primary" href="/portal/admin" style={{ marginTop: 16 }}>
           Back to Dashboard
         </Link>

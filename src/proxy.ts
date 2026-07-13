@@ -98,6 +98,14 @@ export async function proxy(request: NextRequest) {
     return internalPath === publicPath ? NextResponse.next() : rewriteTo(request, internalPath);
   }
 
+  // Password-reset/invite links must work for a visitor with no session at
+  // all (a brand-new account, or someone whose old session was just
+  // revoked) — the token itself is what authorizes the request, not a
+  // cookie. Skip the generic "/portal requires a session" gate below.
+  if (internalPath.startsWith("/portal/reset/")) {
+    return internalPath === publicPath ? NextResponse.next() : rewriteTo(request, internalPath);
+  }
+
   if (internalPath.startsWith("/portal")) {
     const session = await readSession(request);
     if (!session) {

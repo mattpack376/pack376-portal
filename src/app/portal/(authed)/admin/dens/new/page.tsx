@@ -20,10 +20,10 @@ export default function NewDenPage() {
       </div>
 
       <div className="info-card" style={{ maxWidth: 480 }}>
-        {state?.credential ? (
+        {state?.invite ? (
           <>
             <p>Den created!</p>
-            <CredentialReveal credential={state.credential} />
+            <CredentialReveal invite={state.invite} />
             <Link className="btn btn-primary" href="/portal/admin" style={{ marginTop: 16 }}>
               Back to Dashboard
             </Link>
