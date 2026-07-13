@@ -43,6 +43,10 @@ model User {
   displayName        String
   failedLoginCount   Int                 @default(0)
   lockedUntil        DateTime?
+  // Bumped whenever the account's password, role, or den assignments change.
+  // The value is embedded in the session JWT; a mismatch on any protected
+  // request invalidates already-issued tokens (see src/lib/auth.ts).
+  sessionVersion     Int                 @default(0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   advancementUpdates AdvancementRecord[]

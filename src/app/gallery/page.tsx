@@ -38,7 +38,7 @@ export default async function GalleryPage() {
             <div className="album-tile-date">{formatDate(album.eventDate)}</div>
             <h3>{album.title}</h3>
             {album.description && <p>{album.description}</p>}
-            <a className="link" href={album.photoAlbumUrl} target="_blank" rel="noopener">
+            <a className="link" href={album.photoAlbumUrl} target="_blank" rel="noopener noreferrer">
               View Photos →
             </a>
           </div>

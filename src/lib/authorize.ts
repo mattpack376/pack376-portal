@@ -1,6 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { getSession, type SessionPayload } from "@/lib/auth";
+import { getSessionState, type SessionPayload } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
 
@@ -15,7 +15,11 @@ export function homeForRole(role: SessionPayload["role"]) {
 
 /** For Server Components / pages: redirects if there's no valid session. */
 export async function requireSession(): Promise<SessionPayload> {
-  const session = await getSession();
+  const { session, revoked } = await getSessionState();
+  // A revoked token still has a valid signature, so redirecting straight to
+  // /portal/login would let the edge proxy bounce it back to /portal (loop).
+  // Route it through /portal/logout, which clears the cookie first.
+  if (revoked) redirect("/portal/logout");
   if (!session) redirect("/portal/login");
   return session;
 }

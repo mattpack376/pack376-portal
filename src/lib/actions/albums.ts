@@ -30,6 +30,21 @@ function validateCoverImageUrl(coverImageUrl: string): string | null {
   return null;
 }
 
+/**
+ * Server-side URL guard. Browser `type="url"` validation is trivially bypassed
+ * by calling the Server Action directly, so we re-parse here and allow only
+ * http(s). This blocks javascript:, data:, file:, and other schemes that would
+ * otherwise be stored and later rendered into an href on the public gallery.
+ */
+function isSafeHttpUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 export async function createAlbumAction(
   _prevState: AlbumActionState,
   formData: FormData
@@ -49,6 +64,12 @@ export async function createAlbumAction(
   const eventDate = new Date(eventDateRaw);
   if (Number.isNaN(eventDate.getTime())) {
     return { error: "Enter a valid event date." };
+  }
+  if (!isSafeHttpUrl(photoAlbumUrl)) {
+    return { error: "Enter a valid photo album link starting with https://" };
+  }
+  if (coverImageUrl && !isSafeHttpUrl(coverImageUrl)) {
+    return { error: "Enter a valid cover image link starting with https://" };
   }
   const coverImageError = validateCoverImageUrl(coverImageUrl);
   if (coverImageError) return { error: coverImageError };
@@ -89,6 +110,12 @@ export async function updateAlbumAction(
   const eventDate = new Date(eventDateRaw);
   if (Number.isNaN(eventDate.getTime())) {
     return { error: "Enter a valid event date." };
+  }
+  if (!isSafeHttpUrl(photoAlbumUrl)) {
+    return { error: "Enter a valid photo album link starting with https://" };
+  }
+  if (coverImageUrl && !isSafeHttpUrl(coverImageUrl)) {
+    return { error: "Enter a valid cover image link starting with https://" };
   }
   const coverImageError = validateCoverImageUrl(coverImageUrl);
   if (coverImageError) return { error: coverImageError };

@@ -14,10 +14,14 @@ export type ParentCsvRow = {
 };
 
 function csvField(value: string): string {
-  if (/[",\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+  // Neutralize spreadsheet formula injection: a cell beginning with =, +, -, @,
+  // tab, or CR can execute as a formula when the CSV is opened in Excel or Google
+  // Sheets. Prefix with an apostrophe so the cell is treated as literal text.
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  if (/[",\n]/.test(safe)) {
+    return `"${safe.replace(/"/g, '""')}"`;
   }
-  return value;
+  return safe;
 }
 
 export function buildParentsCsv(rows: ParentCsvRow[]): string {

@@ -6,6 +6,13 @@ import { verifyPassword, createSessionCookie, isLockedOut, nextLockout } from "@
 
 export type LoginState = { error?: string };
 
+// A real cost-12 bcrypt hash used only to equalize response time when the
+// username doesn't exist. Without it, "no such user" returns before any bcrypt
+// work while "wrong password" pays the full compare, letting an attacker
+// enumerate valid usernames by timing. The plaintext behind this hash is
+// irrelevant — it will never match a submitted password.
+const TIMING_DUMMY_HASH = "$2b$12$T8KZcTJ2XebuePfsQWn97ueyg9eYenLYnQgR1kE4h/I.LGaUaYE3i";
+
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
   const username = String(formData.get("username") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
@@ -16,6 +23,8 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
 
   const user = await prisma.user.findUnique({ where: { username } });
   if (!user) {
+    // Burn the same bcrypt time a real login would, then fail identically.
+    await verifyPassword(password, TIMING_DUMMY_HASH);
     return { error: "Invalid username or password." };
   }
 
@@ -42,6 +51,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     role: user.role,
     denIds: denAssignments.map((a) => a.denId),
     displayName: user.displayName,
+    sv: user.sessionVersion,
   });
 
   redirect("/portal");

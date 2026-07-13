@@ -2,6 +2,7 @@ import "server-only";
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { prisma } from "@/lib/prisma";
 
 export const SESSION_COOKIE = "pack376_session";
 const SESSION_DURATION_SECONDS = 45 * 24 * 60 * 60; // 45 days
@@ -19,6 +20,9 @@ export type SessionPayload = {
   role: "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER";
   denIds: string[];
   displayName: string;
+  // Snapshot of User.sessionVersion at sign-in. Compared against the DB on
+  // every protected request so password/role/den changes revoke old tokens.
+  sv: number;
 };
 
 export async function hashPassword(password: string) {
@@ -54,28 +58,56 @@ export async function createSessionCookie(payload: SessionPayload) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    domain: process.env.NODE_ENV === "production" ? ".pack376nyc.org" : undefined,
+    // Host-only: omitting `domain` scopes the session to the exact host that
+    // served the login (portal.pack376nyc.org) instead of every subdomain of
+    // pack376nyc.org. A vulnerable or abandoned sibling subdomain then can't
+    // receive the portal session cookie.
     maxAge: SESSION_DURATION_SECONDS,
   });
 }
 
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
-  // Must match the domain/path the cookie was set with (createSessionCookie
-  // above) — a bare delete(name) omits domain, so the browser treats it as a
-  // different cookie and the original session cookie never actually clears.
+  // Must match the path the cookie was set with (createSessionCookie above).
+  // The cookie is now host-only (no domain), so we delete it host-only too —
+  // passing a domain here would target a different cookie and leave the real
+  // session cookie in place.
   cookieStore.delete({
     name: SESSION_COOKIE,
     path: "/",
-    domain: process.env.NODE_ENV === "production" ? ".pack376nyc.org" : undefined,
   });
 }
 
-export async function getSession(): Promise<SessionPayload | null> {
+/**
+ * Full session state, distinguishing "no valid token" from "valid token whose
+ * account has since been revoked" (password reset, role/den change, or account
+ * deletion — anything that bumps User.sessionVersion). Callers that redirect
+ * need this distinction: a revoked user must be sent somewhere that clears the
+ * cookie, or the still-valid signature would keep passing the edge proxy and
+ * loop. `revoked` is only true when a well-formed token failed the DB check.
+ */
+export async function getSessionState(): Promise<{ session: SessionPayload | null; revoked: boolean }> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-  return verifySessionToken(token);
+  if (!token) return { session: null, revoked: false };
+
+  const payload = await verifySessionToken(token);
+  if (!payload) return { session: null, revoked: false };
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { sessionVersion: true },
+  });
+  // User deleted, or the token's version is stale relative to the account.
+  if (!user || user.sessionVersion !== payload.sv) {
+    return { session: null, revoked: true };
+  }
+
+  return { session: payload, revoked: false };
+}
+
+export async function getSession(): Promise<SessionPayload | null> {
+  return (await getSessionState()).session;
 }
 
 export function isLockedOut(lockedUntil: Date | null) {
