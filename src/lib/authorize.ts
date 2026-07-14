@@ -85,11 +85,19 @@ export async function requireParentContactsSession(): Promise<SessionPayload> {
 /**
  * For Server Components / pages: photo consent status/links — full admin and
  * junior admin see every den, a den leader sees only their own assigned
- * den(s). Same three roles as parent contacts.
+ * den(s), and Photographer sees every den (read-only — link
+ * generate/regenerate/email stays gated by assertPhotoConsentDenAccess, which
+ * Photographer doesn't pass) since they need to check consent before posting
+ * anywhere.
  */
 export async function requirePhotoConsentSession(): Promise<SessionPayload> {
   const session = await requireSession();
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "DEN") {
+  if (
+    session.role !== "ADMIN" &&
+    session.role !== "JUNIOR_ADMIN" &&
+    session.role !== "DEN" &&
+    session.role !== "PHOTOGRAPHER"
+  ) {
     redirect(homeForRole(session.role));
   }
   return session;

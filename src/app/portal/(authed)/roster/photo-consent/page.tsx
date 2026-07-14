@@ -29,6 +29,7 @@ function StatusBadge({ label, status }: { label: string; status: ConsentStatus }
 
 export default async function PhotoConsentPage() {
   const session = await requirePhotoConsentSession();
+  const canManage = session.role !== "PHOTOGRAPHER";
 
   if (session.role === "DEN" && session.denIds.length === 0) {
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
@@ -58,8 +59,9 @@ export default async function PhotoConsentPage() {
         </div>
         <h2>Photo Consent</h2>
         <p style={{ fontSize: 17 }}>
-          Generate a per-scout link for parents to consent (or decline) to photos on Instagram/Facebook, the pack
-          website, and printed fliers — no portal account needed on their end.
+          {canManage
+            ? "Generate a per-scout link for parents to consent (or decline) to photos on Instagram/Facebook, the pack website, and printed fliers — no portal account needed on their end."
+            : "Consent status for photos on Instagram/Facebook, the pack website, and printed fliers, per scout."}
         </p>
       </div>
 
@@ -88,12 +90,18 @@ export default async function PhotoConsentPage() {
                         </h4>
 
                         {!scout.photoConsent ? (
-                          <form action={generatePhotoConsentLinkAction}>
-                            <input type="hidden" name="scoutId" value={scout.id} />
-                            <button type="submit" className="btn btn-primary btn-small">
-                              Generate Link
-                            </button>
-                          </form>
+                          canManage ? (
+                            <form action={generatePhotoConsentLinkAction}>
+                              <input type="hidden" name="scoutId" value={scout.id} />
+                              <button type="submit" className="btn btn-primary btn-small">
+                                Generate Link
+                              </button>
+                            </form>
+                          ) : (
+                            <p style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 0 }}>
+                              No consent link generated yet.
+                            </p>
+                          )
                         ) : (
                           <>
                             <div style={{ marginBottom: 8 }}>
@@ -115,35 +123,39 @@ export default async function PhotoConsentPage() {
                                   })}`}
                               </p>
                             )}
-                            <div
-                              style={{
-                                display: "flex",
-                                gap: 8,
-                                flexWrap: "wrap",
-                                alignItems: "center",
-                                background: "var(--cream)",
-                                padding: "8px 12px",
-                                borderRadius: 8,
-                              }}
-                            >
-                              <code style={{ fontSize: 13, flex: "1 1 260px", overflowWrap: "anywhere" }}>
-                                {`${baseUrl}/consent/${scout.photoConsent.token}`}
-                              </code>
-                              <CopyConsentLinkButton url={`${baseUrl}/consent/${scout.photoConsent.token}`} />
-                              <RegenerateConsentLinkButton
-                                scoutId={scout.id}
-                                scoutName={`${scout.firstName} ${scout.lastName}`}
-                              />
-                            </div>
-                            <div style={{ marginTop: 8 }}>
-                              {parentEmail ? (
-                                <EmailConsentLinkButton scoutId={scout.id} parentEmail={parentEmail} />
-                              ) : (
-                                <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-                                  No parent email on file — copy the link above instead.
-                                </span>
-                              )}
-                            </div>
+                            {canManage && (
+                              <>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    flexWrap: "wrap",
+                                    alignItems: "center",
+                                    background: "var(--cream)",
+                                    padding: "8px 12px",
+                                    borderRadius: 8,
+                                  }}
+                                >
+                                  <code style={{ fontSize: 13, flex: "1 1 260px", overflowWrap: "anywhere" }}>
+                                    {`${baseUrl}/consent/${scout.photoConsent.token}`}
+                                  </code>
+                                  <CopyConsentLinkButton url={`${baseUrl}/consent/${scout.photoConsent.token}`} />
+                                  <RegenerateConsentLinkButton
+                                    scoutId={scout.id}
+                                    scoutName={`${scout.firstName} ${scout.lastName}`}
+                                  />
+                                </div>
+                                <div style={{ marginTop: 8 }}>
+                                  {parentEmail ? (
+                                    <EmailConsentLinkButton scoutId={scout.id} parentEmail={parentEmail} />
+                                  ) : (
+                                    <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>
+                                      No parent email on file — copy the link above instead.
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </>
                         )}
                       </div>

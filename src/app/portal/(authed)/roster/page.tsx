@@ -7,6 +7,7 @@ import type { Rank } from "@/generated/prisma/enums";
 export default async function RosterPage() {
   const session = await requireSession();
   const canSeeParentContacts = session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "DEN";
+  const canSeePhotoConsent = canSeeParentContacts || session.role === "PHOTOGRAPHER";
 
   const dens = await prisma.den.findMany({
     include: {
@@ -36,7 +37,7 @@ export default async function RosterPage() {
             </Link>
           </p>
         )}
-        {canSeeParentContacts && (
+        {canSeePhotoConsent && (
           <p style={{ fontSize: 17 }}>
             <Link href="/portal/roster/photo-consent" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
               → Photo Consent
