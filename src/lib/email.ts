@@ -32,15 +32,24 @@ export async function sendAccountLinkEmail(
     : `A password reset was requested for your Pack 376 Portal account.<br/><strong>Username:</strong> ${opts.username}`;
   const expiryNote = opts.isNewAccount ? "This link expires in 48 hours" : "This link expires in 60 minutes";
 
+  const actionLabel = opts.isNewAccount ? "Set your password" : "Choose a new password";
+  const introText = opts.isNewAccount
+    ? `An account has been created for you on the Pack 376 Portal.\nUsername: ${opts.username}`
+    : `A password reset was requested for your Pack 376 Portal account.\nUsername: ${opts.username}`;
+
   const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
     to,
     subject,
     html: `
       <p>${intro}</p>
-      <p><a href="${opts.url}">${opts.isNewAccount ? "Set your password" : "Choose a new password"}</a></p>
+      <p><a href="${opts.url}">${actionLabel}</a></p>
       <p>${expiryNote} and can only be used once. If you weren't expecting this, you can ignore this email.</p>
     `,
+    // A plain-text alternative alongside html isn't just a nicety — mail
+    // filters score HTML-only messages as more spam-like, and this domain is
+    // still building sender reputation.
+    text: `${introText}\n\n${actionLabel}: ${opts.url}\n\n${expiryNote} and can only be used once. If you weren't expecting this, you can ignore this email.`,
   });
 
   return { sent: !error };
@@ -72,6 +81,9 @@ export async function sendPhotoConsentLinkEmail(
       <p><a href="${opts.url}">Fill out the photo consent form</a></p>
       <p>You can choose to consent or decline for each one separately, and you're welcome to revisit this link any time to change your answer.</p>
     `,
+    // See the note in sendAccountLinkEmail — a plain-text part helps spam
+    // scoring, which matters while this domain is still building reputation.
+    text: `Pack 376 is asking for your permission to use photos of ${opts.scoutFirstName} on Instagram/Facebook, the pack website, and printed event/recruitment fliers.\n\nFill out the photo consent form: ${opts.url}\n\nYou can choose to consent or decline for each one separately, and you're welcome to revisit this link any time to change your answer.`,
   });
 
   if (error) {
