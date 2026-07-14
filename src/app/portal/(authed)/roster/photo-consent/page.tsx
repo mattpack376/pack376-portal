@@ -3,11 +3,19 @@ import { requirePhotoConsentSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
-import type { ConsentStatus } from "@/generated/prisma/enums";
+import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import { generatePhotoConsentLinkAction } from "@/lib/actions/photoConsent";
 import { CopyConsentLinkButton, RegenerateConsentLinkButton } from "@/components/PhotoConsentLinkControls";
 import EmailConsentLinkButton from "@/components/EmailConsentLinkButton";
+
+const RELATIONSHIP_LABELS: Record<SignerRelationship, string> = {
+  PARENT: "Parent",
+  GUARDIAN: "Guardian",
+  GRANDPARENT: "Grandparent",
+  AUNT_UNCLE: "Aunt/Uncle",
+  ADULT_SIBLING: "Adult Sibling (18+)",
+};
 
 function StatusBadge({ label, status }: { label: string; status: ConsentStatus }) {
   const badgeClass = status === "CONSENT" ? "badge-consent" : status === "DECLINE" ? "badge-decline" : "badge-pending";
@@ -96,6 +104,8 @@ export default async function PhotoConsentPage() {
                             {scout.photoConsent.signedByName && (
                               <p style={{ fontSize: 14, marginBottom: 8 }}>
                                 Signed by <strong>{scout.photoConsent.signedByName}</strong>
+                                {scout.photoConsent.signedRelationship &&
+                                  ` (${RELATIONSHIP_LABELS[scout.photoConsent.signedRelationship]})`}
                                 {scout.photoConsent.signedDate &&
                                   ` on ${scout.photoConsent.signedDate.toLocaleDateString("en-US", {
                                     timeZone: "UTC",

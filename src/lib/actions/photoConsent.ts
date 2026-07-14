@@ -7,7 +7,9 @@ import { assertPhotoConsentDenAccess } from "@/lib/authorize";
 import { generatePhotoConsentToken } from "@/lib/photoConsentTokens";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import { sendPhotoConsentLinkEmail } from "@/lib/email";
-import type { ConsentStatus } from "@/generated/prisma/enums";
+import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
+
+const RELATIONSHIPS: SignerRelationship[] = ["PARENT", "GUARDIAN", "GRANDPARENT", "AUNT_UNCLE", "ADULT_SIBLING"];
 
 const ADMIN_PAGE_PATH = "/portal/roster/photo-consent";
 
@@ -27,6 +29,7 @@ export async function submitPhotoConsentAction(
 ): Promise<SubmitConsentState> {
   const token = String(formData.get("token") || "");
   const signedByName = String(formData.get("signedByName") || "").trim();
+  const signedRelationship = String(formData.get("signedRelationship") || "") as SignerRelationship;
   const signedDateRaw = String(formData.get("signedDate") || "");
   const facebook = String(formData.get("facebook") || "") as ConsentStatus;
   const website = String(formData.get("website") || "") as ConsentStatus;
@@ -34,6 +37,7 @@ export async function submitPhotoConsentAction(
 
   if (!token) return { error: "Missing or invalid link." };
   if (!signedByName) return { error: "Enter your name." };
+  if (!RELATIONSHIPS.includes(signedRelationship)) return { error: "Choose your relationship to the scout." };
   const signedDate = /^\d{4}-\d{2}-\d{2}$/.test(signedDateRaw) ? new Date(`${signedDateRaw}T00:00:00Z`) : null;
   if (!signedDate) return { error: "Enter a valid date." };
   const valid = (v: string): v is "CONSENT" | "DECLINE" => v === "CONSENT" || v === "DECLINE";
@@ -46,7 +50,7 @@ export async function submitPhotoConsentAction(
 
   await prisma.photoConsent.update({
     where: { token },
-    data: { facebook, website, fliers, signedByName, signedDate, signedAt: new Date() },
+    data: { facebook, website, fliers, signedByName, signedRelationship, signedDate, signedAt: new Date() },
   });
 
   return { saved: true };

@@ -39,6 +39,7 @@ export default async function PhotoConsentPage({ params }: { params: Promise<{ t
               website={record.website}
               fliers={record.fliers}
               signedByName={record.signedByName}
+              signedRelationship={record.signedRelationship}
               signedDate={signedDate}
             />
           </>

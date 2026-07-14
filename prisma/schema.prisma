@@ -40,21 +40,29 @@ enum ConsentStatus {
   DECLINE
 }
 
+enum SignerRelationship {
+  PARENT
+  GUARDIAN
+  GRANDPARENT
+  AUNT_UNCLE
+  ADULT_SIBLING
+}
+
 model User {
-  id                 String              @id @default(cuid())
-  username           String              @unique
+  id                 String               @id @default(cuid())
+  username           String               @unique
   passwordHash       String
   role               Role
   email              String?
   displayName        String
-  failedLoginCount   Int                 @default(0)
+  failedLoginCount   Int                  @default(0)
   lockedUntil        DateTime?
   // Bumped whenever the account's password, role, or den assignments change.
   // The value is embedded in the session JWT; a mismatch on any protected
   // request invalidates already-issued tokens (see src/lib/auth.ts).
-  sessionVersion     Int                 @default(0)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  sessionVersion     Int                  @default(0)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
   advancementUpdates AdvancementRecord[]
   attendanceUpdates  Attendance[]
   duesPaymentsLogged DuesPayment[]
@@ -207,18 +215,19 @@ model DuesPayment {
  * leaked, an admin/den leader can rotate it (see regeneratePhotoConsentTokenAction).
  */
 model PhotoConsent {
-  id           String        @id @default(cuid())
-  scoutId      String        @unique
-  scout        Scout         @relation(fields: [scoutId], references: [id], onDelete: Cascade)
-  token        String        @unique
-  facebook     ConsentStatus @default(PENDING)
-  website      ConsentStatus @default(PENDING)
-  fliers       ConsentStatus @default(PENDING)
-  signedByName String?
-  signedDate   DateTime?     @db.Date
-  signedAt     DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                 String              @id @default(cuid())
+  scoutId            String              @unique
+  scout              Scout               @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  token              String              @unique
+  facebook           ConsentStatus       @default(PENDING)
+  website            ConsentStatus       @default(PENDING)
+  fliers             ConsentStatus       @default(PENDING)
+  signedByName       String?
+  signedRelationship SignerRelationship?
+  signedDate         DateTime?           @db.Date
+  signedAt           DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 }
 
 model PhotoAlbum {
