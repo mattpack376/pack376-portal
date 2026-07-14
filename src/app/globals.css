@@ -770,6 +770,17 @@ section { padding: 64px 0; }
   color: var(--ink);
   cursor: pointer;
 }
+/* Overrides .form-field input's width/padding/border/background — those are meant for text inputs, not these radios. */
+.consent-choice-group input[type="radio"] {
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 0;
+  accent-color: var(--scout-blue);
+  flex-shrink: 0;
+}
 
 /* ---------- Portal ---------- */
 .portal-shell {
