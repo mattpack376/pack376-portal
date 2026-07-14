@@ -45,3 +45,30 @@ export async function sendAccountLinkEmail(
 
   return { sent: !error };
 }
+
+/**
+ * Emails a scout's photo-consent link to a parent. Same graceful fallback as
+ * sendAccountLinkEmail: returns { sent: false } without throwing when
+ * RESEND_API_KEY isn't configured, so the caller can fall back to showing the
+ * link on screen for the leader to relay manually.
+ */
+export async function sendPhotoConsentLinkEmail(
+  to: string,
+  opts: { scoutFirstName: string; url: string }
+): Promise<{ sent: boolean }> {
+  const resend = getClient();
+  if (!resend) return { sent: false };
+
+  const { error } = await resend.emails.send({
+    from: FROM_ADDRESS,
+    to,
+    subject: `Photo consent form for ${opts.scoutFirstName} — Pack 376`,
+    html: `
+      <p>Pack 376 is asking for your permission to use photos of <strong>${opts.scoutFirstName}</strong> on Facebook, the pack website, and printed event/recruitment fliers.</p>
+      <p><a href="${opts.url}">Fill out the photo consent form</a></p>
+      <p>You can choose to consent or decline for each one separately, and you're welcome to revisit this link any time to change your answer.</p>
+    `,
+  });
+
+  return { sent: !error };
+}

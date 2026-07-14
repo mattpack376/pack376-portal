@@ -36,6 +36,13 @@ export default async function RosterPage() {
             </Link>
           </p>
         )}
+        {canSeeParentContacts && (
+          <p style={{ fontSize: 17 }}>
+            <Link href="/portal/roster/photo-consent" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
+              → Photo Consent
+            </Link>
+          </p>
+        )}
       </div>
 
       {dens.length === 0 && <div className="info-card" style={{ fontSize: 16 }}>No dens yet.</div>}

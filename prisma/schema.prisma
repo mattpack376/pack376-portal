@@ -34,6 +34,12 @@ enum MeetingStatus {
   NO_MEETING
 }
 
+enum ConsentStatus {
+  PENDING
+  CONSENT
+  DECLINE
+}
+
 model User {
   id                 String              @id @default(cuid())
   username           String              @unique
@@ -109,6 +115,7 @@ model Scout {
   attendances  Attendance[]
   duesPayments DuesPayment[]
   parents      Parent[]
+  photoConsent PhotoConsent?
 }
 
 model Parent {
@@ -186,6 +193,31 @@ model DuesPayment {
   createdAt        DateTime @default(now())
   recordedByUserId String?
   recordedByUser   User?    @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+}
+
+/**
+ * Per-scout photo release, reachable only via the plaintext `token` embedded
+ * in a link (no family portal accounts). Unlike PasswordResetToken this
+ * token never expires or gets marked used — a leader needs to reopen the
+ * same link weeks later to check status or resend it, and a parent needs to
+ * be able to revisit it and change their answer. It's an unguessable capability
+ * URL (crypto-random, same trust level as PhotoAlbum.photoAlbumUrl below),
+ * not a login credential, so storing it in plaintext is an acceptable
+ * trade-off in exchange for re-viewability. If a link is ever suspected
+ * leaked, an admin/den leader can rotate it (see regeneratePhotoConsentTokenAction).
+ */
+model PhotoConsent {
+  id           String        @id @default(cuid())
+  scoutId      String        @unique
+  scout        Scout         @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  token        String        @unique
+  facebook     ConsentStatus @default(PENDING)
+  website      ConsentStatus @default(PENDING)
+  fliers       ConsentStatus @default(PENDING)
+  signedByName String?
+  signedAt     DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model PhotoAlbum {

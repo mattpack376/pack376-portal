@@ -83,6 +83,19 @@ export async function requireParentContactsSession(): Promise<SessionPayload> {
 }
 
 /**
+ * For Server Components / pages: photo consent status/links — full admin and
+ * junior admin see every den, a den leader sees only their own assigned
+ * den(s). Same three roles as parent contacts.
+ */
+export async function requirePhotoConsentSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "DEN") {
+    redirect(homeForRole(session.role));
+  }
+  return session;
+}
+
+/**
  * For Server Actions (mutations): throws instead of redirecting, since a
  * legitimate user should never hit this via the normal UI — this only fires
  * on a tampered request. Never trust a client-submitted denId; always check
@@ -110,6 +123,13 @@ export function assertAlbumEditAccess(session: SessionPayload) {
 
 /** Full admin or junior admin for any den's parent contacts; a den login only for its assigned den(s). */
 export function assertParentContactsDenAccess(session: SessionPayload, denId: string) {
+  if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") return;
+  if (session.role === "DEN" && session.denIds.includes(denId)) return;
+  throw new Error("Not authorized for this den.");
+}
+
+/** Full admin or junior admin for any den's photo consent; a den login only for its assigned den(s). */
+export function assertPhotoConsentDenAccess(session: SessionPayload, denId: string) {
   if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") return;
   if (session.role === "DEN" && session.denIds.includes(denId)) return;
   throw new Error("Not authorized for this den.");
