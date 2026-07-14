@@ -16,8 +16,13 @@ export default function EmailConsentLinkButton({ scoutId, parentEmail }: { scout
         {pending ? "Sending…" : `Email Link to ${parentEmail}`}
       </button>
       {state?.sent && <span style={{ fontSize: 13, color: "var(--teal)", fontWeight: 600 }}>Sent!</span>}
-      {state?.sent === false && !state.error && (
+      {state?.sent === false && state.configured === false && (
         <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>Email isn&apos;t configured — copy the link instead.</span>
+      )}
+      {state?.sent === false && state.configured === true && (
+        <span style={{ fontSize: 13, color: "var(--carnival-red)" }}>
+          Something went wrong sending it — copy the link instead.
+        </span>
       )}
       {state?.error && <span style={{ fontSize: 13, color: "var(--carnival-red)" }}>{state.error}</span>}
     </form>

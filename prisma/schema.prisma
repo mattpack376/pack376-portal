@@ -215,6 +215,7 @@ model PhotoConsent {
   website      ConsentStatus @default(PENDING)
   fliers       ConsentStatus @default(PENDING)
   signedByName String?
+  signedDate   DateTime?     @db.Date
   signedAt     DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt

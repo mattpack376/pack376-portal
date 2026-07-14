@@ -50,8 +50,8 @@ export default async function PhotoConsentPage() {
         </div>
         <h2>Photo Consent</h2>
         <p style={{ fontSize: 17 }}>
-          Generate a per-scout link for parents to consent (or decline) to photos on Facebook, the pack website, and
-          printed fliers — no portal account needed on their end.
+          Generate a per-scout link for parents to consent (or decline) to photos on Instagram/Facebook, the pack
+          website, and printed fliers — no portal account needed on their end.
         </p>
       </div>
 
@@ -89,15 +89,16 @@ export default async function PhotoConsentPage() {
                         ) : (
                           <>
                             <div style={{ marginBottom: 8 }}>
-                              <StatusBadge label="Facebook" status={scout.photoConsent.facebook} />
+                              <StatusBadge label="Instagram/Facebook" status={scout.photoConsent.facebook} />
                               <StatusBadge label="Website" status={scout.photoConsent.website} />
                               <StatusBadge label="Fliers" status={scout.photoConsent.fliers} />
                             </div>
                             {scout.photoConsent.signedByName && (
                               <p style={{ fontSize: 14, marginBottom: 8 }}>
                                 Signed by <strong>{scout.photoConsent.signedByName}</strong>
-                                {scout.photoConsent.signedAt &&
-                                  ` on ${scout.photoConsent.signedAt.toLocaleDateString("en-US", {
+                                {scout.photoConsent.signedDate &&
+                                  ` on ${scout.photoConsent.signedDate.toLocaleDateString("en-US", {
+                                    timeZone: "UTC",
                                     year: "numeric",
                                     month: "long",
                                     day: "numeric",
@@ -124,11 +125,15 @@ export default async function PhotoConsentPage() {
                                 scoutName={`${scout.firstName} ${scout.lastName}`}
                               />
                             </div>
-                            {parentEmail && (
-                              <div style={{ marginTop: 8 }}>
+                            <div style={{ marginTop: 8 }}>
+                              {parentEmail ? (
                                 <EmailConsentLinkButton scoutId={scout.id} parentEmail={parentEmail} />
-                              </div>
-                            )}
+                              ) : (
+                                <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>
+                                  No parent email on file — copy the link above instead.
+                                </span>
+                              )}
+                            </div>
                           </>
                         )}
                       </div>

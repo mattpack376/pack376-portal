@@ -7,7 +7,11 @@ import type { ConsentStatus } from "@/generated/prisma/enums";
 const initialState: SubmitConsentState = {};
 
 const VENUES: { key: "facebook" | "website" | "fliers"; label: string; note: string }[] = [
-  { key: "facebook", label: "Facebook", note: "Public posts and photo albums on the pack's Facebook page." },
+  {
+    key: "facebook",
+    label: "Instagram and/or Facebook",
+    note: "Public posts and photo albums on the pack's Instagram and Facebook pages.",
+  },
   { key: "website", label: "Pack Website", note: "Photo galleries and event recaps on the pack's public website." },
   {
     key: "fliers",
@@ -54,6 +58,7 @@ export default function PhotoConsentForm({
   website,
   fliers,
   signedByName,
+  signedDate,
 }: {
   token: string;
   scoutFirstName: string;
@@ -61,6 +66,7 @@ export default function PhotoConsentForm({
   website: ConsentStatus;
   fliers: ConsentStatus;
   signedByName: string | null;
+  signedDate: string;
 }) {
   const [state, formAction, pending] = useActionState(submitPhotoConsentAction, initialState);
 
@@ -88,6 +94,11 @@ export default function PhotoConsentForm({
           placeholder="Parent / guardian name"
           required
         />
+      </div>
+
+      <div className="form-field">
+        <label htmlFor="signedDate">Date</label>
+        <input id="signedDate" name="signedDate" type="date" defaultValue={signedDate} required />
       </div>
 
       {state?.error && <div className="form-error">{state.error}</div>}

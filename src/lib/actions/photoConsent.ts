@@ -27,12 +27,15 @@ export async function submitPhotoConsentAction(
 ): Promise<SubmitConsentState> {
   const token = String(formData.get("token") || "");
   const signedByName = String(formData.get("signedByName") || "").trim();
+  const signedDateRaw = String(formData.get("signedDate") || "");
   const facebook = String(formData.get("facebook") || "") as ConsentStatus;
   const website = String(formData.get("website") || "") as ConsentStatus;
   const fliers = String(formData.get("fliers") || "") as ConsentStatus;
 
   if (!token) return { error: "Missing or invalid link." };
   if (!signedByName) return { error: "Enter your name." };
+  const signedDate = /^\d{4}-\d{2}-\d{2}$/.test(signedDateRaw) ? new Date(`${signedDateRaw}T00:00:00Z`) : null;
+  if (!signedDate) return { error: "Enter a valid date." };
   const valid = (v: string): v is "CONSENT" | "DECLINE" => v === "CONSENT" || v === "DECLINE";
   if (!valid(facebook) || !valid(website) || !valid(fliers)) {
     return { error: "Choose consent or decline for all three." };
@@ -43,7 +46,7 @@ export async function submitPhotoConsentAction(
 
   await prisma.photoConsent.update({
     where: { token },
-    data: { facebook, website, fliers, signedByName, signedAt: new Date() },
+    data: { facebook, website, fliers, signedByName, signedDate, signedAt: new Date() },
   });
 
   return { saved: true };
@@ -88,7 +91,7 @@ export async function regeneratePhotoConsentTokenAction(scoutId: string) {
   revalidatePath(ADMIN_PAGE_PATH);
 }
 
-export type SendConsentEmailState = { error?: string; sent?: boolean };
+export type SendConsentEmailState = { error?: string; sent?: boolean; configured?: boolean };
 
 /** Admin/den-leader — emails the existing consent link to a parent's address on file. */
 export async function sendPhotoConsentLinkEmailAction(
@@ -114,10 +117,10 @@ export async function sendPhotoConsentLinkEmailAction(
   }
   if (!scout.photoConsent) return { error: "Generate the link before emailing it." };
 
-  const { sent } = await sendPhotoConsentLinkEmail(parentEmail, {
+  const { sent, configured } = await sendPhotoConsentLinkEmail(parentEmail, {
     scoutFirstName: scout.firstName,
     url: consentLinkUrl(scout.photoConsent.token),
   });
 
-  return { sent };
+  return { sent, configured };
 }
