@@ -1,6 +1,7 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Suspense } from "react";
-import { requireSession } from "@/lib/authorize";
+import { requireSession, homeForRole } from "@/lib/authorize";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import PortalNav from "@/components/PortalNav";
 import LogoutButton from "@/components/LogoutButton";
@@ -14,7 +15,7 @@ export default async function AuthedPortalLayout({
     <div className="portal-shell">
       <header className="portal-header">
         <div className="portal-header-row">
-          <div className="brand">
+          <Link className="brand" href={homeForRole(session.role)}>
             <Image
               className="brand-badge"
               src="/cub-scout-emblem.png"
@@ -25,7 +26,7 @@ export default async function AuthedPortalLayout({
             <span className="brand-text">
               <span className="pack-name">Pack 376 Portal</span>
             </span>
-          </div>
+          </Link>
           <Suspense fallback={null}>
             <PortalNav role={session.role} />
           </Suspense>

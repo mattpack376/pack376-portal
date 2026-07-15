@@ -5,22 +5,19 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-const NAV_LINKS = [
+const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/intro-to-scouting", label: "Intro to Scouting" },
-  { href: "/activities", label: "Activities" },
-  { href: "/parent-resources", label: "Parent Resources" },
   { href: "/volunteer", label: "Volunteer" },
+  { href: "/activities", label: "Activities" },
+  { href: "/rank-requirements", label: "Rank Requirements" },
+  { href: "/parent-resources", label: "Parent Resources" },
   { href: "/leader-resources", label: "Leader Resources" },
   { href: "/den-leaders-corner", label: "Den Leaders' Corner" },
-  { href: "/rank-requirements", label: "Rank Requirements" },
   { href: "/gallery", label: "Photo Albums" },
+  { href: "https://www.troop376nyc.org", label: "Troop 376", external: true },
   { href: "/contact", label: "Contact Us" },
-];
-
-const EXTERNAL_LINKS = [
-  { href: "https://www.troop376nyc.org", label: "Troop 376" },
-  { href: "https://portal.pack376nyc.org", label: "Portal" },
+  { href: "https://portal.pack376nyc.org", label: "Sign In", external: true },
 ];
 
 export default function Header() {
@@ -51,21 +48,22 @@ export default function Header() {
           &#9776;
         </button>
         <div className={`nav-links${open ? " open" : ""}`}>
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={pathname === link.href ? "active" : ""}
-              onClick={() => setOpen(false)}
-            >
-              {link.label}
-            </Link>
-          ))}
-          {EXTERNAL_LINKS.map((link) => (
-            <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer">
-              {link.label}
-            </a>
-          ))}
+          {NAV_ITEMS.map((link) =>
+            link.external ? (
+              <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer">
+                {link.label}
+              </a>
+            ) : (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={pathname === link.href ? "active" : ""}
+                onClick={() => setOpen(false)}
+              >
+                {link.label}
+              </Link>
+            )
+          )}
         </div>
       </nav>
       <div className="string-lights" />

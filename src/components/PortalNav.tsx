@@ -5,6 +5,10 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT";
 
+/** Public site host (no "portal." prefix) — matches getPublicBaseUrl() in src/lib/appUrl.ts,
+ * duplicated here since that helper is server-only and this component is a client component. */
+const WEBSITE_URL = "https://pack376nyc.org";
+
 export default function PortalNav({ role }: { role: Role }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -74,6 +78,7 @@ export default function PortalNav({ role }: { role: Role }) {
           {link.label}
         </Link>
       ))}
+      <a href={WEBSITE_URL}>Website</a>
     </nav>
   );
 }
