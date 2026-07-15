@@ -57,29 +57,30 @@ enum SignerRelationship {
 }
 
 model User {
-  id                 String               @id @default(cuid())
-  username           String               @unique
-  passwordHash       String
-  role               Role
-  email              String?
-  displayName        String
-  failedLoginCount   Int                  @default(0)
-  lockedUntil        DateTime?
+  id                  String               @id @default(cuid())
+  username            String               @unique
+  passwordHash        String
+  role                Role
+  email               String?
+  displayName         String
+  failedLoginCount    Int                  @default(0)
+  lockedUntil         DateTime?
   // Bumped whenever the account's password, role, or den assignments change.
   // The value is embedded in the session JWT; a mismatch on any protected
   // request invalidates already-issued tokens (see src/lib/auth.ts).
-  sessionVersion     Int                  @default(0)
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  advancementUpdates AdvancementRecord[]
-  attendanceUpdates  Attendance[]
-  duesPaymentsLogged DuesPayment[]
-  denAssignments     DenAssignment[]
-  resetTokens        PasswordResetToken[]
+  sessionVersion      Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  advancementUpdates  AdvancementRecord[]
+  attendanceUpdates   Attendance[]
+  duesPaymentsLogged  DuesPayment[]
+  denAssignments      DenAssignment[]
+  resetTokens         PasswordResetToken[]
   // A PARENT-role account may link to more than one Parent contact row (one
   // per scout) when siblings share the same parent/guardian.
-  parentContacts     Parent[]
-  announcements      Announcement[]
+  parentContacts      Parent[]
+  announcements       Announcement[]
+  eventPaymentsLogged EventPayment[]
 }
 
 /**
@@ -124,18 +125,19 @@ model DenAssignment {
 }
 
 model Scout {
-  id           String              @id @default(cuid())
-  denId        String
-  den          Den                 @relation(fields: [denId], references: [id], onDelete: Cascade)
-  firstName    String
-  lastName     String
-  notes        String?
-  createdAt    DateTime            @default(now())
-  records      AdvancementRecord[]
-  attendances  Attendance[]
-  duesPayments DuesPayment[]
-  parents      Parent[]
-  photoConsent PhotoConsent?
+  id                 String              @id @default(cuid())
+  denId              String
+  den                Den                 @relation(fields: [denId], references: [id], onDelete: Cascade)
+  firstName          String
+  lastName           String
+  notes              String?
+  createdAt          DateTime            @default(now())
+  records            AdvancementRecord[]
+  attendances        Attendance[]
+  duesPayments       DuesPayment[]
+  parents            Parent[]
+  photoConsent       PhotoConsent?
+  eventRegistrations EventRegistration[]
 }
 
 model Parent {
@@ -261,7 +263,9 @@ model PhotoAlbum {
   updatedAt     DateTime @updatedAt
 }
 
-/** Pack-wide notice shown to every family on the Parent Dashboard. */
+/**
+ * Pack-wide notice shown to every family on the Parent Dashboard.
+ */
 model Announcement {
   id              String   @id @default(cuid())
   title           String
@@ -273,18 +277,22 @@ model Announcement {
   createdByUser   User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 }
 
-/** A due date surfaced on the Parent Dashboard — camping/day-trip/event RSVPs, forms, etc. */
+/**
+ * A due date surfaced on the Parent Dashboard — camping/day-trip/event RSVPs, forms, etc.
+ */
 model Deadline {
-  id          String            @id @default(cuid())
+  id          String           @id @default(cuid())
   title       String
-  category    DeadlineCategory  @default(GENERAL)
-  dueDate     DateTime          @db.Date
+  category    DeadlineCategory @default(GENERAL)
+  dueDate     DateTime         @db.Date
   description String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
 
-/** An open pack-wide volunteer ask shown on the Parent Dashboard. */
+/**
+ * An open pack-wide volunteer ask shown on the Parent Dashboard.
+ */
 model VolunteerNeed {
   id          String   @id @default(cuid())
   title       String
@@ -292,4 +300,49 @@ model VolunteerNeed {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+/**
+ * A paid pack event (campout, day trip, special event) that scouts sign up for.
+ */
+model Event {
+  id            String              @id @default(cuid())
+  title         String
+  category      DeadlineCategory    @default(GENERAL)
+  eventDate     DateTime            @db.Date
+  description   String?
+  // Default per-scout cost applied when registering a scout — null means the
+  // fee is decided per registration (e.g. varies by family or trip length).
+  feeCents      Int?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  registrations EventRegistration[]
+}
+
+/**
+ * A scout signed up for an Event, with the amount they owe for it.
+ */
+model EventRegistration {
+  id              String         @id @default(cuid())
+  eventId         String
+  event           Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  scoutId         String
+  scout           Scout          @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  amountOwedCents Int
+  createdAt       DateTime       @default(now())
+  payments        EventPayment[]
+
+  @@unique([eventId, scoutId])
+}
+
+model EventPayment {
+  id                  String            @id @default(cuid())
+  eventRegistrationId String
+  eventRegistration   EventRegistration @relation(fields: [eventRegistrationId], references: [id], onDelete: Cascade)
+  amountCents         Int
+  paidOn              DateTime          @db.Date
+  note                String?
+  createdAt           DateTime          @default(now())
+  recordedByUserId    String?
+  recordedByUser      User?             @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
 }

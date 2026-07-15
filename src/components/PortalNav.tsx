@@ -19,6 +19,7 @@ export default function PortalNav({ role }: { role: Role }) {
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/admin/dues", label: "Dues" },
+          { href: "/portal/admin/events", label: "Events" },
           { href: "/portal/admin/parent-portal", label: "Parent Portal" },
           { href: "/portal/admin/users", label: "Users" },
           { href: "/portal/roster", label: "Roster" },

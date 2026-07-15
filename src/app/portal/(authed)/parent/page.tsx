@@ -4,14 +4,16 @@ import { getParentDashboardData } from "@/lib/parentDashboardData";
 import { formatCents } from "@/lib/duesData";
 import { denDisplayName } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from "@/lib/deadlineCategories";
+import { getPublicBaseUrl } from "@/lib/appUrl";
 
 export default async function ParentDashboardPage() {
   const session = await requireParentSession();
-  const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds } = await getParentDashboardData(
+  const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances } = await getParentDashboardData(
     session.scoutIds
   );
 
   const scoutNames = scouts.map((s) => s.firstName).join(" & ") || null;
+  const showScoutNameOnEvents = scouts.length > 1;
 
   return (
     <>
@@ -124,21 +126,53 @@ export default async function ParentDashboardPage() {
                 <span className="badge-pill badge-pending" style={{ marginRight: 8 }}>
                   {formatCents(scout.dues.remainingCents ?? 0)} Due
                 </span>
-                {formatCents(scout.dues.paidCents)} of {formatCents(scout.dues.amountCents)} paid so far — see a den
-                leader or the Committee Treasurer to make a payment.
+                {formatCents(scout.dues.paidCents)} of {formatCents(scout.dues.amountCents)} paid so far — see the
+                Committee Treasurer or Committee Chair to make a payment.
               </p>
             )}
           </div>
         ))
       )}
 
-      <div className="info-card" style={{ marginBottom: 32 }}>
-        <h3 style={{ marginTop: 0 }}>💳 Event Payments</h3>
-        <p style={{ marginBottom: 0 }}>
-          Per-event payment tracking (campouts, day trips, and special events added to the portal) is coming soon.
-          Check Announcements above or Parent Resources for current event costs in the meantime.
-        </p>
+      <div className="section-head">
+        <div className="eyebrow">Per Event</div>
+        <h2>💳 Event Payments</h2>
       </div>
+      {eventBalances.length === 0 ? (
+        <div className="info-card" style={{ marginBottom: 32 }}>
+          <p style={{ marginBottom: 0 }}>No paid events on the books for your scout(s) right now.</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
+          {eventBalances.map((reg) => {
+            const status =
+              reg.remainingCents <= 0
+                ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
+                : reg.paidCents > 0
+                ? { label: "Partial", cls: "badge-junior" }
+                : { label: "Unpaid", cls: "badge-photographer" };
+            return (
+              <div className="info-card" key={reg.id} style={{ marginBottom: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+                  <div>
+                    <p className="form-note" style={{ marginBottom: 4 }}>
+                      {DEADLINE_CATEGORY_LABELS[reg.event.category].toUpperCase()} · {formatDueDate(reg.event.eventDate)}
+                      {showScoutNameOnEvents && ` · ${reg.scoutFirstName}`}
+                    </p>
+                    <p style={{ marginBottom: 0, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{reg.event.title}</p>
+                  </div>
+                  <span className={`badge-pill ${status.cls}`}>{status.label}</span>
+                </div>
+                <p style={{ marginTop: 8, marginBottom: 0 }}>
+                  {formatCents(reg.paidCents)} of {formatCents(reg.amountOwedCents)} paid
+                  {reg.remainingCents > 0 && ` — ${formatCents(reg.remainingCents)} remaining`}
+                  {reg.remainingCents > 0 && " — see the Committee Treasurer or Committee Chair to make a payment."}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="section-head">
         <div className="eyebrow">Lend a Hand</div>
@@ -147,9 +181,9 @@ export default async function ParentDashboardPage() {
       {volunteerNeeds.length === 0 ? (
         <div className="info-card">
           <p style={{ marginBottom: 12 }}>No open volunteer needs posted right now.</p>
-          <Link className="btn btn-outline" href="/volunteer" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+          <a className="btn btn-outline" href={`${getPublicBaseUrl()}/volunteer`} style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
             See Volunteer Roles
-          </Link>
+          </a>
         </div>
       ) : (
         <div className="resource-grid">
@@ -159,7 +193,7 @@ export default async function ParentDashboardPage() {
               <div>
                 <h3>{need.title}</h3>
                 {need.description && <p>{need.description}</p>}
-                <Link href="/volunteer" className="link">Volunteer With Us →</Link>
+                <a href={`${getPublicBaseUrl()}/volunteer`} className="link">Volunteer With Us →</a>
               </div>
             </div>
           ))}

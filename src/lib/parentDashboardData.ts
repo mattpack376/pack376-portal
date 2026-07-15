@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { scoutingYearForDate, ensureMeetingDates, formatMeetingDate } from "@/lib/attendanceSchedule";
 import { getScoutDuesDetail } from "@/lib/duesData";
+import { getScoutEventBalances } from "@/lib/eventsData";
 
 function todayUtc() {
   const now = new Date();
@@ -44,7 +45,10 @@ export async function getParentDashboardData(scoutIds: string[]) {
     }),
   ]);
 
-  const duesByScout = await Promise.all(scouts.map((s) => getScoutDuesDetail(s.id)));
+  const [duesByScout, eventBalances] = await Promise.all([
+    Promise.all(scouts.map((s) => getScoutDuesDetail(s.id))),
+    getScoutEventBalances(scoutIds),
+  ]);
 
   return {
     scouts: scouts.map((scout, i) => ({
@@ -61,5 +65,6 @@ export async function getParentDashboardData(scoutIds: string[]) {
     announcements,
     deadlines,
     volunteerNeeds,
+    eventBalances,
   };
 }

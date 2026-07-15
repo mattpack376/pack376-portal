@@ -46,6 +46,7 @@ const ADMIN_ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole
   { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "JUNIOR_ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/parent-portal"), roles: ["ADMIN"] },
+  { test: (p) => p.startsWith("/portal/admin/events"), roles: ["ADMIN"] },
   { test: (p) => p.endsWith("/promote"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens/new"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens"), roles: ["ADMIN", "JUNIOR_ADMIN"] },
