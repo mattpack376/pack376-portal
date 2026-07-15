@@ -18,7 +18,10 @@ const NAV_LINKS = [
   { href: "/contact", label: "Contact Us" },
 ];
 
-const EXTERNAL_LINKS = [{ href: "https://www.troop376nyc.org", label: "Troop 376" }];
+const EXTERNAL_LINKS = [
+  { href: "https://www.troop376nyc.org", label: "Troop 376" },
+  { href: "https://portal.pack376nyc.org", label: "Portal" },
+];
 
 export default function Header() {
   const pathname = usePathname();
