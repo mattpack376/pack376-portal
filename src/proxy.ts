@@ -12,7 +12,7 @@ function secretKey() {
   return new TextEncoder().encode(secret);
 }
 
-type ProxyRole = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER";
+type ProxyRole = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT";
 
 async function readSession(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
@@ -32,6 +32,7 @@ function homeForRole(role: ProxyRole) {
   if (role === "JUNIOR_ADMIN") return "/portal/admin";
   if (role === "ATTENDANCE_ADMIN") return "/portal/admin/attendance";
   if (role === "PHOTOGRAPHER") return "/portal/admin/albums";
+  if (role === "PARENT") return "/portal/parent";
   return "/portal/den";
 }
 
@@ -44,6 +45,7 @@ const ADMIN_ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole
   { test: (p) => p.startsWith("/portal/admin/attendance"), roles: ["ADMIN", "JUNIOR_ADMIN", "ATTENDANCE_ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "JUNIOR_ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },
+  { test: (p) => p.startsWith("/portal/admin/parent-portal"), roles: ["ADMIN"] },
   { test: (p) => p.endsWith("/promote"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens/new"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens"), roles: ["ADMIN", "JUNIOR_ADMIN"] },

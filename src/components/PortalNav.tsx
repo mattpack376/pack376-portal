@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
-type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER";
+type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT";
 
 export default function PortalNav({ role }: { role: Role }) {
   const pathname = usePathname();
@@ -19,6 +19,7 @@ export default function PortalNav({ role }: { role: Role }) {
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/admin/dues", label: "Dues" },
+          { href: "/portal/admin/parent-portal", label: "Parent Portal" },
           { href: "/portal/admin/users", label: "Users" },
           { href: "/portal/roster", label: "Roster" },
         ];
@@ -38,6 +39,8 @@ export default function PortalNav({ role }: { role: Role }) {
           { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/roster", label: "Roster" },
         ];
+      case "PARENT":
+        return [{ href: "/portal/parent", label: "Dashboard" }];
       default:
         // Preserves the currently selected den (for leaders assigned to more
         // than one) when switching between "My Den" and "Attendance" tabs.

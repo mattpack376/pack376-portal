@@ -6,6 +6,8 @@ import type { Rank } from "@/generated/prisma/enums";
 import { addParentAction, updateParentAction, removeParentAction } from "@/lib/actions/parents";
 import EmailAllButton from "@/components/EmailAllButton";
 import PrintButton from "@/components/PrintButton";
+import InviteParentPortalButton from "@/components/InviteParentPortalButton";
+import RevokeParentPortalButton from "@/components/RevokeParentPortalButton";
 
 const inputStyle = {
   padding: "8px 12px",
@@ -192,63 +194,74 @@ export default async function ParentContactsPage({
                         <div
                           key={parent.id}
                           style={{
-                            display: "flex",
-                            gap: 8,
-                            flexWrap: "wrap",
-                            alignItems: "center",
                             background: "var(--cream)",
                             padding: "8px 12px",
                             borderRadius: 8,
                             marginBottom: 8,
                           }}
                         >
-                          {canEdit ? (
-                            <>
-                              <form
-                                action={updateParentAction}
-                                style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flex: 1 }}
-                              >
-                                <input type="hidden" name="parentId" value={parent.id} />
-                                <input name="name" defaultValue={parent.name} required style={inputStyle} placeholder="Name" />
-                                <input
-                                  name="email"
-                                  type="email"
-                                  defaultValue={parent.email ?? ""}
-                                  style={inputStyle}
-                                  placeholder="Email"
-                                />
-                                <input
-                                  name="phone"
-                                  type="tel"
-                                  defaultValue={parent.phone ?? ""}
-                                  style={inputStyle}
-                                  placeholder="Phone"
-                                />
-                                <button
-                                  type="submit"
-                                  className="btn btn-outline btn-small"
-                                  style={{ ...buttonStyle, borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            {canEdit ? (
+                              <>
+                                <form
+                                  action={updateParentAction}
+                                  style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flex: 1 }}
                                 >
-                                  Save
-                                </button>
-                              </form>
-                              <form action={removeParentAction}>
-                                <input type="hidden" name="parentId" value={parent.id} />
-                                <button
-                                  type="submit"
-                                  className="btn btn-outline btn-small"
-                                  style={{ ...buttonStyle, borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
-                                >
-                                  Remove
-                                </button>
-                              </form>
-                            </>
-                          ) : (
-                            <span style={{ fontSize: 16 }}>
-                              <strong>{parent.name}</strong>
-                              {parent.email && ` · ${parent.email}`}
-                              {parent.phone && ` · ${parent.phone}`}
-                            </span>
+                                  <input type="hidden" name="parentId" value={parent.id} />
+                                  <input name="name" defaultValue={parent.name} required style={inputStyle} placeholder="Name" />
+                                  <input
+                                    name="email"
+                                    type="email"
+                                    defaultValue={parent.email ?? ""}
+                                    style={inputStyle}
+                                    placeholder="Email"
+                                  />
+                                  <input
+                                    name="phone"
+                                    type="tel"
+                                    defaultValue={parent.phone ?? ""}
+                                    style={inputStyle}
+                                    placeholder="Phone"
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="btn btn-outline btn-small"
+                                    style={{ ...buttonStyle, borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                                  >
+                                    Save
+                                  </button>
+                                </form>
+                                <form action={removeParentAction}>
+                                  <input type="hidden" name="parentId" value={parent.id} />
+                                  <button
+                                    type="submit"
+                                    className="btn btn-outline btn-small"
+                                    style={{ ...buttonStyle, borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                                  >
+                                    Remove
+                                  </button>
+                                </form>
+                              </>
+                            ) : (
+                              <span style={{ fontSize: 16 }}>
+                                <strong>{parent.name}</strong>
+                                {parent.email && ` · ${parent.email}`}
+                                {parent.phone && ` · ${parent.phone}`}
+                              </span>
+                            )}
+                          </div>
+
+                          {canEdit && (
+                            <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                              {parent.userId ? (
+                                <>
+                                  <span className="badge-pill badge-parent">Portal Account Active</span>
+                                  <RevokeParentPortalButton parentId={parent.id} />
+                                </>
+                              ) : (
+                                <InviteParentPortalButton parentId={parent.id} hasEmail={!!parent.email} />
+                              )}
+                            </div>
                           )}
                         </div>
                       ))}

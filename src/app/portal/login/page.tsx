@@ -18,8 +18,8 @@ export default function LoginPage() {
             <span className="pack-name">Pack 376</span>
           </span>
         </div>
-        <h1>Den Portal Login</h1>
-        <p className="sub">Advancement tracking for Pack 376 den leaders &amp; admins.</p>
+        <h1>Portal Login</h1>
+        <p className="sub">For Pack 376 families, den leaders &amp; admins.</p>
 
         {state?.error && <div className="form-error">{state.error}</div>}
 

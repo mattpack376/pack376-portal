@@ -172,6 +172,8 @@ section { padding: 64px 0; }
 .nav-links {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 4px;
 }
 .nav-links a {
@@ -857,6 +859,7 @@ section { padding: 64px 0; }
 .badge-attendance { background: var(--teal); color: var(--white); }
 .badge-junior { background: var(--scout-blue-light); color: var(--white); }
 .badge-photographer { background: var(--carnival-red); color: var(--white); }
+.badge-parent { background: var(--scout-gold); color: var(--scout-blue-dark); }
 .badge-consent { background: var(--teal); color: var(--white); }
 .badge-decline { background: var(--carnival-red); color: var(--white); }
 .badge-pending { background: var(--cream-dark); color: var(--ink-soft); }

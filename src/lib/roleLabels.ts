@@ -17,6 +17,7 @@ export const ROLE_LABELS: Record<string, string> = {
   ATTENDANCE_ADMIN: "Attendance Only",
   PHOTOGRAPHER: "Photographer",
   DEN: "Den Leader",
+  PARENT: "Parent",
 };
 
 export const ROLE_BADGE_CLASSES: Record<string, string> = {
@@ -25,4 +26,5 @@ export const ROLE_BADGE_CLASSES: Record<string, string> = {
   ATTENDANCE_ADMIN: "badge-attendance",
   PHOTOGRAPHER: "badge-photographer",
   DEN: "badge-den",
+  PARENT: "badge-parent",
 };

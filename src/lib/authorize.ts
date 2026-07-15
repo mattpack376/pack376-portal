@@ -10,6 +10,7 @@ export function homeForRole(role: SessionPayload["role"]) {
   if (role === "JUNIOR_ADMIN") return "/portal/admin";
   if (role === "ATTENDANCE_ADMIN") return "/portal/admin/attendance";
   if (role === "PHOTOGRAPHER") return "/portal/admin/albums";
+  if (role === "PARENT") return "/portal/parent";
   return "/portal/den";
 }
 
@@ -155,6 +156,13 @@ export function assertAdvancementDenAccess(session: SessionPayload, denId: strin
   if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") return;
   if (session.role === "DEN" && session.denIds.includes(denId)) return;
   throw new Error("Not authorized for this den.");
+}
+
+/** For Server Components / pages: only PARENT-role accounts reach the Parent Dashboard. */
+export async function requireParentSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role !== "PARENT") redirect(homeForRole(session.role));
+  return session;
 }
 
 /**

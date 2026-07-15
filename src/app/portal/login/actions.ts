@@ -42,14 +42,15 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   }
 
   await prisma.user.update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null } });
-  const denAssignments = await prisma.denAssignment.findMany({
-    where: { userId: user.id },
-    select: { denId: true },
-  });
+  const [denAssignments, parentContacts] = await Promise.all([
+    prisma.denAssignment.findMany({ where: { userId: user.id }, select: { denId: true } }),
+    prisma.parent.findMany({ where: { userId: user.id }, select: { scoutId: true }, distinct: ["scoutId"] }),
+  ]);
   await createSessionCookie({
     userId: user.id,
     role: user.role,
     denIds: denAssignments.map((a) => a.denId),
+    scoutIds: parentContacts.map((p) => p.scoutId),
     displayName: user.displayName,
     sv: user.sessionVersion,
   });

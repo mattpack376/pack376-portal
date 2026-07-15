@@ -7,7 +7,10 @@ import { useState } from "react";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
+  { href: "/intro-to-scouting", label: "Intro to Scouting" },
+  { href: "/activities", label: "Activities" },
   { href: "/parent-resources", label: "Parent Resources" },
+  { href: "/volunteer", label: "Volunteer" },
   { href: "/leader-resources", label: "Leader Resources" },
   { href: "/den-leaders-corner", label: "Den Leaders' Corner" },
   { href: "/rank-requirements", label: "Rank Requirements" },

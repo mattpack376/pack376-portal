@@ -17,8 +17,12 @@ function secretKey() {
 
 export type SessionPayload = {
   userId: string;
-  role: "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER";
+  role: "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT";
   denIds: string[];
+  // The scout(s) this account is linked to via Parent.userId — only ever
+  // non-empty for role PARENT. Present for every role (rather than optional)
+  // so callers can read it unconditionally, same as denIds.
+  scoutIds: string[];
   displayName: string;
   // Snapshot of User.sessionVersion at sign-in. Compared against the DB on
   // every protected request so password/role/den changes revoke old tokens.

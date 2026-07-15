@@ -28,7 +28,10 @@ export default function Footer() {
           <h4>Explore</h4>
           <ul>
             <li><Link href="/">Home</Link></li>
+            <li><Link href="/intro-to-scouting">Intro to Scouting</Link></li>
+            <li><Link href="/activities">Activities</Link></li>
             <li><Link href="/parent-resources">Parent Resources</Link></li>
+            <li><Link href="/volunteer">Volunteer</Link></li>
             <li><Link href="/leader-resources">Leader Resources</Link></li>
             <li><Link href="/den-leaders-corner">Den Leaders&apos; Corner</Link></li>
             <li><Link href="/rank-requirements">Rank Requirements</Link></li>

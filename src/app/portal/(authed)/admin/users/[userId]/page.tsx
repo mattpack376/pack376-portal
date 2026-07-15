@@ -23,7 +23,9 @@ export default async function ManageUserPage({
     where: { id: userId },
     include: { denAssignments: { include: { den: true } } },
   });
-  if (!user) notFound();
+  // Parent Portal accounts are managed from Roster → Parents instead — this
+  // screen's role picker doesn't have a PARENT option.
+  if (!user || user.role === "PARENT") notFound();
 
   const protectedAccount = isMasterAdminUsername(user.username);
   const roleEditable = !protectedAccount;

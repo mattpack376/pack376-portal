@@ -13,6 +13,14 @@ enum Role {
   ATTENDANCE_ADMIN
   JUNIOR_ADMIN
   PHOTOGRAPHER
+  PARENT
+}
+
+enum DeadlineCategory {
+  CAMPING
+  DAY_TRIP
+  SPECIAL_EVENT
+  GENERAL
 }
 
 enum Rank {
@@ -68,6 +76,10 @@ model User {
   duesPaymentsLogged DuesPayment[]
   denAssignments     DenAssignment[]
   resetTokens        PasswordResetToken[]
+  // A PARENT-role account may link to more than one Parent contact row (one
+  // per scout) when siblings share the same parent/guardian.
+  parentContacts     Parent[]
+  announcements      Announcement[]
 }
 
 /**
@@ -134,6 +146,13 @@ model Parent {
   email     String?
   phone     String?
   createdAt DateTime @default(now())
+  // Set once an admin invites this contact to the Parent Portal. Nulled out
+  // (not cascaded) if that login is ever deleted, so the contact info on file
+  // survives losing portal access.
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
 }
 
 model Adventure {
@@ -240,4 +259,37 @@ model PhotoAlbum {
   isVisible     Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+/** Pack-wide notice shown to every family on the Parent Dashboard. */
+model Announcement {
+  id              String   @id @default(cuid())
+  title           String
+  body            String
+  pinned          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdByUserId String?
+  createdByUser   User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+}
+
+/** A due date surfaced on the Parent Dashboard — camping/day-trip/event RSVPs, forms, etc. */
+model Deadline {
+  id          String            @id @default(cuid())
+  title       String
+  category    DeadlineCategory  @default(GENERAL)
+  dueDate     DateTime          @db.Date
+  description String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+/** An open pack-wide volunteer ask shown on the Parent Dashboard. */
+model VolunteerNeed {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
