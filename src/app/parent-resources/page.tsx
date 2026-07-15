@@ -46,6 +46,18 @@ export default function ParentResourcesPage() {
 
       <section style={{ paddingTop: 16 }}>
         <div className="container">
+          <div className="info-card" style={{ borderLeft: "8px solid var(--teal)", marginBottom: 24 }}>
+            <div className="eyebrow">For Registered Families</div>
+            <h2 style={{ marginBottom: 8 }}>Parent Portal</h2>
+            <p>
+              Sign in to see your scout&apos;s next meeting, upcoming deadlines, dues balance, forms that
+              need your signature, and pack announcements.
+            </p>
+            <a className="btn btn-primary" href="/portal/login" target="_blank" rel="noopener">
+              Sign In to the Parent Portal
+            </a>
+          </div>
+
           <div className="info-card" style={{ borderLeft: "8px solid var(--scout-gold)", marginBottom: 40 }}>
             <div className="eyebrow">Start Here</div>
             <h2 style={{ marginBottom: 8 }}>Calendar of Events</h2>
