@@ -181,7 +181,13 @@ export default async function ParentDashboardPage() {
       {volunteerNeeds.length === 0 ? (
         <div className="info-card">
           <p style={{ marginBottom: 12 }}>No open volunteer needs posted right now.</p>
-          <a className="btn btn-outline" href={`${getPublicBaseUrl()}/volunteer`} style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+          <a
+            className="btn btn-outline"
+            href={`${getPublicBaseUrl()}/volunteer`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+          >
             See Volunteer Roles
           </a>
         </div>
@@ -193,7 +199,7 @@ export default async function ParentDashboardPage() {
               <div>
                 <h3>{need.title}</h3>
                 {need.description && <p>{need.description}</p>}
-                <a href={`${getPublicBaseUrl()}/volunteer`} className="link">Volunteer With Us →</a>
+                <a href={`${getPublicBaseUrl()}/volunteer`} target="_blank" rel="noopener noreferrer" className="link">Volunteer With Us →</a>
               </div>
             </div>
           ))}

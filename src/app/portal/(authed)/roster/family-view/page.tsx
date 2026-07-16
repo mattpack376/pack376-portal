@@ -173,7 +173,7 @@ export default async function FamilyViewPage({
               <div>
                 <h3>{need.title}</h3>
                 {need.description && <p>{need.description}</p>}
-                <a href={`${getPublicBaseUrl()}/volunteer`} className="link">Volunteer With Us →</a>
+                <a href={`${getPublicBaseUrl()}/volunteer`} target="_blank" rel="noopener noreferrer" className="link">Volunteer With Us →</a>
               </div>
             </div>
           ))}
