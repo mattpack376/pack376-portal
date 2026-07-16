@@ -46,6 +46,10 @@ const ADMIN_ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole
   { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "JUNIOR_ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/parent-portal"), roles: ["ADMIN"] },
+  // A den leader records payments on a single registration's page (checked
+  // den-by-den in the page/action itself); the event list and event detail
+  // pages stay admin-only.
+  { test: (p) => /^\/portal\/admin\/events\/[^/]+\/[^/]+$/.test(p), roles: ["ADMIN", "DEN"] },
   { test: (p) => p.startsWith("/portal/admin/events"), roles: ["ADMIN"] },
   { test: (p) => p.endsWith("/promote"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens/new"), roles: ["ADMIN"] },

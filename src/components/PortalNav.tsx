@@ -78,7 +78,7 @@ export default function PortalNav({ role }: { role: Role }) {
           {link.label}
         </Link>
       ))}
-      <a href={WEBSITE_URL}>Website</a>
+      <a href={WEBSITE_URL} target="_blank" rel="noopener noreferrer">Website</a>
     </nav>
   );
 }

@@ -158,6 +158,24 @@ export function assertAdvancementDenAccess(session: SessionPayload, denId: strin
   throw new Error("Not authorized for this den.");
 }
 
+/**
+ * For Server Components / pages: recording event payments — full admin for
+ * any event, a den login only for its assigned den(s). Junior admin is
+ * intentionally excluded (view-only, same as the rest of the events data).
+ */
+export async function requireEventPaymentSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN" && session.role !== "DEN") redirect(homeForRole(session.role));
+  return session;
+}
+
+/** Full admin for any event; a den login only for its assigned den(s). Junior admin excluded on purpose. */
+export function assertEventPaymentDenAccess(session: SessionPayload, denId: string) {
+  if (session.role === "ADMIN") return;
+  if (session.role === "DEN" && session.denIds.includes(denId)) return;
+  throw new Error("Not authorized for this den.");
+}
+
 /** For Server Components / pages: only PARENT-role accounts reach the Parent Dashboard. */
 export async function requireParentSession(): Promise<SessionPayload> {
   const session = await requireSession();

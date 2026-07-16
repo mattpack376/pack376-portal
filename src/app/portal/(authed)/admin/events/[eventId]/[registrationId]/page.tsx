@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdminSession } from "@/lib/authorize";
+import { requireEventPaymentSession } from "@/lib/authorize";
 import { getRegistrationDetail } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
@@ -13,17 +13,21 @@ export default async function AdminEventRegistrationPage({
 }: {
   params: Promise<{ eventId: string; registrationId: string }>;
 }) {
-  await requireAdminSession();
+  const session = await requireEventPaymentSession();
   const { eventId, registrationId } = await params;
 
   const reg = await getRegistrationDetail(registrationId);
   if (!reg || reg.event.id !== eventId) notFound();
+  if (session.role === "DEN" && !session.denIds.includes(reg.scout.den.id)) notFound();
+
+  const backHref = session.role === "DEN" ? "/portal/roster/family-view" : `/portal/admin/events/${eventId}`;
+  const backLabel = session.role === "DEN" ? "← Family View" : `← ${reg.event.title}`;
 
   return (
     <>
       <div className="section-head">
         <div className="eyebrow">
-          <Link href={`/portal/admin/events/${eventId}`}>← {reg.event.title}</Link>
+          <Link href={backHref}>{backLabel}</Link>
         </div>
         <h2>{reg.scout.firstName} {reg.scout.lastName}</h2>
         <p>
