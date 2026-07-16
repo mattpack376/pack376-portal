@@ -3,7 +3,8 @@ import { requireParentContactsSession } from "@/lib/authorize";
 import { getParentDashboardData } from "@/lib/parentDashboardData";
 import { prisma } from "@/lib/prisma";
 import { formatCents } from "@/lib/duesData";
-import { denDisplayName } from "@/lib/rankConfig";
+import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
+import type { Rank } from "@/generated/prisma/enums";
 import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from "@/lib/deadlineCategories";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import DenSwitcher from "@/components/DenSwitcher";
@@ -34,7 +35,31 @@ export default async function FamilyViewPage({
   }
 
   const scoutIds = den ? den.scouts.map((s) => s.id) : (await prisma.scout.findMany({ select: { id: true } })).map((s) => s.id);
-  const { nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances } = await getParentDashboardData(scoutIds);
+  const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances } = await getParentDashboardData(scoutIds);
+
+  const scoutInfoById = new Map(scouts.map((s) => [s.id, s]));
+  const eventBalancesByDen = new Map<string, { den: (typeof scouts)[number]["den"] | null; regs: typeof eventBalances }>();
+  for (const reg of eventBalances) {
+    const scout = scoutInfoById.get(reg.scoutId);
+    const key = scout?.den?.id ?? "none";
+    if (!eventBalancesByDen.has(key)) eventBalancesByDen.set(key, { den: scout?.den ?? null, regs: [] });
+    eventBalancesByDen.get(key)!.regs.push(reg);
+  }
+  const denEventGroups = Array.from(eventBalancesByDen.values()).sort((a, b) => {
+    if (!a.den) return 1;
+    if (!b.den) return -1;
+    if (a.den.scoutingYear !== b.den.scoutingYear) return b.den.scoutingYear.localeCompare(a.den.scoutingYear);
+    return RANK_ORDER.indexOf(a.den.rank as Rank) - RANK_ORDER.indexOf(b.den.rank as Rank);
+  });
+  for (const group of denEventGroups) {
+    group.regs.sort((a, b) => {
+      const scoutA = scoutInfoById.get(a.scoutId);
+      const scoutB = scoutInfoById.get(b.scoutId);
+      const lastCmp = (scoutA?.lastName ?? "").localeCompare(scoutB?.lastName ?? "");
+      if (lastCmp !== 0) return lastCmp;
+      return (scoutA?.firstName ?? "").localeCompare(scoutB?.firstName ?? "");
+    });
+  }
 
   return (
     <>
@@ -119,41 +144,52 @@ export default async function FamilyViewPage({
           <p style={{ marginBottom: 0 }}>No paid events on the books right now.</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
-          {eventBalances.map((reg) => {
-            const status =
-              reg.remainingCents <= 0
-                ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                : reg.paidCents > 0
-                ? { label: "Partial", cls: "badge-junior" }
-                : { label: "Unpaid", cls: "badge-photographer" };
-            return (
-              <div className="info-card" key={reg.id} style={{ marginBottom: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-                  <div>
-                    <p className="form-note" style={{ marginBottom: 4 }}>
-                      {DEADLINE_CATEGORY_LABELS[reg.event.category].toUpperCase()} · {formatDueDate(reg.event.eventDate)} · {reg.scoutFirstName}
-                    </p>
-                    <p style={{ marginBottom: 0, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{reg.event.title}</p>
-                  </div>
-                  <span className={`badge-pill ${status.cls}`}>{status.label}</span>
-                </div>
-                <p style={{ marginTop: 8, marginBottom: canRecordPayments ? 8 : 0 }}>
-                  {formatCents(reg.paidCents)} of {formatCents(reg.amountOwedCents)} paid
-                  {reg.remainingCents > 0 && ` — ${formatCents(reg.remainingCents)} remaining`}
-                </p>
-                {canRecordPayments && (
-                  <Link
-                    href={`/portal/admin/events/${reg.event.id}/${reg.id}`}
-                    className="btn btn-outline btn-small"
-                    style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
-                  >
-                    Record Payment
-                  </Link>
-                )}
+        <div style={{ marginBottom: 32 }}>
+          {denEventGroups.map((group) => (
+            <div key={group.den?.id ?? "none"} style={{ marginBottom: 20 }}>
+              {denEventGroups.length > 1 && (
+                <h3 style={{ fontSize: 17, marginBottom: 10 }}>
+                  {group.den ? denDisplayName(group.den.rank, group.den.scoutingYear, group.den.label) : "No Den Assigned"}
+                </h3>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {group.regs.map((reg) => {
+                  const status =
+                    reg.remainingCents <= 0
+                      ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
+                      : reg.paidCents > 0
+                      ? { label: "Partial", cls: "badge-junior" }
+                      : { label: "Unpaid", cls: "badge-photographer" };
+                  return (
+                    <div className="info-card" key={reg.id} style={{ marginBottom: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+                        <div>
+                          <p className="form-note" style={{ marginBottom: 4 }}>
+                            {DEADLINE_CATEGORY_LABELS[reg.event.category].toUpperCase()} · {formatDueDate(reg.event.eventDate)} · {reg.scoutFirstName}
+                          </p>
+                          <p style={{ marginBottom: 0, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{reg.event.title}</p>
+                        </div>
+                        <span className={`badge-pill ${status.cls}`}>{status.label}</span>
+                      </div>
+                      <p style={{ marginTop: 8, marginBottom: canRecordPayments ? 8 : 0 }}>
+                        {formatCents(reg.paidCents)} of {formatCents(reg.amountOwedCents)} paid
+                        {reg.remainingCents > 0 && ` — ${formatCents(reg.remainingCents)} remaining`}
+                      </p>
+                      {canRecordPayments && (
+                        <Link
+                          href={`/portal/admin/events/${reg.event.id}/${reg.id}`}
+                          className="btn btn-outline btn-small"
+                          style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                        >
+                          Record Payment
+                        </Link>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
