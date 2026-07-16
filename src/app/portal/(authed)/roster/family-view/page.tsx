@@ -15,9 +15,7 @@ export default async function FamilyViewPage({
 }) {
   const session = await requireParentContactsSession();
   const canRecordPayments = session.role === "ADMIN" || session.role === "DEN";
-  // Junior admins are scoped to their own den(s), same as den leaders — they
-  // see payments due for the den(s) they personally lead, not the whole pack.
-  const isDenScoped = session.role === "DEN" || session.role === "JUNIOR_ADMIN";
+  const isDenScoped = session.role === "DEN";
 
   if (isDenScoped && session.denIds.length === 0) {
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
