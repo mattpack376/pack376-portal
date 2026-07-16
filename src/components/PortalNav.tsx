@@ -33,6 +33,7 @@ export default function PortalNav({ role }: { role: Role }) {
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/roster", label: "Roster" },
+          { href: "/portal/roster/family-view", label: "Family View" },
         ];
       case "ATTENDANCE_ADMIN":
         return [
@@ -53,6 +54,7 @@ export default function PortalNav({ role }: { role: Role }) {
           { href: withDenId("/portal/den"), label: "My Den" },
           { href: withDenId("/portal/den/attendance"), label: "Attendance" },
           { href: "/portal/roster", label: "Roster" },
+          { href: withDenId("/portal/roster/family-view"), label: "Family View" },
         ];
     }
   })();

@@ -44,7 +44,7 @@ export default async function RosterPage() {
             </Link>
           </p>
         )}
-        {canSeeParentContacts && (
+        {session.role === "ADMIN" && (
           <p style={{ fontSize: 17 }}>
             <Link href="/portal/roster/family-view" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
               → Family View (What Parents See)
