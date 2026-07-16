@@ -15,18 +15,20 @@ export default async function FamilyViewPage({
 }) {
   const session = await requireParentContactsSession();
   const canRecordPayments = session.role === "ADMIN" || session.role === "DEN";
+  // Junior admins are scoped to their own den(s), same as den leaders — they
+  // see payments due for the den(s) they personally lead, not the whole pack.
+  const isDenScoped = session.role === "DEN" || session.role === "JUNIOR_ADMIN";
 
-  if (session.role === "DEN" && session.denIds.length === 0) {
+  if (isDenScoped && session.denIds.length === 0) {
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
   }
 
   const { denId: requestedDenId } = await searchParams;
-  const denId =
-    session.role === "DEN"
-      ? requestedDenId && session.denIds.includes(requestedDenId)
-        ? requestedDenId
-        : session.denIds[0]
-      : undefined;
+  const denId = isDenScoped
+    ? requestedDenId && session.denIds.includes(requestedDenId)
+      ? requestedDenId
+      : session.denIds[0]
+    : undefined;
 
   const den = denId ? await prisma.den.findUnique({ where: { id: denId }, include: { scouts: { select: { id: true } } } }) : null;
   if (denId && !den) {
@@ -51,7 +53,7 @@ export default async function FamilyViewPage({
         </p>
       </div>
 
-      {session.role === "DEN" && <DenSwitcher denIds={session.denIds} currentDenId={denId!} basePath="/portal/roster/family-view" />}
+      {isDenScoped && <DenSwitcher denIds={session.denIds} currentDenId={denId!} basePath="/portal/roster/family-view" />}
 
       <div className="two-col" style={{ marginBottom: 32 }}>
         <div className="info-card">
