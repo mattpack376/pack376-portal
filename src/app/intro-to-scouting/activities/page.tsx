@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "Activities — Pack 376",
+  title: "Activities — Intro to Scouting — Pack 376",
   description:
     "Camping, hiking, the Pinewood Derby, day trips, and sports outings — see the variety of adventures Pack 376 Cub Scouts experience all year.",
 };
@@ -49,7 +49,7 @@ export default function ActivitiesPage() {
 
       <section className="page-hero">
         <div className="eyebrow" style={{ background: "rgba(255,255,255,0.15)", color: "var(--scout-gold)" }}>
-          The Fun Part
+          <Link href="/intro-to-scouting" style={{ color: "inherit" }}>← Intro to Scouting</Link> · The Fun Part
         </div>
         <h1>Activities</h1>
         <p>

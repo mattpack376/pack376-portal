@@ -29,7 +29,7 @@ export default function Footer() {
           <ul>
             <li><Link href="/">Home</Link></li>
             <li><Link href="/intro-to-scouting">Intro to Scouting</Link></li>
-            <li><Link href="/activities">Activities</Link></li>
+            <li><Link href="/intro-to-scouting/activities">Activities</Link></li>
             <li><Link href="/parent-resources">Parent Resources</Link></li>
             <li><Link href="/volunteer">Volunteer</Link></li>
             <li><Link href="/leader-resources">Leader Resources</Link></li>

@@ -9,7 +9,6 @@ const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/intro-to-scouting", label: "Intro to Scouting" },
   { href: "/volunteer", label: "Volunteer" },
-  { href: "/activities", label: "Activities" },
   { href: "/rank-requirements", label: "Rank Requirements" },
   { href: "/parent-resources", label: "Parent Resources" },
   { href: "/leader-resources", label: "Leader Resources" },
@@ -57,7 +56,7 @@ export default function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={pathname === link.href ? "active" : ""}
+                className={pathname === link.href || pathname.startsWith(`${link.href}/`) ? "active" : ""}
                 onClick={() => setOpen(false)}
               >
                 {link.label}
