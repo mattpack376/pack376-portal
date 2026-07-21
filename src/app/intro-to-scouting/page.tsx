@@ -221,7 +221,7 @@ export default function IntroToScoutingPage() {
         <h2>Ready to See It in Action?</h2>
         <p>Check out the camping trips, derbies, and outings scouts experience all year long.</p>
         <div className="hero-actions" style={{ justifyContent: "center", marginTop: 24 }}>
-          <Link className="btn btn-primary" href="/intro-to-scouting/activities">See Our Activities</Link>
+          <Link className="btn btn-primary" href="/activities">See Our Activities</Link>
           <Link className="btn btn-outline" href="/rank-requirements">See Rank Requirements</Link>
         </div>
       </section>
