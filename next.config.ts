@@ -62,9 +62,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: "/activities",
-        destination: "/intro-to-scouting/activities",
-        permanent: true,
+        source: "/:path*",
+        has: [{ type: "host", value: "calendar.pack376nyc.org" }],
+        destination:
+          "https://docs.google.com/document/d/e/2PACX-1vTt7ZYfxypgB9-HXM7inLi7vznfwXyszYWvKKrSrPmCPfoa1CJzaxnBweqPetUUuC7Bz6J7KeItwDc9/pub",
+        permanent: false,
       },
     ];
   },
