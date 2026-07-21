@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Den Leaders' Corner — Pack 376",
   description:
-    "Meet the pack leadership and den leaders of Pack 376 — Committee Chair, Treasurer, Cubmaster, Assistant Cubmaster, and the Lion, Tiger, Wolf, Bear, Webelos, and Arrow of Light den leaders.",
+    "Meet the pack leadership and den leaders of Pack 376, plus leader resources — rosters, forms, the pack calendar, and links to BSA tools.",
 };
+
+const CALENDAR_URL = "https://calendar.pack376nyc.org";
 
 export default function DenLeadersCornerPage() {
   return (
@@ -166,6 +169,86 @@ export default function DenLeadersCornerPage() {
             </div>
           </div>
 
+        </div>
+      </section>
+
+      <section style={{ paddingTop: 8, background: "var(--white)" }}>
+        <div className="container">
+          <div className="section-head center">
+            <div className="eyebrow">Behind the Booth</div>
+            <h2>Leader Resources</h2>
+            <p>
+              Everything our den leaders, assistant leaders, and committee members need to run
+              a great pack — rosters, forms, and go-to links.
+            </p>
+          </div>
+          <div className="resource-grid">
+            <div className="resource-card">
+              <div className="icon-badge">💻</div>
+              <div>
+                <h3>Den Advancement Portal</h3>
+                <p>Track your den&apos;s adventure progress online — log in with your den&apos;s account.</p>
+                <a className="link" href="https://portal.pack376nyc.org" target="_blank" rel="noopener">Open the portal →</a>
+              </div>
+            </div>
+            <div className="resource-card">
+              <div className="icon-badge">🗓️</div>
+              <div>
+                <h3>Calendar of Events</h3>
+                <p>The live 2026–2027 pack calendar — updates to the published document appear automatically.</p>
+                <a className="link" href={CALENDAR_URL} target="_blank" rel="noopener">Open Live Calendar →</a>
+              </div>
+            </div>
+            <div className="resource-card">
+              <div className="icon-badge">📣</div>
+              <div>
+                <h3>Recruitment Flyer</h3>
+                <p>Share-ready flyer for school events and National Night Out.</p>
+                <a className="link" href="/pack-376-recruitment-flyer.jpeg" target="_blank" rel="noopener">Open Recruitment Flyer →</a>
+              </div>
+            </div>
+            <div className="resource-card">
+              <div className="icon-badge">📖</div>
+              <div>
+                <h3>Scoutbook</h3>
+                <p>Official BSA advancement &amp; roster tracking tool used by our den leaders.</p>
+                <a className="link" href="https://scoutbook.scouting.org/" target="_blank" rel="noopener">Open Scoutbook →</a>
+              </div>
+            </div>
+            <div className="resource-card">
+              <div className="icon-badge">🧭</div>
+              <div>
+                <h3>BSA Program Resources</h3>
+                <p>Official Cub Scout program guides, adventure requirements, and leader training.</p>
+                <a className="link" href="https://www.scouting.org/programs/cub-scouts/" target="_blank" rel="noopener">Visit scouting.org →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="container two-col">
+          <div className="info-card">
+            <h3 style={{ marginTop: 0 }}>Volunteering</h3>
+            <p>Pack 376 runs on parent power. Whether you can help once a year or once a month, there&apos;s a spot for you:</p>
+            <ul>
+              <li>Den leader or assistant den leader</li>
+              <li>Committee member (fundraising, events, communications)</li>
+              <li>Pack night &amp; campout setup/cleanup crew</li>
+              <li>Popcorn &amp; fundraiser support</li>
+            </ul>
+            <Link className="btn btn-red" href="/contact" style={{ marginTop: 8 }}>I Want to Help</Link>
+          </div>
+          <div className="info-card">
+            <h3 style={{ marginTop: 0 }}>Leader Meetings</h3>
+            <p>Den leaders and committee members meet on their own schedules to plan pack nights, campouts, and fundraisers.</p>
+            <ul>
+              <li>Den Leaders &amp; Assistant Den Leaders — Weekly, Fridays 7–10 PM</li>
+              <li>Committee Members — Bi-Monthly, Virtually</li>
+            </ul>
+            <p className="form-note">Exact dates are posted on the pack calendar and shared with registered leaders.</p>
+          </div>
         </div>
       </section>
 

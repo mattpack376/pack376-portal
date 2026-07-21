@@ -68,6 +68,11 @@ const nextConfig: NextConfig = {
           "https://docs.google.com/document/d/e/2PACX-1vTt7ZYfxypgB9-HXM7inLi7vznfwXyszYWvKKrSrPmCPfoa1CJzaxnBweqPetUUuC7Bz6J7KeItwDc9/pub",
         permanent: false,
       },
+      {
+        source: "/leader-resources",
+        destination: "/den-leaders-corner",
+        permanent: true,
+      },
     ];
   },
 };

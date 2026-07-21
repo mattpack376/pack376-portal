@@ -30,9 +30,13 @@ export default function Footer() {
             <li><Link href="/">Home</Link></li>
             <li><Link href="/intro-to-scouting">Intro to Scouting</Link></li>
             <li><Link href="/activities">Activities</Link></li>
+            <li>
+              <a href="https://calendar.pack376nyc.org" target="_blank" rel="noopener">
+                Calendar
+              </a>
+            </li>
             <li><Link href="/parent-resources">Parent Resources</Link></li>
             <li><Link href="/volunteer">Volunteer</Link></li>
-            <li><Link href="/leader-resources">Leader Resources</Link></li>
             <li><Link href="/den-leaders-corner">Den Leaders&apos; Corner</Link></li>
             <li><Link href="/rank-requirements">Rank Requirements</Link></li>
             <li><Link href="/gallery">Photo Albums</Link></li>
