@@ -55,7 +55,20 @@ export async function removeParentAction(formData: FormData) {
   const parentId = String(formData.get("parentId") || "");
   if (!parentId) throw new Error("Missing parent id.");
 
-  await prisma.parent.delete({ where: { id: parentId } });
+  const parent = await prisma.parent.findUnique({ where: { id: parentId }, select: { userId: true } });
+
+  // scoutIds is baked into the parent's session JWT at login time and lives
+  // for up to 45 days; deleting the Parent row alone leaves any already-issued
+  // session still vouching for that scout. Bumping sessionVersion invalidates
+  // it immediately, forcing a fresh login that recomputes scoutIds from the
+  // remaining relationships (siblings share one login, so other scouts on the
+  // same account stay accessible after the re-login).
+  await prisma.$transaction([
+    prisma.parent.delete({ where: { id: parentId } }),
+    ...(parent?.userId
+      ? [prisma.user.update({ where: { id: parent.userId }, data: { sessionVersion: { increment: 1 } } })]
+      : []),
+  ]);
 
   revalidatePath("/portal/roster/parents");
 }

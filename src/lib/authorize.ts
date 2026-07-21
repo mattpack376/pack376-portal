@@ -176,6 +176,17 @@ export function assertEventPaymentDenAccess(session: SessionPayload, denId: stri
   throw new Error("Not authorized for this den.");
 }
 
+/**
+ * For Server Components / pages: the pack-wide roster (every den, leader, and
+ * scout name) — every staff role, but never a PARENT account. The parent nav
+ * never links here, but that alone doesn't stop a direct visit.
+ */
+export async function requireRosterSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role === "PARENT") redirect(homeForRole(session.role));
+  return session;
+}
+
 /** For Server Components / pages: only PARENT-role accounts reach the Parent Dashboard. */
 export async function requireParentSession(): Promise<SessionPayload> {
   const session = await requireSession();

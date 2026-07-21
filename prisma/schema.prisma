@@ -226,29 +226,49 @@ model DuesPayment {
 
 /**
  * Per-scout photo release, reachable only via the plaintext `token` embedded
- * in a link (no family portal accounts). Unlike PasswordResetToken this
- * token never expires or gets marked used — a leader needs to reopen the
- * same link weeks later to check status or resend it, and a parent needs to
- * be able to revisit it and change their answer. It's an unguessable capability
- * URL (crypto-random, same trust level as PhotoAlbum.photoAlbumUrl below),
- * not a login credential, so storing it in plaintext is an acceptable
- * trade-off in exchange for re-viewability. If a link is ever suspected
- * leaked, an admin/den leader can rotate it (see regeneratePhotoConsentTokenAction).
+ * in a link (no family portal accounts). It's an unguessable capability URL
+ * (crypto-random, same trust level as PhotoAlbum.photoAlbumUrl below), not a
+ * login credential, so storing it in plaintext is fine — but unlike that URL,
+ * this one gates a write (whether photos of a specific kid can be posted
+ * publicly), so it can't stay valid forever the way a read-only album link
+ * can. submitPhotoConsentAction rotates `token` every time consent is
+ * recorded, so a given link is good for exactly one submission; a leader
+ * reopens it before that to check status, and generates a fresh one (see
+ * regeneratePhotoConsentTokenAction) for the parent to make a later change.
+ * PhotoConsentHistory keeps an append-only record of every submission.
  */
 model PhotoConsent {
-  id                 String              @id @default(cuid())
-  scoutId            String              @unique
-  scout              Scout               @relation(fields: [scoutId], references: [id], onDelete: Cascade)
-  token              String              @unique
-  facebook           ConsentStatus       @default(PENDING)
-  website            ConsentStatus       @default(PENDING)
-  fliers             ConsentStatus       @default(PENDING)
+  id                 String                @id @default(cuid())
+  scoutId            String                @unique
+  scout              Scout                 @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  token              String                @unique
+  facebook           ConsentStatus         @default(PENDING)
+  website            ConsentStatus         @default(PENDING)
+  fliers             ConsentStatus         @default(PENDING)
   signedByName       String?
   signedRelationship SignerRelationship?
-  signedDate         DateTime?           @db.Date
+  signedDate         DateTime?             @db.Date
   signedAt           DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  history            PhotoConsentHistory[]
+}
+
+/** Append-only log of every photo-consent submission, oldest first via createdAt. Never updated or deleted directly — only ever inserted into, alongside the PhotoConsent row it snapshots and a token rotation. */
+model PhotoConsentHistory {
+  id                 String             @id @default(cuid())
+  photoConsentId     String
+  photoConsent       PhotoConsent       @relation(fields: [photoConsentId], references: [id], onDelete: Cascade)
+  facebook           ConsentStatus
+  website            ConsentStatus
+  fliers             ConsentStatus
+  signedByName       String
+  signedRelationship SignerRelationship
+  signedDate         DateTime           @db.Date
+  signedAt           DateTime
+  createdAt          DateTime           @default(now())
+
+  @@index([photoConsentId])
 }
 
 model PhotoAlbum {

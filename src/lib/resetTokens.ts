@@ -12,11 +12,22 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+/**
+ * Invalidates any tokens already outstanding for this user before issuing the
+ * new one, in the same transaction — otherwise an older reset/invite link
+ * stays live (and usable) alongside whatever this call is about to hand out.
+ */
 async function issueToken(userId: string, ttlMs: number) {
   const token = randomBytes(32).toString("base64url");
-  await prisma.passwordResetToken.create({
-    data: { userId, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + ttlMs) },
-  });
+  await prisma.$transaction([
+    prisma.passwordResetToken.updateMany({
+      where: { userId, usedAt: null },
+      data: { usedAt: new Date() },
+    }),
+    prisma.passwordResetToken.create({
+      data: { userId, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + ttlMs) },
+    }),
+  ]);
   return token;
 }
 
@@ -45,17 +56,27 @@ export async function peekResetToken(token: string): Promise<boolean> {
  * token doesn't exist, is expired, or was already used. `updateMany`'s WHERE
  * re-checks `usedAt: null` at the database level, so two simultaneous
  * redemptions of the same link can't both succeed — the loser gets count: 0.
+ *
+ * Also invalidates every other outstanding token for the same user in the
+ * same transaction — issueToken already does this on issue, but this covers
+ * tokens that predate that behavior, or any issued concurrently with redemption.
  */
 export async function redeemResetToken(token: string): Promise<{ userId: string } | null> {
   const tokenHash = hashToken(token);
   const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
   if (!record || record.usedAt || record.expiresAt < new Date()) return null;
 
-  const result = await prisma.passwordResetToken.updateMany({
-    where: { tokenHash, usedAt: null },
-    data: { usedAt: new Date() },
-  });
-  if (result.count === 0) return null;
+  const [{ count }] = await prisma.$transaction([
+    prisma.passwordResetToken.updateMany({
+      where: { tokenHash, usedAt: null },
+      data: { usedAt: new Date() },
+    }),
+    prisma.passwordResetToken.updateMany({
+      where: { userId: record.userId, usedAt: null, NOT: { tokenHash } },
+      data: { usedAt: new Date() },
+    }),
+  ]);
+  if (count === 0) return null;
 
   return { userId: record.userId };
 }

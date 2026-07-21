@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { checkRateLimit } from "@vercel/firewall";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionCookie, isLockedOut, nextLockout } from "@/lib/auth";
 
@@ -14,6 +16,16 @@ export type LoginState = { error?: string };
 const TIMING_DUMMY_HASH = "$2b$12$T8KZcTJ2XebuePfsQWn97ueyg9eYenLYnQgR1kE4h/I.LGaUaYE3i";
 
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
+  // Caps attempts per IP before any DB/bcrypt work runs, regardless of
+  // whether the username exists — closing the CPU-cost DoS the dummy-hash
+  // timing fix above otherwise leaves open. Enforced by a matching "portal-login"
+  // rate limit rule in the Vercel Firewall dashboard; fails open (no-op) if that
+  // rule isn't configured, so this alone doesn't throttle anything by itself.
+  const { rateLimited } = await checkRateLimit("portal-login", { headers: await headers() });
+  if (rateLimited) {
+    return { error: "Too many login attempts. Try again in a few minutes." };
+  }
+
   const username = String(formData.get("username") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
 

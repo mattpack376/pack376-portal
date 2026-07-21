@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Baloo_2, Poppins } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
+import FilteredAnalytics from "@/components/FilteredAnalytics";
 import "./globals.css";
 
 const baloo2 = Baloo_2({
@@ -45,7 +45,7 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        <Analytics />
+        <FilteredAnalytics />
       </body>
     </html>
   );

@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { requireSession } from "@/lib/authorize";
+import { requireRosterSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
 
 export default async function RosterPage() {
-  const session = await requireSession();
+  const session = await requireRosterSession();
   const canSeeParentContacts = session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "DEN";
   const canSeePhotoConsent = canSeeParentContacts || session.role === "PHOTOGRAPHER";
 

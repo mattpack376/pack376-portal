@@ -48,10 +48,21 @@ export async function submitPhotoConsentAction(
   const record = await prisma.photoConsent.findUnique({ where: { token } });
   if (!record) return { error: "This link isn't valid. Ask your den leader for a new one." };
 
-  await prisma.photoConsent.update({
-    where: { token },
-    data: { facebook, website, fliers, signedByName, signedRelationship, signedDate, signedAt: new Date() },
-  });
+  const signedAt = new Date();
+  const submission = { facebook, website, fliers, signedByName, signedRelationship, signedDate, signedAt };
+
+  // Rotates the token in the same transaction as recording the submission, so
+  // this exact link can't be reopened afterward to view the signer's info or
+  // overwrite it again — a den leader/admin must issue a fresh link (see
+  // regeneratePhotoConsentTokenAction) for any later change. The history row
+  // is an append-only snapshot of what was submitted.
+  await prisma.$transaction([
+    prisma.photoConsentHistory.create({ data: { photoConsentId: record.id, ...submission } }),
+    prisma.photoConsent.update({
+      where: { token },
+      data: { ...submission, token: generatePhotoConsentToken() },
+    }),
+  ]);
 
   return { saved: true };
 }

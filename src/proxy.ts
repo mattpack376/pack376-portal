@@ -41,7 +41,10 @@ function homeForRole(role: ProxyRole) {
  * first). Mirrors the requireXSession() guards in src/lib/authorize.ts —
  * kept in sync manually since proxy runs in a separate bundle.
  */
-const ADMIN_ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[] = [
+const ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[] = [
+  // Pack-wide roster (every den, leader, and scout name) — every staff role
+  // but never a PARENT account. Mirrors requireRosterSession() in authorize.ts.
+  { test: (p) => p.startsWith("/portal/roster"), roles: ["ADMIN", "JUNIOR_ADMIN", "DEN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/attendance"), roles: ["ADMIN", "JUNIOR_ADMIN", "ATTENDANCE_ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "JUNIOR_ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },
@@ -119,7 +122,7 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL(toPublic("/portal/login"), request.url));
     }
 
-    const rule = ADMIN_ROUTE_RULES.find((r) => r.test(internalPath));
+    const rule = ROUTE_RULES.find((r) => r.test(internalPath));
     if (rule && !rule.roles.includes(session.role)) {
       return NextResponse.redirect(new URL(toPublic(homeForRole(session.role)), request.url));
     }
