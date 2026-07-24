@@ -738,6 +738,11 @@ section { padding: 64px 0; }
   background: var(--cream);
   resize: vertical;
   width: 100%;
+  /* Some browsers (notably Safari) give inputs like type="date" an intrinsic
+     min-content width that ignores `width: 100%` inside a flex row, pushing
+     the field past its card's padding. Zeroing min-width lets it actually
+     shrink to fit. */
+  min-width: 0;
 }
 .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
   outline: none;

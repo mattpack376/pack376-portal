@@ -190,7 +190,7 @@ export default function IntroToScoutingPage() {
                   <li><strong>Neckerchief &amp; Slide</strong> — folded under the collar and held with a slide (also called a woggle). Color matches your scout&apos;s den.</li>
                   <li><strong>Council Patch</strong> — top of the left sleeve, touching the shoulder seam.</li>
                   <li><strong>Pack Numeral</strong> — &ldquo;376,&rdquo; worn directly below the council patch on the left sleeve.</li>
-                  <li><strong>American Flag</strong> — optional, worn on the right shoulder at the seam.</li>
+                  <li><strong>American Flag</strong> — worn on the right shoulder at the seam.</li>
                 </ol>
               </div>
             </div>

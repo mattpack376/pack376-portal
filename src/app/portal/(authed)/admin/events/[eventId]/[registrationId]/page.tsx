@@ -6,7 +6,7 @@ import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { denDisplayName } from "@/lib/rankConfig";
 import { formatDueDate } from "@/lib/deadlineCategories";
-import { addEventPaymentAction, deleteEventPaymentAction } from "@/lib/actions/events";
+import { addEventPaymentAction, deleteEventPaymentAction, updateRegistrationAmountAction } from "@/lib/actions/events";
 
 export default async function AdminEventRegistrationPage({
   params,
@@ -43,6 +43,25 @@ export default async function AdminEventRegistrationPage({
           {reg.remainingCents === 0 && " — paid in full"}
           {reg.remainingCents < 0 && ` — overpaid by ${formatCents(-reg.remainingCents)}`}
         </p>
+        <form action={updateRegistrationAmountAction} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <input type="hidden" name="registrationId" value={reg.id} />
+          <input type="hidden" name="eventId" value={eventId} />
+          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
+            <label htmlFor="amountOwed">Amount Owed ($)</label>
+            <input
+              id="amountOwed"
+              name="amountOwed"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              defaultValue={(reg.amountOwedCents / 100).toFixed(2)}
+            />
+          </div>
+          <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+            Update Amount Owed
+          </button>
+        </form>
       </div>
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>

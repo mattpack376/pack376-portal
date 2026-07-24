@@ -153,15 +153,47 @@ export default async function ParentDashboardPage() {
       )}
 
       <div className="section-head">
+        <div className="eyebrow">Lend a Hand</div>
+        <h2>Volunteer Needs</h2>
+      </div>
+      {volunteerNeeds.length === 0 ? (
+        <div className="info-card" style={{ marginBottom: 32 }}>
+          <p style={{ marginBottom: 12 }}>No open volunteer needs posted right now.</p>
+          <a
+            className="btn btn-outline"
+            href={`${getPublicBaseUrl()}/volunteer`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+          >
+            See Volunteer Roles
+          </a>
+        </div>
+      ) : (
+        <div className="resource-grid" style={{ marginBottom: 32 }}>
+          {volunteerNeeds.map((need) => (
+            <div className="resource-card" key={need.id}>
+              <div className="icon-badge">🙋</div>
+              <div>
+                <h3>{need.title}</h3>
+                {need.description && <p>{need.description}</p>}
+                <a href={`${getPublicBaseUrl()}/volunteer`} target="_blank" rel="noopener noreferrer" className="link">Volunteer With Us →</a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="section-head">
         <div className="eyebrow">Per Event</div>
         <h2>💳 Event Payments</h2>
       </div>
       {eventBalances.length === 0 ? (
-        <div className="info-card" style={{ marginBottom: 32 }}>
+        <div className="info-card">
           <p style={{ marginBottom: 0 }}>No paid events on the books for your scout(s) right now.</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {eventBalances.map((reg) => {
             const status =
               reg.remainingCents <= 0
@@ -189,38 +221,6 @@ export default async function ParentDashboardPage() {
               </div>
             );
           })}
-        </div>
-      )}
-
-      <div className="section-head">
-        <div className="eyebrow">Lend a Hand</div>
-        <h2>Volunteer Needs</h2>
-      </div>
-      {volunteerNeeds.length === 0 ? (
-        <div className="info-card">
-          <p style={{ marginBottom: 12 }}>No open volunteer needs posted right now.</p>
-          <a
-            className="btn btn-outline"
-            href={`${getPublicBaseUrl()}/volunteer`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
-          >
-            See Volunteer Roles
-          </a>
-        </div>
-      ) : (
-        <div className="resource-grid">
-          {volunteerNeeds.map((need) => (
-            <div className="resource-card" key={need.id}>
-              <div className="icon-badge">🙋</div>
-              <div>
-                <h3>{need.title}</h3>
-                {need.description && <p>{need.description}</p>}
-                <a href={`${getPublicBaseUrl()}/volunteer`} target="_blank" rel="noopener noreferrer" className="link">Volunteer With Us →</a>
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </>

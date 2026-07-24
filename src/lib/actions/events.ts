@@ -41,6 +41,34 @@ export async function createEventAction(formData: FormData) {
   redirect(`/portal/admin/events/${event.id}`);
 }
 
+export async function updateEventAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const id = String(formData.get("id") || "");
+  const title = String(formData.get("title") || "").trim();
+  const category = String(formData.get("category") || "GENERAL") as DeadlineCategory;
+  const eventDateRaw = String(formData.get("eventDate") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  const feeRaw = String(formData.get("fee") || "");
+  if (!id || !title || !eventDateRaw) throw new Error("Title and event date are required.");
+
+  const eventDate = new Date(`${eventDateRaw}T00:00:00Z`);
+  if (Number.isNaN(eventDate.getTime())) throw new Error("Invalid event date.");
+
+  const feeCents = feeRaw.trim() ? dollarsToCents(feeRaw) : null;
+  if (feeRaw.trim() && feeCents === null) throw new Error("Invalid fee amount.");
+
+  await prisma.event.update({
+    where: { id },
+    data: { title, category, eventDate, description: description || null, feeCents },
+  });
+
+  revalidatePath(`/portal/admin/events/${id}`);
+  revalidatePath("/portal/admin/events");
+}
+
 export async function deleteEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
@@ -61,20 +89,53 @@ export async function registerScoutForEventAction(formData: FormData) {
   assertAdmin(session);
 
   const eventId = String(formData.get("eventId") || "");
-  const scoutId = String(formData.get("scoutId") || "");
+  const scoutIds = formData.getAll("scoutId").map(String).filter(Boolean);
   const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
-  if (!eventId || !scoutId || amountOwedCents === null) {
-    throw new Error("A scout and a valid amount owed are required.");
+  if (!eventId || scoutIds.length === 0 || amountOwedCents === null) {
+    throw new Error("At least one scout and a valid amount owed are required.");
   }
 
-  const existing = await prisma.eventRegistration.findUnique({
-    where: { eventId_scoutId: { eventId, scoutId } },
+  const existing = await prisma.eventRegistration.findMany({
+    where: { eventId, scoutId: { in: scoutIds } },
+    select: { scoutId: true },
   });
-  if (existing) throw new Error("That scout is already registered for this event.");
+  const alreadyRegistered = new Set(existing.map((r) => r.scoutId));
+  const newScoutIds = scoutIds.filter((id) => !alreadyRegistered.has(id));
+  if (newScoutIds.length === 0) throw new Error("Those scouts are already registered for this event.");
 
-  await prisma.eventRegistration.create({ data: { eventId, scoutId, amountOwedCents } });
+  await prisma.eventRegistration.createMany({
+    data: newScoutIds.map((scoutId) => ({ eventId, scoutId, amountOwedCents })),
+  });
 
   revalidatePath(`/portal/admin/events/${eventId}`);
+}
+
+export async function updateRegistrationAmountAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+
+  const registrationId = String(formData.get("registrationId") || "");
+  const eventId = String(formData.get("eventId") || "");
+  const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
+  if (!registrationId || amountOwedCents === null) {
+    throw new Error("A valid amount owed is required.");
+  }
+
+  const registration = await prisma.eventRegistration.findUnique({
+    where: { id: registrationId },
+    select: { scout: { select: { denId: true } } },
+  });
+  if (!registration) throw new Error("Registration not found.");
+  assertEventPaymentDenAccess(session, registration.scout.denId);
+
+  await prisma.eventRegistration.update({
+    where: { id: registrationId },
+    data: { amountOwedCents },
+  });
+
+  revalidatePath(`/portal/admin/events/${eventId}/${registrationId}`);
+  revalidatePath(`/portal/admin/events/${eventId}`);
+  revalidatePath("/portal/admin/events");
 }
 
 export async function removeRegistrationAction(formData: FormData) {
