@@ -92,7 +92,7 @@ export const SEED_ADVENTURES: SeedAdventure[] = [
   { rank: "WOLF", name: "Germs Alive!", type: "ELECTIVE", sortOrder: 18 },
   { rank: "WOLF", name: "Let's Camp", type: "ELECTIVE", sortOrder: 19 },
   { rank: "WOLF", name: "Paws for Water", type: "ELECTIVE", sortOrder: 20 },
-  { rank: "WOLF", name: "Paws of Skills", type: "ELECTIVE", sortOrder: 21 },
+  { rank: "WOLF", name: "Paws of Skill", type: "ELECTIVE", sortOrder: 21 },
   { rank: "WOLF", name: "Pedal With the Pack", type: "ELECTIVE", sortOrder: 22 },
   { rank: "WOLF", name: "Race Time", type: "ELECTIVE", sortOrder: 23 },
   { rank: "WOLF", name: "Slingshot*", type: "ELECTIVE", sortOrder: 24,
