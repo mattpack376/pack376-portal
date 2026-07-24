@@ -65,6 +65,38 @@ export default async function ParentDashboardPage() {
       </div>
 
       <div className="section-head">
+        <div className="eyebrow">Lend a Hand</div>
+        <h2>Volunteer Needs</h2>
+      </div>
+      {volunteerNeeds.length === 0 ? (
+        <div className="info-card" style={{ marginBottom: 32 }}>
+          <p style={{ marginBottom: 12 }}>No open volunteer needs posted right now.</p>
+          <a
+            className="btn btn-outline"
+            href={`${getPublicBaseUrl()}/volunteer`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+          >
+            See Volunteer Roles
+          </a>
+        </div>
+      ) : (
+        <div className="resource-grid" style={{ marginBottom: 32 }}>
+          {volunteerNeeds.map((need) => (
+            <div className="resource-card" key={need.id}>
+              <div className="icon-badge">🙋</div>
+              <div>
+                <h3>{need.title}</h3>
+                {need.description && <p>{need.description}</p>}
+                <a href={`${getPublicBaseUrl()}/volunteer`} target="_blank" rel="noopener noreferrer" className="link">Volunteer With Us →</a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="section-head">
         <div className="eyebrow">Mark Your Calendar</div>
         <h2>Upcoming Deadlines</h2>
       </div>
@@ -149,38 +181,6 @@ export default async function ParentDashboardPage() {
       ) : (
         <div style={{ marginBottom: 32 }}>
           <ScoutChecklist scouts={advancement} editable={false} />
-        </div>
-      )}
-
-      <div className="section-head">
-        <div className="eyebrow">Lend a Hand</div>
-        <h2>Volunteer Needs</h2>
-      </div>
-      {volunteerNeeds.length === 0 ? (
-        <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 12 }}>No open volunteer needs posted right now.</p>
-          <a
-            className="btn btn-outline"
-            href={`${getPublicBaseUrl()}/volunteer`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
-          >
-            See Volunteer Roles
-          </a>
-        </div>
-      ) : (
-        <div className="resource-grid" style={{ marginBottom: 32 }}>
-          {volunteerNeeds.map((need) => (
-            <div className="resource-card" key={need.id}>
-              <div className="icon-badge">🙋</div>
-              <div>
-                <h3>{need.title}</h3>
-                {need.description && <p>{need.description}</p>}
-                <a href={`${getPublicBaseUrl()}/volunteer`} target="_blank" rel="noopener noreferrer" className="link">Volunteer With Us →</a>
-              </div>
-            </div>
-          ))}
         </div>
       )}
 
