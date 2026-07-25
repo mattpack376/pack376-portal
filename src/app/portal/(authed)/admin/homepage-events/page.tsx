@@ -34,7 +34,7 @@ export default async function HomepageEventsAdminPage() {
       <div className="info-card" style={{ maxWidth: 480, marginBottom: 20 }}>
         <h3 style={{ marginTop: 0 }}>Top Banner</h3>
         <p className="form-note" style={{ marginTop: 0, marginBottom: 16 }}>
-          A short, urgent notice in a black-and-red bar above the header. Only the most recent
+          A short, urgent notice in a black bar with yellow text, shown just below the header. Only the most recent
           &quot;on&quot; banner shows — post a new one to replace the current message, or turn it off to
           clear it without losing the text.
         </p>

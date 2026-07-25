@@ -15,8 +15,8 @@ export default async function HomePage() {
 
   return (
     <>
-      {siteBanner && <div className="site-banner">{siteBanner.message}</div>}
       <Header />
+      {siteBanner && <div className="site-banner">{siteBanner.message}</div>}
 
       <section className="hero">
         <div className="hero-grid">
