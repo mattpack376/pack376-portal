@@ -87,19 +87,6 @@ export default function VolunteerPage() {
 
       <section style={{ paddingTop: 16 }}>
         <div className="container">
-          <div className="info-card" style={{ borderLeft: "8px solid var(--scout-gold)", marginBottom: 40 }}>
-            <div className="eyebrow">No Weekly Commitment Needed</div>
-            <h2 style={{ marginBottom: 8 }}>Every Bit of Help Counts</h2>
-            <p>
-              Pack 376 is entirely parent-run, but running a den every week isn&apos;t the only
-              way to help. Many of our roles take just a few hours a month — or even just showing
-              up for a single event. Pick whatever fits your schedule.
-            </p>
-            <a className="btn btn-primary" href={VOLUNTEER_MAILTO}>
-              Volunteer With Us
-            </a>
-          </div>
-
           <div className="section-head">
             <div className="eyebrow">Ways to Help</div>
             <h2>Volunteer Roles</h2>
@@ -115,6 +102,19 @@ export default function VolunteerPage() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="info-card" style={{ borderLeft: "8px solid var(--scout-gold)", marginBottom: 40 }}>
+            <div className="eyebrow">No Weekly Commitment Needed</div>
+            <h2 style={{ marginBottom: 8 }}>Every Bit of Help Counts</h2>
+            <p>
+              Pack 376 is entirely parent-run, but running a den every week isn&apos;t the only
+              way to help. Many of our roles take just a few hours a month — or even just showing
+              up for a single event. Pick whatever fits your schedule.
+            </p>
+            <a className="btn btn-primary" href={VOLUNTEER_MAILTO}>
+              Volunteer With Us
+            </a>
           </div>
         </div>
       </section>
