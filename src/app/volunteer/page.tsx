@@ -54,11 +54,6 @@ const ROLES = [
     blurb: "Show up and lend a hand at a single event — set up, check-in, supervise a station, or clean up. No ongoing commitment required.",
   },
   {
-    icon: "📸",
-    name: "Photographer / Social Media Helper",
-    blurb: "Snap photos at meetings and events, or help share pack news and highlights on Instagram.",
-  },
-  {
     icon: "🚗",
     name: "Camping & Transportation Helper",
     blurb: "Help haul gear to campouts, drive carpools, or lend a hand setting up camp for the weekend.",
