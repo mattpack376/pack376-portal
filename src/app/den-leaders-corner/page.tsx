@@ -39,11 +39,6 @@ export default function DenLeadersCornerPage() {
       <section style={{ paddingTop: 24 }}>
         <div className="container">
 
-          <div className="construction-notice">
-            <div className="icon-badge">🚧</div>
-            <p>This page is still under construction! Headshots and full bios are coming soon — for now, here&apos;s who&apos;s who.</p>
-          </div>
-
           <div className="section-head center">
             <div className="eyebrow">Pack Leadership</div>
             <h2>Key Leadership</h2>
@@ -56,7 +51,6 @@ export default function DenLeadersCornerPage() {
                 <h3>Matt Rosen</h3>
                 <div className="corner-role">Committee Chair</div>
                 <p className="corner-bio">Matt oversees the pack committee — fundraising, budgeting, and long-term planning for Pack 376.</p>
-                <div className="corner-email">Email coming soon</div>
               </div>
             </div>
 
@@ -68,7 +62,6 @@ export default function DenLeadersCornerPage() {
                 <div className="corner-role">Treasurer</div>
                 <p className="corner-bio">Dianaliz manages pack dues, fundraising proceeds, and day-to-day finances as Treasurer.</p>
                 <div className="corner-note">Also the Wolf Den Leader</div>
-                <div className="corner-email">Email coming soon</div>
               </div>
             </div>
 
@@ -80,7 +73,6 @@ export default function DenLeadersCornerPage() {
                 <div className="corner-role">Cubmaster</div>
                 <p className="corner-bio">Howell runs pack meetings and leads the overall Cub Scout program as Cubmaster.</p>
                 <div className="corner-note">Also the Arrow of Light Den Leader</div>
-                <div className="corner-email">Email coming soon</div>
               </div>
             </div>
 
@@ -92,7 +84,6 @@ export default function DenLeadersCornerPage() {
                 <div className="corner-role">Assistant Cubmaster</div>
                 <p className="corner-bio">Chris supports the Cubmaster in running pack meetings, events, and campouts.</p>
                 <div className="corner-note">Also a Webelos Den Leader</div>
-                <div className="corner-email">Email coming soon</div>
               </div>
             </div>
           </div>
@@ -109,7 +100,6 @@ export default function DenLeadersCornerPage() {
                 <h3>Nicole Scivioli</h3>
                 <div className="corner-role">Lion Den Leader</div>
                 <p className="corner-bio">Nicole leads our Lions, helping our newest scouts take their very first steps on the Cub Scout trail.</p>
-                <div className="corner-email">Email coming soon</div>
               </div>
             </div>
 
@@ -120,7 +110,6 @@ export default function DenLeadersCornerPage() {
                 <h3>Jeanne Drago</h3>
                 <div className="corner-role">Tiger Den Leader</div>
                 <p className="corner-bio">Jeanne leads our Tigers, guiding scouts through their first hands-on adventures.</p>
-                <div className="corner-email">Email coming soon</div>
               </div>
             </div>
 
@@ -131,7 +120,6 @@ export default function DenLeadersCornerPage() {
                 <h3>Dianaliz Almonte</h3>
                 <div className="corner-role">Wolf Den Leader</div>
                 <p className="corner-bio">Dianaliz leads our Wolves, building teamwork and outdoor skills with our 2nd graders.</p>
-                <div className="corner-email">Email coming soon</div>
               </div>
             </div>
 
@@ -142,7 +130,6 @@ export default function DenLeadersCornerPage() {
                 <h3>Skylar Moeller</h3>
                 <div className="corner-role">Bear Den Leader</div>
                 <p className="corner-bio">Skylar leads our Bears, digging into science, cooking, and community adventures with our 3rd graders.</p>
-                <div className="corner-email">Email coming soon</div>
               </div>
             </div>
 
@@ -153,7 +140,6 @@ export default function DenLeadersCornerPage() {
                 <h3>Chris LaRosa &amp; Carmine Mancini</h3>
                 <div className="corner-role">Webelos Den Leaders</div>
                 <p className="corner-bio">Chris and Carmine co-lead our Webelos, preparing scouts for more independent, self-directed adventures.</p>
-                <div className="corner-email">Email coming soon</div>
               </div>
             </div>
 
@@ -164,7 +150,6 @@ export default function DenLeadersCornerPage() {
                 <h3>Howell Woods</h3>
                 <div className="corner-role">Arrow of Light Den Leader</div>
                 <p className="corner-bio">Howell leads our Arrow of Light scouts, getting them ready to bridge into Scouts BSA.</p>
-                <div className="corner-email">Email coming soon</div>
               </div>
             </div>
           </div>
