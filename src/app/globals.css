@@ -146,8 +146,8 @@ section { padding: 64px 0; }
   color: var(--white);
 }
 .brand-badge {
-  width: 46px;
-  height: 46px;
+  width: 60px;
+  height: 60px;
   flex-shrink: 0;
 }
 .brand-text {
@@ -158,11 +158,11 @@ section { padding: 64px 0; }
 .brand-text .pack-name {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 19px;
+  font-size: 23px;
   letter-spacing: 0.02em;
 }
 .brand-text .pack-sub {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;

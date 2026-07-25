@@ -32,8 +32,8 @@ export default function Header() {
             className="brand-badge"
             src="/cub-scout-emblem.png"
             alt="Pack 376 Cub Scouts emblem"
-            width={46}
-            height={46}
+            width={60}
+            height={60}
           />
           <span className="brand-text">
             <span className="pack-name">Pack 376</span>
