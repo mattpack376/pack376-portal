@@ -173,6 +173,14 @@ export default function HomePage() {
           </div>
           <div className="event-list">
             <div className="event-ticket">
+              <span className="event-date">Sep 11</span>
+              <div className="event-body"><h4>Scout Registration Night — Parents Only (No Scouts)</h4><p>Cubmaster and Committee Chair review the scouting season ahead with parents, discuss parent obligations, and cover other important details for a successful scouting year.</p></div>
+            </div>
+            <div className="event-ticket">
+              <span className="event-date">Sep 18</span>
+              <div className="event-body"><h4>Scout Registration Night — Parents Only (No Scouts)</h4><p>Cubmaster and Committee Chair review the scouting season ahead with parents, discuss parent obligations, and cover other important details for a successful scouting year.</p></div>
+            </div>
+            <div className="event-ticket">
               <span className="event-date">Sep 25</span>
               <div className="event-body"><h4>First Scout Meeting</h4><p>Kicking off the 2026–2027 program year. Returning scouts should be in full uniform — new scouts are welcome to join without one.</p></div>
             </div>
