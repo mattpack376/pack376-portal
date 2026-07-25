@@ -19,6 +19,16 @@ const VOLUNTEER_MAILTO = `mailto:${VOLUNTEER_TO}?cc=${VOLUNTEER_CC}&subject=${VO
 
 const ROLES = [
   {
+    icon: "🧭",
+    name: "Den Leader",
+    blurb: "Lead a den through weekly meetings and activities, guiding your scouts through their adventures and rank requirements.",
+  },
+  {
+    icon: "🤝",
+    name: "Assistant Den Leader",
+    blurb: "Support a den leader at weekly meetings and events — a great way to get involved without running the whole show yourself.",
+  },
+  {
     icon: "🗂️",
     name: "Committee Member",
     blurb: "Join the pack committee to help with planning, budgeting, and big-picture decisions — meets far less often than a weekly den.",
