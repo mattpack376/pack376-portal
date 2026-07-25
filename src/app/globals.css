@@ -555,6 +555,17 @@ section { padding: 64px 0; }
   justify-content: center;
   font-size: 28px;
   color: var(--scout-blue-light);
+  overflow: hidden;
+}
+.corner-photo-patch {
+  border-style: solid;
+  border-color: var(--scout-gold);
+  padding: 0;
+}
+.corner-photo-patch img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .corner-card-body h3 { font-size: 19px; margin-bottom: 2px; }
 .corner-role { color: var(--carnival-red); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }

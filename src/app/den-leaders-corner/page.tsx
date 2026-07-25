@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -47,7 +48,9 @@ export default function DenLeadersCornerPage() {
             <div className="corner-card">
               <div className="corner-card-stripe stripe-exec" />
               <div className="corner-card-body">
-                <div className="corner-photo">📷</div>
+                <div className="corner-photo corner-photo-patch">
+                  <Image src="/patches/committee-chair.jpg" alt="Pack Committee Chair patch" width={88} height={88} />
+                </div>
                 <h3>Matt Rosen</h3>
                 <div className="corner-role">Committee Chair</div>
                 <p className="corner-bio">Matt oversees the pack committee — fundraising, budgeting, and long-term planning for Pack 376.</p>
@@ -57,7 +60,9 @@ export default function DenLeadersCornerPage() {
             <div className="corner-card">
               <div className="corner-card-stripe stripe-exec" />
               <div className="corner-card-body">
-                <div className="corner-photo">📷</div>
+                <div className="corner-photo corner-photo-patch">
+                  <Image src="/patches/committee-member.jpg" alt="Pack Committee Member patch" width={88} height={88} />
+                </div>
                 <h3>Dianaliz Almonte</h3>
                 <div className="corner-role">Treasurer</div>
                 <p className="corner-bio">Dianaliz manages pack dues, fundraising proceeds, and day-to-day finances as Treasurer.</p>
@@ -68,7 +73,9 @@ export default function DenLeadersCornerPage() {
             <div className="corner-card">
               <div className="corner-card-stripe stripe-exec" />
               <div className="corner-card-body">
-                <div className="corner-photo">📷</div>
+                <div className="corner-photo corner-photo-patch">
+                  <Image src="/patches/cubmaster.jpg" alt="Cubmaster patch" width={88} height={88} />
+                </div>
                 <h3>Howell Woods</h3>
                 <div className="corner-role">Cubmaster</div>
                 <p className="corner-bio">Howell runs pack meetings and leads the overall Cub Scout program as Cubmaster.</p>
@@ -79,7 +86,9 @@ export default function DenLeadersCornerPage() {
             <div className="corner-card">
               <div className="corner-card-stripe stripe-exec" />
               <div className="corner-card-body">
-                <div className="corner-photo">📷</div>
+                <div className="corner-photo corner-photo-patch">
+                  <Image src="/patches/assistant-cubmaster.jpg" alt="Assistant Cubmaster patch" width={88} height={88} />
+                </div>
                 <h3>Chris LaRosa</h3>
                 <div className="corner-role">Assistant Cubmaster</div>
                 <p className="corner-bio">Chris supports the Cubmaster in running pack meetings, events, and campouts.</p>
@@ -96,7 +105,9 @@ export default function DenLeadersCornerPage() {
             <div className="corner-card">
               <div className="corner-card-stripe rk-lion" />
               <div className="corner-card-body">
-                <div className="corner-photo">📷</div>
+                <div className="corner-photo corner-photo-patch">
+                  <Image src="/patches/den-leader.jpg" alt="Cub Scout Den Leader patch" width={88} height={88} />
+                </div>
                 <h3>Nicole Scivioli</h3>
                 <div className="corner-role">Lion Den Leader</div>
                 <p className="corner-bio">Nicole leads our Lions, helping our newest scouts take their very first steps on the Cub Scout trail.</p>
@@ -106,7 +117,9 @@ export default function DenLeadersCornerPage() {
             <div className="corner-card">
               <div className="corner-card-stripe rk-tiger" />
               <div className="corner-card-body">
-                <div className="corner-photo">📷</div>
+                <div className="corner-photo corner-photo-patch">
+                  <Image src="/patches/den-leader.jpg" alt="Cub Scout Den Leader patch" width={88} height={88} />
+                </div>
                 <h3>Jeanne Drago</h3>
                 <div className="corner-role">Tiger Den Leader</div>
                 <p className="corner-bio">Jeanne leads our Tigers, guiding scouts through their first hands-on adventures.</p>
@@ -116,7 +129,9 @@ export default function DenLeadersCornerPage() {
             <div className="corner-card">
               <div className="corner-card-stripe rk-wolf" />
               <div className="corner-card-body">
-                <div className="corner-photo">📷</div>
+                <div className="corner-photo corner-photo-patch">
+                  <Image src="/patches/den-leader.jpg" alt="Cub Scout Den Leader patch" width={88} height={88} />
+                </div>
                 <h3>Dianaliz Almonte</h3>
                 <div className="corner-role">Wolf Den Leader</div>
                 <p className="corner-bio">Dianaliz leads our Wolves, building teamwork and outdoor skills with our 2nd graders.</p>
@@ -126,7 +141,9 @@ export default function DenLeadersCornerPage() {
             <div className="corner-card">
               <div className="corner-card-stripe rk-bear" />
               <div className="corner-card-body">
-                <div className="corner-photo">📷</div>
+                <div className="corner-photo corner-photo-patch">
+                  <Image src="/patches/den-leader.jpg" alt="Cub Scout Den Leader patch" width={88} height={88} />
+                </div>
                 <h3>Skylar Moeller</h3>
                 <div className="corner-role">Bear Den Leader</div>
                 <p className="corner-bio">Skylar leads our Bears, digging into science, cooking, and community adventures with our 3rd graders.</p>
@@ -136,7 +153,9 @@ export default function DenLeadersCornerPage() {
             <div className="corner-card">
               <div className="corner-card-stripe rk-webelos" />
               <div className="corner-card-body">
-                <div className="corner-photo">📷</div>
+                <div className="corner-photo corner-photo-patch">
+                  <Image src="/patches/den-leader.jpg" alt="Cub Scout Den Leader patch" width={88} height={88} />
+                </div>
                 <h3>Chris LaRosa &amp; Carmine Mancini</h3>
                 <div className="corner-role">Webelos Den Leaders</div>
                 <p className="corner-bio">Chris and Carmine co-lead our Webelos, preparing scouts for more independent, self-directed adventures.</p>
@@ -146,7 +165,9 @@ export default function DenLeadersCornerPage() {
             <div className="corner-card">
               <div className="corner-card-stripe rk-aol" />
               <div className="corner-card-body">
-                <div className="corner-photo">📷</div>
+                <div className="corner-photo corner-photo-patch">
+                  <Image src="/patches/den-leader.jpg" alt="Cub Scout Den Leader patch" width={88} height={88} />
+                </div>
                 <h3>Howell Woods</h3>
                 <div className="corner-role">Arrow of Light Den Leader</div>
                 <p className="corner-bio">Howell leads our Arrow of Light scouts, getting them ready to bridge into Scouts BSA.</p>
