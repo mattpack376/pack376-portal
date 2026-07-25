@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -221,31 +220,6 @@ export default function DenLeadersCornerPage() {
                 <a className="link" href="https://www.scouting.org/programs/cub-scouts/" target="_blank" rel="noopener">Visit scouting.org →</a>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <div className="container two-col">
-          <div className="info-card">
-            <h3 style={{ marginTop: 0 }}>Volunteering</h3>
-            <p>Pack 376 runs on parent power. Whether you can help once a year or once a month, there&apos;s a spot for you:</p>
-            <ul>
-              <li>Den leader or assistant den leader</li>
-              <li>Committee member (fundraising, events, communications)</li>
-              <li>Pack night &amp; campout setup/cleanup crew</li>
-              <li>Popcorn &amp; fundraiser support</li>
-            </ul>
-            <Link className="btn btn-red" href="/contact" style={{ marginTop: 8 }}>I Want to Help</Link>
-          </div>
-          <div className="info-card">
-            <h3 style={{ marginTop: 0 }}>Leader Meetings</h3>
-            <p>Den leaders and committee members meet on their own schedules to plan pack nights, campouts, and fundraisers.</p>
-            <ul>
-              <li>Den Leaders &amp; Assistant Den Leaders — Weekly, Fridays 7–10 PM</li>
-              <li>Committee Members — Bi-Monthly, Virtually</li>
-            </ul>
-            <p className="form-note">Exact dates are posted on the pack calendar and shared with registered leaders.</p>
           </div>
         </div>
       </section>
