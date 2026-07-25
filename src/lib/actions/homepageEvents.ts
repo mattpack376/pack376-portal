@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertHomepageEventsAccess } from "@/lib/authorize";
+import { assertHomepageContentAccess } from "@/lib/authorize";
 
 const HOMEPAGE_EVENTS_ADMIN_PATH = "/portal/admin/homepage-events";
 const HOME_PATH = "/";
@@ -11,7 +11,7 @@ const HOME_PATH = "/";
 export async function createHomepageEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageEventsAccess(session);
+  assertHomepageContentAccess(session);
 
   const dateLabel = String(formData.get("dateLabel") || "").trim();
   const title = String(formData.get("title") || "").trim();
@@ -35,7 +35,7 @@ export async function createHomepageEventAction(formData: FormData) {
 export async function updateHomepageEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageEventsAccess(session);
+  assertHomepageContentAccess(session);
 
   const id = String(formData.get("id") || "");
   const dateLabel = String(formData.get("dateLabel") || "").trim();
@@ -61,7 +61,7 @@ export async function updateHomepageEventAction(formData: FormData) {
 export async function deleteHomepageEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageEventsAccess(session);
+  assertHomepageContentAccess(session);
 
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing event id.");

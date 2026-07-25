@@ -25,7 +25,7 @@ export default function PortalNav({ role }: { role: Role }) {
           { href: "/portal/admin/dues", label: "Dues" },
           { href: "/portal/admin/events", label: "Events" },
           { href: "/portal/admin/parent-portal", label: "Parent Portal" },
-          { href: "/portal/admin/homepage-events", label: "Homepage Events" },
+          { href: "/portal/admin/homepage-events", label: "Homepage Content" },
           { href: "/portal/admin/users", label: "Users" },
           { href: "/portal/roster", label: "Roster" },
         ];
@@ -33,7 +33,7 @@ export default function PortalNav({ role }: { role: Role }) {
         return [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
-          { href: "/portal/admin/homepage-events", label: "Homepage Events" },
+          { href: "/portal/admin/homepage-events", label: "Homepage Content" },
           { href: "/portal/roster", label: "Roster" },
           { href: "/portal/roster/family-view", label: "Family View" },
         ];

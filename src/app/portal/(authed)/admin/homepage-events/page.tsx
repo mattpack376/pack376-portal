@@ -1,28 +1,87 @@
-import { requireHomepageEventsSession } from "@/lib/authorize";
+import { requireHomepageContentSession } from "@/lib/authorize";
 import { getAllHomepageEvents } from "@/lib/homepageEventsData";
+import { getAllSiteBanners } from "@/lib/siteBannerData";
 import {
   createHomepageEventAction,
   updateHomepageEventAction,
   deleteHomepageEventAction,
 } from "@/lib/actions/homepageEvents";
+import {
+  createSiteBannerAction,
+  toggleSiteBannerAction,
+  deleteSiteBannerAction,
+} from "@/lib/actions/siteBanner";
 
 function toDateInputValue(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
 export default async function HomepageEventsAdminPage() {
-  await requireHomepageEventsSession();
-  const events = await getAllHomepageEvents();
+  await requireHomepageContentSession();
+  const [events, banners] = await Promise.all([getAllHomepageEvents(), getAllSiteBanners()]);
 
   return (
     <>
       <div className="section-head">
         <div className="eyebrow">Admin</div>
-        <h2>Homepage Events</h2>
+        <h2>Homepage Content</h2>
         <p>
-          Manage the &quot;Upcoming Attractions&quot; ticket list on the public homepage. Events drop off on
-          their own once their sort date has passed — no need to delete old ones.
+          Manage what shows on the public homepage — the top banner and the &quot;Upcoming Attractions&quot;
+          ticket list.
         </p>
+      </div>
+
+      <div className="info-card" style={{ maxWidth: 480, marginBottom: 20 }}>
+        <h3 style={{ marginTop: 0 }}>Top Banner</h3>
+        <p className="form-note" style={{ marginTop: 0, marginBottom: 16 }}>
+          A short, urgent notice in a black-and-red bar above the header. Only the most recent
+          &quot;on&quot; banner shows — post a new one to replace the current message, or turn it off to
+          clear it without losing the text.
+        </p>
+        <form action={createSiteBannerAction} style={{ marginBottom: banners.length > 0 ? 20 : 0 }}>
+          <div className="form-field">
+            <label htmlFor="new-banner-message">Message</label>
+            <input id="new-banner-message" name="message" required placeholder="e.g. Meeting cancelled this Friday due to weather" />
+          </div>
+          <button type="submit" className="btn btn-primary">Post Banner</button>
+        </form>
+
+        {banners.map((banner) => (
+          <div
+            key={banner.id}
+            style={{ background: "var(--cream)", borderRadius: 8, padding: "10px 14px", marginBottom: 8 }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+              <p style={{ marginBottom: 0, fontWeight: 700 }}>
+                {banner.message}{" "}
+                <span className={`badge-pill ${banner.active ? "badge-attendance" : "badge-pending"}`}>
+                  {banner.active ? "On" : "Off"}
+                </span>
+              </p>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <form action={toggleSiteBannerAction}>
+                  <input type="hidden" name="id" value={banner.id} />
+                  <input type="hidden" name="active" value={String(banner.active)} />
+                  <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+                    Turn {banner.active ? "Off" : "On"}
+                  </button>
+                </form>
+                <form action={deleteSiteBannerAction}>
+                  <input type="hidden" name="id" value={banner.id} />
+                  <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                    Delete
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="section-head">
+        <div className="eyebrow">Upcoming Attractions</div>
+        <h2>Homepage Events</h2>
+        <p>Events drop off on their own once their sort date has passed — no need to delete old ones.</p>
       </div>
 
       <div className="info-card" style={{ maxWidth: 480, marginBottom: 24 }}>

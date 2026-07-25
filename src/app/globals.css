@@ -295,6 +295,18 @@ section { padding: 64px 0; }
 }
 .wave-divider svg { width: 100%; height: 100%; }
 
+/* ---------- Site banner (urgent notice atop the homepage) ---------- */
+.site-banner {
+  background: #000;
+  color: var(--carnival-red);
+  text-align: center;
+  padding: 10px 20px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
 /* ---------- Fact bar (floats over the hero/section boundary) ---------- */
 .fact-bar-wrap {
   position: relative;

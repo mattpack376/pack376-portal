@@ -3,14 +3,19 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { getUpcomingHomepageEvents } from "@/lib/homepageEventsData";
+import { getActiveSiteBanner } from "@/lib/siteBannerData";
 
 const JOIN_URL = "https://my.scouting.org/VES/OnlineReg/1.0.0/?tu=UF-MB-640paa3376";
 
 export default async function HomePage() {
-  const homepageEvents = await getUpcomingHomepageEvents();
+  const [homepageEvents, siteBanner] = await Promise.all([
+    getUpcomingHomepageEvents(),
+    getActiveSiteBanner(),
+  ]);
 
   return (
     <>
+      {siteBanner && <div className="site-banner">{siteBanner.message}</div>}
       <Header />
 
       <section className="hero">

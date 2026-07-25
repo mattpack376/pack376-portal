@@ -159,20 +159,21 @@ export function assertAdvancementDenAccess(session: SessionPayload, denId: strin
 }
 
 /**
- * For Server Components / pages: the homepage "Upcoming Attractions" editor —
- * full admin and junior admin, since both already manage pack-wide content
- * elsewhere (attendance, advancement). Den leaders and other roles don't.
+ * For Server Components / pages: public homepage content editors (Upcoming
+ * Attractions events, the top banner) — full admin and junior admin, since
+ * both already manage pack-wide content elsewhere (attendance, advancement).
+ * Den leaders and other roles don't.
  */
-export async function requireHomepageEventsSession(): Promise<SessionPayload> {
+export async function requireHomepageContentSession(): Promise<SessionPayload> {
   const session = await requireSession();
   if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") redirect(homeForRole(session.role));
   return session;
 }
 
-/** Full admin or junior admin — homepage event create/edit/delete actions. */
-export function assertHomepageEventsAccess(session: SessionPayload) {
+/** Full admin or junior admin — homepage content create/edit/delete actions. */
+export function assertHomepageContentAccess(session: SessionPayload) {
   if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
-    throw new Error("Not authorized: homepage events access required.");
+    throw new Error("Not authorized: homepage content access required.");
   }
 }
 

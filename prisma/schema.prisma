@@ -339,6 +339,19 @@ model HomepageEvent {
 }
 
 /**
+ * A short, urgent notice shown in a black-and-red banner at the top of the
+ * public homepage. Only the most recently created active row is displayed —
+ * this isn't a list of posts, just a way to swap the current message.
+ */
+model SiteBanner {
+  id        String   @id @default(cuid())
+  message   String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
  * A paid pack event (campout, day trip, special event) that scouts sign up for.
  */
 model Event {
