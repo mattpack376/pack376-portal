@@ -27,7 +27,7 @@ export default function Header() {
   return (
     <header className="site-header">
       <nav className="nav-row">
-        <Link className="brand" href="/" onClick={() => setOpen(false)}>
+        <div className="brand">
           <Image
             className="brand-badge"
             src="/cub-scout-emblem.png"
@@ -39,7 +39,7 @@ export default function Header() {
             <span className="pack-name">Pack 376</span>
             <span className="pack-sub">Cub Scouts · Brooklyn</span>
           </span>
-        </Link>
+        </div>
         <button
           className="nav-toggle"
           aria-label="Toggle menu"
