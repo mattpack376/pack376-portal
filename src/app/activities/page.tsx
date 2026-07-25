@@ -40,6 +40,18 @@ const ACTIVITIES = [
     blurb:
       "From bowling nights to ballgames, sports outings mix teamwork and fun — a lower-key way for scouts and families to hang out together outside of regular meetings.",
   },
+  {
+    icon: "🌲",
+    name: "Cub Day at Camp Alpine",
+    blurb:
+      "A full day of council-run Cub Scout activities at Camp Alpine — archery, BB guns, crafts, and games alongside packs from across the region.",
+  },
+  {
+    icon: "⚾",
+    name: "Brooklyn Cyclones Game & Overnight",
+    blurb:
+      "An annual pack tradition — cheer on the Brooklyn Cyclones at the ballpark, then cap off the night with an overnight campout for scouts and families.",
+  },
 ];
 
 export default function ActivitiesPage() {
