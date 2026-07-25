@@ -214,14 +214,6 @@ export default function DenLeadersCornerPage() {
               </div>
             </div>
             <div className="resource-card">
-              <div className="icon-badge">📖</div>
-              <div>
-                <h3>Scoutbook</h3>
-                <p>Official BSA advancement &amp; roster tracking tool used by our den leaders.</p>
-                <a className="link" href="https://scoutbook.scouting.org/" target="_blank" rel="noopener">Open Scoutbook →</a>
-              </div>
-            </div>
-            <div className="resource-card">
               <div className="icon-badge">🧭</div>
               <div>
                 <h3>BSA Program Resources</h3>
