@@ -91,7 +91,13 @@ export default function ActivitiesPage() {
             </p>
             <div className="hero-actions" style={{ justifyContent: "center" }}>
               <Link className="btn btn-primary" href="/gallery">View Photo Albums</Link>
-              <Link className="btn btn-outline" href="/parent-resources">See the Calendar</Link>
+              <Link
+                className="btn btn-outline"
+                href="/parent-resources"
+                style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+              >
+                See the Calendar
+              </Link>
             </div>
           </div>
         </div>

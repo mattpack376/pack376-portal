@@ -2,10 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { getUpcomingHomepageEvents } from "@/lib/homepageEventsData";
 
 const JOIN_URL = "https://my.scouting.org/VES/OnlineReg/1.0.0/?tu=UF-MB-640paa3376";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const homepageEvents = await getUpcomingHomepageEvents();
+
   return (
     <>
       <Header />
@@ -172,46 +175,15 @@ export default function HomePage() {
             <p>A few highlights from our 2026–2027 calendar — see the full schedule at a pack meeting.</p>
           </div>
           <div className="event-list">
-            <div className="event-ticket">
-              <span className="event-date">Sep 11</span>
-              <div className="event-body"><h4>Scout Registration Night — Parents Only (No Scouts)</h4><p>Cubmaster and Committee Chair review the scouting season ahead with parents, discuss parent obligations, and cover other important details for a successful scouting year.</p></div>
-            </div>
-            <div className="event-ticket">
-              <span className="event-date">Sep 18</span>
-              <div className="event-body"><h4>Scout Registration Night — Parents Only (No Scouts)</h4><p>Cubmaster and Committee Chair review the scouting season ahead with parents, discuss parent obligations, and cover other important details for a successful scouting year.</p></div>
-            </div>
-            <div className="event-ticket">
-              <span className="event-date">Sep 25</span>
-              <div className="event-body"><h4>First Scout Meeting</h4><p>Kicking off the 2026–2027 program year. Returning scouts should be in full uniform — new scouts are welcome to join without one.</p></div>
-            </div>
-            <div className="event-ticket">
-              <span className="event-date">Oct 9–12</span>
-              <div className="event-body"><h4>Camp Conron Weekend</h4><p>Friday through Monday over Columbus Day weekend — four days of camping and Pack 376 adventure.</p></div>
-            </div>
-            <div className="event-ticket">
-              <span className="event-date">Oct 30</span>
-              <div className="event-body"><h4>Halloween Pack Night</h4><p>Costumes are encouraged. Enjoy games, activities, and Halloween fun with the whole pack.</p></div>
-            </div>
-            <div className="event-ticket">
-              <span className="event-date">Nov 7 or 8</span>
-              <div className="event-body"><h4>Parish Anniversary Celebration</h4><p>Pack 376 joins Our Lady of Grace in celebrating our chartering organization.</p></div>
-            </div>
-            <div className="event-ticket">
-              <span className="event-date">Nov 20</span>
-              <div className="event-body"><h4>Pie Night &amp; Bring-a-Friend Night</h4><p>Bring a pie to share and invite a friend to experience Pack 376.</p></div>
-            </div>
-            <div className="event-ticket">
-              <span className="event-date">Dec 18</span>
-              <div className="event-body"><h4>🎅 Holiday Pack Night Celebration 🕎</h4><p>Ring in the season with the whole pack — holiday cheer, treats, and fun for every family and every tradition.</p></div>
-            </div>
-            <div className="event-ticket">
-              <span className="event-date">Jan 31</span>
-              <div className="event-body"><h4>Klondike Derby</h4><p>A Coney Island favorite in our own backyard.</p></div>
-            </div>
-            <div className="event-ticket">
-              <span className="event-date">Mar 5–6</span>
-              <div className="event-body"><h4>Pinewood Derby Overnight</h4></div>
-            </div>
+            {homepageEvents.map((event) => (
+              <div className="event-ticket" key={event.id}>
+                <span className="event-date">{event.dateLabel}</span>
+                <div className="event-body">
+                  <h4>{event.title}</h4>
+                  {event.description && <p>{event.description}</p>}
+                </div>
+              </div>
+            ))}
             <div className="event-ticket event-ticket--camping">
               <span className="event-date">Camping Trips</span>
               <div className="event-body">
