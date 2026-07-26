@@ -3,11 +3,12 @@ import { requireParentSession } from "@/lib/authorize";
 import { getParentDashboardData } from "@/lib/parentDashboardData";
 import { getScoutsAdvancementByIds } from "@/lib/denData";
 import { formatCents } from "@/lib/duesData";
-import { denDisplayName } from "@/lib/rankConfig";
+import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from "@/lib/deadlineCategories";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import ScoutChecklist from "@/components/ScoutChecklist";
 import { registerMyScoutsForEventAction, registerMyAdultForEventAction, removeMyAdultRegistrationAction } from "@/lib/actions/events";
+import type { Rank } from "@/generated/prisma/enums";
 
 export default async function ParentDashboardPage() {
   const session = await requireParentSession();
@@ -21,24 +22,49 @@ export default async function ParentDashboardPage() {
 
   const scoutNames = scouts.map((s) => s.firstName).join(" & ") || null;
 
-  const paymentBubbles = [
-    ...eventBalances.map((r) => ({
-      id: `scout-${r.id}`,
-      event: r.event,
-      personLabel: r.scoutFirstName,
-      amountOwedCents: r.amountOwedCents,
-      paidCents: r.paidCents,
-      remainingCents: r.remainingCents,
-    })),
-    ...adultEventBalances.map((r) => ({
-      id: `adult-${r.id}`,
-      event: r.event,
-      personLabel: r.name,
-      amountOwedCents: r.amountOwedCents,
-      paidCents: r.paidCents,
-      remainingCents: r.remainingCents,
-    })),
-  ].sort((a, b) => a.event.eventDate.getTime() - b.event.eventDate.getTime());
+  // Event -> Den -> scouts, plus that event's adult registrations — one
+  // card per event instead of a flat list mixing every scout and adult
+  // together, same layout as the admin/den leader Family View.
+  type Den = (typeof scouts)[number]["den"];
+  type ScoutBalance = (typeof eventBalances)[number];
+  type AdultBalance = (typeof adultEventBalances)[number];
+  const scoutInfoById = new Map(scouts.map((s) => [s.id, s]));
+
+  const eventGroupsById = new Map<
+    string,
+    { event: ScoutBalance["event"]; denGroups: Map<string, { den: Den | null; regs: ScoutBalance[] }>; adults: AdultBalance[] }
+  >();
+  for (const reg of eventBalances) {
+    if (!eventGroupsById.has(reg.event.id)) {
+      eventGroupsById.set(reg.event.id, { event: reg.event, denGroups: new Map(), adults: [] });
+    }
+    const entry = eventGroupsById.get(reg.event.id)!;
+    const scout = scoutInfoById.get(reg.scoutId);
+    const denKey = scout?.den?.id ?? "none";
+    if (!entry.denGroups.has(denKey)) entry.denGroups.set(denKey, { den: scout?.den ?? null, regs: [] });
+    entry.denGroups.get(denKey)!.regs.push(reg);
+  }
+  for (const reg of adultEventBalances) {
+    if (!eventGroupsById.has(reg.event.id)) {
+      eventGroupsById.set(reg.event.id, { event: reg.event, denGroups: new Map(), adults: [] });
+    }
+    eventGroupsById.get(reg.event.id)!.adults.push(reg);
+  }
+
+  const eventPaymentGroups = Array.from(eventGroupsById.values())
+    .sort((a, b) => a.event.eventDate.getTime() - b.event.eventDate.getTime())
+    .map((group) => {
+      const denGroups = Array.from(group.denGroups.values()).sort((a, b) => {
+        if (!a.den) return 1;
+        if (!b.den) return -1;
+        if (a.den.scoutingYear !== b.den.scoutingYear) return b.den.scoutingYear.localeCompare(a.den.scoutingYear);
+        return RANK_ORDER.indexOf(a.den.rank as Rank) - RANK_ORDER.indexOf(b.den.rank as Rank);
+      });
+      for (const denGroup of denGroups) {
+        denGroup.regs.sort((a, b) => a.scoutFirstName.localeCompare(b.scoutFirstName));
+      }
+      return { event: group.event, denGroups, adults: group.adults };
+    });
 
   return (
     <>
@@ -280,39 +306,98 @@ export default async function ParentDashboardPage() {
         <div className="eyebrow">Per Event</div>
         <h2>💳 Event Payments</h2>
       </div>
-      {paymentBubbles.length === 0 ? (
+      {eventPaymentGroups.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
           <p style={{ marginBottom: 0 }}>No paid events on the books for your scout(s) or any adults you&apos;ve registered right now.</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
-          {paymentBubbles.map((reg) => {
-            const status =
-              reg.remainingCents <= 0
-                ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                : reg.paidCents > 0
-                ? { label: "Partial", cls: "badge-junior" }
-                : { label: "Unpaid", cls: "badge-photographer" };
-            return (
-              <div className="info-card" key={reg.id} style={{ marginBottom: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-                  <div>
-                    <p className="form-note" style={{ marginBottom: 4 }}>
-                      {DEADLINE_CATEGORY_LABELS[reg.event.category].toUpperCase()} · {formatDueDate(reg.event.eventDate)} · {reg.personLabel}
-                    </p>
-                    <p style={{ marginBottom: 0, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{reg.event.title}</p>
-                  </div>
-                  <span className={`badge-pill ${status.cls}`}>{status.label}</span>
-                </div>
-                <p style={{ marginTop: 8, marginBottom: 0 }}>
-                  {formatCents(reg.paidCents)} of {formatCents(reg.amountOwedCents)} paid
-                  {reg.remainingCents > 0 && ` — ${formatCents(reg.remainingCents)} remaining`}
-                  {reg.remainingCents > 0 && " — see the Committee Treasurer or Committee Chair to make a payment."}
+        <>
+          <div style={{ marginBottom: 12 }}>
+            {eventPaymentGroups.map(({ event, denGroups, adults }) => (
+              <div className="info-card" key={event.id} style={{ marginBottom: 20 }}>
+                <p className="form-note" style={{ marginBottom: 4 }}>
+                  {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
                 </p>
+                <h3 style={{ marginTop: 0, marginBottom: 14 }}>{event.title}</h3>
+
+                {denGroups.map(({ den, regs }) => (
+                  <div key={den?.id ?? "none"} style={{ marginBottom: 14 }}>
+                    {denGroups.length > 1 && (
+                      <p className="form-note" style={{ marginBottom: 6 }}>
+                        {den ? denDisplayName(den.rank, den.scoutingYear, den.label).toUpperCase() : "NO DEN ASSIGNED"}
+                      </p>
+                    )}
+                    <table className="data-table" style={{ marginBottom: 0 }}>
+                      <thead>
+                        <tr>
+                          <th>Scout</th>
+                          <th>Paid</th>
+                          <th>Remaining</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {regs.map((reg) => {
+                          const status =
+                            reg.remainingCents <= 0
+                              ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
+                              : reg.paidCents > 0
+                              ? { label: "Partial", cls: "badge-junior" }
+                              : { label: "Unpaid", cls: "badge-photographer" };
+                          return (
+                            <tr key={reg.id}>
+                              <td>{reg.scoutFirstName}</td>
+                              <td>{formatCents(reg.paidCents)}</td>
+                              <td>{formatCents(reg.remainingCents)}</td>
+                              <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+
+                {adults.length > 0 && (
+                  <div>
+                    <p className="form-note" style={{ marginBottom: 6 }}>ADULTS ATTENDING</p>
+                    <table className="data-table" style={{ marginBottom: 0 }}>
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Paid</th>
+                          <th>Remaining</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adults.map((reg) => {
+                          const status =
+                            reg.remainingCents <= 0
+                              ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
+                              : reg.paidCents > 0
+                              ? { label: "Partial", cls: "badge-junior" }
+                              : { label: "Unpaid", cls: "badge-photographer" };
+                          return (
+                            <tr key={reg.id}>
+                              <td>{reg.name}</td>
+                              <td>{formatCents(reg.paidCents)}</td>
+                              <td>{formatCents(reg.remainingCents)}</td>
+                              <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+          <p className="form-note" style={{ marginBottom: 32 }}>
+            See the Committee Treasurer or Committee Chair to make a payment on any balance above.
+          </p>
+        </>
       )}
 
       <div className="section-head">
