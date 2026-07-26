@@ -49,6 +49,16 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[]
   { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "JUNIOR_ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/parent-portal"), roles: ["ADMIN"] },
+  // CSV exports (per-event and pack-wide) are an admin-only bookkeeping
+  // tool — checked before the DEN-inclusive rules below since "export" would
+  // otherwise satisfy their generic segment-count patterns.
+  { test: (p) => /^\/portal\/admin\/events(\/[^/]+)?\/guests\/export$/.test(p), roles: ["ADMIN"] },
+  // The pack-wide "All Guests" view (grouped across every event) is
+  // admin-only, same as the events list/detail pages below.
+  { test: (p) => p === "/portal/admin/events/guests", roles: ["ADMIN"] },
+  // A den leader records payments on a single guest group's page, same as
+  // on a single scout registration's page below.
+  { test: (p) => /^\/portal\/admin\/events\/[^/]+\/guests\/[^/]+$/.test(p), roles: ["ADMIN", "DEN"] },
   // A den leader records payments on a single registration's page (checked
   // den-by-den in the page/action itself); the event list and event detail
   // pages stay admin-only.

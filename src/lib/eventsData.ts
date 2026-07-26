@@ -1,9 +1,35 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
+import { ROLE_LABELS } from "@/lib/roleLabels";
+import type { Rank } from "@/generated/prisma/enums";
 
 function withBalance<T extends { amountOwedCents: number; payments: { amountCents: number }[] }>(reg: T) {
   const paidCents = reg.payments.reduce((sum, p) => sum + p.amountCents, 0);
   return { ...reg, paidCents, remainingCents: reg.amountOwedCents - paidCents };
+}
+
+const guestOfScoutSelect = {
+  select: {
+    id: true,
+    firstName: true,
+    lastName: true,
+    den: { select: { rank: true, scoutingYear: true, label: true } },
+  },
+} as const;
+const guestOfUserSelect = { select: { id: true, displayName: true, role: true } } as const;
+
+/** "Timmy Test (Wolf Den — 2025-2026)" or "Jane Smith (Den Leader)" or null when unlinked. */
+function guestOfLabel(group: {
+  guestOfScout: { firstName: string; lastName: string; den: { rank: Rank; scoutingYear: string; label: string } } | null;
+  guestOfUser: { displayName: string; role: string } | null;
+}) {
+  if (group.guestOfScout) {
+    const { rank, scoutingYear, label } = group.guestOfScout.den;
+    return `${group.guestOfScout.firstName} ${group.guestOfScout.lastName} (${denDisplayName(rank, scoutingYear, label)})`;
+  }
+  if (group.guestOfUser) return `${group.guestOfUser.displayName} (${ROLE_LABELS[group.guestOfUser.role] ?? group.guestOfUser.role})`;
+  return null;
 }
 
 export async function getEvents() {
@@ -55,6 +81,8 @@ export async function getEventDetail(eventId: string) {
         include: {
           payments: true,
           addedByUser: { select: { displayName: true } },
+          guestOfScout: guestOfScoutSelect,
+          guestOfUser: guestOfUserSelect,
         },
         orderBy: { createdAt: "asc" },
       },
@@ -78,6 +106,9 @@ export async function getEventDetail(eventId: string) {
     guestGroups: event.guestGroups.map((group) => ({
       ...withBalance(group),
       addedByDisplayName: group.addedByUser?.displayName ?? null,
+      guestOfScoutId: group.guestOfScoutId,
+      guestOfUserId: group.guestOfUserId,
+      guestOfLabel: guestOfLabel(group),
     })),
   };
 }
@@ -87,6 +118,8 @@ export async function getGuestGroupDetail(guestGroupId: string) {
     where: { id: guestGroupId },
     include: {
       event: true,
+      guestOfScout: guestOfScoutSelect,
+      guestOfUser: guestOfUserSelect,
       payments: {
         orderBy: { paidOn: "desc" },
         include: { recordedByUser: { select: { username: true } } },
@@ -106,6 +139,9 @@ export async function getGuestGroupDetail(guestGroupId: string) {
     paidCents,
     remainingCents: group.amountOwedCents - paidCents,
     event: group.event,
+    guestOfScoutId: group.guestOfScoutId,
+    guestOfUserId: group.guestOfUserId,
+    guestOfLabel: guestOfLabel(group),
     payments: group.payments.map((p) => ({
       id: p.id,
       amountCents: p.amountCents,
@@ -259,12 +295,52 @@ export async function getOpenEventsForSelfRegistration(scoutIds: string[], userI
  */
 export async function getAllGuestGroups() {
   const groups = await prisma.eventGuestGroup.findMany({
-    include: { event: true, payments: true },
+    include: {
+      event: true,
+      payments: true,
+      addedByUser: { select: { displayName: true } },
+      guestOfScout: guestOfScoutSelect,
+      guestOfUser: guestOfUserSelect,
+    },
     orderBy: { event: { eventDate: "asc" } },
   });
 
   return groups.map((group) => ({
     ...withBalance(group),
     event: group.event,
+    addedByDisplayName: group.addedByUser?.displayName ?? null,
+    guestOfScoutId: group.guestOfScoutId,
+    guestOfUserId: group.guestOfUserId,
+    guestOfLabel: guestOfLabel(group),
   }));
+}
+
+/**
+ * Every scout (grouped by den) and every non-parent staff account — used to
+ * populate the "Guest Of" picker on the admin add/edit guest group forms, so
+ * a guest can be linked to the scout or leader/admin they're attending with.
+ */
+export async function getGuestOfOptions() {
+  const [dens, staff] = await Promise.all([
+    prisma.den.findMany({
+      include: { scouts: { orderBy: [{ lastName: "asc" }, { firstName: "asc" }] } },
+    }),
+    prisma.user.findMany({
+      where: { role: { not: "PARENT" } },
+      select: { id: true, displayName: true, role: true },
+      orderBy: [{ role: "asc" }, { displayName: "asc" }],
+    }),
+  ]);
+
+  dens.sort((a, b) => {
+    if (a.scoutingYear !== b.scoutingYear) return b.scoutingYear.localeCompare(a.scoutingYear);
+    return RANK_ORDER.indexOf(a.rank as Rank) - RANK_ORDER.indexOf(b.rank as Rank);
+  });
+
+  return {
+    densWithScouts: dens
+      .map((den) => ({ id: den.id, label: denDisplayName(den.rank, den.scoutingYear, den.label), scouts: den.scouts }))
+      .filter((d) => d.scouts.length > 0),
+    staff: staff.map((u) => ({ id: u.id, label: `${u.displayName} (${ROLE_LABELS[u.role] ?? u.role})` })),
+  };
 }

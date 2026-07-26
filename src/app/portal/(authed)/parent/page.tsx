@@ -7,7 +7,7 @@ import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from "@/lib/deadlineCategories";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import ScoutChecklist from "@/components/ScoutChecklist";
-import CollapsibleDenGroup from "@/components/CollapsibleDenGroup";
+import CollapsibleGroup from "@/components/CollapsibleGroup";
 import {
   registerMyScoutsForEventAction,
   registerMyGuestGroupForEventAction,
@@ -335,7 +335,7 @@ export default async function ParentDashboardPage() {
                 <h3 style={{ marginTop: 0, marginBottom: 14 }}>{event.title}</h3>
 
                 {denGroups.map(({ den, regs }) => (
-                  <CollapsibleDenGroup
+                  <CollapsibleGroup
                     key={den?.id ?? "none"}
                     label={`${den ? denDisplayName(den.rank, den.scoutingYear, den.label) : "No Den Assigned"} (${regs.length})`}
                   >
@@ -367,7 +367,7 @@ export default async function ParentDashboardPage() {
                         })}
                       </tbody>
                     </table>
-                  </CollapsibleDenGroup>
+                  </CollapsibleGroup>
                 ))}
 
                 {guestGroups.length > 0 && (

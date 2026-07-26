@@ -11,10 +11,15 @@ export default async function AdminEventsPage() {
 
   return (
     <>
-      <div className="section-head">
-        <div className="eyebrow">Admin</div>
-        <h2>Events</h2>
-        <p>Track camping trips, day trips, and special events scouts sign up for — who&apos;s registered and what they owe.</p>
+      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+        <div>
+          <div className="eyebrow">Admin</div>
+          <h2>Events</h2>
+          <p>Track camping trips, day trips, and special events scouts sign up for — who&apos;s registered and what they owe.</p>
+        </div>
+        <Link className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }} href="/portal/admin/events/guests">
+          All Guests (All Events)
+        </Link>
       </div>
 
       {events.length === 0 ? (

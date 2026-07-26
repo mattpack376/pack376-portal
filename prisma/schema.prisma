@@ -81,7 +81,8 @@ model User {
   parentContacts           Parent[]
   announcements            Announcement[]
   eventPaymentsLogged      EventPayment[]
-  guestGroupsAdded         EventGuestGroup[]
+  guestGroupsAdded         EventGuestGroup[]        @relation("GuestGroupAddedBy")
+  guestGroupsGuestOf       EventGuestGroup[]        @relation("GuestGroupGuestOf")
   guestGroupPaymentsLogged EventGuestGroupPayment[]
 }
 
@@ -140,6 +141,7 @@ model Scout {
   parents            Parent[]
   photoConsent       PhotoConsent?
   eventRegistrations EventRegistration[]
+  guestGroupsGuestOf EventGuestGroup[]
 }
 
 model Parent {
@@ -420,7 +422,10 @@ model EventPayment {
  * multi-sibling family (or to any scout at all — e.g. a leader's own guests,
  * or an outside family with no scout on the roster). addedByUserId records
  * which portal account added the group, so that account can edit/remove its
- * own entry but not someone else's.
+ * own entry but not someone else's. guestOfScoutId/guestOfUserId is a
+ * separate, admin-set concept — who the group is attending *with* (a scout
+ * or a leader/admin) — used to group guests by family across events; exactly
+ * one, or neither (an outside family with no scout/leader link), is set.
  */
 model EventGuestGroup {
   id              String                   @id @default(cuid())
@@ -432,7 +437,11 @@ model EventGuestGroup {
   amountOwedCents Int
   createdAt       DateTime                 @default(now())
   addedByUserId   String?
-  addedByUser     User?                    @relation(fields: [addedByUserId], references: [id], onDelete: SetNull)
+  addedByUser     User?                    @relation("GuestGroupAddedBy", fields: [addedByUserId], references: [id], onDelete: SetNull)
+  guestOfScoutId  String?
+  guestOfScout    Scout?                   @relation(fields: [guestOfScoutId], references: [id], onDelete: SetNull)
+  guestOfUserId   String?
+  guestOfUser     User?                    @relation("GuestGroupGuestOf", fields: [guestOfUserId], references: [id], onDelete: SetNull)
   payments        EventGuestGroupPayment[]
 }
 

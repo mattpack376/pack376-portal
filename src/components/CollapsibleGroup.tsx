@@ -1,5 +1,5 @@
-/** Wraps a den's content in a collapsible <details>, open by default. */
-export default function CollapsibleDenGroup({
+/** Wraps content in a collapsible <details>, open by default. Used for den groups, guest-of groups, etc. */
+export default function CollapsibleGroup({
   label,
   children,
 }: {

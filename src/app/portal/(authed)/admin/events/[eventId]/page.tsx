@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
-import { getEventDetail } from "@/lib/eventsData";
+import { getEventDetail, getGuestOfOptions } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
@@ -15,7 +15,9 @@ import {
 } from "@/lib/actions/events";
 import type { Rank } from "@/generated/prisma/enums";
 import DeleteEventButton from "@/components/DeleteEventButton";
-import CollapsibleDenGroup from "@/components/CollapsibleDenGroup";
+import CollapsibleGroup from "@/components/CollapsibleGroup";
+import GuestOfSelect from "@/components/GuestOfSelect";
+import GuestGroupCountFields from "@/components/GuestGroupCountFields";
 
 function toDateInputValue(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -65,6 +67,8 @@ export default async function AdminEventDetailPage({
   const availableDens = dens
     .map((den) => ({ den, scouts: den.scouts.filter((s) => !registeredScoutIds.has(s.id)) }))
     .filter((d) => d.scouts.length > 0);
+
+  const guestOfOptions = await getGuestOfOptions();
 
   return (
     <>
@@ -163,7 +167,7 @@ export default async function AdminEventDetailPage({
       ) : (
         <div className="info-card" style={{ marginBottom: 24 }}>
           {scoutDenGroups.map(({ den, regs }) => (
-            <CollapsibleDenGroup key={den.id} label={`${denDisplayName(den.rank, den.scoutingYear, den.label)} (${regs.length})`}>
+            <CollapsibleGroup key={den.id} label={`${denDisplayName(den.rank, den.scoutingYear, den.label)} (${regs.length})`}>
               <table className="data-table" style={{ marginBottom: 0 }}>
                 <thead>
                   <tr>
@@ -213,7 +217,7 @@ export default async function AdminEventDetailPage({
                   })}
                 </tbody>
               </table>
-            </CollapsibleDenGroup>
+            </CollapsibleGroup>
           ))}
         </div>
       )}
@@ -230,7 +234,7 @@ export default async function AdminEventDetailPage({
             </p>
             <div style={{ maxHeight: 260, overflowY: "auto", marginBottom: 16, paddingRight: 4 }}>
               {availableDens.map(({ den, scouts }) => (
-                <CollapsibleDenGroup key={den.id} label={`${denDisplayName(den.rank, den.scoutingYear, den.label)} (${scouts.length})`}>
+                <CollapsibleGroup key={den.id} label={`${denDisplayName(den.rank, den.scoutingYear, den.label)} (${scouts.length})`}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
                     {scouts.map((scout) => (
                       <label key={scout.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
@@ -239,7 +243,7 @@ export default async function AdminEventDetailPage({
                       </label>
                     ))}
                   </div>
-                </CollapsibleDenGroup>
+                </CollapsibleGroup>
               ))}
             </div>
             <div className="form-field">
@@ -259,13 +263,24 @@ export default async function AdminEventDetailPage({
         )}
       </div>
 
-      <div className="section-head">
-        <div className="eyebrow">Chaperones &amp; Guests</div>
-        <h2>Guest Groups</h2>
-        <p>
-          Families or leaders bringing guests — tracked as a name plus an adult and kid headcount, with one combined
-          balance per group. Works for guests with no scout on the roster too.
-        </p>
+      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+        <div>
+          <div className="eyebrow">Chaperones &amp; Guests</div>
+          <h2>Guest Groups</h2>
+          <p>
+            Families or leaders bringing guests — tracked as a name plus an adult and kid headcount, with one combined
+            balance per group. Works for guests with no scout on the roster too.
+          </p>
+        </div>
+        {event.guestGroups.length > 0 && (
+          <a
+            className="btn btn-outline btn-small"
+            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+            href={`/portal/admin/events/${event.id}/guests/export`}
+          >
+            Export CSV
+          </a>
+        )}
       </div>
 
       {event.guestGroups.length === 0 ? (
@@ -277,9 +292,9 @@ export default async function AdminEventDetailPage({
           <thead>
             <tr>
               <th>Family / Leader</th>
+              <th>Guest Of</th>
               <th>Adults</th>
               <th>Kids</th>
-              <th>Added By</th>
               <th>Paid</th>
               <th>Remaining</th>
               <th>Status</th>
@@ -297,9 +312,9 @@ export default async function AdminEventDetailPage({
               return (
                 <tr key={group.id}>
                   <td>{group.familyName}</td>
+                  <td>{group.guestOfLabel ?? "—"}</td>
                   <td>{group.adultCount}</td>
                   <td>{group.childCount}</td>
-                  <td>{group.addedByDisplayName ?? "—"}</td>
                   <td>{formatCents(group.paidCents)}</td>
                   <td>{formatCents(group.remainingCents)}</td>
                   <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
@@ -338,20 +353,15 @@ export default async function AdminEventDetailPage({
             <label htmlFor="familyName">Family or Leader Name</label>
             <input id="familyName" name="familyName" required placeholder="e.g. The Smith Family" />
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: 1, minWidth: 120 }}>
-              <label htmlFor="adultCount">Adults</label>
-              <input id="adultCount" name="adultCount" type="number" min="0" step="1" defaultValue={0} />
-            </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 120 }}>
-              <label htmlFor="childCount">Kids</label>
-              <input id="childCount" name="childCount" type="number" min="0" step="1" defaultValue={0} />
-            </div>
+          <div className="form-field">
+            <label htmlFor="guestOf">Guest Of</label>
+            <GuestOfSelect id="guestOf" densWithScouts={guestOfOptions.densWithScouts} staff={guestOfOptions.staff} />
           </div>
-          <div className="form-field" style={{ maxWidth: 160 }}>
-            <label htmlFor="guestAmountOwed">Amount Owed ($)</label>
-            <input id="guestAmountOwed" name="amountOwed" type="number" min="0" step="0.01" required placeholder="Combined for the group" />
-          </div>
+          <GuestGroupCountFields
+            idPrefix="add-guest"
+            adultFeeCents={event.adultFeeCents}
+            guestChildFeeCents={event.guestChildFeeCents}
+          />
           <button type="submit" className="btn btn-primary">Add</button>
         </form>
       </div>

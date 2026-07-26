@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEventPaymentSession } from "@/lib/authorize";
-import { getGuestGroupDetail } from "@/lib/eventsData";
+import { getGuestGroupDetail, getGuestOfOptions } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { formatDueDate } from "@/lib/deadlineCategories";
@@ -11,6 +11,8 @@ import {
   updateGuestGroupAction,
   removeGuestGroupAction,
 } from "@/lib/actions/events";
+import GuestOfSelect from "@/components/GuestOfSelect";
+import GuestGroupCountFields from "@/components/GuestGroupCountFields";
 
 export default async function AdminGuestGroupPage({
   params,
@@ -23,6 +25,9 @@ export default async function AdminGuestGroupPage({
   const group = await getGuestGroupDetail(guestGroupId);
   if (!group || group.event.id !== eventId) notFound();
 
+  const guestOfOptions = await getGuestOfOptions();
+  const guestOfDefault = group.guestOfScoutId ? `scout:${group.guestOfScoutId}` : group.guestOfUserId ? `user:${group.guestOfUserId}` : "";
+
   return (
     <>
       <div className="section-head">
@@ -33,6 +38,7 @@ export default async function AdminGuestGroupPage({
         <p>
           {group.adultCount} adult{group.adultCount === 1 ? "" : "s"}, {group.childCount} kid{group.childCount === 1 ? "" : "s"} ·{" "}
           {formatDueDate(group.event.eventDate)}
+          {group.guestOfLabel && ` · Guest of ${group.guestOfLabel}`}
         </p>
       </div>
 
@@ -44,33 +50,30 @@ export default async function AdminGuestGroupPage({
           {group.remainingCents === 0 && " — paid in full"}
           {group.remainingCents < 0 && ` — overpaid by ${formatCents(-group.remainingCents)}`}
         </p>
-        <form action={updateGuestGroupAction} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <form action={updateGuestGroupAction}>
           <input type="hidden" name="guestGroupId" value={group.id} />
           <input type="hidden" name="eventId" value={eventId} />
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
+          <div className="form-field">
             <label htmlFor="familyName">Family / Leader Name</label>
             <input id="familyName" name="familyName" required defaultValue={group.familyName} />
           </div>
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
-            <label htmlFor="adultCount">Adults</label>
-            <input id="adultCount" name="adultCount" type="number" min="0" step="1" required defaultValue={group.adultCount} />
-          </div>
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
-            <label htmlFor="childCount">Kids</label>
-            <input id="childCount" name="childCount" type="number" min="0" step="1" required defaultValue={group.childCount} />
-          </div>
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
-            <label htmlFor="amountOwed">Amount Owed ($)</label>
-            <input
-              id="amountOwed"
-              name="amountOwed"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              defaultValue={(group.amountOwedCents / 100).toFixed(2)}
+          <div className="form-field">
+            <label htmlFor="guestOf">Guest Of</label>
+            <GuestOfSelect
+              id="guestOf"
+              densWithScouts={guestOfOptions.densWithScouts}
+              staff={guestOfOptions.staff}
+              defaultValue={guestOfDefault}
             />
           </div>
+          <GuestGroupCountFields
+            idPrefix="edit-guest"
+            adultFeeCents={group.event.adultFeeCents}
+            guestChildFeeCents={group.event.guestChildFeeCents}
+            defaultAdultCount={group.adultCount}
+            defaultChildCount={group.childCount}
+            defaultAmountOwedCents={group.amountOwedCents}
+          />
           <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
             Save Changes
           </button>

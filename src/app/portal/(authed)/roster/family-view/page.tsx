@@ -9,7 +9,7 @@ import type { Rank } from "@/generated/prisma/enums";
 import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from "@/lib/deadlineCategories";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import DenSwitcher from "@/components/DenSwitcher";
-import CollapsibleDenGroup from "@/components/CollapsibleDenGroup";
+import CollapsibleGroup from "@/components/CollapsibleGroup";
 import { registerMyGuestGroupForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
 
 export default async function FamilyViewPage({
@@ -19,6 +19,9 @@ export default async function FamilyViewPage({
 }) {
   const session = await requireParentContactsSession();
   const canRecordPayments = session.role === "ADMIN" || session.role === "DEN";
+  // Junior admins can see guest groups (read-only, same as they already see
+  // scout registrations) but can't record payments or self-register guests.
+  const canViewGuestGroups = canRecordPayments || session.role === "JUNIOR_ADMIN";
   const isDenScoped = session.role === "DEN";
 
   if (isDenScoped && session.denIds.length === 0) {
@@ -43,9 +46,10 @@ export default async function FamilyViewPage({
     session.userId,
   );
 
-  const [allGuestGroups, myOpenGuestEvents] = canRecordPayments
-    ? await Promise.all([getAllGuestGroups(), getOpenEventsForSelfRegistration([], session.userId)])
-    : [[], []];
+  const [allGuestGroups, myOpenGuestEvents] = await Promise.all([
+    canViewGuestGroups ? getAllGuestGroups() : Promise.resolve([]),
+    canRecordPayments ? getOpenEventsForSelfRegistration([], session.userId) : Promise.resolve([]),
+  ]);
   const openGuestEvents = myOpenGuestEvents.filter((e) => e.adultFeeCents !== null || e.guestChildFeeCents !== null);
 
   const scoutInfoById = new Map(scouts.map((s) => [s.id, s]));
@@ -217,7 +221,7 @@ export default async function FamilyViewPage({
               <h3 style={{ marginTop: 0, marginBottom: 14 }}>{event.title}</h3>
 
               {denGroups.map(({ den, regs }) => (
-                <CollapsibleDenGroup
+                <CollapsibleGroup
                   key={den?.id ?? "none"}
                   label={`${den ? denDisplayName(den.rank, den.scoutingYear, den.label) : "No Den Assigned"} (${regs.length})`}
                 >
@@ -261,7 +265,7 @@ export default async function FamilyViewPage({
                       })}
                     </tbody>
                   </table>
-                </CollapsibleDenGroup>
+                </CollapsibleGroup>
               ))}
 
               {guestGroups.length > 0 && (
@@ -271,6 +275,7 @@ export default async function FamilyViewPage({
                     <thead>
                       <tr>
                         <th>Family / Leader</th>
+                        <th>Guest Of</th>
                         <th>Adults</th>
                         <th>Kids</th>
                         <th>Paid</th>
@@ -290,6 +295,7 @@ export default async function FamilyViewPage({
                         return (
                           <tr key={group.id}>
                             <td>{group.familyName}</td>
+                            <td>{group.guestOfLabel ?? "—"}</td>
                             <td>{group.adultCount}</td>
                             <td>{group.childCount}</td>
                             <td>{formatCents(group.paidCents)}</td>

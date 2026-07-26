@@ -331,6 +331,14 @@ export async function deleteEventPaymentAction(formData: FormData) {
 // for guests. Editing amounts and recording payments is open to any den
 // login (assertEventPaymentAccess), same as it is for adult attendees.
 
+/** Parses a "Guest Of" <select> value of the form "scout:<id>" | "user:<id>" | "" into the two mutually-exclusive FK fields. */
+function parseGuestOf(raw: FormDataEntryValue | null): { guestOfScoutId: string | null; guestOfUserId: string | null } {
+  const value = String(raw || "");
+  if (value.startsWith("scout:")) return { guestOfScoutId: value.slice(6), guestOfUserId: null };
+  if (value.startsWith("user:")) return { guestOfScoutId: null, guestOfUserId: value.slice(5) };
+  return { guestOfScoutId: null, guestOfUserId: null };
+}
+
 export async function addGuestGroupAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
@@ -341,16 +349,18 @@ export async function addGuestGroupAction(formData: FormData) {
   const adultCount = parseCount(formData.get("adultCount"));
   const childCount = parseCount(formData.get("childCount"));
   const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
+  const { guestOfScoutId, guestOfUserId } = parseGuestOf(formData.get("guestOf"));
   if (!eventId || !familyName || adultCount === null || childCount === null || amountOwedCents === null) {
     throw new Error("A name, valid adult/child counts, and a valid amount owed are required.");
   }
   if (adultCount + childCount === 0) throw new Error("Enter at least one adult or child.");
 
   await prisma.eventGuestGroup.create({
-    data: { eventId, familyName, adultCount, childCount, amountOwedCents },
+    data: { eventId, familyName, adultCount, childCount, amountOwedCents, guestOfScoutId, guestOfUserId },
   });
 
   revalidatePath(`/portal/admin/events/${eventId}`);
+  revalidatePath("/portal/admin/events/guests");
 }
 
 export async function updateGuestGroupAction(formData: FormData) {
@@ -364,6 +374,7 @@ export async function updateGuestGroupAction(formData: FormData) {
   const adultCount = parseCount(formData.get("adultCount"));
   const childCount = parseCount(formData.get("childCount"));
   const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
+  const { guestOfScoutId, guestOfUserId } = parseGuestOf(formData.get("guestOf"));
   if (!guestGroupId || !familyName || adultCount === null || childCount === null || amountOwedCents === null) {
     throw new Error("A name, valid adult/child counts, and a valid amount owed are required.");
   }
@@ -371,12 +382,13 @@ export async function updateGuestGroupAction(formData: FormData) {
 
   await prisma.eventGuestGroup.update({
     where: { id: guestGroupId },
-    data: { familyName, adultCount, childCount, amountOwedCents },
+    data: { familyName, adultCount, childCount, amountOwedCents, guestOfScoutId, guestOfUserId },
   });
 
   revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
+  revalidatePath("/portal/admin/events/guests");
 }
 
 export async function removeGuestGroupAction(formData: FormData) {
