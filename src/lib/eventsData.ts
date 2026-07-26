@@ -10,14 +10,14 @@ export async function getEvents() {
   const events = await prisma.event.findMany({
     include: {
       registrations: { include: { payments: true } },
-      adultRegistrations: { include: { payments: true } },
+      guestGroups: { include: { payments: true } },
     },
     orderBy: { eventDate: "desc" },
   });
 
   return events.map((event) => {
     const registrations = event.registrations.map(withBalance);
-    const adultRegistrations = event.adultRegistrations.map(withBalance);
+    const guestGroups = event.guestGroups.map(withBalance);
     return {
       id: event.id,
       title: event.title,
@@ -26,14 +26,16 @@ export async function getEvents() {
       description: event.description,
       feeCents: event.feeCents,
       adultFeeCents: event.adultFeeCents,
+      guestChildFeeCents: event.guestChildFeeCents,
       registrationCount: registrations.length,
-      adultRegistrationCount: adultRegistrations.length,
+      guestAdultCount: guestGroups.reduce((sum, g) => sum + g.adultCount, 0),
+      guestChildCount: guestGroups.reduce((sum, g) => sum + g.childCount, 0),
       totalOwedCents:
         registrations.reduce((sum, r) => sum + r.amountOwedCents, 0) +
-        adultRegistrations.reduce((sum, r) => sum + r.amountOwedCents, 0),
+        guestGroups.reduce((sum, g) => sum + g.amountOwedCents, 0),
       totalPaidCents:
         registrations.reduce((sum, r) => sum + r.paidCents, 0) +
-        adultRegistrations.reduce((sum, r) => sum + r.paidCents, 0),
+        guestGroups.reduce((sum, g) => sum + g.paidCents, 0),
     };
   });
 }
@@ -49,7 +51,7 @@ export async function getEventDetail(eventId: string) {
         },
         orderBy: [{ scout: { lastName: "asc" } }, { scout: { firstName: "asc" } }],
       },
-      adultRegistrations: {
+      guestGroups: {
         include: {
           payments: true,
           addedByUser: { select: { displayName: true } },
@@ -68,20 +70,21 @@ export async function getEventDetail(eventId: string) {
     description: event.description,
     feeCents: event.feeCents,
     adultFeeCents: event.adultFeeCents,
+    guestChildFeeCents: event.guestChildFeeCents,
     registrations: event.registrations.map((reg) => ({
       ...withBalance(reg),
       scout: { id: reg.scout.id, firstName: reg.scout.firstName, lastName: reg.scout.lastName, den: reg.scout.den },
     })),
-    adultRegistrations: event.adultRegistrations.map((reg) => ({
-      ...withBalance(reg),
-      addedByDisplayName: reg.addedByUser?.displayName ?? null,
+    guestGroups: event.guestGroups.map((group) => ({
+      ...withBalance(group),
+      addedByDisplayName: group.addedByUser?.displayName ?? null,
     })),
   };
 }
 
-export async function getAdultRegistrationDetail(adultRegistrationId: string) {
-  const reg = await prisma.eventAdultRegistration.findUnique({
-    where: { id: adultRegistrationId },
+export async function getGuestGroupDetail(guestGroupId: string) {
+  const group = await prisma.eventGuestGroup.findUnique({
+    where: { id: guestGroupId },
     include: {
       event: true,
       payments: {
@@ -90,18 +93,20 @@ export async function getAdultRegistrationDetail(adultRegistrationId: string) {
       },
     },
   });
-  if (!reg) return null;
+  if (!group) return null;
 
-  const paidCents = reg.payments.reduce((sum, p) => sum + p.amountCents, 0);
+  const paidCents = group.payments.reduce((sum, p) => sum + p.amountCents, 0);
 
   return {
-    id: reg.id,
-    name: reg.name,
-    amountOwedCents: reg.amountOwedCents,
+    id: group.id,
+    familyName: group.familyName,
+    adultCount: group.adultCount,
+    childCount: group.childCount,
+    amountOwedCents: group.amountOwedCents,
     paidCents,
-    remainingCents: reg.amountOwedCents - paidCents,
-    event: reg.event,
-    payments: reg.payments.map((p) => ({
+    remainingCents: group.amountOwedCents - paidCents,
+    event: group.event,
+    payments: group.payments.map((p) => ({
       id: p.id,
       amountCents: p.amountCents,
       paidOn: p.paidOn,
@@ -170,28 +175,29 @@ export async function getScoutEventBalances(scoutIds: string[]) {
   });
 }
 
-/** Every event a given user has registered themselves (or another adult) for — used by the Parent Dashboard's Event Payments section alongside getScoutEventBalances. */
-export async function getAdultEventBalances(userId: string) {
-  const registrations = await prisma.eventAdultRegistration.findMany({
+/** Every event a given user has registered a guest group for — used by the Parent Dashboard's Event Payments section alongside getScoutEventBalances. */
+export async function getGuestGroupBalances(userId: string) {
+  const groups = await prisma.eventGuestGroup.findMany({
     where: { addedByUserId: userId },
     include: { event: true, payments: true },
     orderBy: { event: { eventDate: "asc" } },
   });
 
-  return registrations.map((reg) => ({
-    ...withBalance(reg),
-    event: reg.event,
+  return groups.map((group) => ({
+    ...withBalance(group),
+    event: group.event,
   }));
 }
 
 /**
- * Upcoming events someone can self-register for — used by the Parent
- * Dashboard's "Register for Events" section (scoutIds + own adult entry) and
- * by Family View's self-registration section for den leaders/admins
- * (scoutIds: [], own adult entry only). An event only shows up here once it
- * has a default fee set (scout and/or adult); without one, self-service
- * can't know what to charge and an admin has to register people manually
- * with a custom amount.
+ * Upcoming events someone can self-register a guest group for — used by the
+ * Parent Dashboard's "Register for Events" section (scoutIds + own guest
+ * groups) and by Family View's self-registration section for den
+ * leaders/admins (scoutIds: [], own guest groups only). An event only shows
+ * up here once it has a default fee set (scout, adult, and/or guest child);
+ * without one for a given category, self-service for that category can't
+ * know what to charge and an admin has to register people manually with a
+ * custom amount.
  */
 export async function getOpenEventsForSelfRegistration(scoutIds: string[], userId: string) {
   const today = new Date();
@@ -200,15 +206,23 @@ export async function getOpenEventsForSelfRegistration(scoutIds: string[], userI
   const events = await prisma.event.findMany({
     where: {
       eventDate: { gte: todayUtc },
-      OR: [{ feeCents: { not: null } }, { adultFeeCents: { not: null } }],
+      OR: [{ feeCents: { not: null } }, { adultFeeCents: { not: null } }, { guestChildFeeCents: { not: null } }],
     },
     include: {
       registrations: {
         where: { scoutId: { in: scoutIds } },
         select: { scoutId: true },
       },
-      adultRegistrations: {
-        select: { id: true, name: true, amountOwedCents: true, addedByUserId: true, payments: { select: { amountCents: true } } },
+      guestGroups: {
+        select: {
+          id: true,
+          familyName: true,
+          adultCount: true,
+          childCount: true,
+          amountOwedCents: true,
+          addedByUserId: true,
+          payments: { select: { amountCents: true } },
+        },
       },
     },
     orderBy: { eventDate: "asc" },
@@ -222,32 +236,35 @@ export async function getOpenEventsForSelfRegistration(scoutIds: string[], userI
     description: event.description,
     feeCents: event.feeCents,
     adultFeeCents: event.adultFeeCents,
+    guestChildFeeCents: event.guestChildFeeCents,
     registeredScoutIds: event.registrations.map((r) => r.scoutId),
-    adultHeadcount: event.adultRegistrations.length,
-    myAdults: event.adultRegistrations
-      .filter((a) => a.addedByUserId === userId)
-      .map((a) => ({
-        id: a.id,
-        name: a.name,
-        amountOwedCents: a.amountOwedCents,
-        paidCents: a.payments.reduce((sum, p) => sum + p.amountCents, 0),
+    myGuestGroups: event.guestGroups
+      .filter((g) => g.addedByUserId === userId)
+      .map((g) => ({
+        id: g.id,
+        familyName: g.familyName,
+        adultCount: g.adultCount,
+        childCount: g.childCount,
+        amountOwedCents: g.amountOwedCents,
+        paidCents: g.payments.reduce((sum, p) => sum + p.amountCents, 0),
       })),
   }));
 }
 
 /**
- * Every adult registered for any event, pack-wide — used by Family View for
- * admins/den leaders to record payments. Adults aren't tied to a den (unlike
- * scouts), so unlike getScoutEventBalances this isn't scoped by scoutIds.
+ * Every guest group registered for any event, pack-wide — used by Family
+ * View for admins/den leaders to record payments. Guest groups aren't tied
+ * to a den (unlike scouts), so unlike getScoutEventBalances this isn't
+ * scoped by scoutIds.
  */
-export async function getAllAdultRegistrations() {
-  const registrations = await prisma.eventAdultRegistration.findMany({
+export async function getAllGuestGroups() {
+  const groups = await prisma.eventGuestGroup.findMany({
     include: { event: true, payments: true },
     orderBy: { event: { eventDate: "asc" } },
   });
 
-  return registrations.map((reg) => ({
-    ...withBalance(reg),
-    event: reg.event,
+  return groups.map((group) => ({
+    ...withBalance(group),
+    event: group.event,
   }));
 }

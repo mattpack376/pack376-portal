@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireParentContactsSession } from "@/lib/authorize";
 import { getParentDashboardData } from "@/lib/parentDashboardData";
-import { getAllAdultRegistrations, getOpenEventsForSelfRegistration } from "@/lib/eventsData";
+import { getAllGuestGroups, getOpenEventsForSelfRegistration } from "@/lib/eventsData";
 import { prisma } from "@/lib/prisma";
 import { formatCents } from "@/lib/duesData";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
@@ -9,7 +9,8 @@ import type { Rank } from "@/generated/prisma/enums";
 import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from "@/lib/deadlineCategories";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import DenSwitcher from "@/components/DenSwitcher";
-import { registerMyAdultForEventAction, removeMyAdultRegistrationAction } from "@/lib/actions/events";
+import CollapsibleDenGroup from "@/components/CollapsibleDenGroup";
+import { registerMyGuestGroupForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
 
 export default async function FamilyViewPage({
   searchParams,
@@ -42,15 +43,15 @@ export default async function FamilyViewPage({
     session.userId,
   );
 
-  const [allAdultRegistrations, myOpenAdultEvents] = canRecordPayments
-    ? await Promise.all([getAllAdultRegistrations(), getOpenEventsForSelfRegistration([], session.userId)])
+  const [allGuestGroups, myOpenGuestEvents] = canRecordPayments
+    ? await Promise.all([getAllGuestGroups(), getOpenEventsForSelfRegistration([], session.userId)])
     : [[], []];
-  const openAdultEvents = myOpenAdultEvents.filter((e) => e.adultFeeCents !== null);
+  const openGuestEvents = myOpenGuestEvents.filter((e) => e.adultFeeCents !== null || e.guestChildFeeCents !== null);
 
   const scoutInfoById = new Map(scouts.map((s) => [s.id, s]));
   type Den = (typeof scouts)[number]["den"];
   type ScoutBalance = (typeof eventBalances)[number];
-  type AdultBalance = (typeof allAdultRegistrations)[number];
+  type GuestGroupBalance = (typeof allGuestGroups)[number];
 
   function sortDens<T extends { den: Den | null }>(groups: T[]) {
     return groups.sort((a, b) => {
@@ -61,16 +62,16 @@ export default async function FamilyViewPage({
     });
   }
 
-  // Event -> Den -> scouts, plus that event's adult registrations — so an
+  // Event -> Den -> scouts, plus that event's guest groups — so an
   // admin/den leader scans one event at a time instead of a wall of boxes
   // mixing every event and every kid together.
   const eventGroupsById = new Map<
     string,
-    { event: ScoutBalance["event"]; denGroups: Map<string, { den: Den | null; regs: ScoutBalance[] }>; adults: AdultBalance[] }
+    { event: ScoutBalance["event"]; denGroups: Map<string, { den: Den | null; regs: ScoutBalance[] }>; guestGroups: GuestGroupBalance[] }
   >();
   for (const reg of eventBalances) {
     if (!eventGroupsById.has(reg.event.id)) {
-      eventGroupsById.set(reg.event.id, { event: reg.event, denGroups: new Map(), adults: [] });
+      eventGroupsById.set(reg.event.id, { event: reg.event, denGroups: new Map(), guestGroups: [] });
     }
     const entry = eventGroupsById.get(reg.event.id)!;
     const scout = scoutInfoById.get(reg.scoutId);
@@ -78,11 +79,11 @@ export default async function FamilyViewPage({
     if (!entry.denGroups.has(denKey)) entry.denGroups.set(denKey, { den: scout?.den ?? null, regs: [] });
     entry.denGroups.get(denKey)!.regs.push(reg);
   }
-  for (const reg of allAdultRegistrations) {
-    if (!eventGroupsById.has(reg.event.id)) {
-      eventGroupsById.set(reg.event.id, { event: reg.event, denGroups: new Map(), adults: [] });
+  for (const group of allGuestGroups) {
+    if (!eventGroupsById.has(group.event.id)) {
+      eventGroupsById.set(group.event.id, { event: group.event, denGroups: new Map(), guestGroups: [] });
     }
-    eventGroupsById.get(reg.event.id)!.adults.push(reg);
+    eventGroupsById.get(group.event.id)!.guestGroups.push(group);
   }
 
   const eventPaymentGroups = Array.from(eventGroupsById.values())
@@ -98,7 +99,7 @@ export default async function FamilyViewPage({
           return (scoutA?.firstName ?? "").localeCompare(scoutB?.firstName ?? "");
         });
       }
-      return { event: group.event, denGroups, adults: group.adults };
+      return { event: group.event, denGroups, guestGroups: group.guestGroups };
     });
 
   return (
@@ -208,7 +209,7 @@ export default async function FamilyViewPage({
         </div>
       ) : (
         <div style={{ marginBottom: 32 }}>
-          {eventPaymentGroups.map(({ event, denGroups, adults }) => (
+          {eventPaymentGroups.map(({ event, denGroups, guestGroups }) => (
             <div className="info-card" key={event.id} style={{ marginBottom: 20 }}>
               <p className="form-note" style={{ marginBottom: 4 }}>
                 {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
@@ -216,12 +217,10 @@ export default async function FamilyViewPage({
               <h3 style={{ marginTop: 0, marginBottom: 14 }}>{event.title}</h3>
 
               {denGroups.map(({ den, regs }) => (
-                <div key={den?.id ?? "none"} style={{ marginBottom: 14 }}>
-                  {denGroups.length > 1 && (
-                    <p className="form-note" style={{ marginBottom: 6 }}>
-                      {den ? denDisplayName(den.rank, den.scoutingYear, den.label).toUpperCase() : "NO DEN ASSIGNED"}
-                    </p>
-                  )}
+                <CollapsibleDenGroup
+                  key={den?.id ?? "none"}
+                  label={`${den ? denDisplayName(den.rank, den.scoutingYear, den.label) : "No Den Assigned"} (${regs.length})`}
+                >
                   <table className="data-table" style={{ marginBottom: 0 }}>
                     <thead>
                       <tr>
@@ -262,16 +261,18 @@ export default async function FamilyViewPage({
                       })}
                     </tbody>
                   </table>
-                </div>
+                </CollapsibleDenGroup>
               ))}
 
-              {adults.length > 0 && (
+              {guestGroups.length > 0 && (
                 <div>
-                  <p className="form-note" style={{ marginBottom: 6 }}>ADULTS ATTENDING</p>
+                  <p className="form-note" style={{ marginBottom: 6 }}>GUEST GROUPS</p>
                   <table className="data-table" style={{ marginBottom: 0 }}>
                     <thead>
                       <tr>
-                        <th>Name</th>
+                        <th>Family / Leader</th>
+                        <th>Adults</th>
+                        <th>Kids</th>
                         <th>Paid</th>
                         <th>Remaining</th>
                         <th>Status</th>
@@ -279,25 +280,27 @@ export default async function FamilyViewPage({
                       </tr>
                     </thead>
                     <tbody>
-                      {adults.map((reg) => {
+                      {guestGroups.map((group) => {
                         const status =
-                          reg.remainingCents <= 0
-                            ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                            : reg.paidCents > 0
+                          group.remainingCents <= 0
+                            ? { label: group.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
+                            : group.paidCents > 0
                             ? { label: "Partial", cls: "badge-junior" }
                             : { label: "Unpaid", cls: "badge-photographer" };
                         return (
-                          <tr key={reg.id}>
-                            <td>{reg.name}</td>
-                            <td>{formatCents(reg.paidCents)}</td>
-                            <td>{formatCents(reg.remainingCents)}</td>
+                          <tr key={group.id}>
+                            <td>{group.familyName}</td>
+                            <td>{group.adultCount}</td>
+                            <td>{group.childCount}</td>
+                            <td>{formatCents(group.paidCents)}</td>
+                            <td>{formatCents(group.remainingCents)}</td>
                             <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                             {canRecordPayments && (
                               <td className="actions">
                                 <Link
                                   className="btn btn-outline btn-small"
                                   style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
-                                  href={`/portal/admin/events/${event.id}/adult/${reg.id}`}
+                                  href={`/portal/admin/events/${event.id}/guests/${group.id}`}
                                 >
                                   Record Payment
                                 </Link>
@@ -319,30 +322,32 @@ export default async function FamilyViewPage({
         <>
           <div className="section-head">
             <div className="eyebrow">Sign Up</div>
-            <h2>Register Yourself for an Event</h2>
+            <h2>Register Yourself &amp; Guests for an Event</h2>
           </div>
-          {openAdultEvents.length === 0 ? (
+          {openGuestEvents.length === 0 ? (
             <div className="info-card">
-              <p style={{ marginBottom: 0 }}>No upcoming events open for adult self-registration right now.</p>
+              <p style={{ marginBottom: 0 }}>No upcoming events open for guest self-registration right now.</p>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {openAdultEvents.map((event) => (
+              {openGuestEvents.map((event) => (
                 <div className="info-card" key={event.id} style={{ marginBottom: 0 }}>
                   <p className="form-note" style={{ marginBottom: 4 }}>
-                    {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)} · {formatCents(event.adultFeeCents!)} per adult
+                    {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
+                    {event.adultFeeCents !== null && ` · ${formatCents(event.adultFeeCents)} per adult`}
+                    {event.guestChildFeeCents !== null && ` · ${formatCents(event.guestChildFeeCents)} per guest child`}
                   </p>
                   <p style={{ marginBottom: event.description ? 6 : 10, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{event.title}</p>
                   {event.description && <p style={{ marginBottom: 10 }}>{event.description}</p>}
 
-                  {event.myAdults.length > 0 && (
+                  {event.myGuestGroups.length > 0 && (
                     <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                      {event.myAdults.map((a) => (
-                        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                      {event.myGuestGroups.map((g) => (
+                        <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
                           <span className="badge-pill badge-attendance">Registered</span>
-                          {a.name}
-                          <form action={removeMyAdultRegistrationAction}>
-                            <input type="hidden" name="adultRegistrationId" value={a.id} />
+                          {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
+                          <form action={removeMyGuestGroupAction}>
+                            <input type="hidden" name="guestGroupId" value={g.id} />
                             <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
                               Remove
                             </button>
@@ -352,17 +357,24 @@ export default async function FamilyViewPage({
                     </div>
                   )}
 
-                  <form action={registerMyAdultForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                  <form action={registerMyGuestGroupForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                     <input type="hidden" name="eventId" value={event.id} />
-                    <div className="form-field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
-                      <label htmlFor={`self-name-${event.id}`}>
-                        Adult Attending (name){" "}
-                        <span style={{ color: "var(--carnival-red)", fontWeight: 700 }}>
-                          Please enter one name at a time to ensure a proper head count
-                        </span>
-                      </label>
-                      <input id={`self-name-${event.id}`} name="name" required defaultValue={session.displayName} />
+                    <div className="form-field" style={{ marginBottom: 0, flex: "1 1 200px" }}>
+                      <label htmlFor={`familyName-${event.id}`}>Family / Leader Name</label>
+                      <input id={`familyName-${event.id}`} name="familyName" required defaultValue={session.displayName} />
                     </div>
+                    {event.adultFeeCents !== null && (
+                      <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
+                        <label htmlFor={`adultCount-${event.id}`}>Adults</label>
+                        <input id={`adultCount-${event.id}`} name="adultCount" type="number" min="0" step="1" defaultValue={1} />
+                      </div>
+                    )}
+                    {event.guestChildFeeCents !== null && (
+                      <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
+                        <label htmlFor={`childCount-${event.id}`}>Kids</label>
+                        <input id={`childCount-${event.id}`} name="childCount" type="number" min="0" step="1" defaultValue={0} />
+                      </div>
+                    )}
                     <button type="submit" className="btn btn-primary btn-small">Register</button>
                   </form>
                 </div>

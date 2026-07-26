@@ -772,6 +772,25 @@ section { padding: 64px 0; }
   border-color: var(--scout-gold);
 }
 .form-note { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; }
+.den-toggle {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  letter-spacing: 0.03em;
+  list-style: none;
+  user-select: none;
+}
+.den-toggle::-webkit-details-marker { display: none; }
+.den-toggle::before {
+  content: "▸";
+  display: inline-block;
+  width: 12px;
+  transition: transform 0.15s ease;
+}
+details[open] > .den-toggle::before { transform: rotate(90deg); }
+.den-group { margin-bottom: 14px; }
+.den-group table { margin-top: 8px; }
 .form-error {
   color: var(--carnival-red);
   font-size: 13.5px;

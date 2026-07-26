@@ -26,6 +26,7 @@ export async function createEventAction(formData: FormData) {
   const description = String(formData.get("description") || "").trim();
   const feeRaw = String(formData.get("fee") || "");
   const adultFeeRaw = String(formData.get("adultFee") || "");
+  const guestChildFeeRaw = String(formData.get("guestChildFee") || "");
   if (!title || !eventDateRaw) throw new Error("Title and event date are required.");
 
   const eventDate = new Date(`${eventDateRaw}T00:00:00Z`);
@@ -37,8 +38,11 @@ export async function createEventAction(formData: FormData) {
   const adultFeeCents = adultFeeRaw.trim() ? dollarsToCents(adultFeeRaw) : null;
   if (adultFeeRaw.trim() && adultFeeCents === null) throw new Error("Invalid adult fee amount.");
 
+  const guestChildFeeCents = guestChildFeeRaw.trim() ? dollarsToCents(guestChildFeeRaw) : null;
+  if (guestChildFeeRaw.trim() && guestChildFeeCents === null) throw new Error("Invalid guest child fee amount.");
+
   const event = await prisma.event.create({
-    data: { title, category, eventDate, description: description || null, feeCents, adultFeeCents },
+    data: { title, category, eventDate, description: description || null, feeCents, adultFeeCents, guestChildFeeCents },
   });
 
   revalidatePath("/portal/admin/events");
@@ -57,6 +61,7 @@ export async function updateEventAction(formData: FormData) {
   const description = String(formData.get("description") || "").trim();
   const feeRaw = String(formData.get("fee") || "");
   const adultFeeRaw = String(formData.get("adultFee") || "");
+  const guestChildFeeRaw = String(formData.get("guestChildFee") || "");
   if (!id || !title || !eventDateRaw) throw new Error("Title and event date are required.");
 
   const eventDate = new Date(`${eventDateRaw}T00:00:00Z`);
@@ -68,9 +73,12 @@ export async function updateEventAction(formData: FormData) {
   const adultFeeCents = adultFeeRaw.trim() ? dollarsToCents(adultFeeRaw) : null;
   if (adultFeeRaw.trim() && adultFeeCents === null) throw new Error("Invalid adult fee amount.");
 
+  const guestChildFeeCents = guestChildFeeRaw.trim() ? dollarsToCents(guestChildFeeRaw) : null;
+  if (guestChildFeeRaw.trim() && guestChildFeeCents === null) throw new Error("Invalid guest child fee amount.");
+
   await prisma.event.update({
     where: { id },
-    data: { title, category, eventDate, description: description || null, feeCents, adultFeeCents },
+    data: { title, category, eventDate, description: description || null, feeCents, adultFeeCents, guestChildFeeCents },
   });
 
   revalidatePath(`/portal/admin/events/${id}`);
@@ -225,43 +233,67 @@ export async function registerMyScoutsForEventAction(formData: FormData) {
   revalidatePath("/portal/parent");
 }
 
-// Self-registration as an attending adult is open to any signed-in role
-// (parent, den leader, admin) — everyone can sign themselves up the same
-// way; ownership (addedByUserId) is what lets someone edit their own entry
-// later, not their role.
-export async function registerMyAdultForEventAction(formData: FormData) {
+function parseCount(raw: FormDataEntryValue | null): number | null {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return 0;
+  const value = Number(trimmed);
+  if (!Number.isInteger(value) || value < 0) return null;
+  return value;
+}
+
+// Self-registration as a guest group (a family or a leader bringing guests)
+// is open to any signed-in role (parent, den leader, admin) — everyone signs
+// up the same way; ownership (addedByUserId) is what lets someone edit their
+// own entry later, not their role.
+export async function registerMyGuestGroupForEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
 
   const eventId = String(formData.get("eventId") || "");
-  const name = String(formData.get("name") || "").trim();
-  if (!eventId || !name) throw new Error("A name is required.");
+  const familyName = String(formData.get("familyName") || "").trim();
+  const adultCount = parseCount(formData.get("adultCount"));
+  const childCount = parseCount(formData.get("childCount"));
+  if (!eventId || !familyName || adultCount === null || childCount === null) {
+    throw new Error("A name and valid adult/child counts are required.");
+  }
+  if (adultCount + childCount === 0) throw new Error("Enter at least one adult or child.");
 
-  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { adultFeeCents: true } });
-  if (!event || event.adultFeeCents === null) throw new Error("This event isn't open for adult self-registration.");
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { adultFeeCents: true, guestChildFeeCents: true },
+  });
+  if (!event) throw new Error("Event not found.");
+  if (adultCount > 0 && event.adultFeeCents === null) {
+    throw new Error("This event isn't open for adult guest self-registration.");
+  }
+  if (childCount > 0 && event.guestChildFeeCents === null) {
+    throw new Error("This event isn't open for guest child self-registration.");
+  }
 
-  await prisma.eventAdultRegistration.create({
-    data: { eventId, name, amountOwedCents: event.adultFeeCents, addedByUserId: session.userId },
+  const amountOwedCents = adultCount * (event.adultFeeCents ?? 0) + childCount * (event.guestChildFeeCents ?? 0);
+
+  await prisma.eventGuestGroup.create({
+    data: { eventId, familyName, adultCount, childCount, amountOwedCents, addedByUserId: session.userId },
   });
 
   revalidatePath("/portal/parent");
   revalidatePath("/portal/roster/family-view");
 }
 
-export async function removeMyAdultRegistrationAction(formData: FormData) {
+export async function removeMyGuestGroupAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
 
-  const adultRegistrationId = String(formData.get("adultRegistrationId") || "");
-  if (!adultRegistrationId) throw new Error("Missing registration id.");
+  const guestGroupId = String(formData.get("guestGroupId") || "");
+  if (!guestGroupId) throw new Error("Missing guest group id.");
 
-  const reg = await prisma.eventAdultRegistration.findUnique({
-    where: { id: adultRegistrationId },
+  const group = await prisma.eventGuestGroup.findUnique({
+    where: { id: guestGroupId },
     select: { addedByUserId: true },
   });
-  if (!reg || reg.addedByUserId !== session.userId) throw new Error("Not authorized for this registration.");
+  if (!group || group.addedByUserId !== session.userId) throw new Error("Not authorized for this guest group.");
 
-  await prisma.eventAdultRegistration.delete({ where: { id: adultRegistrationId } });
+  await prisma.eventGuestGroup.delete({ where: { id: guestGroupId } });
 
   revalidatePath("/portal/parent");
   revalidatePath("/portal/roster/family-view");
@@ -293,112 +325,120 @@ export async function deleteEventPaymentAction(formData: FormData) {
   revalidatePath("/portal/admin/events");
 }
 
-// Adult attendees aren't tied to a den (unlike scouts), so managing them —
-// unlike the scout registration/payment actions above — is admin-only; there's
-// no den-scoped equivalent of assertEventPaymentDenAccess for adults.
+// Guest groups aren't tied to a den the way scouts are, so managing them —
+// unlike the scout registration/payment actions above — is admin-only for
+// creation; there's no den-scoped equivalent of assertEventPaymentDenAccess
+// for guests. Editing amounts and recording payments is open to any den
+// login (assertEventPaymentAccess), same as it is for adult attendees.
 
-export async function addAdultRegistrationAction(formData: FormData) {
+export async function addGuestGroupAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
   const eventId = String(formData.get("eventId") || "");
-  const name = String(formData.get("name") || "").trim();
+  const familyName = String(formData.get("familyName") || "").trim();
+  const adultCount = parseCount(formData.get("adultCount"));
+  const childCount = parseCount(formData.get("childCount"));
   const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
-  if (!eventId || !name || amountOwedCents === null) {
-    throw new Error("A name and a valid amount owed are required.");
+  if (!eventId || !familyName || adultCount === null || childCount === null || amountOwedCents === null) {
+    throw new Error("A name, valid adult/child counts, and a valid amount owed are required.");
   }
+  if (adultCount + childCount === 0) throw new Error("Enter at least one adult or child.");
 
-  await prisma.eventAdultRegistration.create({
-    data: { eventId, name, amountOwedCents },
+  await prisma.eventGuestGroup.create({
+    data: { eventId, familyName, adultCount, childCount, amountOwedCents },
   });
 
   revalidatePath(`/portal/admin/events/${eventId}`);
 }
 
-export async function updateAdultRegistrationAction(formData: FormData) {
+export async function updateGuestGroupAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertEventPaymentAccess(session);
 
-  const adultRegistrationId = String(formData.get("adultRegistrationId") || "");
+  const guestGroupId = String(formData.get("guestGroupId") || "");
   const eventId = String(formData.get("eventId") || "");
-  const name = String(formData.get("name") || "").trim();
+  const familyName = String(formData.get("familyName") || "").trim();
+  const adultCount = parseCount(formData.get("adultCount"));
+  const childCount = parseCount(formData.get("childCount"));
   const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
-  if (!adultRegistrationId || !name || amountOwedCents === null) {
-    throw new Error("A name and a valid amount owed are required.");
+  if (!guestGroupId || !familyName || adultCount === null || childCount === null || amountOwedCents === null) {
+    throw new Error("A name, valid adult/child counts, and a valid amount owed are required.");
   }
+  if (adultCount + childCount === 0) throw new Error("Enter at least one adult or child.");
 
-  await prisma.eventAdultRegistration.update({
-    where: { id: adultRegistrationId },
-    data: { name, amountOwedCents },
+  await prisma.eventGuestGroup.update({
+    where: { id: guestGroupId },
+    data: { familyName, adultCount, childCount, amountOwedCents },
   });
 
-  revalidatePath(`/portal/admin/events/${eventId}/adult/${adultRegistrationId}`);
+  revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
 }
 
-export async function removeAdultRegistrationAction(formData: FormData) {
+export async function removeGuestGroupAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const adultRegistrationId = String(formData.get("adultRegistrationId") || "");
+  const guestGroupId = String(formData.get("guestGroupId") || "");
   const eventId = String(formData.get("eventId") || "");
-  if (!adultRegistrationId) throw new Error("Missing registration id.");
+  if (!guestGroupId) throw new Error("Missing guest group id.");
 
-  await prisma.eventAdultRegistration.delete({ where: { id: adultRegistrationId } });
+  await prisma.eventGuestGroup.delete({ where: { id: guestGroupId } });
 
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
 }
 
-export async function addAdultEventPaymentAction(formData: FormData) {
+export async function addGuestGroupPaymentAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertEventPaymentAccess(session);
 
-  const adultRegistrationId = String(formData.get("adultRegistrationId") || "");
+  const guestGroupId = String(formData.get("guestGroupId") || "");
   const eventId = String(formData.get("eventId") || "");
   const amountCents = dollarsToCents(String(formData.get("amount") || ""));
   const paidOnRaw = String(formData.get("paidOn") || "").trim();
   const note = String(formData.get("note") || "").trim() || null;
-  if (!adultRegistrationId || amountCents === null || amountCents === 0) {
+  if (!guestGroupId || amountCents === null || amountCents === 0) {
     throw new Error("A valid payment amount is required.");
   }
 
   const paidOn = paidOnRaw ? new Date(paidOnRaw) : new Date();
   if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
 
-  await prisma.eventAdultPayment.create({
-    data: { eventAdultRegistrationId: adultRegistrationId, amountCents, paidOn, note, recordedByUserId: session.userId },
+  await prisma.eventGuestGroupPayment.create({
+    data: { eventGuestGroupId: guestGroupId, amountCents, paidOn, note, recordedByUserId: session.userId },
   });
 
-  revalidatePath(`/portal/admin/events/${eventId}/adult/${adultRegistrationId}`);
+  revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
 }
 
-export async function deleteAdultEventPaymentAction(formData: FormData) {
+export async function deleteGuestGroupPaymentAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertEventPaymentAccess(session);
 
   const paymentId = String(formData.get("paymentId") || "");
-  const adultRegistrationId = String(formData.get("adultRegistrationId") || "");
+  const guestGroupId = String(formData.get("guestGroupId") || "");
   const eventId = String(formData.get("eventId") || "");
   if (!paymentId) throw new Error("Missing payment id.");
 
-  const payment = await prisma.eventAdultPayment.findUnique({
+  const payment = await prisma.eventGuestGroupPayment.findUnique({
     where: { id: paymentId },
-    select: { eventAdultRegistrationId: true },
+    select: { eventGuestGroupId: true },
   });
-  if (!payment || payment.eventAdultRegistrationId !== adultRegistrationId) throw new Error("Payment not found.");
+  if (!payment || payment.eventGuestGroupId !== guestGroupId) throw new Error("Payment not found.");
 
-  await prisma.eventAdultPayment.delete({ where: { id: paymentId } });
+  await prisma.eventGuestGroupPayment.delete({ where: { id: paymentId } });
 
-  revalidatePath(`/portal/admin/events/${eventId}/adult/${adultRegistrationId}`);
+  revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
 }

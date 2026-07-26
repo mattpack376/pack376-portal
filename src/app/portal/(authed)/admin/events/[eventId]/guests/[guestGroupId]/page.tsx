@@ -1,52 +1,63 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEventPaymentSession } from "@/lib/authorize";
-import { getAdultRegistrationDetail } from "@/lib/eventsData";
+import { getGuestGroupDetail } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { formatDueDate } from "@/lib/deadlineCategories";
 import {
-  addAdultEventPaymentAction,
-  deleteAdultEventPaymentAction,
-  updateAdultRegistrationAction,
-  removeAdultRegistrationAction,
+  addGuestGroupPaymentAction,
+  deleteGuestGroupPaymentAction,
+  updateGuestGroupAction,
+  removeGuestGroupAction,
 } from "@/lib/actions/events";
 
-export default async function AdminAdultRegistrationPage({
+export default async function AdminGuestGroupPage({
   params,
 }: {
-  params: Promise<{ eventId: string; adultRegistrationId: string }>;
+  params: Promise<{ eventId: string; guestGroupId: string }>;
 }) {
   const session = await requireEventPaymentSession();
-  const { eventId, adultRegistrationId } = await params;
+  const { eventId, guestGroupId } = await params;
 
-  const reg = await getAdultRegistrationDetail(adultRegistrationId);
-  if (!reg || reg.event.id !== eventId) notFound();
+  const group = await getGuestGroupDetail(guestGroupId);
+  if (!group || group.event.id !== eventId) notFound();
 
   return (
     <>
       <div className="section-head">
         <div className="eyebrow">
-          <Link href={`/portal/admin/events/${eventId}`}>← {reg.event.title}</Link>
+          <Link href={`/portal/admin/events/${eventId}`}>← {group.event.title}</Link>
         </div>
-        <h2>{reg.name}</h2>
-        <p>{formatDueDate(reg.event.eventDate)}</p>
+        <h2>{group.familyName}</h2>
+        <p>
+          {group.adultCount} adult{group.adultCount === 1 ? "" : "s"}, {group.childCount} kid{group.childCount === 1 ? "" : "s"} ·{" "}
+          {formatDueDate(group.event.eventDate)}
+        </p>
       </div>
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>Details &amp; Balance</h3>
         <p>
-          Paid {formatCents(reg.paidCents)} of {formatCents(reg.amountOwedCents)}
-          {reg.remainingCents > 0 && ` — ${formatCents(reg.remainingCents)} remaining`}
-          {reg.remainingCents === 0 && " — paid in full"}
-          {reg.remainingCents < 0 && ` — overpaid by ${formatCents(-reg.remainingCents)}`}
+          Paid {formatCents(group.paidCents)} of {formatCents(group.amountOwedCents)}
+          {group.remainingCents > 0 && ` — ${formatCents(group.remainingCents)} remaining`}
+          {group.remainingCents === 0 && " — paid in full"}
+          {group.remainingCents < 0 && ` — overpaid by ${formatCents(-group.remainingCents)}`}
         </p>
-        <form action={updateAdultRegistrationAction} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <input type="hidden" name="adultRegistrationId" value={reg.id} />
+        <form action={updateGuestGroupAction} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <input type="hidden" name="guestGroupId" value={group.id} />
           <input type="hidden" name="eventId" value={eventId} />
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
-            <label htmlFor="name">Name</label>
-            <input id="name" name="name" required defaultValue={reg.name} />
+          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
+            <label htmlFor="familyName">Family / Leader Name</label>
+            <input id="familyName" name="familyName" required defaultValue={group.familyName} />
+          </div>
+          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
+            <label htmlFor="adultCount">Adults</label>
+            <input id="adultCount" name="adultCount" type="number" min="0" step="1" required defaultValue={group.adultCount} />
+          </div>
+          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
+            <label htmlFor="childCount">Kids</label>
+            <input id="childCount" name="childCount" type="number" min="0" step="1" required defaultValue={group.childCount} />
           </div>
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
             <label htmlFor="amountOwed">Amount Owed ($)</label>
@@ -57,7 +68,7 @@ export default async function AdminAdultRegistrationPage({
               min="0"
               step="0.01"
               required
-              defaultValue={(reg.amountOwedCents / 100).toFixed(2)}
+              defaultValue={(group.amountOwedCents / 100).toFixed(2)}
             />
           </div>
           <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
@@ -65,15 +76,15 @@ export default async function AdminAdultRegistrationPage({
           </button>
         </form>
         {session.role === "ADMIN" && (
-          <form action={removeAdultRegistrationAction} style={{ marginTop: 12 }}>
-            <input type="hidden" name="adultRegistrationId" value={reg.id} />
+          <form action={removeGuestGroupAction} style={{ marginTop: 12 }}>
+            <input type="hidden" name="guestGroupId" value={group.id} />
             <input type="hidden" name="eventId" value={eventId} />
             <button
               type="submit"
               className="btn btn-outline btn-small"
               style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
             >
-              Remove This Registration
+              Remove This Group
             </button>
           </form>
         )}
@@ -81,8 +92,8 @@ export default async function AdminAdultRegistrationPage({
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>Record a Payment</h3>
-        <form action={addAdultEventPaymentAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <input type="hidden" name="adultRegistrationId" value={reg.id} />
+        <form action={addGuestGroupPaymentAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <input type="hidden" name="guestGroupId" value={group.id} />
           <input type="hidden" name="eventId" value={eventId} />
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
             <label htmlFor="amount">Amount ($)</label>
@@ -101,7 +112,7 @@ export default async function AdminAdultRegistrationPage({
       </div>
 
       <h3 style={{ marginBottom: 10 }}>Payment History</h3>
-      {reg.payments.length === 0 ? (
+      {group.payments.length === 0 ? (
         <p>No payments recorded yet.</p>
       ) : (
         <table className="data-table">
@@ -114,7 +125,7 @@ export default async function AdminAdultRegistrationPage({
             </tr>
           </thead>
           <tbody>
-            {reg.payments.map((payment) => (
+            {group.payments.map((payment) => (
               <tr key={payment.id}>
                 <td
                   className="audit-hover"
@@ -125,9 +136,9 @@ export default async function AdminAdultRegistrationPage({
                 <td>{formatCents(payment.amountCents)}</td>
                 <td>{payment.note || "—"}</td>
                 <td className="actions">
-                  <form action={deleteAdultEventPaymentAction}>
+                  <form action={deleteGuestGroupPaymentAction}>
                     <input type="hidden" name="paymentId" value={payment.id} />
-                    <input type="hidden" name="adultRegistrationId" value={reg.id} />
+                    <input type="hidden" name="guestGroupId" value={group.id} />
                     <input type="hidden" name="eventId" value={eventId} />
                     <button
                       type="submit"

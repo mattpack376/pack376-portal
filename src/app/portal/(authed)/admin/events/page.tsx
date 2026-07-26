@@ -44,8 +44,8 @@ export default async function AdminEventsPage() {
                 <td>{formatDueDate(event.eventDate)}</td>
                 <td>
                   {event.registrationCount} scout{event.registrationCount === 1 ? "" : "s"}
-                  {event.adultRegistrationCount > 0 &&
-                    ` · ${event.adultRegistrationCount} adult${event.adultRegistrationCount === 1 ? "" : "s"}`}
+                  {(event.guestAdultCount > 0 || event.guestChildCount > 0) &&
+                    ` · ${event.guestAdultCount} adult guest${event.guestAdultCount === 1 ? "" : "s"}, ${event.guestChildCount} kid guest${event.guestChildCount === 1 ? "" : "s"}`}
                 </td>
                 <td>
                   {formatCents(event.totalPaidCents)} / {formatCents(event.totalOwedCents)}
@@ -94,6 +94,10 @@ export default async function AdminEventsPage() {
             <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
               <label htmlFor="adultFee">Default Fee Per Adult ($, optional)</label>
               <input id="adultFee" name="adultFee" type="number" min="0" step="0.01" placeholder="Also required for parent self-signup" />
+            </div>
+            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+              <label htmlFor="guestChildFee">Default Fee Per Guest Child ($, optional)</label>
+              <input id="guestChildFee" name="guestChildFee" type="number" min="0" step="0.01" placeholder="Also required for parent self-signup" />
             </div>
           </div>
           <div className="form-field">

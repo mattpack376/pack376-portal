@@ -7,13 +7,18 @@ import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from "@/lib/deadlineCategories";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import ScoutChecklist from "@/components/ScoutChecklist";
-import { registerMyScoutsForEventAction, registerMyAdultForEventAction, removeMyAdultRegistrationAction } from "@/lib/actions/events";
+import CollapsibleDenGroup from "@/components/CollapsibleDenGroup";
+import {
+  registerMyScoutsForEventAction,
+  registerMyGuestGroupForEventAction,
+  removeMyGuestGroupAction,
+} from "@/lib/actions/events";
 import type { Rank } from "@/generated/prisma/enums";
 
 export default async function ParentDashboardPage() {
   const session = await requireParentSession();
   const [
-    { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, adultEventBalances, openEvents },
+    { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, guestGroupBalances, openEvents },
     advancement,
   ] = await Promise.all([
     getParentDashboardData(session.scoutIds, session.userId),
@@ -22,21 +27,21 @@ export default async function ParentDashboardPage() {
 
   const scoutNames = scouts.map((s) => s.firstName).join(" & ") || null;
 
-  // Event -> Den -> scouts, plus that event's adult registrations — one
-  // card per event instead of a flat list mixing every scout and adult
-  // together, same layout as the admin/den leader Family View.
+  // Event -> Den -> scouts, plus that event's guest groups — one card per
+  // event instead of a flat list mixing every scout and guest together,
+  // same layout as the admin/den leader Family View.
   type Den = (typeof scouts)[number]["den"];
   type ScoutBalance = (typeof eventBalances)[number];
-  type AdultBalance = (typeof adultEventBalances)[number];
+  type GuestGroupBalance = (typeof guestGroupBalances)[number];
   const scoutInfoById = new Map(scouts.map((s) => [s.id, s]));
 
   const eventGroupsById = new Map<
     string,
-    { event: ScoutBalance["event"]; denGroups: Map<string, { den: Den | null; regs: ScoutBalance[] }>; adults: AdultBalance[] }
+    { event: ScoutBalance["event"]; denGroups: Map<string, { den: Den | null; regs: ScoutBalance[] }>; guestGroups: GuestGroupBalance[] }
   >();
   for (const reg of eventBalances) {
     if (!eventGroupsById.has(reg.event.id)) {
-      eventGroupsById.set(reg.event.id, { event: reg.event, denGroups: new Map(), adults: [] });
+      eventGroupsById.set(reg.event.id, { event: reg.event, denGroups: new Map(), guestGroups: [] });
     }
     const entry = eventGroupsById.get(reg.event.id)!;
     const scout = scoutInfoById.get(reg.scoutId);
@@ -44,11 +49,11 @@ export default async function ParentDashboardPage() {
     if (!entry.denGroups.has(denKey)) entry.denGroups.set(denKey, { den: scout?.den ?? null, regs: [] });
     entry.denGroups.get(denKey)!.regs.push(reg);
   }
-  for (const reg of adultEventBalances) {
-    if (!eventGroupsById.has(reg.event.id)) {
-      eventGroupsById.set(reg.event.id, { event: reg.event, denGroups: new Map(), adults: [] });
+  for (const group of guestGroupBalances) {
+    if (!eventGroupsById.has(group.event.id)) {
+      eventGroupsById.set(group.event.id, { event: group.event, denGroups: new Map(), guestGroups: [] });
     }
-    eventGroupsById.get(reg.event.id)!.adults.push(reg);
+    eventGroupsById.get(group.event.id)!.guestGroups.push(group);
   }
 
   const eventPaymentGroups = Array.from(eventGroupsById.values())
@@ -63,7 +68,7 @@ export default async function ParentDashboardPage() {
       for (const denGroup of denGroups) {
         denGroup.regs.sort((a, b) => a.scoutFirstName.localeCompare(b.scoutFirstName));
       }
-      return { event: group.event, denGroups, adults: group.adults };
+      return { event: group.event, denGroups, guestGroups: group.guestGroups };
     });
 
   return (
@@ -230,12 +235,14 @@ export default async function ParentDashboardPage() {
           {openEvents.map((event) => {
             const unregisteredScouts = scouts.filter((s) => !event.registeredScoutIds.includes(s.id));
             const registeredScouts = scouts.filter((s) => event.registeredScoutIds.includes(s.id));
+            const showGuestForm = event.adultFeeCents !== null || event.guestChildFeeCents !== null;
             return (
               <div className="info-card" key={event.id} style={{ marginBottom: 0 }}>
                 <p className="form-note" style={{ marginBottom: 4 }}>
                   {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
                   {event.feeCents !== null && ` · ${formatCents(event.feeCents)} per scout`}
                   {event.adultFeeCents !== null && ` · ${formatCents(event.adultFeeCents)} per adult`}
+                  {event.guestChildFeeCents !== null && ` · ${formatCents(event.guestChildFeeCents)} per guest child`}
                 </p>
                 <p style={{ marginBottom: event.description ? 6 : 10, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{event.title}</p>
                 {event.description && <p style={{ marginBottom: 10 }}>{event.description}</p>}
@@ -247,7 +254,7 @@ export default async function ParentDashboardPage() {
                   </p>
                 )}
                 {event.feeCents !== null && unregisteredScouts.length > 0 && (
-                  <form action={registerMyScoutsForEventAction} style={{ marginBottom: 14 }}>
+                  <form action={registerMyScoutsForEventAction} style={{ marginBottom: showGuestForm ? 14 : 0 }}>
                     <input type="hidden" name="eventId" value={event.id} />
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
                       {unregisteredScouts.map((s) => (
@@ -261,16 +268,16 @@ export default async function ParentDashboardPage() {
                   </form>
                 )}
 
-                {event.adultFeeCents !== null && (
-                  <>
-                    {event.myAdults.length > 0 && (
+                {showGuestForm && (
+                  <div>
+                    {event.myGuestGroups.length > 0 && (
                       <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                        {event.myAdults.map((a) => (
-                          <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
-                            <span className="badge-pill badge-attendance">Attending</span>
-                            {a.name}
-                            <form action={removeMyAdultRegistrationAction}>
-                              <input type="hidden" name="adultRegistrationId" value={a.id} />
+                        {event.myGuestGroups.map((g) => (
+                          <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                            <span className="badge-pill badge-attendance">Registered</span>
+                            {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
+                            <form action={removeMyGuestGroupAction}>
+                              <input type="hidden" name="guestGroupId" value={g.id} />
                               <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
                                 Remove
                               </button>
@@ -279,22 +286,29 @@ export default async function ParentDashboardPage() {
                         ))}
                       </div>
                     )}
-                    <form action={registerMyAdultForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                    <form action={registerMyGuestGroupForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                       <input type="hidden" name="eventId" value={event.id} />
-                      <div className="form-field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
-                        <label htmlFor={`adult-name-${event.id}`}>
-                          Adult Attending (name){" "}
-                          <span style={{ color: "var(--carnival-red)", fontWeight: 700 }}>
-                            Please enter one name at a time to ensure a proper head count
-                          </span>
-                        </label>
-                        <input id={`adult-name-${event.id}`} name="name" placeholder="e.g. Jane Smith" />
+                      <div className="form-field" style={{ marginBottom: 0, flex: "1 1 200px" }}>
+                        <label htmlFor={`familyName-${event.id}`}>Family / Leader Name (guests attending)</label>
+                        <input id={`familyName-${event.id}`} name="familyName" required defaultValue={session.displayName} />
                       </div>
+                      {event.adultFeeCents !== null && (
+                        <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
+                          <label htmlFor={`adultCount-${event.id}`}>Adults</label>
+                          <input id={`adultCount-${event.id}`} name="adultCount" type="number" min="0" step="1" defaultValue={1} />
+                        </div>
+                      )}
+                      {event.guestChildFeeCents !== null && (
+                        <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
+                          <label htmlFor={`childCount-${event.id}`}>Kids</label>
+                          <input id={`childCount-${event.id}`} name="childCount" type="number" min="0" step="1" defaultValue={0} />
+                        </div>
+                      )}
                       <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
-                        Add Adult
+                        Add Guests
                       </button>
                     </form>
-                  </>
+                  </div>
                 )}
               </div>
             );
@@ -308,12 +322,12 @@ export default async function ParentDashboardPage() {
       </div>
       {eventPaymentGroups.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>No paid events on the books for your scout(s) or any adults you&apos;ve registered right now.</p>
+          <p style={{ marginBottom: 0 }}>No paid events on the books for your scout(s) or any guests you&apos;ve registered right now.</p>
         </div>
       ) : (
         <>
           <div style={{ marginBottom: 12 }}>
-            {eventPaymentGroups.map(({ event, denGroups, adults }) => (
+            {eventPaymentGroups.map(({ event, denGroups, guestGroups }) => (
               <div className="info-card" key={event.id} style={{ marginBottom: 20 }}>
                 <p className="form-note" style={{ marginBottom: 4 }}>
                   {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
@@ -321,12 +335,10 @@ export default async function ParentDashboardPage() {
                 <h3 style={{ marginTop: 0, marginBottom: 14 }}>{event.title}</h3>
 
                 {denGroups.map(({ den, regs }) => (
-                  <div key={den?.id ?? "none"} style={{ marginBottom: 14 }}>
-                    {denGroups.length > 1 && (
-                      <p className="form-note" style={{ marginBottom: 6 }}>
-                        {den ? denDisplayName(den.rank, den.scoutingYear, den.label).toUpperCase() : "NO DEN ASSIGNED"}
-                      </p>
-                    )}
+                  <CollapsibleDenGroup
+                    key={den?.id ?? "none"}
+                    label={`${den ? denDisplayName(den.rank, den.scoutingYear, den.label) : "No Den Assigned"} (${regs.length})`}
+                  >
                     <table className="data-table" style={{ marginBottom: 0 }}>
                       <thead>
                         <tr>
@@ -355,34 +367,38 @@ export default async function ParentDashboardPage() {
                         })}
                       </tbody>
                     </table>
-                  </div>
+                  </CollapsibleDenGroup>
                 ))}
 
-                {adults.length > 0 && (
+                {guestGroups.length > 0 && (
                   <div>
-                    <p className="form-note" style={{ marginBottom: 6 }}>ADULTS ATTENDING</p>
+                    <p className="form-note" style={{ marginBottom: 6 }}>GUEST GROUPS</p>
                     <table className="data-table" style={{ marginBottom: 0 }}>
                       <thead>
                         <tr>
-                          <th>Name</th>
+                          <th>Family / Leader</th>
+                          <th>Adults</th>
+                          <th>Kids</th>
                           <th>Paid</th>
                           <th>Remaining</th>
                           <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {adults.map((reg) => {
+                        {guestGroups.map((group) => {
                           const status =
-                            reg.remainingCents <= 0
-                              ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                              : reg.paidCents > 0
+                            group.remainingCents <= 0
+                              ? { label: group.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
+                              : group.paidCents > 0
                               ? { label: "Partial", cls: "badge-junior" }
                               : { label: "Unpaid", cls: "badge-photographer" };
                           return (
-                            <tr key={reg.id}>
-                              <td>{reg.name}</td>
-                              <td>{formatCents(reg.paidCents)}</td>
-                              <td>{formatCents(reg.remainingCents)}</td>
+                            <tr key={group.id}>
+                              <td>{group.familyName}</td>
+                              <td>{group.adultCount}</td>
+                              <td>{group.childCount}</td>
+                              <td>{formatCents(group.paidCents)}</td>
+                              <td>{formatCents(group.remainingCents)}</td>
                               <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                             </tr>
                           );

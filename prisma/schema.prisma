@@ -81,8 +81,8 @@ model User {
   parentContacts           Parent[]
   announcements            Announcement[]
   eventPaymentsLogged      EventPayment[]
-  adultRegistrationsAdded  EventAdultRegistration[]
-  eventAdultPaymentsLogged EventAdultPayment[]
+  guestGroupsAdded         EventGuestGroup[]
+  guestGroupPaymentsLogged EventGuestGroupPayment[]
 }
 
 /**
@@ -359,10 +359,10 @@ model SiteBanner {
  * A paid pack event (campout, day trip, special event) that scouts sign up for.
  */
 model Event {
-  id                 String                   @id @default(cuid())
+  id                 String              @id @default(cuid())
   title              String
-  category           DeadlineCategory         @default(GENERAL)
-  eventDate          DateTime                 @db.Date
+  category           DeadlineCategory    @default(GENERAL)
+  eventDate          DateTime            @db.Date
   description        String?
   // Default per-scout cost applied when registering a scout — null means the
   // fee is decided per registration (e.g. varies by family or trip length).
@@ -370,14 +370,17 @@ model Event {
   // scout for an event when this is set, since self-service always uses the
   // default (an admin can still register scouts at a custom amount when null).
   feeCents           Int?
-  // Same idea as feeCents, but for adults attending (chaperones, drivers,
-  // etc.) — null means adults can't self-register and an admin adds them
-  // manually with a custom amount.
+  // Per-head default used to compute a guest group's suggested amount owed
+  // (adultCount * adultFeeCents) — null means adult guests can't
+  // self-register and an admin sets the group's amount manually.
   adultFeeCents      Int?
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
+  // Same idea as adultFeeCents, but per guest child (childCount *
+  // guestChildFeeCents) — null means guest children can't self-register.
+  guestChildFeeCents Int?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   registrations      EventRegistration[]
-  adultRegistrations EventAdultRegistration[]
+  guestGroups        EventGuestGroup[]
 }
 
 /**
@@ -409,32 +412,38 @@ model EventPayment {
 }
 
 /**
- * An adult (parent, guardian, chaperone) attending an Event, with their own
- * amount owed — tracked independently of any scout's EventRegistration since
- * an adult isn't necessarily tied to one specific scout in a multi-sibling
- * family. addedByUserId records which parent-portal account added them, so a
- * parent can remove their own entry but not someone else's.
+ * A family's or leader's guests attending an Event, tracked as one group —
+ * a name (e.g. "The Smith Family" or a den leader's own name) plus a
+ * headcount of adults and kids, not individually named. One combined amount
+ * owed covers the whole group, independent of any scout's EventRegistration
+ * since a group isn't necessarily tied to one specific scout in a
+ * multi-sibling family (or to any scout at all — e.g. a leader's own guests,
+ * or an outside family with no scout on the roster). addedByUserId records
+ * which portal account added the group, so that account can edit/remove its
+ * own entry but not someone else's.
  */
-model EventAdultRegistration {
-  id              String              @id @default(cuid())
+model EventGuestGroup {
+  id              String                   @id @default(cuid())
   eventId         String
-  event           Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name            String
+  event           Event                    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  familyName      String
+  adultCount      Int                      @default(0)
+  childCount      Int                      @default(0)
   amountOwedCents Int
-  createdAt       DateTime            @default(now())
+  createdAt       DateTime                 @default(now())
   addedByUserId   String?
-  addedByUser     User?               @relation(fields: [addedByUserId], references: [id], onDelete: SetNull)
-  payments        EventAdultPayment[]
+  addedByUser     User?                    @relation(fields: [addedByUserId], references: [id], onDelete: SetNull)
+  payments        EventGuestGroupPayment[]
 }
 
-model EventAdultPayment {
-  id                       String                 @id @default(cuid())
-  eventAdultRegistrationId String
-  eventAdultRegistration   EventAdultRegistration @relation(fields: [eventAdultRegistrationId], references: [id], onDelete: Cascade)
-  amountCents              Int
-  paidOn                   DateTime               @db.Date
-  note                     String?
-  createdAt                DateTime               @default(now())
-  recordedByUserId         String?
-  recordedByUser           User?                  @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+model EventGuestGroupPayment {
+  id                String          @id @default(cuid())
+  eventGuestGroupId String
+  eventGuestGroup   EventGuestGroup @relation(fields: [eventGuestGroupId], references: [id], onDelete: Cascade)
+  amountCents       Int
+  paidOn            DateTime        @db.Date
+  note              String?
+  createdAt         DateTime        @default(now())
+  recordedByUserId  String?
+  recordedByUser    User?           @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
 }
