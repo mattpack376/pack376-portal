@@ -956,7 +956,13 @@ details[open] > .den-toggle::before { transform: rotate(90deg); }
 }
 .adventure-check-item input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; accent-color: var(--scout-blue); }
 .adventure-check-item.completed { background: rgba(10, 163, 163, 0.1); }
+.adventure-check-item.pending-change { outline: 2px dashed var(--scout-gold-dark); outline-offset: -2px; }
 .adventure-note { font-size: 11.5px; color: var(--ink-soft); display: block; margin-top: 2px; }
+
+.advancement-apply-row { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 16px; }
+.advancement-apply-error { font-size: 12.5px; font-weight: 700; color: var(--carnival-red); }
+.btn-link { background: none; border: none; padding: 0; font-size: 13px; font-weight: 700; color: var(--ink-soft); text-decoration: underline; cursor: pointer; }
+.btn-link:hover { color: var(--scout-blue-dark); }
 
 /* ---------- Attendance ---------- */
 .meeting-list { display: flex; flex-direction: column; gap: 10px; }
