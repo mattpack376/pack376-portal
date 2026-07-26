@@ -61,7 +61,7 @@ export default async function AdminAllGuestsPage({
           style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
           href="/portal/admin/events/guests/export"
         >
-          Export CSV (All Events)
+          Export CSV (All Attendees)
         </a>
       </div>
 

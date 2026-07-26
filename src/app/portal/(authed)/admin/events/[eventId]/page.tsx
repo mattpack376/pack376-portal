@@ -279,13 +279,13 @@ export default async function AdminEventDetailPage({
             balance per group. Works for guests with no scout on the roster too.
           </p>
         </div>
-        {event.guestGroups.length > 0 && (
+        {(event.registrations.length > 0 || event.guestGroups.length > 0) && (
           <a
             className="btn btn-outline btn-small"
             style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
             href={`/portal/admin/events/${event.id}/guests/export`}
           >
-            Export CSV
+            Export CSV (Scouts &amp; Guests)
           </a>
         )}
       </div>

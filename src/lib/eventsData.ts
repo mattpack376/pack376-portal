@@ -308,6 +308,29 @@ export async function getAllGuestGroups() {
 }
 
 /**
+ * Every scout registration for any event, pack-wide — used alongside
+ * getAllGuestGroups so the pack-wide "export guests" CSV also includes
+ * scouts registered directly via EventRegistration, not just manually-added
+ * guest groups.
+ */
+export async function getAllRegistrations() {
+  const registrations = await prisma.eventRegistration.findMany({
+    include: {
+      event: true,
+      payments: true,
+      scout: { include: { den: true } },
+    },
+    orderBy: [{ event: { eventDate: "asc" } }, { scout: { lastName: "asc" } }, { scout: { firstName: "asc" } }],
+  });
+
+  return registrations.map((reg) => ({
+    ...withBalance(reg),
+    event: reg.event,
+    scout: { id: reg.scout.id, firstName: reg.scout.firstName, lastName: reg.scout.lastName, den: reg.scout.den },
+  }));
+}
+
+/**
  * Every scout (grouped by den) and every non-parent staff account — used to
  * populate the "Guest Of" picker on the admin add/edit guest group forms, so
  * a guest can be linked to the scout or leader/admin they're attending with.
