@@ -223,7 +223,7 @@ export default async function FamilyViewPage({
       ) : (
         <div style={{ marginBottom: 32 }}>
           {eventPaymentGroups.map(({ event, denGroups, guestGroups }) => (
-            <details className="info-card" key={event.id} style={{ marginBottom: 20 }} open>
+            <details className="info-card" key={event.id} style={{ marginBottom: 20 }}>
               <summary className="event-toggle">
                 <p className="form-note" style={{ marginBottom: 4 }}>
                   {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
