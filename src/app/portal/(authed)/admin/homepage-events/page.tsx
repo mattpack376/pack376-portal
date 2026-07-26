@@ -129,8 +129,9 @@ export default async function HomepageEventsAdminPage() {
         eventsByMonth.map((group) => (
           <div className="event-month-group" key={group.key}>
             <CollapsibleGroup label={`${group.label} (${group.events.length})`}>
+              <div className="two-col" style={{ marginBottom: 20 }}>
               {group.events.map((event) => (
-                <div className="info-card" key={event.id} style={{ maxWidth: 480, marginBottom: 20 }}>
+                <div className="info-card" key={event.id}>
                   <span
                     className={`badge-pill ${event.visible ? "badge-attendance" : "badge-pending"}`}
                     style={{ marginBottom: 12, display: "inline-block" }}
@@ -199,6 +200,7 @@ export default async function HomepageEventsAdminPage() {
                   </div>
                 </div>
               ))}
+              </div>
             </CollapsibleGroup>
           </div>
         ))
