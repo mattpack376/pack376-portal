@@ -286,7 +286,7 @@ export default async function FamilyViewPage({
                   <table className="data-table" style={{ marginBottom: 0 }}>
                     <thead>
                       <tr>
-                        <SortableColumnHeader href={guestSortHref("family")} label="Family / Leader" active={guestSort === "family"} />
+                        <SortableColumnHeader href={guestSortHref("family")} label="Family Name / Guest Name" active={guestSort === "family"} />
                         <SortableColumnHeader href={guestSortHref("guestof")} label="Guest Of" active={guestSort === "guestof"} />
                         <th>Adults</th>
                         <th>Kids</th>
@@ -379,7 +379,7 @@ export default async function FamilyViewPage({
                   <form action={registerMyGuestGroupForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                     <input type="hidden" name="eventId" value={event.id} />
                     <div className="form-field" style={{ marginBottom: 0, flex: "1 1 200px" }}>
-                      <label htmlFor={`familyName-${event.id}`}>Family / Leader Name</label>
+                      <label htmlFor={`familyName-${event.id}`}>Family Name / Guest Name</label>
                       <input id={`familyName-${event.id}`} name="familyName" required defaultValue={session.displayName} />
                     </div>
                     {event.adultFeeCents !== null && (

@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ eve
   if (!event) notFound();
 
   const rows: (string | number)[][] = [
-    ["Family / Leader Name", "Guest Of", "Adults", "Kids", "Amount Owed", "Paid", "Remaining", "Status", "Added By"],
+    ["Family Name / Guest Name", "Guest Of", "Adults", "Kids", "Amount Owed", "Paid", "Remaining", "Status", "Added By"],
     ...event.guestGroups.map((g) => [
       g.familyName,
       g.guestOfLabel ?? "",

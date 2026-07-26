@@ -298,7 +298,7 @@ export default async function AdminEventDetailPage({
         <table className="data-table" style={{ marginBottom: 32 }}>
           <thead>
             <tr>
-              <SortableColumnHeader href={`/portal/admin/events/${event.id}?guestSort=family`} label="Family / Leader" active={guestSort === "family"} />
+              <SortableColumnHeader href={`/portal/admin/events/${event.id}?guestSort=family`} label="Family Name / Guest Name" active={guestSort === "family"} />
               <SortableColumnHeader href={`/portal/admin/events/${event.id}?guestSort=guestof`} label="Guest Of" active={guestSort === "guestof"} />
               <th>Adults</th>
               <th>Kids</th>
@@ -357,7 +357,7 @@ export default async function AdminEventDetailPage({
         <form action={addGuestGroupAction}>
           <input type="hidden" name="eventId" value={event.id} />
           <div className="form-field">
-            <label htmlFor="familyName">Family or Leader Name</label>
+            <label htmlFor="familyName">Family Name / Guest Name</label>
             <input id="familyName" name="familyName" required placeholder="e.g. The Smith Family" />
           </div>
           <div className="form-field">

@@ -54,7 +54,7 @@ export default async function AdminGuestGroupPage({
           <input type="hidden" name="guestGroupId" value={group.id} />
           <input type="hidden" name="eventId" value={eventId} />
           <div className="form-field">
-            <label htmlFor="familyName">Family / Leader Name</label>
+            <label htmlFor="familyName">Family Name / Guest Name</label>
             <input id="familyName" name="familyName" required defaultValue={group.familyName} />
           </div>
           <div className="form-field">

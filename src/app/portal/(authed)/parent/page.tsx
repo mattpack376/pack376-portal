@@ -289,7 +289,7 @@ export default async function ParentDashboardPage() {
                     <form action={registerMyGuestGroupForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                       <input type="hidden" name="eventId" value={event.id} />
                       <div className="form-field" style={{ marginBottom: 0, flex: "1 1 200px" }}>
-                        <label htmlFor={`familyName-${event.id}`}>Family / Leader Name (guests attending)</label>
+                        <label htmlFor={`familyName-${event.id}`}>Family Name / Guest Name (guests attending)</label>
                         <input id={`familyName-${event.id}`} name="familyName" required defaultValue={session.displayName} />
                       </div>
                       {event.adultFeeCents !== null && (
@@ -376,7 +376,7 @@ export default async function ParentDashboardPage() {
                     <table className="data-table" style={{ marginBottom: 0 }}>
                       <thead>
                         <tr>
-                          <th>Family / Leader</th>
+                          <th>Family Name / Guest Name</th>
                           <th>Adults</th>
                           <th>Kids</th>
                           <th>Paid</th>

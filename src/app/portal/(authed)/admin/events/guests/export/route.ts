@@ -9,7 +9,7 @@ export async function GET() {
   const groups = await getAllGuestGroups();
 
   const rows: (string | number)[][] = [
-    ["Event", "Event Date", "Family / Leader Name", "Guest Of", "Adults", "Kids", "Amount Owed", "Paid", "Remaining", "Status", "Added By"],
+    ["Event", "Event Date", "Family Name / Guest Name", "Guest Of", "Adults", "Kids", "Amount Owed", "Paid", "Remaining", "Status", "Added By"],
     ...groups.map((g) => [
       g.event.title,
       formatDueDate(g.event.eventDate),
