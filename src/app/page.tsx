@@ -2,10 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import CollapsibleGroup from "@/components/CollapsibleGroup";
 import { getUpcomingHomepageEvents } from "@/lib/homepageEventsData";
 import { getActiveSiteBanner } from "@/lib/siteBannerData";
-import { groupEventsByMonth } from "@/lib/groupEventsByMonth";
 
 const JOIN_URL = "https://my.scouting.org/VES/OnlineReg/1.0.0/?tu=UF-MB-640paa3376";
 
@@ -14,7 +12,6 @@ export default async function HomePage() {
     getUpcomingHomepageEvents(),
     getActiveSiteBanner(),
   ]);
-  const eventsByMonth = groupEventsByMonth(homepageEvents);
 
   return (
     <>
@@ -182,24 +179,16 @@ export default async function HomePage() {
             <h2>Upcoming Attractions</h2>
             <p>A few highlights from our 2026–2027 calendar — see the full schedule at a pack meeting.</p>
           </div>
-          {eventsByMonth.map((group) => (
-            <div className="event-month-group" key={group.key}>
-              <CollapsibleGroup label={group.label}>
-                <div className="event-list">
-                  {group.events.map((event) => (
-                    <div className="event-ticket" key={event.id}>
-                      <span className="event-date">{event.dateLabel}</span>
-                      <div className="event-body">
-                        <h4>{event.title}</h4>
-                        {event.description && <p>{event.description}</p>}
-                      </div>
-                    </div>
-                  ))}
+          <div className="event-list">
+            {homepageEvents.map((event) => (
+              <div className="event-ticket" key={event.id}>
+                <span className="event-date">{event.dateLabel}</span>
+                <div className="event-body">
+                  <h4>{event.title}</h4>
+                  {event.description && <p>{event.description}</p>}
                 </div>
-              </CollapsibleGroup>
-            </div>
-          ))}
-          <div className="event-list" style={{ marginTop: eventsByMonth.length ? 20 : 0 }}>
+              </div>
+            ))}
             <div className="event-ticket event-ticket--camping">
               <span className="event-date">Camping Trips</span>
               <div className="event-body">

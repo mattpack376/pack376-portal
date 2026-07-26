@@ -404,7 +404,7 @@ section { padding: 64px 0; }
 .rk-aol { background: var(--carnival-red); }
 
 /* ---------- Events ---------- */
-.event-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.event-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
 .event-month-group { margin-bottom: 8px; }
 .event-month-group .event-list { margin-top: 10px; }
 .event-month-group .den-toggle {
