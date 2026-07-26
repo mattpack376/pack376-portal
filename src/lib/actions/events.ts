@@ -273,7 +273,18 @@ export async function registerMyGuestGroupForEventAction(formData: FormData) {
   const amountOwedCents = adultCount * (event.adultFeeCents ?? 0) + childCount * (event.guestChildFeeCents ?? 0);
 
   await prisma.eventGuestGroup.create({
-    data: { eventId, familyName, adultCount, childCount, amountOwedCents, addedByUserId: session.userId },
+    data: {
+      eventId,
+      familyName,
+      adultCount,
+      childCount,
+      amountOwedCents,
+      addedByUserId: session.userId,
+      // Self-registration is inherently "attending as/with yourself" —
+      // there's no separate scout/leader picker on this form the way the
+      // admin's manual-entry form has one.
+      guestOfUserId: session.userId,
+    },
   });
 
   revalidatePath("/portal/parent");
