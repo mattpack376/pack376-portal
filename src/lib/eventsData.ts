@@ -170,6 +170,20 @@ export async function getScoutEventBalances(scoutIds: string[]) {
   });
 }
 
+/** Every event a given user has registered themselves (or another adult) for — used by the Parent Dashboard's Event Payments section alongside getScoutEventBalances. */
+export async function getAdultEventBalances(userId: string) {
+  const registrations = await prisma.eventAdultRegistration.findMany({
+    where: { addedByUserId: userId },
+    include: { event: true, payments: true },
+    orderBy: { event: { eventDate: "asc" } },
+  });
+
+  return registrations.map((reg) => ({
+    ...withBalance(reg),
+    event: reg.event,
+  }));
+}
+
 /**
  * Upcoming events someone can self-register for — used by the Parent
  * Dashboard's "Register for Events" section (scoutIds + own adult entry) and

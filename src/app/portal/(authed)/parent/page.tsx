@@ -11,14 +11,34 @@ import { registerMyScoutsForEventAction, registerMyAdultForEventAction, removeMy
 
 export default async function ParentDashboardPage() {
   const session = await requireParentSession();
-  const [{ scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, openEvents }, advancement] =
-    await Promise.all([
-      getParentDashboardData(session.scoutIds, session.userId),
-      getScoutsAdvancementByIds(session.scoutIds),
-    ]);
+  const [
+    { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, adultEventBalances, openEvents },
+    advancement,
+  ] = await Promise.all([
+    getParentDashboardData(session.scoutIds, session.userId),
+    getScoutsAdvancementByIds(session.scoutIds),
+  ]);
 
   const scoutNames = scouts.map((s) => s.firstName).join(" & ") || null;
-  const showScoutNameOnEvents = scouts.length > 1;
+
+  const paymentBubbles = [
+    ...eventBalances.map((r) => ({
+      id: `scout-${r.id}`,
+      event: r.event,
+      personLabel: r.scoutFirstName,
+      amountOwedCents: r.amountOwedCents,
+      paidCents: r.paidCents,
+      remainingCents: r.remainingCents,
+    })),
+    ...adultEventBalances.map((r) => ({
+      id: `adult-${r.id}`,
+      event: r.event,
+      personLabel: r.name,
+      amountOwedCents: r.amountOwedCents,
+      paidCents: r.paidCents,
+      remainingCents: r.remainingCents,
+    })),
+  ].sort((a, b) => a.event.eventDate.getTime() - b.event.eventDate.getTime());
 
   return (
     <>
@@ -172,20 +192,6 @@ export default async function ParentDashboardPage() {
       )}
 
       <div className="section-head">
-        <div className="eyebrow">Per Scout</div>
-        <h2>🏅 Advancement Progress</h2>
-      </div>
-      {advancement.length === 0 ? (
-        <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>Nothing to show until a scout is linked to your account.</p>
-        </div>
-      ) : (
-        <div style={{ marginBottom: 32 }}>
-          <ScoutChecklist scouts={advancement} editable={false} />
-        </div>
-      )}
-
-      <div className="section-head">
         <div className="eyebrow">Sign Up</div>
         <h2>🎪 Register for Events</h2>
       </div>
@@ -250,7 +256,12 @@ export default async function ParentDashboardPage() {
                     <form action={registerMyAdultForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                       <input type="hidden" name="eventId" value={event.id} />
                       <div className="form-field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
-                        <label htmlFor={`adult-name-${event.id}`}>Adult Attending (name)</label>
+                        <label htmlFor={`adult-name-${event.id}`}>
+                          Adult Attending (name){" "}
+                          <span style={{ color: "var(--carnival-red)", fontWeight: 700 }}>
+                            Please enter one name at a time to ensure a proper head count
+                          </span>
+                        </label>
                         <input id={`adult-name-${event.id}`} name="name" placeholder="e.g. Jane Smith" />
                       </div>
                       <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
@@ -269,13 +280,13 @@ export default async function ParentDashboardPage() {
         <div className="eyebrow">Per Event</div>
         <h2>💳 Event Payments</h2>
       </div>
-      {eventBalances.length === 0 ? (
-        <div className="info-card">
-          <p style={{ marginBottom: 0 }}>No paid events on the books for your scout(s) right now.</p>
+      {paymentBubbles.length === 0 ? (
+        <div className="info-card" style={{ marginBottom: 32 }}>
+          <p style={{ marginBottom: 0 }}>No paid events on the books for your scout(s) or any adults you&apos;ve registered right now.</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {eventBalances.map((reg) => {
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
+          {paymentBubbles.map((reg) => {
             const status =
               reg.remainingCents <= 0
                 ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
@@ -287,8 +298,7 @@ export default async function ParentDashboardPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
                   <div>
                     <p className="form-note" style={{ marginBottom: 4 }}>
-                      {DEADLINE_CATEGORY_LABELS[reg.event.category].toUpperCase()} · {formatDueDate(reg.event.eventDate)}
-                      {showScoutNameOnEvents && ` · ${reg.scoutFirstName}`}
+                      {DEADLINE_CATEGORY_LABELS[reg.event.category].toUpperCase()} · {formatDueDate(reg.event.eventDate)} · {reg.personLabel}
                     </p>
                     <p style={{ marginBottom: 0, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{reg.event.title}</p>
                   </div>
@@ -303,6 +313,18 @@ export default async function ParentDashboardPage() {
             );
           })}
         </div>
+      )}
+
+      <div className="section-head">
+        <div className="eyebrow">Per Scout</div>
+        <h2>🏅 Advancement Progress</h2>
+      </div>
+      {advancement.length === 0 ? (
+        <div className="info-card">
+          <p style={{ marginBottom: 0 }}>Nothing to show until a scout is linked to your account.</p>
+        </div>
+      ) : (
+        <ScoutChecklist scouts={advancement} editable={false} />
       )}
     </>
   );

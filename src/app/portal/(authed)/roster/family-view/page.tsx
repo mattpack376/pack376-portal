@@ -311,7 +311,12 @@ export default async function FamilyViewPage({
                   <form action={registerMyAdultForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                     <input type="hidden" name="eventId" value={event.id} />
                     <div className="form-field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
-                      <label htmlFor={`self-name-${event.id}`}>Name</label>
+                      <label htmlFor={`self-name-${event.id}`}>
+                        Adult Attending (name){" "}
+                        <span style={{ color: "var(--carnival-red)", fontWeight: 700 }}>
+                          Please enter one name at a time to ensure a proper head count
+                        </span>
+                      </label>
                       <input id={`self-name-${event.id}`} name="name" required defaultValue={session.displayName} />
                     </div>
                     <button type="submit" className="btn btn-primary btn-small">Register</button>

@@ -301,7 +301,12 @@ export default async function AdminEventDetailPage({
         <form action={addAdultRegistrationAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
           <input type="hidden" name="eventId" value={event.id} />
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
-            <label htmlFor="adultName">Name</label>
+            <label htmlFor="adultName">
+              Adult Attending (name){" "}
+              <span style={{ color: "var(--carnival-red)", fontWeight: 700 }}>
+                Please enter one name at a time to ensure a proper head count
+              </span>
+            </label>
             <input id="adultName" name="name" required placeholder="e.g. Jane Smith" />
           </div>
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 120px" }}>
