@@ -91,7 +91,18 @@ export default async function AdminEventDetailPage({
           </p>
           {event.description && <p style={{ fontSize: 16 }}>{event.description}</p>}
         </div>
-        <DeleteEventButton eventId={event.id} title={event.title} />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {(event.registrations.length > 0 || event.guestGroups.length > 0) && (
+            <a
+              className="btn btn-outline btn-small"
+              style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+              href={`/portal/admin/events/${event.id}/guests/export`}
+            >
+              Export CSV (Scouts &amp; Guests)
+            </a>
+          )}
+          <DeleteEventButton eventId={event.id} title={event.title} />
+        </div>
       </div>
 
       <div className="info-card" style={{ maxWidth: 460, marginBottom: 24 }}>
@@ -270,24 +281,13 @@ export default async function AdminEventDetailPage({
         )}
       </div>
 
-      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
-        <div>
-          <div className="eyebrow">Chaperones &amp; Guests</div>
-          <h2>Guest Groups</h2>
-          <p>
-            Families or leaders bringing guests — tracked as a name plus an adult and kid headcount, with one combined
-            balance per group. Works for guests with no scout on the roster too.
-          </p>
-        </div>
-        {(event.registrations.length > 0 || event.guestGroups.length > 0) && (
-          <a
-            className="btn btn-outline btn-small"
-            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
-            href={`/portal/admin/events/${event.id}/guests/export`}
-          >
-            Export CSV (Scouts &amp; Guests)
-          </a>
-        )}
+      <div className="section-head">
+        <div className="eyebrow">Chaperones &amp; Guests</div>
+        <h2>Guest Groups</h2>
+        <p>
+          Families or leaders bringing guests — tracked as a name plus an adult and kid headcount, with one combined
+          balance per group. Works for guests with no scout on the roster too.
+        </p>
       </div>
 
       {event.guestGroups.length === 0 ? (
