@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin, assertEventPaymentDenAccess, assertEventPaymentAccess } from "@/lib/authorize";
+import { RANK_ORDER } from "@/lib/rankConfig";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 
 function dollarsToCents(raw: string): number | null {
@@ -241,6 +242,25 @@ function parseCount(raw: FormDataEntryValue | null): number | null {
   return value;
 }
 
+/**
+ * A parent's oldest scout (furthest-along den, e.g. AOL beats Lion), used so
+ * a parent's self-registered guest group is linked to their child instead of
+ * to themselves. Ties within the same den are broken arbitrarily — either
+ * scout is an equally correct answer. Returns null for non-parents (empty
+ * scoutIds), who fall back to guestOfUserId = self.
+ */
+async function oldestScoutId(scoutIds: string[]): Promise<string | null> {
+  if (scoutIds.length === 0) return null;
+  const scouts = await prisma.scout.findMany({
+    where: { id: { in: scoutIds } },
+    select: { id: true, den: { select: { rank: true } } },
+  });
+  if (scouts.length === 0) return null;
+  return scouts.reduce((oldest, s) =>
+    RANK_ORDER.indexOf(s.den.rank) > RANK_ORDER.indexOf(oldest.den.rank) ? s : oldest,
+  ).id;
+}
+
 // Self-registration as a guest group (a family or a leader bringing guests)
 // is open to any signed-in role (parent, den leader, admin) — everyone signs
 // up the same way; ownership (addedByUserId) is what lets someone edit their
@@ -272,6 +292,10 @@ export async function registerMyGuestGroupForEventAction(formData: FormData) {
 
   const amountOwedCents = adultCount * (event.adultFeeCents ?? 0) + childCount * (event.guestChildFeeCents ?? 0);
 
+  // Parents are "guest of" their oldest scout, not themselves — a den
+  // leader/admin with no linked scout still falls back to guestOfUserId.
+  const guestOfScoutId = session.role === "PARENT" ? await oldestScoutId(session.scoutIds) : null;
+
   await prisma.eventGuestGroup.create({
     data: {
       eventId,
@@ -280,10 +304,8 @@ export async function registerMyGuestGroupForEventAction(formData: FormData) {
       childCount,
       amountOwedCents,
       addedByUserId: session.userId,
-      // Self-registration is inherently "attending as/with yourself" —
-      // there's no separate scout/leader picker on this form the way the
-      // admin's manual-entry form has one.
-      guestOfUserId: session.userId,
+      guestOfScoutId,
+      guestOfUserId: guestOfScoutId ? null : session.userId,
     },
   });
 
