@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireParentContactsSession } from "@/lib/authorize";
 import { getParentDashboardData } from "@/lib/parentDashboardData";
+import { getAllAdultRegistrations, getOpenEventsForSelfRegistration } from "@/lib/eventsData";
 import { prisma } from "@/lib/prisma";
 import { formatCents } from "@/lib/duesData";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
@@ -8,6 +9,7 @@ import type { Rank } from "@/generated/prisma/enums";
 import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from "@/lib/deadlineCategories";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import DenSwitcher from "@/components/DenSwitcher";
+import { registerMyAdultForEventAction, removeMyAdultRegistrationAction } from "@/lib/actions/events";
 
 export default async function FamilyViewPage({
   searchParams,
@@ -35,7 +37,15 @@ export default async function FamilyViewPage({
   }
 
   const scoutIds = den ? den.scouts.map((s) => s.id) : (await prisma.scout.findMany({ select: { id: true } })).map((s) => s.id);
-  const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances } = await getParentDashboardData(scoutIds);
+  const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances } = await getParentDashboardData(
+    scoutIds,
+    session.userId,
+  );
+
+  const [allAdultRegistrations, myOpenAdultEvents] = canRecordPayments
+    ? await Promise.all([getAllAdultRegistrations(), getOpenEventsForSelfRegistration([], session.userId)])
+    : [[], []];
+  const openAdultEvents = myOpenAdultEvents.filter((e) => e.adultFeeCents !== null);
 
   const scoutInfoById = new Map(scouts.map((s) => [s.id, s]));
   const eventBalancesByDen = new Map<string, { den: (typeof scouts)[number]["den"] | null; regs: typeof eventBalances }>();
@@ -214,6 +224,103 @@ export default async function FamilyViewPage({
             </div>
           ))}
         </div>
+      )}
+
+      {canRecordPayments && (
+        <>
+          <div className="section-head">
+            <div className="eyebrow">Chaperones &amp; Attendees</div>
+            <h2>🧑‍🤝‍🧑 Adults Attending Events</h2>
+          </div>
+          {allAdultRegistrations.length === 0 ? (
+            <div className="info-card" style={{ marginBottom: 32 }}>
+              <p style={{ marginBottom: 0 }}>No adults registered for any event right now.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
+              {allAdultRegistrations.map((reg) => {
+                const status =
+                  reg.remainingCents <= 0
+                    ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
+                    : reg.paidCents > 0
+                    ? { label: "Partial", cls: "badge-junior" }
+                    : { label: "Unpaid", cls: "badge-photographer" };
+                return (
+                  <div className="info-card" key={reg.id} style={{ marginBottom: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+                      <div>
+                        <p className="form-note" style={{ marginBottom: 4 }}>
+                          {DEADLINE_CATEGORY_LABELS[reg.event.category].toUpperCase()} · {formatDueDate(reg.event.eventDate)} · {reg.name}
+                        </p>
+                        <p style={{ marginBottom: 0, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{reg.event.title}</p>
+                      </div>
+                      <span className={`badge-pill ${status.cls}`}>{status.label}</span>
+                    </div>
+                    <p style={{ marginTop: 8, marginBottom: 8 }}>
+                      {formatCents(reg.paidCents)} of {formatCents(reg.amountOwedCents)} paid
+                      {reg.remainingCents > 0 && ` — ${formatCents(reg.remainingCents)} remaining`}
+                    </p>
+                    <Link
+                      href={`/portal/admin/events/${reg.event.id}/adult/${reg.id}`}
+                      className="btn btn-outline btn-small"
+                      style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                    >
+                      Record Payment
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="section-head">
+            <div className="eyebrow">Sign Up</div>
+            <h2>Register Yourself for an Event</h2>
+          </div>
+          {openAdultEvents.length === 0 ? (
+            <div className="info-card">
+              <p style={{ marginBottom: 0 }}>No upcoming events open for adult self-registration right now.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {openAdultEvents.map((event) => (
+                <div className="info-card" key={event.id} style={{ marginBottom: 0 }}>
+                  <p className="form-note" style={{ marginBottom: 4 }}>
+                    {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)} · {formatCents(event.adultFeeCents!)} per adult
+                  </p>
+                  <p style={{ marginBottom: event.description ? 6 : 10, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{event.title}</p>
+                  {event.description && <p style={{ marginBottom: 10 }}>{event.description}</p>}
+
+                  {event.myAdults.length > 0 && (
+                    <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                      {event.myAdults.map((a) => (
+                        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                          <span className="badge-pill badge-attendance">Registered</span>
+                          {a.name}
+                          <form action={removeMyAdultRegistrationAction}>
+                            <input type="hidden" name="adultRegistrationId" value={a.id} />
+                            <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                              Remove
+                            </button>
+                          </form>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <form action={registerMyAdultForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                    <input type="hidden" name="eventId" value={event.id} />
+                    <div className="form-field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
+                      <label htmlFor={`self-name-${event.id}`}>Name</label>
+                      <input id={`self-name-${event.id}`} name="name" required defaultValue={session.displayName} />
+                    </div>
+                    <button type="submit" className="btn btn-primary btn-small">Register</button>
+                  </form>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </>
   );

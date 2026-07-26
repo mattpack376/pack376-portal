@@ -57,30 +57,32 @@ enum SignerRelationship {
 }
 
 model User {
-  id                  String               @id @default(cuid())
-  username            String               @unique
-  passwordHash        String
-  role                Role
-  email               String?
-  displayName         String
-  failedLoginCount    Int                  @default(0)
-  lockedUntil         DateTime?
+  id                       String                   @id @default(cuid())
+  username                 String                   @unique
+  passwordHash             String
+  role                     Role
+  email                    String?
+  displayName              String
+  failedLoginCount         Int                      @default(0)
+  lockedUntil              DateTime?
   // Bumped whenever the account's password, role, or den assignments change.
   // The value is embedded in the session JWT; a mismatch on any protected
   // request invalidates already-issued tokens (see src/lib/auth.ts).
-  sessionVersion      Int                  @default(0)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  advancementUpdates  AdvancementRecord[]
-  attendanceUpdates   Attendance[]
-  duesPaymentsLogged  DuesPayment[]
-  denAssignments      DenAssignment[]
-  resetTokens         PasswordResetToken[]
+  sessionVersion           Int                      @default(0)
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  advancementUpdates       AdvancementRecord[]
+  attendanceUpdates        Attendance[]
+  duesPaymentsLogged       DuesPayment[]
+  denAssignments           DenAssignment[]
+  resetTokens              PasswordResetToken[]
   // A PARENT-role account may link to more than one Parent contact row (one
   // per scout) when siblings share the same parent/guardian.
-  parentContacts      Parent[]
-  announcements       Announcement[]
-  eventPaymentsLogged EventPayment[]
+  parentContacts           Parent[]
+  announcements            Announcement[]
+  eventPaymentsLogged      EventPayment[]
+  adultRegistrationsAdded  EventAdultRegistration[]
+  eventAdultPaymentsLogged EventAdultPayment[]
 }
 
 /**
@@ -254,7 +256,9 @@ model PhotoConsent {
   history            PhotoConsentHistory[]
 }
 
-/** Append-only log of every photo-consent submission, oldest first via createdAt. Never updated or deleted directly — only ever inserted into, alongside the PhotoConsent row it snapshots and a token rotation. */
+/**
+ * Append-only log of every photo-consent submission, oldest first via createdAt. Never updated or deleted directly — only ever inserted into, alongside the PhotoConsent row it snapshots and a token rotation.
+ */
 model PhotoConsentHistory {
   id                 String             @id @default(cuid())
   photoConsentId     String
@@ -355,17 +359,25 @@ model SiteBanner {
  * A paid pack event (campout, day trip, special event) that scouts sign up for.
  */
 model Event {
-  id            String              @id @default(cuid())
-  title         String
-  category      DeadlineCategory    @default(GENERAL)
-  eventDate     DateTime            @db.Date
-  description   String?
+  id                 String                   @id @default(cuid())
+  title              String
+  category           DeadlineCategory         @default(GENERAL)
+  eventDate          DateTime                 @db.Date
+  description        String?
   // Default per-scout cost applied when registering a scout — null means the
   // fee is decided per registration (e.g. varies by family or trip length).
-  feeCents      Int?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  registrations EventRegistration[]
+  // Also gates parent self-service: a parent can only register their own
+  // scout for an event when this is set, since self-service always uses the
+  // default (an admin can still register scouts at a custom amount when null).
+  feeCents           Int?
+  // Same idea as feeCents, but for adults attending (chaperones, drivers,
+  // etc.) — null means adults can't self-register and an admin adds them
+  // manually with a custom amount.
+  adultFeeCents      Int?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  registrations      EventRegistration[]
+  adultRegistrations EventAdultRegistration[]
 }
 
 /**
@@ -394,4 +406,35 @@ model EventPayment {
   createdAt           DateTime          @default(now())
   recordedByUserId    String?
   recordedByUser      User?             @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+}
+
+/**
+ * An adult (parent, guardian, chaperone) attending an Event, with their own
+ * amount owed — tracked independently of any scout's EventRegistration since
+ * an adult isn't necessarily tied to one specific scout in a multi-sibling
+ * family. addedByUserId records which parent-portal account added them, so a
+ * parent can remove their own entry but not someone else's.
+ */
+model EventAdultRegistration {
+  id              String              @id @default(cuid())
+  eventId         String
+  event           Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name            String
+  amountOwedCents Int
+  createdAt       DateTime            @default(now())
+  addedByUserId   String?
+  addedByUser     User?               @relation(fields: [addedByUserId], references: [id], onDelete: SetNull)
+  payments        EventAdultPayment[]
+}
+
+model EventAdultPayment {
+  id                       String                 @id @default(cuid())
+  eventAdultRegistrationId String
+  eventAdultRegistration   EventAdultRegistration @relation(fields: [eventAdultRegistrationId], references: [id], onDelete: Cascade)
+  amountCents              Int
+  paidOn                   DateTime               @db.Date
+  note                     String?
+  createdAt                DateTime               @default(now())
+  recordedByUserId         String?
+  recordedByUser           User?                  @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
 }

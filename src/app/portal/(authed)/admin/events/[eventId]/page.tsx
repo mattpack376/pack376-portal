@@ -6,7 +6,13 @@ import { getEventDetail } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
-import { registerScoutForEventAction, removeRegistrationAction, updateEventAction } from "@/lib/actions/events";
+import {
+  registerScoutForEventAction,
+  removeRegistrationAction,
+  updateEventAction,
+  addAdultRegistrationAction,
+  removeAdultRegistrationAction,
+} from "@/lib/actions/events";
 import type { Rank } from "@/generated/prisma/enums";
 import DeleteEventButton from "@/components/DeleteEventButton";
 
@@ -77,17 +83,31 @@ export default async function AdminEventDetailPage({
               <input id="edit-eventDate" name="eventDate" type="date" required defaultValue={toDateInputValue(event.eventDate)} />
             </div>
           </div>
-          <div className="form-field">
-            <label htmlFor="edit-fee">Default Fee Per Scout ($, optional)</label>
-            <input
-              id="edit-fee"
-              name="fee"
-              type="number"
-              min="0"
-              step="0.01"
-              defaultValue={event.feeCents !== null ? (event.feeCents / 100).toFixed(2) : undefined}
-              placeholder="Applied when you register a scout — editable per scout"
-            />
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+              <label htmlFor="edit-fee">Default Fee Per Scout ($, optional)</label>
+              <input
+                id="edit-fee"
+                name="fee"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={event.feeCents !== null ? (event.feeCents / 100).toFixed(2) : undefined}
+                placeholder="Also required for parent self-signup"
+              />
+            </div>
+            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+              <label htmlFor="edit-adultFee">Default Fee Per Adult ($, optional)</label>
+              <input
+                id="edit-adultFee"
+                name="adultFee"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={event.adultFeeCents !== null ? (event.adultFeeCents / 100).toFixed(2) : undefined}
+                placeholder="Also required for parent self-signup"
+              />
+            </div>
           </div>
           <div className="form-field">
             <label htmlFor="edit-description">Description (optional)</label>
@@ -207,6 +227,97 @@ export default async function AdminEventDetailPage({
             <button type="submit" className="btn btn-primary">Register Selected Scouts</button>
           </form>
         )}
+      </div>
+
+      <div className="section-head">
+        <div className="eyebrow">Chaperones &amp; Attendees</div>
+        <h2>Adults Attending</h2>
+        <p>
+          Parents, den leaders, and admins attending this event — add anyone by name. Fees are tracked separately
+          from scouts.
+        </p>
+      </div>
+
+      {event.adultRegistrations.length === 0 ? (
+        <div className="info-card" style={{ marginBottom: 24 }}>
+          <p style={{ marginBottom: 0 }}>No adults registered yet.</p>
+        </div>
+      ) : (
+        <table className="data-table" style={{ marginBottom: 32 }}>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Added By</th>
+              <th>Paid</th>
+              <th>Remaining</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {event.adultRegistrations.map((reg) => {
+              const status =
+                reg.remainingCents <= 0
+                  ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
+                  : reg.paidCents > 0
+                  ? { label: "Partial", cls: "badge-junior" }
+                  : { label: "Unpaid", cls: "badge-photographer" };
+              return (
+                <tr key={reg.id}>
+                  <td>{reg.name}</td>
+                  <td>{reg.addedByDisplayName ?? "—"}</td>
+                  <td>{formatCents(reg.paidCents)}</td>
+                  <td>{formatCents(reg.remainingCents)}</td>
+                  <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                  <td className="actions">
+                    <Link
+                      className="btn btn-outline btn-small"
+                      style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                      href={`/portal/admin/events/${event.id}/adult/${reg.id}`}
+                    >
+                      Manage Payments
+                    </Link>
+                    <form action={removeAdultRegistrationAction}>
+                      <input type="hidden" name="adultRegistrationId" value={reg.id} />
+                      <input type="hidden" name="eventId" value={event.id} />
+                      <button
+                        type="submit"
+                        className="btn btn-outline btn-small"
+                        style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                      >
+                        Remove
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      <div className="info-card" style={{ maxWidth: 460 }}>
+        <h3 style={{ marginTop: 0 }}>Register an Adult</h3>
+        <form action={addAdultRegistrationAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <input type="hidden" name="eventId" value={event.id} />
+          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
+            <label htmlFor="adultName">Name</label>
+            <input id="adultName" name="name" required placeholder="e.g. Jane Smith" />
+          </div>
+          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 120px" }}>
+            <label htmlFor="adultAmountOwed">Amount Owed ($)</label>
+            <input
+              id="adultAmountOwed"
+              name="amountOwed"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              defaultValue={event.adultFeeCents !== null ? (event.adultFeeCents / 100).toFixed(2) : undefined}
+            />
+          </div>
+          <button type="submit" className="btn btn-primary">Add</button>
+        </form>
       </div>
     </>
   );

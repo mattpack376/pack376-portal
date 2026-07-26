@@ -42,7 +42,11 @@ export default async function AdminEventsPage() {
                   {event.title}
                 </td>
                 <td>{formatDueDate(event.eventDate)}</td>
-                <td>{event.registrationCount}</td>
+                <td>
+                  {event.registrationCount} scout{event.registrationCount === 1 ? "" : "s"}
+                  {event.adultRegistrationCount > 0 &&
+                    ` · ${event.adultRegistrationCount} adult${event.adultRegistrationCount === 1 ? "" : "s"}`}
+                </td>
                 <td>
                   {formatCents(event.totalPaidCents)} / {formatCents(event.totalOwedCents)}
                 </td>
@@ -82,9 +86,15 @@ export default async function AdminEventsPage() {
               <input id="eventDate" name="eventDate" type="date" required />
             </div>
           </div>
-          <div className="form-field">
-            <label htmlFor="fee">Default Fee Per Scout ($, optional)</label>
-            <input id="fee" name="fee" type="number" min="0" step="0.01" placeholder="Applied when you register a scout — editable per scout" />
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+              <label htmlFor="fee">Default Fee Per Scout ($, optional)</label>
+              <input id="fee" name="fee" type="number" min="0" step="0.01" placeholder="Also required for parent self-signup" />
+            </div>
+            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+              <label htmlFor="adultFee">Default Fee Per Adult ($, optional)</label>
+              <input id="adultFee" name="adultFee" type="number" min="0" step="0.01" placeholder="Also required for parent self-signup" />
+            </div>
           </div>
           <div className="form-field">
             <label htmlFor="description">Description (optional)</label>

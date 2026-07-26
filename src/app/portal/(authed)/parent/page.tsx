@@ -7,12 +7,13 @@ import { denDisplayName } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from "@/lib/deadlineCategories";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import ScoutChecklist from "@/components/ScoutChecklist";
+import { registerMyScoutsForEventAction, registerMyAdultForEventAction, removeMyAdultRegistrationAction } from "@/lib/actions/events";
 
 export default async function ParentDashboardPage() {
   const session = await requireParentSession();
-  const [{ scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances }, advancement] =
+  const [{ scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, openEvents }, advancement] =
     await Promise.all([
-      getParentDashboardData(session.scoutIds),
+      getParentDashboardData(session.scoutIds, session.userId),
       getScoutsAdvancementByIds(session.scoutIds),
     ]);
 
@@ -181,6 +182,86 @@ export default async function ParentDashboardPage() {
       ) : (
         <div style={{ marginBottom: 32 }}>
           <ScoutChecklist scouts={advancement} editable={false} />
+        </div>
+      )}
+
+      <div className="section-head">
+        <div className="eyebrow">Sign Up</div>
+        <h2>🎪 Register for Events</h2>
+      </div>
+      {openEvents.length === 0 ? (
+        <div className="info-card" style={{ marginBottom: 32 }}>
+          <p style={{ marginBottom: 0 }}>No upcoming events open for registration right now.</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
+          {openEvents.map((event) => {
+            const unregisteredScouts = scouts.filter((s) => !event.registeredScoutIds.includes(s.id));
+            const registeredScouts = scouts.filter((s) => event.registeredScoutIds.includes(s.id));
+            return (
+              <div className="info-card" key={event.id} style={{ marginBottom: 0 }}>
+                <p className="form-note" style={{ marginBottom: 4 }}>
+                  {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
+                  {event.feeCents !== null && ` · ${formatCents(event.feeCents)} per scout`}
+                  {event.adultFeeCents !== null && ` · ${formatCents(event.adultFeeCents)} per adult`}
+                </p>
+                <p style={{ marginBottom: event.description ? 6 : 10, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{event.title}</p>
+                {event.description && <p style={{ marginBottom: 10 }}>{event.description}</p>}
+
+                {registeredScouts.length > 0 && (
+                  <p style={{ marginBottom: 10 }}>
+                    <span className="badge-pill badge-attendance" style={{ marginRight: 8 }}>Registered</span>
+                    {registeredScouts.map((s) => s.firstName).join(", ")}
+                  </p>
+                )}
+                {event.feeCents !== null && unregisteredScouts.length > 0 && (
+                  <form action={registerMyScoutsForEventAction} style={{ marginBottom: 14 }}>
+                    <input type="hidden" name="eventId" value={event.id} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                      {unregisteredScouts.map((s) => (
+                        <label key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                          <input type="checkbox" name="scoutId" value={s.id} defaultChecked={unregisteredScouts.length === 1} />
+                          {s.firstName} {s.lastName}
+                        </label>
+                      ))}
+                    </div>
+                    <button type="submit" className="btn btn-primary btn-small">Register Scout(s)</button>
+                  </form>
+                )}
+
+                {event.adultFeeCents !== null && (
+                  <>
+                    {event.myAdults.length > 0 && (
+                      <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                        {event.myAdults.map((a) => (
+                          <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                            <span className="badge-pill badge-attendance">Attending</span>
+                            {a.name}
+                            <form action={removeMyAdultRegistrationAction}>
+                              <input type="hidden" name="adultRegistrationId" value={a.id} />
+                              <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                                Remove
+                              </button>
+                            </form>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <form action={registerMyAdultForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                      <input type="hidden" name="eventId" value={event.id} />
+                      <div className="form-field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
+                        <label htmlFor={`adult-name-${event.id}`}>Adult Attending (name)</label>
+                        <input id={`adult-name-${event.id}`} name="name" placeholder="e.g. Jane Smith" />
+                      </div>
+                      <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+                        Add Adult
+                      </button>
+                    </form>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

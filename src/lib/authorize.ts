@@ -196,6 +196,18 @@ export function assertEventPaymentDenAccess(session: SessionPayload, denId: stri
 }
 
 /**
+ * Full admin or any den login — for adult event-attendee fees/payments,
+ * which (unlike scout registrations) have no den to scope against, so every
+ * den login gets the same access here regardless of which den(s) they lead.
+ * Junior admin excluded, matching assertEventPaymentDenAccess above.
+ */
+export function assertEventPaymentAccess(session: SessionPayload) {
+  if (session.role !== "ADMIN" && session.role !== "DEN") {
+    throw new Error("Not authorized: event payment access required.");
+  }
+}
+
+/**
  * For Server Components / pages: the pack-wide roster (every den, leader, and
  * scout name) — every staff role, but never a PARENT account. The parent nav
  * never links here, but that alone doesn't stop a direct visit.
