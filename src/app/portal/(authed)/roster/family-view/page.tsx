@@ -223,12 +223,15 @@ export default async function FamilyViewPage({
       ) : (
         <div style={{ marginBottom: 32 }}>
           {eventPaymentGroups.map(({ event, denGroups, guestGroups }) => (
-            <div className="info-card" key={event.id} style={{ marginBottom: 20 }}>
-              <p className="form-note" style={{ marginBottom: 4 }}>
-                {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
-              </p>
-              <h3 style={{ marginTop: 0, marginBottom: 14 }}>{event.title}</h3>
+            <details className="info-card" key={event.id} style={{ marginBottom: 20 }} open>
+              <summary className="event-toggle">
+                <p className="form-note" style={{ marginBottom: 4 }}>
+                  {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
+                </p>
+                <h3 style={{ marginTop: 0, marginBottom: 0 }}>{event.title}</h3>
+              </summary>
 
+              <div style={{ marginTop: 14 }}>
               {denGroups.map(({ den, regs }) => (
                 <CollapsibleGroup
                   key={den?.id ?? "none"}
@@ -328,7 +331,8 @@ export default async function FamilyViewPage({
                   </table>
                 </div>
               )}
-            </div>
+              </div>
+            </details>
           ))}
         </div>
       )}

@@ -801,6 +801,20 @@ section { padding: 64px 0; }
 details[open] > .den-toggle::before { transform: rotate(90deg); }
 .den-group { margin-bottom: 14px; }
 .den-group table { margin-top: 8px; }
+.event-toggle {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.event-toggle::-webkit-details-marker { display: none; }
+.event-toggle::before {
+  content: "▸";
+  display: inline-block;
+  width: 16px;
+  color: var(--ink-soft);
+  transition: transform 0.15s ease;
+}
+details[open] > .event-toggle::before { transform: rotate(90deg); }
 .form-error {
   color: var(--carnival-red);
   font-size: 13.5px;

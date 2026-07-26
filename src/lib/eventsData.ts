@@ -10,25 +10,17 @@ function withBalance<T extends { amountOwedCents: number; payments: { amountCent
 }
 
 const guestOfScoutSelect = {
-  select: {
-    id: true,
-    firstName: true,
-    lastName: true,
-    den: { select: { rank: true, scoutingYear: true, label: true } },
-  },
+  select: { id: true, firstName: true, lastName: true },
 } as const;
-const guestOfUserSelect = { select: { id: true, displayName: true, role: true } } as const;
+const guestOfUserSelect = { select: { id: true, displayName: true } } as const;
 
-/** "Timmy Test (Wolf Den — 2025-2026)" or "Jane Smith (Den Leader)" or null when unlinked. */
+/** "Timmy Test" or "Jane Smith" — just the name, no role/den qualifier, since the guest-of column is the only place this is shown. */
 function guestOfLabel(group: {
-  guestOfScout: { firstName: string; lastName: string; den: { rank: Rank; scoutingYear: string; label: string } } | null;
-  guestOfUser: { displayName: string; role: string } | null;
+  guestOfScout: { firstName: string; lastName: string } | null;
+  guestOfUser: { displayName: string } | null;
 }) {
-  if (group.guestOfScout) {
-    const { rank, scoutingYear, label } = group.guestOfScout.den;
-    return `${group.guestOfScout.firstName} ${group.guestOfScout.lastName} (${denDisplayName(rank, scoutingYear, label)})`;
-  }
-  if (group.guestOfUser) return `${group.guestOfUser.displayName} (${ROLE_LABELS[group.guestOfUser.role] ?? group.guestOfUser.role})`;
+  if (group.guestOfScout) return `${group.guestOfScout.firstName} ${group.guestOfScout.lastName}`;
+  if (group.guestOfUser) return group.guestOfUser.displayName;
   return null;
 }
 
