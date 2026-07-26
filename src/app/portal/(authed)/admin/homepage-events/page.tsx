@@ -17,7 +17,8 @@ function toDateInputValue(date: Date) {
 }
 
 export default async function HomepageEventsAdminPage() {
-  await requireHomepageContentSession();
+  const session = await requireHomepageContentSession();
+  const canDelete = session.role === "ADMIN";
   const [events, banners] = await Promise.all([getAllHomepageEvents(), getAllSiteBanners()]);
 
   return (
@@ -66,12 +67,14 @@ export default async function HomepageEventsAdminPage() {
                     Turn {banner.active ? "Off" : "On"}
                   </button>
                 </form>
-                <form action={deleteSiteBannerAction}>
-                  <input type="hidden" name="id" value={banner.id} />
-                  <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
-                    Delete
-                  </button>
-                </form>
+                {canDelete && (
+                  <form action={deleteSiteBannerAction}>
+                    <input type="hidden" name="id" value={banner.id} />
+                    <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                      Delete
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
           </div>
@@ -156,16 +159,18 @@ export default async function HomepageEventsAdminPage() {
                 <button type="submit" className="btn btn-primary btn-small">Save</button>
               </div>
             </form>
-            <form action={deleteHomepageEventAction} style={{ marginTop: 10 }}>
-              <input type="hidden" name="id" value={event.id} />
-              <button
-                type="submit"
-                className="btn btn-outline btn-small"
-                style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
-              >
-                Delete
-              </button>
-            </form>
+            {canDelete && (
+              <form action={deleteHomepageEventAction} style={{ marginTop: 10 }}>
+                <input type="hidden" name="id" value={event.id} />
+                <button
+                  type="submit"
+                  className="btn btn-outline btn-small"
+                  style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                >
+                  Delete
+                </button>
+              </form>
+            )}
           </div>
         ))
       )}

@@ -170,10 +170,17 @@ export async function requireHomepageContentSession(): Promise<SessionPayload> {
   return session;
 }
 
-/** Full admin or junior admin — homepage content create/edit/delete actions. */
+/** Full admin or junior admin — homepage content create/edit actions. */
 export function assertHomepageContentAccess(session: SessionPayload) {
   if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
     throw new Error("Not authorized: homepage content access required.");
+  }
+}
+
+/** Full admin only — homepage content delete actions; junior admin can add/edit but not delete. */
+export function assertHomepageContentDeleteAccess(session: SessionPayload) {
+  if (session.role !== "ADMIN") {
+    throw new Error("Not authorized: only a full admin can delete homepage content.");
   }
 }
 

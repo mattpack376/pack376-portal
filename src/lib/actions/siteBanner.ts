@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertHomepageContentAccess } from "@/lib/authorize";
+import { assertHomepageContentAccess, assertHomepageContentDeleteAccess } from "@/lib/authorize";
 
 const HOMEPAGE_EVENTS_ADMIN_PATH = "/portal/admin/homepage-events";
 const HOME_PATH = "/";
@@ -40,7 +40,7 @@ export async function toggleSiteBannerAction(formData: FormData) {
 export async function deleteSiteBannerAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageContentAccess(session);
+  assertHomepageContentDeleteAccess(session);
 
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing banner id.");
