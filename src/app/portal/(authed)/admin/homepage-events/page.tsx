@@ -1,9 +1,12 @@
 import { requireHomepageContentSession } from "@/lib/authorize";
 import { getAllHomepageEvents } from "@/lib/homepageEventsData";
 import { getAllSiteBanners } from "@/lib/siteBannerData";
+import { groupEventsByMonth } from "@/lib/groupEventsByMonth";
+import CollapsibleGroup from "@/components/CollapsibleGroup";
 import {
   createHomepageEventAction,
   updateHomepageEventAction,
+  toggleHomepageEventVisibilityAction,
   deleteHomepageEventAction,
 } from "@/lib/actions/homepageEvents";
 import {
@@ -20,6 +23,7 @@ export default async function HomepageEventsAdminPage() {
   const session = await requireHomepageContentSession();
   const canDelete = session.role === "ADMIN";
   const [events, banners] = await Promise.all([getAllHomepageEvents(), getAllSiteBanners()]);
+  const eventsByMonth = groupEventsByMonth(events);
 
   return (
     <>
@@ -122,55 +126,80 @@ export default async function HomepageEventsAdminPage() {
           <p style={{ marginBottom: 0 }}>No homepage events yet — add one above.</p>
         </div>
       ) : (
-        events.map((event) => (
-          <div className="info-card" key={event.id} style={{ maxWidth: 480, marginBottom: 20 }}>
-            <form action={updateHomepageEventAction}>
-              <input type="hidden" name="id" value={event.id} />
-              <div className="form-field">
-                <label htmlFor={`title-${event.id}`}>Title</label>
-                <input id={`title-${event.id}`} name="title" required defaultValue={event.title} />
-              </div>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
-                  <label htmlFor={`dateLabel-${event.id}`}>Date Label</label>
-                  <input id={`dateLabel-${event.id}`} name="dateLabel" required defaultValue={event.dateLabel} />
+        eventsByMonth.map((group) => (
+          <div className="event-month-group" key={group.key}>
+            <CollapsibleGroup label={`${group.label} (${group.events.length})`}>
+              {group.events.map((event) => (
+                <div className="info-card" key={event.id} style={{ maxWidth: 480, marginBottom: 20 }}>
+                  <span
+                    className={`badge-pill ${event.visible ? "badge-attendance" : "badge-pending"}`}
+                    style={{ marginBottom: 12, display: "inline-block" }}
+                  >
+                    {event.visible ? "Visible on site" : "Hidden from site"}
+                  </span>
+                  <form action={updateHomepageEventAction}>
+                    <input type="hidden" name="id" value={event.id} />
+                    <div className="form-field">
+                      <label htmlFor={`title-${event.id}`}>Title</label>
+                      <input id={`title-${event.id}`} name="title" required defaultValue={event.title} />
+                    </div>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                        <label htmlFor={`dateLabel-${event.id}`}>Date Label</label>
+                        <input id={`dateLabel-${event.id}`} name="dateLabel" required defaultValue={event.dateLabel} />
+                      </div>
+                      <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                        <label htmlFor={`sortDate-${event.id}`}>Sort Date</label>
+                        <input
+                          id={`sortDate-${event.id}`}
+                          name="sortDate"
+                          type="date"
+                          required
+                          defaultValue={toDateInputValue(event.sortDate)}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor={`description-${event.id}`}>Description (optional)</label>
+                      <textarea
+                        id={`description-${event.id}`}
+                        name="description"
+                        rows={2}
+                        defaultValue={event.description ?? ""}
+                      />
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button type="submit" className="btn btn-primary btn-small">Save</button>
+                    </div>
+                  </form>
+                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                    <form action={toggleHomepageEventVisibilityAction}>
+                      <input type="hidden" name="id" value={event.id} />
+                      <input type="hidden" name="visible" value={String(event.visible)} />
+                      <button
+                        type="submit"
+                        className="btn btn-outline btn-small"
+                        style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                      >
+                        {event.visible ? "Hide from Site" : "Show on Site"}
+                      </button>
+                    </form>
+                    {canDelete && (
+                      <form action={deleteHomepageEventAction}>
+                        <input type="hidden" name="id" value={event.id} />
+                        <button
+                          type="submit"
+                          className="btn btn-outline btn-small"
+                          style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                        >
+                          Delete
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 </div>
-                <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
-                  <label htmlFor={`sortDate-${event.id}`}>Sort Date</label>
-                  <input
-                    id={`sortDate-${event.id}`}
-                    name="sortDate"
-                    type="date"
-                    required
-                    defaultValue={toDateInputValue(event.sortDate)}
-                  />
-                </div>
-              </div>
-              <div className="form-field">
-                <label htmlFor={`description-${event.id}`}>Description (optional)</label>
-                <textarea
-                  id={`description-${event.id}`}
-                  name="description"
-                  rows={2}
-                  defaultValue={event.description ?? ""}
-                />
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button type="submit" className="btn btn-primary btn-small">Save</button>
-              </div>
-            </form>
-            {canDelete && (
-              <form action={deleteHomepageEventAction} style={{ marginTop: 10 }}>
-                <input type="hidden" name="id" value={event.id} />
-                <button
-                  type="submit"
-                  className="btn btn-outline btn-small"
-                  style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
-                >
-                  Delete
-                </button>
-              </form>
-            )}
+              ))}
+            </CollapsibleGroup>
           </div>
         ))
       )}

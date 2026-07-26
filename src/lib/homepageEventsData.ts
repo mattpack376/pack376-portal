@@ -6,10 +6,10 @@ function todayUtc() {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
-/** Homepage "Upcoming Attractions" ticket list — past events drop off on their own. */
+/** Homepage "Upcoming Attractions" ticket list — past events drop off on their own, hidden events are excluded. */
 export async function getUpcomingHomepageEvents() {
   return prisma.homepageEvent.findMany({
-    where: { sortDate: { gte: todayUtc() } },
+    where: { sortDate: { gte: todayUtc() }, visible: true },
     orderBy: { sortDate: "asc" },
   });
 }

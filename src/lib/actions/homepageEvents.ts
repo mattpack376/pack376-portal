@@ -58,6 +58,21 @@ export async function updateHomepageEventAction(formData: FormData) {
   revalidatePath(HOME_PATH);
 }
 
+export async function toggleHomepageEventVisibilityAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertHomepageContentAccess(session);
+
+  const id = String(formData.get("id") || "");
+  const visible = String(formData.get("visible") || "") === "true";
+  if (!id) throw new Error("Missing event id.");
+
+  await prisma.homepageEvent.update({ where: { id }, data: { visible: !visible } });
+
+  revalidatePath(HOMEPAGE_EVENTS_ADMIN_PATH);
+  revalidatePath(HOME_PATH);
+}
+
 export async function deleteHomepageEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");

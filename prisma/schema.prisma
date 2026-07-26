@@ -340,6 +340,7 @@ model HomepageEvent {
   title       String
   description String?
   sortDate    DateTime @db.Date
+  visible     Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
