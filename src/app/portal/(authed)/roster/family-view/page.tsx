@@ -48,28 +48,58 @@ export default async function FamilyViewPage({
   const openAdultEvents = myOpenAdultEvents.filter((e) => e.adultFeeCents !== null);
 
   const scoutInfoById = new Map(scouts.map((s) => [s.id, s]));
-  const eventBalancesByDen = new Map<string, { den: (typeof scouts)[number]["den"] | null; regs: typeof eventBalances }>();
-  for (const reg of eventBalances) {
-    const scout = scoutInfoById.get(reg.scoutId);
-    const key = scout?.den?.id ?? "none";
-    if (!eventBalancesByDen.has(key)) eventBalancesByDen.set(key, { den: scout?.den ?? null, regs: [] });
-    eventBalancesByDen.get(key)!.regs.push(reg);
-  }
-  const denEventGroups = Array.from(eventBalancesByDen.values()).sort((a, b) => {
-    if (!a.den) return 1;
-    if (!b.den) return -1;
-    if (a.den.scoutingYear !== b.den.scoutingYear) return b.den.scoutingYear.localeCompare(a.den.scoutingYear);
-    return RANK_ORDER.indexOf(a.den.rank as Rank) - RANK_ORDER.indexOf(b.den.rank as Rank);
-  });
-  for (const group of denEventGroups) {
-    group.regs.sort((a, b) => {
-      const scoutA = scoutInfoById.get(a.scoutId);
-      const scoutB = scoutInfoById.get(b.scoutId);
-      const lastCmp = (scoutA?.lastName ?? "").localeCompare(scoutB?.lastName ?? "");
-      if (lastCmp !== 0) return lastCmp;
-      return (scoutA?.firstName ?? "").localeCompare(scoutB?.firstName ?? "");
+  type Den = (typeof scouts)[number]["den"];
+  type ScoutBalance = (typeof eventBalances)[number];
+  type AdultBalance = (typeof allAdultRegistrations)[number];
+
+  function sortDens<T extends { den: Den | null }>(groups: T[]) {
+    return groups.sort((a, b) => {
+      if (!a.den) return 1;
+      if (!b.den) return -1;
+      if (a.den.scoutingYear !== b.den.scoutingYear) return b.den.scoutingYear.localeCompare(a.den.scoutingYear);
+      return RANK_ORDER.indexOf(a.den.rank as Rank) - RANK_ORDER.indexOf(b.den.rank as Rank);
     });
   }
+
+  // Event -> Den -> scouts, plus that event's adult registrations — so an
+  // admin/den leader scans one event at a time instead of a wall of boxes
+  // mixing every event and every kid together.
+  const eventGroupsById = new Map<
+    string,
+    { event: ScoutBalance["event"]; denGroups: Map<string, { den: Den | null; regs: ScoutBalance[] }>; adults: AdultBalance[] }
+  >();
+  for (const reg of eventBalances) {
+    if (!eventGroupsById.has(reg.event.id)) {
+      eventGroupsById.set(reg.event.id, { event: reg.event, denGroups: new Map(), adults: [] });
+    }
+    const entry = eventGroupsById.get(reg.event.id)!;
+    const scout = scoutInfoById.get(reg.scoutId);
+    const denKey = scout?.den?.id ?? "none";
+    if (!entry.denGroups.has(denKey)) entry.denGroups.set(denKey, { den: scout?.den ?? null, regs: [] });
+    entry.denGroups.get(denKey)!.regs.push(reg);
+  }
+  for (const reg of allAdultRegistrations) {
+    if (!eventGroupsById.has(reg.event.id)) {
+      eventGroupsById.set(reg.event.id, { event: reg.event, denGroups: new Map(), adults: [] });
+    }
+    eventGroupsById.get(reg.event.id)!.adults.push(reg);
+  }
+
+  const eventPaymentGroups = Array.from(eventGroupsById.values())
+    .sort((a, b) => a.event.eventDate.getTime() - b.event.eventDate.getTime())
+    .map((group) => {
+      const denGroups = sortDens(Array.from(group.denGroups.values()));
+      for (const denGroup of denGroups) {
+        denGroup.regs.sort((a, b) => {
+          const scoutA = scoutInfoById.get(a.scoutId);
+          const scoutB = scoutInfoById.get(b.scoutId);
+          const lastCmp = (scoutA?.lastName ?? "").localeCompare(scoutB?.lastName ?? "");
+          if (lastCmp !== 0) return lastCmp;
+          return (scoutA?.firstName ?? "").localeCompare(scoutB?.firstName ?? "");
+        });
+      }
+      return { event: group.event, denGroups, adults: group.adults };
+    });
 
   return (
     <>
@@ -172,55 +202,114 @@ export default async function FamilyViewPage({
         <div className="eyebrow">Per Event</div>
         <h2>💳 Event Payments</h2>
       </div>
-      {eventBalances.length === 0 ? (
+      {eventPaymentGroups.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
           <p style={{ marginBottom: 0 }}>No paid events on the books right now.</p>
         </div>
       ) : (
         <div style={{ marginBottom: 32 }}>
-          {denEventGroups.map((group) => (
-            <div key={group.den?.id ?? "none"} style={{ marginBottom: 20 }}>
-              {denEventGroups.length > 1 && (
-                <h3 style={{ fontSize: 17, marginBottom: 10 }}>
-                  {group.den ? denDisplayName(group.den.rank, group.den.scoutingYear, group.den.label) : "No Den Assigned"}
-                </h3>
+          {eventPaymentGroups.map(({ event, denGroups, adults }) => (
+            <div className="info-card" key={event.id} style={{ marginBottom: 20 }}>
+              <p className="form-note" style={{ marginBottom: 4 }}>
+                {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
+              </p>
+              <h3 style={{ marginTop: 0, marginBottom: 14 }}>{event.title}</h3>
+
+              {denGroups.map(({ den, regs }) => (
+                <div key={den?.id ?? "none"} style={{ marginBottom: 14 }}>
+                  {denGroups.length > 1 && (
+                    <p className="form-note" style={{ marginBottom: 6 }}>
+                      {den ? denDisplayName(den.rank, den.scoutingYear, den.label).toUpperCase() : "NO DEN ASSIGNED"}
+                    </p>
+                  )}
+                  <table className="data-table" style={{ marginBottom: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Scout</th>
+                        <th>Paid</th>
+                        <th>Remaining</th>
+                        <th>Status</th>
+                        {canRecordPayments && <th></th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {regs.map((reg) => {
+                        const status =
+                          reg.remainingCents <= 0
+                            ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
+                            : reg.paidCents > 0
+                            ? { label: "Partial", cls: "badge-junior" }
+                            : { label: "Unpaid", cls: "badge-photographer" };
+                        return (
+                          <tr key={reg.id}>
+                            <td>{reg.scoutFirstName}</td>
+                            <td>{formatCents(reg.paidCents)}</td>
+                            <td>{formatCents(reg.remainingCents)}</td>
+                            <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                            {canRecordPayments && (
+                              <td className="actions">
+                                <Link
+                                  className="btn btn-outline btn-small"
+                                  style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                                  href={`/portal/admin/events/${event.id}/${reg.id}`}
+                                >
+                                  Record Payment
+                                </Link>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+
+              {adults.length > 0 && (
+                <div>
+                  <p className="form-note" style={{ marginBottom: 6 }}>ADULTS ATTENDING</p>
+                  <table className="data-table" style={{ marginBottom: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Paid</th>
+                        <th>Remaining</th>
+                        <th>Status</th>
+                        {canRecordPayments && <th></th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adults.map((reg) => {
+                        const status =
+                          reg.remainingCents <= 0
+                            ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
+                            : reg.paidCents > 0
+                            ? { label: "Partial", cls: "badge-junior" }
+                            : { label: "Unpaid", cls: "badge-photographer" };
+                        return (
+                          <tr key={reg.id}>
+                            <td>{reg.name}</td>
+                            <td>{formatCents(reg.paidCents)}</td>
+                            <td>{formatCents(reg.remainingCents)}</td>
+                            <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                            {canRecordPayments && (
+                              <td className="actions">
+                                <Link
+                                  className="btn btn-outline btn-small"
+                                  style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                                  href={`/portal/admin/events/${event.id}/adult/${reg.id}`}
+                                >
+                                  Record Payment
+                                </Link>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {group.regs.map((reg) => {
-                  const status =
-                    reg.remainingCents <= 0
-                      ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                      : reg.paidCents > 0
-                      ? { label: "Partial", cls: "badge-junior" }
-                      : { label: "Unpaid", cls: "badge-photographer" };
-                  return (
-                    <div className="info-card" key={reg.id} style={{ marginBottom: 0 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-                        <div>
-                          <p className="form-note" style={{ marginBottom: 4 }}>
-                            {DEADLINE_CATEGORY_LABELS[reg.event.category].toUpperCase()} · {formatDueDate(reg.event.eventDate)} · {reg.scoutFirstName}
-                          </p>
-                          <p style={{ marginBottom: 0, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{reg.event.title}</p>
-                        </div>
-                        <span className={`badge-pill ${status.cls}`}>{status.label}</span>
-                      </div>
-                      <p style={{ marginTop: 8, marginBottom: canRecordPayments ? 8 : 0 }}>
-                        {formatCents(reg.paidCents)} of {formatCents(reg.amountOwedCents)} paid
-                        {reg.remainingCents > 0 && ` — ${formatCents(reg.remainingCents)} remaining`}
-                      </p>
-                      {canRecordPayments && (
-                        <Link
-                          href={`/portal/admin/events/${reg.event.id}/${reg.id}`}
-                          className="btn btn-outline btn-small"
-                          style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
-                        >
-                          Record Payment
-                        </Link>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           ))}
         </div>
@@ -228,51 +317,6 @@ export default async function FamilyViewPage({
 
       {canRecordPayments && (
         <>
-          <div className="section-head">
-            <div className="eyebrow">Chaperones &amp; Attendees</div>
-            <h2>🧑‍🤝‍🧑 Adults Attending Events</h2>
-          </div>
-          {allAdultRegistrations.length === 0 ? (
-            <div className="info-card" style={{ marginBottom: 32 }}>
-              <p style={{ marginBottom: 0 }}>No adults registered for any event right now.</p>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
-              {allAdultRegistrations.map((reg) => {
-                const status =
-                  reg.remainingCents <= 0
-                    ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                    : reg.paidCents > 0
-                    ? { label: "Partial", cls: "badge-junior" }
-                    : { label: "Unpaid", cls: "badge-photographer" };
-                return (
-                  <div className="info-card" key={reg.id} style={{ marginBottom: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-                      <div>
-                        <p className="form-note" style={{ marginBottom: 4 }}>
-                          {DEADLINE_CATEGORY_LABELS[reg.event.category].toUpperCase()} · {formatDueDate(reg.event.eventDate)} · {reg.name}
-                        </p>
-                        <p style={{ marginBottom: 0, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{reg.event.title}</p>
-                      </div>
-                      <span className={`badge-pill ${status.cls}`}>{status.label}</span>
-                    </div>
-                    <p style={{ marginTop: 8, marginBottom: 8 }}>
-                      {formatCents(reg.paidCents)} of {formatCents(reg.amountOwedCents)} paid
-                      {reg.remainingCents > 0 && ` — ${formatCents(reg.remainingCents)} remaining`}
-                    </p>
-                    <Link
-                      href={`/portal/admin/events/${reg.event.id}/adult/${reg.id}`}
-                      className="btn btn-outline btn-small"
-                      style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
-                    >
-                      Record Payment
-                    </Link>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
           <div className="section-head">
             <div className="eyebrow">Sign Up</div>
             <h2>Register Yourself for an Event</h2>
