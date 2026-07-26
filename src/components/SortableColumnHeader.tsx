@@ -4,7 +4,7 @@ import Link from "next/link";
 export default function SortableColumnHeader({ href, label, active }: { href: string; label: string; active: boolean }) {
   return (
     <th>
-      <Link href={href} style={{ color: "inherit", fontWeight: active ? 700 : undefined }}>
+      <Link href={href} scroll={false} style={{ color: "inherit", fontWeight: active ? 700 : undefined }}>
         {label}
         {active ? " ▲" : ""}
       </Link>
