@@ -18,6 +18,8 @@ import DeleteEventButton from "@/components/DeleteEventButton";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import GuestOfSelect from "@/components/GuestOfSelect";
 import GuestGroupCountFields from "@/components/GuestGroupCountFields";
+import SortableColumnHeader from "@/components/SortableColumnHeader";
+import { sortGuestGroups } from "@/lib/guestSort";
 
 function toDateInputValue(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -25,14 +27,19 @@ function toDateInputValue(date: Date) {
 
 export default async function AdminEventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ guestSort?: string }>;
 }) {
   await requireAdminSession();
   const { eventId } = await params;
+  const { guestSort } = await searchParams;
 
   const event = await getEventDetail(eventId);
   if (!event) notFound();
+
+  const sortedGuestGroups = sortGuestGroups(event.guestGroups, guestSort);
 
   const registeredScoutIds = new Set(event.registrations.map((r) => r.scout.id));
 
@@ -291,8 +298,8 @@ export default async function AdminEventDetailPage({
         <table className="data-table" style={{ marginBottom: 32 }}>
           <thead>
             <tr>
-              <th>Family / Leader</th>
-              <th>Guest Of</th>
+              <SortableColumnHeader href={`/portal/admin/events/${event.id}?guestSort=family`} label="Family / Leader" active={guestSort === "family"} />
+              <SortableColumnHeader href={`/portal/admin/events/${event.id}?guestSort=guestof`} label="Guest Of" active={guestSort === "guestof"} />
               <th>Adults</th>
               <th>Kids</th>
               <th>Paid</th>
@@ -302,7 +309,7 @@ export default async function AdminEventDetailPage({
             </tr>
           </thead>
           <tbody>
-            {event.guestGroups.map((group) => {
+            {sortedGuestGroups.map((group) => {
               const status =
                 group.remainingCents <= 0
                   ? { label: group.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }

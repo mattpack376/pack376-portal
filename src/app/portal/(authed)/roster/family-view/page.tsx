@@ -10,12 +10,14 @@ import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import DenSwitcher from "@/components/DenSwitcher";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
+import SortableColumnHeader from "@/components/SortableColumnHeader";
+import { sortGuestGroups } from "@/lib/guestSort";
 import { registerMyGuestGroupForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
 
 export default async function FamilyViewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ denId?: string }>;
+  searchParams: Promise<{ denId?: string; guestSort?: string }>;
 }) {
   const session = await requireParentContactsSession();
   const canRecordPayments = session.role === "ADMIN" || session.role === "DEN";
@@ -28,7 +30,7 @@ export default async function FamilyViewPage({
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
   }
 
-  const { denId: requestedDenId } = await searchParams;
+  const { denId: requestedDenId, guestSort } = await searchParams;
   const denId = isDenScoped
     ? requestedDenId && session.denIds.includes(requestedDenId)
       ? requestedDenId
@@ -103,8 +105,15 @@ export default async function FamilyViewPage({
           return (scoutA?.firstName ?? "").localeCompare(scoutB?.firstName ?? "");
         });
       }
-      return { event: group.event, denGroups, guestGroups: group.guestGroups };
+      return { event: group.event, denGroups, guestGroups: sortGuestGroups(group.guestGroups, guestSort) };
     });
+
+  const guestSortHref = (key: string) => {
+    const qs = new URLSearchParams();
+    if (denId) qs.set("denId", denId);
+    qs.set("guestSort", key);
+    return `/portal/roster/family-view?${qs.toString()}`;
+  };
 
   return (
     <>
@@ -274,8 +283,8 @@ export default async function FamilyViewPage({
                   <table className="data-table" style={{ marginBottom: 0 }}>
                     <thead>
                       <tr>
-                        <th>Family / Leader</th>
-                        <th>Guest Of</th>
+                        <SortableColumnHeader href={guestSortHref("family")} label="Family / Leader" active={guestSort === "family"} />
+                        <SortableColumnHeader href={guestSortHref("guestof")} label="Guest Of" active={guestSort === "guestof"} />
                         <th>Adults</th>
                         <th>Kids</th>
                         <th>Paid</th>
