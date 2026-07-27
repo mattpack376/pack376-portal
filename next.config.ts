@@ -41,6 +41,8 @@ const securityHeaders = [
       "img-src 'self' https: data:",
       "font-src 'self'",
       `connect-src 'self'${isDev ? " ws:" : ""}`,
+      // Contact page embeds a Google Maps iframe (src/app/contact/page.tsx).
+      "frame-src 'self' https://www.google.com https://maps.google.com",
       "base-uri 'self'",
       "object-src 'none'",
       "frame-ancestors 'none'",
