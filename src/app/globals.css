@@ -210,13 +210,18 @@ section { padding: 64px 0; }
     right: 0;
     background: var(--scout-blue-dark);
     flex-direction: column;
+    flex-wrap: nowrap;
     align-items: stretch;
     gap: 0;
     padding: 8px;
     display: none;
+    max-height: calc(100dvh - 90px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
   .nav-links.open { display: flex; }
-  .nav-links a { padding: 14px 16px; border-radius: 10px; text-align: center; }
+  .nav-links a { padding: 14px 16px; border-radius: 10px; text-align: center; flex-shrink: 0; }
 }
 
 /* ---------- Hero ---------- */
