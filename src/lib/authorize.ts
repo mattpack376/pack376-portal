@@ -203,15 +203,16 @@ export function assertEventPaymentDenAccess(session: SessionPayload, denId: stri
 }
 
 /**
- * Full admin or any den login — for adult event-attendee fees/payments,
- * which (unlike scout registrations) have no den to scope against, so every
- * den login gets the same access here regardless of which den(s) they lead.
- * Junior admin excluded, matching assertEventPaymentDenAccess above.
+ * Full admin, or the den login that self-registered this guest group.
+ * EventGuestGroup has no den to scope against the way a scout registration
+ * does, so ownership (addedByUserId) is the only available boundary — same
+ * convention removeMyGuestGroupAction already used. Junior admin excluded,
+ * matching assertEventPaymentDenAccess above.
  */
-export function assertEventPaymentAccess(session: SessionPayload) {
-  if (session.role !== "ADMIN" && session.role !== "DEN") {
-    throw new Error("Not authorized: event payment access required.");
-  }
+export function assertGuestGroupAccess(session: SessionPayload, addedByUserId: string | null) {
+  if (session.role === "ADMIN") return;
+  if (session.role === "DEN" && addedByUserId === session.userId) return;
+  throw new Error("Not authorized for this guest group.");
 }
 
 /**

@@ -1,4 +1,5 @@
 import "server-only";
+import { escapeCsvField } from "@/lib/csv";
 import { RANK_INFO } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
 
@@ -12,17 +13,6 @@ export type ParentCsvRow = {
   parentEmail: string | null;
   parentPhone: string | null;
 };
-
-function csvField(value: string): string {
-  // Neutralize spreadsheet formula injection: a cell beginning with =, +, -, @,
-  // tab, or CR can execute as a formula when the CSV is opened in Excel or Google
-  // Sheets. Prefix with an apostrophe so the cell is treated as literal text.
-  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
-  if (/[",\n]/.test(safe)) {
-    return `"${safe.replace(/"/g, '""')}"`;
-  }
-  return safe;
-}
 
 export function buildParentsCsv(rows: ParentCsvRow[]): string {
   const header = [
@@ -40,13 +30,13 @@ export function buildParentsCsv(rows: ParentCsvRow[]): string {
     const denName = `${RANK_INFO[row.rank].label}${row.label ? ` ${row.label}` : ""}`;
     lines.push(
       [
-        csvField(row.scoutingYear),
-        csvField(denName),
-        csvField(row.firstName),
-        csvField(row.lastName),
-        csvField(row.parentName),
-        csvField(row.parentEmail ?? ""),
-        csvField(row.parentPhone ?? ""),
+        escapeCsvField(row.scoutingYear),
+        escapeCsvField(denName),
+        escapeCsvField(row.firstName),
+        escapeCsvField(row.lastName),
+        escapeCsvField(row.parentName),
+        escapeCsvField(row.parentEmail ?? ""),
+        escapeCsvField(row.parentPhone ?? ""),
       ].join(",")
     );
   }

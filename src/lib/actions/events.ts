@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin, assertEventPaymentDenAccess, assertEventPaymentAccess } from "@/lib/authorize";
+import { assertAdmin, assertEventPaymentDenAccess, assertGuestGroupAccess } from "@/lib/authorize";
 import { RANK_ORDER } from "@/lib/rankConfig";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 
@@ -360,9 +360,10 @@ export async function deleteEventPaymentAction(formData: FormData) {
 
 // Guest groups aren't tied to a den the way scouts are, so managing them —
 // unlike the scout registration/payment actions above — is admin-only for
-// creation; there's no den-scoped equivalent of assertEventPaymentDenAccess
-// for guests. Editing amounts and recording payments is open to any den
-// login (assertEventPaymentAccess), same as it is for adult attendees.
+// creation; editing amounts/linkage and recording or removing payments are
+// scoped by ownership instead (assertGuestGroupAccess), same as
+// removeMyGuestGroupAction already used — a den login can only touch a guest
+// group it self-registered, not any other family's pack-wide.
 
 /** Parses a "Guest Of" <select> value of the form "scout:<id>" | "user:<id>" | "" into the two mutually-exclusive FK fields. */
 function parseGuestOf(raw: FormDataEntryValue | null): { guestOfScoutId: string | null; guestOfUserId: string | null } {
@@ -399,7 +400,6 @@ export async function addGuestGroupAction(formData: FormData) {
 export async function updateGuestGroupAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertEventPaymentAccess(session);
 
   const guestGroupId = String(formData.get("guestGroupId") || "");
   const eventId = String(formData.get("eventId") || "");
@@ -412,6 +412,13 @@ export async function updateGuestGroupAction(formData: FormData) {
     throw new Error("A name, valid adult/child counts, and a valid amount owed are required.");
   }
   if (adultCount + childCount === 0) throw new Error("Enter at least one adult or child.");
+
+  const existing = await prisma.eventGuestGroup.findUnique({
+    where: { id: guestGroupId },
+    select: { addedByUserId: true },
+  });
+  if (!existing) throw new Error("Guest group not found.");
+  assertGuestGroupAccess(session, existing.addedByUserId);
 
   await prisma.eventGuestGroup.update({
     where: { id: guestGroupId },
@@ -442,7 +449,6 @@ export async function removeGuestGroupAction(formData: FormData) {
 export async function addGuestGroupPaymentAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertEventPaymentAccess(session);
 
   const guestGroupId = String(formData.get("guestGroupId") || "");
   const eventId = String(formData.get("eventId") || "");
@@ -452,6 +458,13 @@ export async function addGuestGroupPaymentAction(formData: FormData) {
   if (!guestGroupId || amountCents === null || amountCents === 0) {
     throw new Error("A valid payment amount is required.");
   }
+
+  const guestGroup = await prisma.eventGuestGroup.findUnique({
+    where: { id: guestGroupId },
+    select: { addedByUserId: true },
+  });
+  if (!guestGroup) throw new Error("Guest group not found.");
+  assertGuestGroupAccess(session, guestGroup.addedByUserId);
 
   const paidOn = paidOnRaw ? new Date(paidOnRaw) : new Date();
   if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
@@ -468,18 +481,21 @@ export async function addGuestGroupPaymentAction(formData: FormData) {
 export async function deleteGuestGroupPaymentAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertEventPaymentAccess(session);
 
   const paymentId = String(formData.get("paymentId") || "");
   const guestGroupId = String(formData.get("guestGroupId") || "");
   const eventId = String(formData.get("eventId") || "");
   if (!paymentId) throw new Error("Missing payment id.");
 
+  // Look up ownership from the payment's own guest group — never trust a
+  // client-submitted guestGroupId for this check, since it travels in the
+  // same form as (and independently of) paymentId.
   const payment = await prisma.eventGuestGroupPayment.findUnique({
     where: { id: paymentId },
-    select: { eventGuestGroupId: true },
+    select: { eventGuestGroupId: true, eventGuestGroup: { select: { addedByUserId: true } } },
   });
   if (!payment || payment.eventGuestGroupId !== guestGroupId) throw new Error("Payment not found.");
+  assertGuestGroupAccess(session, payment.eventGuestGroup.addedByUserId);
 
   await prisma.eventGuestGroupPayment.delete({ where: { id: paymentId } });
 

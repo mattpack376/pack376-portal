@@ -1,9 +1,18 @@
 import "server-only";
 
-/** Escapes a single CSV field — wraps in quotes (doubling any internal quotes) whenever it contains a comma, quote, or newline. */
-function escapeCsvField(value: string): string {
-  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
+/**
+ * Escapes a single CSV field: neutralizes spreadsheet formula injection (a
+ * cell beginning with =, +, -, @, tab, or CR can execute as a formula when
+ * opened in Excel or Google Sheets — prefix with an apostrophe so it's
+ * treated as literal text), then wraps in quotes (doubling any internal
+ * quotes) whenever it contains a comma, quote, or newline. Shared by every
+ * CSV builder in this app (parentsCsv.ts, attendanceCsv.ts) so this guard
+ * can't drift/get missed in a new one again.
+ */
+export function escapeCsvField(value: string): string {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  if (/[",\n\r]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`;
+  return safe;
 }
 
 export function toCsv(rows: (string | number)[][]): string {
