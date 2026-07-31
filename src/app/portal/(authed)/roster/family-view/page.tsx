@@ -48,10 +48,16 @@ export default async function FamilyViewPage({
     session.userId,
   );
 
-  const [allGuestGroups, myOpenGuestEvents] = await Promise.all([
+  const [rawGuestGroups, myOpenGuestEvents] = await Promise.all([
     canViewGuestGroups ? getAllGuestGroups() : Promise.resolve([]),
     canRecordPayments ? getOpenEventsForSelfRegistration([], session.userId) : Promise.resolve([]),
   ]);
+  // Guest groups aren't tied to a den, so unlike scout registrations they
+  // can't be scoped by session.denIds — a den login only sees groups it
+  // self-registered (matches assertGuestGroupAccess's write-side scoping in
+  // src/lib/authorize.ts). Admin/junior admin keep the pack-wide view they
+  // already have everywhere else.
+  const allGuestGroups = isDenScoped ? rawGuestGroups.filter((g) => g.addedByUserId === session.userId) : rawGuestGroups;
   const openGuestEvents = myOpenGuestEvents.filter((e) => e.adultFeeCents !== null || e.guestChildFeeCents !== null);
 
   const scoutInfoById = new Map(scouts.map((s) => [s.id, s]));

@@ -24,6 +24,11 @@ export default async function AdminGuestGroupPage({
 
   const group = await getGuestGroupDetail(guestGroupId);
   if (!group || group.event.id !== eventId) notFound();
+  // Guest groups aren't tied to a den, so a den login only gets the detail
+  // page (full payment history, dates, notes) for a group it self-registered
+  // — matches the ownership scoping assertGuestGroupAccess already enforces
+  // on the mutation actions below. Admin keeps full access.
+  if (session.role === "DEN" && group.addedByUserId !== session.userId) notFound();
 
   const guestOfOptions = await getGuestOfOptions();
   const guestOfDefault = group.guestOfScoutId ? `scout:${group.guestOfScoutId}` : group.guestOfUserId ? `user:${group.guestOfUserId}` : "";

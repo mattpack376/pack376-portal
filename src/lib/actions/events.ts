@@ -322,9 +322,17 @@ export async function removeMyGuestGroupAction(formData: FormData) {
 
   const group = await prisma.eventGuestGroup.findUnique({
     where: { id: guestGroupId },
-    select: { addedByUserId: true },
+    select: { addedByUserId: true, _count: { select: { payments: true } } },
   });
   if (!group || group.addedByUserId !== session.userId) throw new Error("Not authorized for this guest group.");
+  // Deleting the group cascades to every payment recorded against it (see
+  // schema.prisma) — including ones a den leader/admin recorded, not just
+  // the registrant's own. Once staff have logged money against a group, only
+  // an admin/den leader can remove it (removeGuestGroupAction), so the
+  // financial record can't be unilaterally erased by whoever registered it.
+  if (group._count.payments > 0) {
+    throw new Error("This guest group has payments recorded — ask a den leader or admin to remove it.");
+  }
 
   await prisma.eventGuestGroup.delete({ where: { id: guestGroupId } });
 

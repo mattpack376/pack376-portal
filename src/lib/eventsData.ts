@@ -131,6 +131,7 @@ export async function getGuestGroupDetail(guestGroupId: string) {
     paidCents,
     remainingCents: group.amountOwedCents - paidCents,
     event: group.event,
+    addedByUserId: group.addedByUserId,
     guestOfScoutId: group.guestOfScoutId,
     guestOfUserId: group.guestOfUserId,
     guestOfLabel: guestOfLabel(group),

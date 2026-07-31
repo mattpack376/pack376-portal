@@ -38,7 +38,13 @@ export async function submitPhotoConsentAction(
   if (!token) return { error: "Missing or invalid link." };
   if (!signedByName) return { error: "Enter your name." };
   if (!RELATIONSHIPS.includes(signedRelationship)) return { error: "Choose your relationship to the scout." };
-  const signedDate = /^\d{4}-\d{2}-\d{2}$/.test(signedDateRaw) ? new Date(`${signedDateRaw}T00:00:00Z`) : null;
+  // Date() normalizes overflowing calendar dates instead of rejecting them —
+  // e.g. "2026-02-31" silently becomes March 3rd — so a signer could end up
+  // with a stored date that doesn't match what they typed. Round-tripping
+  // back through toISOString() catches anything that got normalized.
+  const signedDateCandidate = /^\d{4}-\d{2}-\d{2}$/.test(signedDateRaw) ? new Date(`${signedDateRaw}T00:00:00Z`) : null;
+  const signedDate =
+    signedDateCandidate && signedDateCandidate.toISOString().slice(0, 10) === signedDateRaw ? signedDateCandidate : null;
   if (!signedDate) return { error: "Enter a valid date." };
   const valid = (v: string): v is "CONSENT" | "DECLINE" => v === "CONSENT" || v === "DECLINE";
   if (!valid(facebook) || !valid(website) || !valid(fliers)) {

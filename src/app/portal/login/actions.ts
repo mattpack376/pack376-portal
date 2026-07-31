@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { checkRateLimit } from "@vercel/firewall";
 import { prisma } from "@/lib/prisma";
-import { verifyPassword, createSessionCookie, isLockedOut, nextLockout } from "@/lib/auth";
+import { verifyPassword, createSessionCookie, isLockedOut, lockedUntilForCount } from "@/lib/auth";
 
 export type LoginState = { error?: string };
 
@@ -44,10 +44,34 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     return { error: "Too many failed attempts. Try again in about 15 minutes." };
   }
 
+  // A lock that has since expired otherwise leaves failedLoginCount sitting
+  // at the threshold forever — nothing resets it except a successful login —
+  // so a single mistake after the lock lifts would immediately re-lock the
+  // account instead of requiring a fresh run of failures. Scoping the WHERE
+  // to lockedUntil: not null makes this a no-op if a concurrent request
+  // already reset it, rather than a second redundant write.
+  if (user.lockedUntil) {
+    await prisma.user.updateMany({
+      where: { id: user.id, lockedUntil: { not: null } },
+      data: { failedLoginCount: 0, lockedUntil: null },
+    });
+  }
+
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) {
-    const { failedLoginCount, lockedUntil } = nextLockout(user.failedLoginCount);
-    await prisma.user.update({ where: { id: user.id }, data: { failedLoginCount, lockedUntil } });
+    // Atomic increment against whatever's currently in the database, not a
+    // value read earlier in this request — so two concurrent failed guesses
+    // on the same account can't both read the same starting count and
+    // overwrite each other down to a single increment.
+    const { failedLoginCount } = await prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginCount: { increment: 1 } },
+      select: { failedLoginCount: true },
+    });
+    const lockedUntil = lockedUntilForCount(failedLoginCount);
+    if (lockedUntil) {
+      await prisma.user.update({ where: { id: user.id }, data: { lockedUntil } });
+    }
     return lockedUntil
       ? { error: "Too many failed attempts. Try again in about 15 minutes." }
       : { error: "Invalid username or password." };

@@ -118,10 +118,13 @@ export function isLockedOut(lockedUntil: Date | null) {
   return !!lockedUntil && lockedUntil.getTime() > Date.now();
 }
 
-export function nextLockout(failedLoginCount: number): { failedLoginCount: number; lockedUntil: Date | null } {
-  const count = failedLoginCount + 1;
-  if (count >= LOCKOUT_THRESHOLD) {
-    return { failedLoginCount: count, lockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000) };
-  }
-  return { failedLoginCount: count, lockedUntil: null };
+/**
+ * Given a failure count that's already been incremented (atomically, against
+ * the database's current value — see loginAction), decides whether it now
+ * crosses the lockout threshold. Kept as a pure function so the caller owns
+ * the read-modify-write against the DB; this just answers "does this count
+ * lock the account."
+ */
+export function lockedUntilForCount(newFailedCount: number): Date | null {
+  return newFailedCount >= LOCKOUT_THRESHOLD ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000) : null;
 }

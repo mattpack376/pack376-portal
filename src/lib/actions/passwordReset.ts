@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, createSessionCookie } from "@/lib/auth";
 import { redeemResetToken } from "@/lib/resetTokens";
@@ -27,6 +28,13 @@ export async function completeResetAction(
   if (!token) return { error: "Missing or invalid link." };
   if (password.length < MIN_PASSWORD_LENGTH) {
     return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
+  }
+  // bcrypt only looks at the first 72 bytes of input and silently ignores the
+  // rest — without this check, two different passwords sharing that prefix
+  // would hash identically, and a user typing a long passphrase would
+  // reasonably assume every character they typed matters.
+  if (bcrypt.truncates(password)) {
+    return { error: "Password is too long. Please use a password under 72 bytes (about 72 characters)." };
   }
   if (password !== confirmPassword) {
     return { error: "Passwords don't match." };
