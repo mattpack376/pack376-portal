@@ -133,6 +133,69 @@ export async function inviteParentPortalAction(parentId: string) {
   return { ok: true as const, invite };
 }
 
+/**
+ * Detaches a Parent Portal login from one specific scout, without touching
+ * the account itself or its access to any other scouts (siblings can share
+ * one login). The Parent contact row (name/email/phone) stays on that
+ * scout's roster — only portal visibility into that scout is revoked.
+ */
+export async function unlinkParentScoutAction(parentId: string) {
+  const session = await getSession();
+  if (!session) return { ok: false as const, error: "Not authorized." };
+  try {
+    assertAdmin(session);
+  } catch {
+    return { ok: false as const, error: "Not authorized." };
+  }
+
+  const parent = await prisma.parent.findUnique({ where: { id: parentId } });
+  if (!parent) return { ok: false as const, error: "Parent contact not found." };
+  if (!parent.userId) return { ok: false as const, error: "This contact isn't linked to a portal account." };
+
+  await prisma.$transaction([
+    prisma.parent.update({ where: { id: parentId }, data: { userId: null } }),
+    // Bump so an already-issued session (scoutIds are baked into the JWT) stops
+    // vouching for the unlinked scout until the user logs in again.
+    prisma.user.update({ where: { id: parent.userId }, data: { sessionVersion: { increment: 1 } } }),
+  ]);
+
+  revalidatePath("/portal/admin/users/parents");
+  revalidatePath(`/portal/admin/users/parents/${parent.userId}`);
+  revalidatePath("/portal/roster/parents");
+  return { ok: true as const };
+}
+
+/**
+ * Grants an existing Parent Portal login access to an additional scout —
+ * e.g. a second child in the pack who doesn't yet have a contact row tied to
+ * this account. Creates a new Parent contact (copying the account's current
+ * name/email) rather than moving an existing one, since a scout's existing
+ * contact rows may belong to a different guardian entirely.
+ */
+export async function attachParentToScoutAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const userId = String(formData.get("userId") || "");
+  const scoutId = String(formData.get("scoutId") || "");
+  if (!userId || !scoutId) throw new Error("Missing user or scout.");
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.role !== "PARENT") throw new Error("Parent account not found.");
+
+  const existing = await prisma.parent.findFirst({ where: { userId, scoutId } });
+  if (existing) throw new Error("This account is already attached to that scout.");
+
+  await prisma.parent.create({
+    data: { scoutId, userId, name: user.displayName, email: user.email },
+  });
+
+  revalidatePath(`/portal/admin/users/parents/${userId}`);
+  revalidatePath("/portal/admin/users/parents");
+  revalidatePath("/portal/roster/parents");
+}
+
 /** Deletes the linked portal account — revokes it for every scout it's tied to (siblings share one login). */
 export async function revokeParentPortalAction(parentId: string) {
   const session = await getSession();

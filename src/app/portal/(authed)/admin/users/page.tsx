@@ -5,6 +5,7 @@ import { requireAdminSession } from "@/lib/authorize";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
 import CreateAdminForm from "@/components/CreateAdminForm";
+import UsersSubNav from "@/components/UsersSubNav";
 
 export default async function AdminUsersPage() {
   await requireAdminSession();
@@ -27,6 +28,8 @@ export default async function AdminUsersPage() {
         <h2>Accounts</h2>
         <p>Every admin and den login for the pack. Resetting a password immediately invalidates the old one.</p>
       </div>
+
+      <UsersSubNav active="staff" />
 
       <table className="data-table" style={{ marginBottom: 32 }}>
         <thead>

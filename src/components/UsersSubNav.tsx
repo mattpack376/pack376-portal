@@ -1,0 +1,25 @@
+import Link from "next/link";
+
+export default function UsersSubNav({ active }: { active: "staff" | "parents" }) {
+  const linkStyle = (isActive: boolean) =>
+    isActive ? undefined : { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" };
+
+  return (
+    <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      <Link
+        href="/portal/admin/users"
+        className={`btn btn-small ${active === "staff" ? "btn-primary" : "btn-outline"}`}
+        style={linkStyle(active === "staff")}
+      >
+        Staff Accounts
+      </Link>
+      <Link
+        href="/portal/admin/users/parents"
+        className={`btn btn-small ${active === "parents" ? "btn-primary" : "btn-outline"}`}
+        style={linkStyle(active === "parents")}
+      >
+        Parent Accounts
+      </Link>
+    </div>
+  );
+}

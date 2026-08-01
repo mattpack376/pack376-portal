@@ -103,6 +103,7 @@ export async function resetPasswordAction(userId: string) {
   });
 
   revalidatePath("/portal/admin/users");
+  revalidatePath("/portal/admin/users/parents");
 
   const token = await issueResetToken(userId);
   const url = `${getAppBaseUrl()}/portal/reset/${token}`;
@@ -135,6 +136,8 @@ export async function updateUserEmailAction(formData: FormData) {
   await prisma.user.update({ where: { id: userId }, data: { email: email || null } });
 
   revalidatePath(`/portal/admin/users/${userId}`);
+  revalidatePath(`/portal/admin/users/parents/${userId}`);
+  revalidatePath("/portal/admin/users/parents");
 }
 
 export async function updateUserDisplayNameAction(formData: FormData) {
@@ -154,7 +157,9 @@ export async function updateUserDisplayNameAction(formData: FormData) {
   await prisma.user.update({ where: { id: userId }, data: { displayName } });
 
   revalidatePath(`/portal/admin/users/${userId}`);
+  revalidatePath(`/portal/admin/users/parents/${userId}`);
   revalidatePath("/portal/admin/users");
+  revalidatePath("/portal/admin/users/parents");
   revalidatePath("/portal/admin");
   revalidatePath("/portal/roster");
 }
@@ -252,5 +257,8 @@ export async function deleteUserAction(userId: string) {
 
   revalidatePath("/portal/admin/users");
   revalidatePath(`/portal/admin/users/${userId}`);
+  revalidatePath("/portal/admin/users/parents");
+  revalidatePath(`/portal/admin/users/parents/${userId}`);
+  revalidatePath("/portal/roster/parents");
   return { ok: true as const };
 }

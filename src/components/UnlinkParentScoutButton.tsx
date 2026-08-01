@@ -2,31 +2,22 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { deleteUserAction } from "@/lib/actions/users";
+import { unlinkParentScoutAction } from "@/lib/actions/parents";
 
-export default function DeleteUserButton({
-  userId,
-  username,
-  redirectTo = "/portal/admin/users",
-}: {
-  userId: string;
-  username: string;
-  redirectTo?: string;
-}) {
+export default function UnlinkParentScoutButton({ parentId, scoutName }: { parentId: string; scoutName: string }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   function handleClick() {
-    if (!window.confirm(`Delete the account "${username}"? This can't be undone.`)) return;
+    if (!window.confirm(`Remove this login's portal access to ${scoutName}? Their roster contact info stays on file.`)) return;
     startTransition(async () => {
-      const result = await deleteUserAction(userId);
-      if (result.ok) {
+      const outcome = await unlinkParentScoutAction(parentId);
+      if (outcome.ok) {
         setError(null);
-        router.push(redirectTo);
         router.refresh();
       } else {
-        setError(result.error || "Something went wrong.");
+        setError(outcome.error || "Something went wrong.");
       }
     });
   }
@@ -40,7 +31,7 @@ export default function DeleteUserButton({
         onClick={handleClick}
         disabled={isPending}
       >
-        {isPending ? "Deleting…" : "Delete"}
+        {isPending ? "Removing…" : "Unlink"}
       </button>
       {error && <p className="form-error" style={{ marginTop: 4, fontSize: 12 }}>{error}</p>}
     </div>
