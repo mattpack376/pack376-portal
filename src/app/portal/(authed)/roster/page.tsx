@@ -55,12 +55,19 @@ export default async function RosterPage() {
 
       {dens.length === 0 && <div className="info-card" style={{ fontSize: 16 }}>No dens yet.</div>}
 
-      {years.map((year) => (
+      {years.map((year) => {
+        const yearDens = dens.filter((d) => d.scoutingYear === year);
+        const yearScoutCount = yearDens.reduce((sum, d) => sum + d.scouts.length, 0);
+        return (
         <div key={year} style={{ marginBottom: 32 }}>
-          <h3 style={{ fontSize: 19, marginBottom: 14 }}>{year}</h3>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
+            <h3 style={{ fontSize: 19, margin: 0 }}>{year}</h3>
+            <span className="badge-pill badge-den" style={{ whiteSpace: "nowrap" }}>
+              {yearScoutCount} scout{yearScoutCount === 1 ? "" : "s"} total
+            </span>
+          </div>
           <div className="den-card-grid">
-            {dens
-              .filter((d) => d.scoutingYear === year)
+            {yearDens
               .map((den) => (
                 <div className="info-card" key={den.id}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
@@ -92,7 +99,8 @@ export default async function RosterPage() {
               ))}
           </div>
         </div>
-      ))}
+        );
+      })}
     </>
   );
 }
