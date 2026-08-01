@@ -11,6 +11,7 @@ import { getAppBaseUrl } from "@/lib/appUrl";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
 import { ASSIGNABLE_ROLES, DEN_ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/roleLabels";
 import { sendAccountLinkEmail } from "@/lib/email";
+import { formatPhoneNumber } from "@/lib/phone";
 import type { CreatedInvite } from "@/lib/actions/dens";
 
 export async function createAdminAction(
@@ -138,6 +139,33 @@ export async function updateUserEmailAction(formData: FormData) {
   revalidatePath(`/portal/admin/users/${userId}`);
   revalidatePath(`/portal/admin/users/parents/${userId}`);
   revalidatePath("/portal/admin/users/parents");
+}
+
+export async function updateUserPhoneAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const userId = String(formData.get("userId") || "");
+  const phone = formatPhoneNumber(String(formData.get("phone") || ""));
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  if (!user) throw new Error("User not found.");
+  // A master admin's contact identity can only be changed by another master admin.
+  if (isMasterAdminUsername(user.username)) await assertMasterAdmin(session);
+
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { phone: phone || null } }),
+    // A Parent Portal login's phone is mirrored onto every scout contact row
+    // it's linked to (siblings share one login) — a no-op for staff accounts,
+    // which have no parentContacts.
+    prisma.parent.updateMany({ where: { userId }, data: { phone: phone || null } }),
+  ]);
+
+  revalidatePath(`/portal/admin/users/${userId}`);
+  revalidatePath(`/portal/admin/users/parents/${userId}`);
+  revalidatePath("/portal/admin/users/parents");
+  revalidatePath("/portal/roster/parents");
 }
 
 export async function updateUserDisplayNameAction(formData: FormData) {

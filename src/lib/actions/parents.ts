@@ -8,6 +8,7 @@ import { generatePassword } from "@/lib/passwords";
 import { issueInviteToken } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { sendAccountLinkEmail } from "@/lib/email";
+import { formatPhoneNumber } from "@/lib/phone";
 import type { CreatedInvite } from "@/lib/actions/dens";
 
 export async function addParentAction(formData: FormData) {
@@ -18,7 +19,7 @@ export async function addParentAction(formData: FormData) {
   const scoutId = String(formData.get("scoutId") || "");
   const name = String(formData.get("name") || "").trim();
   const email = String(formData.get("email") || "").trim();
-  const phone = String(formData.get("phone") || "").trim();
+  const phone = formatPhoneNumber(String(formData.get("phone") || ""));
   if (!scoutId || !name) throw new Error("A parent name is required.");
 
   await prisma.parent.create({
@@ -36,15 +37,27 @@ export async function updateParentAction(formData: FormData) {
   const parentId = String(formData.get("parentId") || "");
   const name = String(formData.get("name") || "").trim();
   const email = String(formData.get("email") || "").trim();
-  const phone = String(formData.get("phone") || "").trim();
+  const phone = formatPhoneNumber(String(formData.get("phone") || ""));
   if (!parentId || !name) throw new Error("A parent name is required.");
 
-  await prisma.parent.update({
+  const parent = await prisma.parent.update({
     where: { id: parentId },
     data: { name, email: email || null, phone: phone || null },
   });
 
+  // Keep the linked portal account's phone — and every sibling contact row
+  // sharing that same login — in sync with whatever's edited here, since
+  // they all represent the same parent/guardian's number.
+  if (parent.userId) {
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: parent.userId }, data: { phone: phone || null } }),
+      prisma.parent.updateMany({ where: { userId: parent.userId }, data: { phone: phone || null } }),
+    ]);
+    revalidatePath(`/portal/admin/users/parents/${parent.userId}`);
+  }
+
   revalidatePath("/portal/roster/parents");
+  revalidatePath("/portal/admin/users/parents");
 }
 
 export async function removeParentAction(formData: FormData) {
@@ -118,6 +131,7 @@ export async function inviteParentPortalAction(parentId: string) {
       role: "PARENT",
       displayName: parent.name,
       email: cleanEmail,
+      phone: parent.phone,
     },
   });
   await prisma.parent.update({ where: { id: parentId }, data: { userId: user.id } });
@@ -188,7 +202,7 @@ export async function attachParentToScoutAction(formData: FormData) {
   if (existing) throw new Error("This account is already attached to that scout.");
 
   await prisma.parent.create({
-    data: { scoutId, userId, name: user.displayName, email: user.email },
+    data: { scoutId, userId, name: user.displayName, email: user.email, phone: user.phone },
   });
 
   revalidatePath(`/portal/admin/users/parents/${userId}`);

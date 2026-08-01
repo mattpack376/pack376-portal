@@ -1,5 +1,6 @@
 import "server-only";
 import { escapeCsvField } from "@/lib/csv";
+import { formatPhoneNumber } from "@/lib/phone";
 import { RANK_INFO } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
 
@@ -36,7 +37,7 @@ export function buildParentsCsv(rows: ParentCsvRow[]): string {
         escapeCsvField(row.lastName),
         escapeCsvField(row.parentName),
         escapeCsvField(row.parentEmail ?? ""),
-        escapeCsvField(row.parentPhone ?? ""),
+        escapeCsvField(row.parentPhone ? formatPhoneNumber(row.parentPhone) : ""),
       ].join(",")
     );
   }

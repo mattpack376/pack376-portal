@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
 import { requireAdminSession } from "@/lib/authorize";
-import { updateUserEmailAction, updateUserDisplayNameAction } from "@/lib/actions/users";
+import { updateUserEmailAction, updateUserDisplayNameAction, updateUserPhoneAction } from "@/lib/actions/users";
 import { attachParentToScoutAction } from "@/lib/actions/parents";
 import type { Rank } from "@/generated/prisma/enums";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
@@ -70,6 +70,19 @@ export default async function ManageParentAccountPage({
           <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
             <label htmlFor="email">Email</label>
             <input id="email" name="email" type="email" defaultValue={user.email ?? ""} />
+          </div>
+          <button type="submit" className="btn btn-primary">Save</button>
+        </form>
+      </div>
+
+      <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
+        <h3 style={{ marginTop: 0 }}>Phone Number</h3>
+        <p>Kept in sync with this contact&apos;s phone on Roster → Parents for every scout attached below.</p>
+        <form action={updateUserPhoneAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+          <input type="hidden" name="userId" value={user.id} />
+          <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
+            <label htmlFor="phone">Phone</label>
+            <input id="phone" name="phone" type="tel" defaultValue={user.phone ?? ""} placeholder="(212)555-1234" />
           </div>
           <button type="submit" className="btn btn-primary">Save</button>
         </form>

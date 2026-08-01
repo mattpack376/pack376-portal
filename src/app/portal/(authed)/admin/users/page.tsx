@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { denDisplayName } from "@/lib/rankConfig";
 import { requireAdminSession } from "@/lib/authorize";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
+import { formatPhoneNumber } from "@/lib/phone";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
 import CreateAdminForm from "@/components/CreateAdminForm";
 import UsersSubNav from "@/components/UsersSubNav";
@@ -37,6 +38,7 @@ export default async function AdminUsersPage() {
             <th>Username</th>
             <th>Role</th>
             <th>Display Name</th>
+            <th>Phone</th>
             <th>Den</th>
             <th>Status</th>
             <th></th>
@@ -52,6 +54,7 @@ export default async function AdminUsersPage() {
                 </span>
               </td>
               <td>{user.displayName}</td>
+              <td>{user.phone ? formatPhoneNumber(user.phone) : "—"}</td>
               <td>
                 {user.denAssignments.length > 0
                   ? user.denAssignments

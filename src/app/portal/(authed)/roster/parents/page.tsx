@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
 import { addParentAction, updateParentAction, removeParentAction } from "@/lib/actions/parents";
+import { formatPhoneNumber } from "@/lib/phone";
 import EmailAllButton from "@/components/EmailAllButton";
 import PrintButton from "@/components/PrintButton";
 import InviteParentPortalButton from "@/components/InviteParentPortalButton";
@@ -129,7 +130,7 @@ export default async function ParentContactsPage({
                               <td>{i === 0 ? `${scout.firstName} ${scout.lastName}` : ""}</td>
                               <td>{parent.name}</td>
                               <td>{parent.email || "—"}</td>
-                              <td>{parent.phone || "—"}</td>
+                              <td>{parent.phone ? formatPhoneNumber(parent.phone) : "—"}</td>
                             </tr>
                           ))
                         )
@@ -246,7 +247,7 @@ export default async function ParentContactsPage({
                               <span style={{ fontSize: 16 }}>
                                 <strong>{parent.name}</strong>
                                 {parent.email && ` · ${parent.email}`}
-                                {parent.phone && ` · ${parent.phone}`}
+                                {parent.phone && ` · ${formatPhoneNumber(parent.phone)}`}
                               </span>
                             )}
                           </div>

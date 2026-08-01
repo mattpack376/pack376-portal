@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName } from "@/lib/rankConfig";
 import { requireAdminSession } from "@/lib/authorize";
+import { formatPhoneNumber } from "@/lib/phone";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
 import UsersSubNav from "@/components/UsersSubNav";
 
@@ -36,6 +37,7 @@ export default async function AdminParentAccountsPage() {
           <tr>
             <th>Login</th>
             <th>Display Name</th>
+            <th>Phone</th>
             <th>Kids Attached</th>
             <th>Status</th>
             <th></th>
@@ -44,13 +46,14 @@ export default async function AdminParentAccountsPage() {
         <tbody>
           {parents.length === 0 && (
             <tr>
-              <td colSpan={5}>No Parent Portal accounts yet.</td>
+              <td colSpan={6}>No Parent Portal accounts yet.</td>
             </tr>
           )}
           {parents.map((user) => (
             <tr key={user.id}>
               <td>{user.username}</td>
               <td>{user.displayName}</td>
+              <td>{user.phone ? formatPhoneNumber(user.phone) : "—"}</td>
               <td>
                 {user.parentContacts.length > 0
                   ? user.parentContacts
