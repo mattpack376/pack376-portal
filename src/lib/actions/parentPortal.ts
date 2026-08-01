@@ -27,6 +27,27 @@ export async function createAnnouncementAction(formData: FormData) {
   revalidatePath(PARENT_DASHBOARD_PATH);
 }
 
+export async function updateAnnouncementAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const id = String(formData.get("id") || "");
+  const title = String(formData.get("title") || "").trim();
+  const body = String(formData.get("body") || "").trim();
+  const pinned = formData.get("pinned") === "on";
+  if (!id) throw new Error("Missing announcement id.");
+  if (!title || !body) throw new Error("Title and body are required.");
+
+  await prisma.announcement.update({
+    where: { id },
+    data: { title, body, pinned },
+  });
+
+  revalidatePath(PARENT_PORTAL_ADMIN_PATH);
+  revalidatePath(PARENT_DASHBOARD_PATH);
+}
+
 export async function deleteAnnouncementAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
@@ -56,6 +77,31 @@ export async function createDeadlineAction(formData: FormData) {
   if (Number.isNaN(dueDate.getTime())) throw new Error("Invalid due date.");
 
   await prisma.deadline.create({
+    data: { title, category, dueDate, description: description || null },
+  });
+
+  revalidatePath(PARENT_PORTAL_ADMIN_PATH);
+  revalidatePath(PARENT_DASHBOARD_PATH);
+}
+
+export async function updateDeadlineAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const id = String(formData.get("id") || "");
+  const title = String(formData.get("title") || "").trim();
+  const category = String(formData.get("category") || "GENERAL") as DeadlineCategory;
+  const dueDateStr = String(formData.get("dueDate") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  if (!id) throw new Error("Missing deadline id.");
+  if (!title || !dueDateStr) throw new Error("Title and due date are required.");
+
+  const dueDate = new Date(`${dueDateStr}T00:00:00Z`);
+  if (Number.isNaN(dueDate.getTime())) throw new Error("Invalid due date.");
+
+  await prisma.deadline.update({
+    where: { id },
     data: { title, category, dueDate, description: description || null },
   });
 

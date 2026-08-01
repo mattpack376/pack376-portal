@@ -3,13 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
 import {
   createAnnouncementAction,
+  updateAnnouncementAction,
   deleteAnnouncementAction,
   createDeadlineAction,
+  updateDeadlineAction,
   deleteDeadlineAction,
   createVolunteerNeedAction,
   toggleVolunteerNeedAction,
   deleteVolunteerNeedAction,
 } from "@/lib/actions/parentPortal";
+
+function toDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
 
 export default async function ParentPortalAdminPage() {
   await requireAdminSession();
@@ -56,12 +62,35 @@ export default async function ParentPortalAdminPage() {
                   <p style={{ marginBottom: 2, fontWeight: 700 }}>{a.pinned && "📌 "}{a.title}</p>
                   <p style={{ marginBottom: 0, fontSize: 14 }}>{a.body}</p>
                 </div>
-                <form action={deleteAnnouncementAction}>
-                  <input type="hidden" name="id" value={a.id} />
-                  <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
-                    Delete
-                  </button>
-                </form>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <details>
+                    <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
+                      Edit
+                    </summary>
+                    <form action={updateAnnouncementAction} style={{ marginTop: 12, minWidth: 240 }}>
+                      <input type="hidden" name="id" value={a.id} />
+                      <div className="form-field">
+                        <label htmlFor={`ann-title-${a.id}`}>Title</label>
+                        <input id={`ann-title-${a.id}`} name="title" defaultValue={a.title} required />
+                      </div>
+                      <div className="form-field">
+                        <label htmlFor={`ann-body-${a.id}`}>Message</label>
+                        <textarea id={`ann-body-${a.id}`} name="body" rows={3} defaultValue={a.body} required />
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 14, fontWeight: 600 }}>
+                        <input type="checkbox" name="pinned" defaultChecked={a.pinned} style={{ width: "auto" }} />
+                        Pin to top
+                      </label>
+                      <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                    </form>
+                  </details>
+                  <form action={deleteAnnouncementAction}>
+                    <input type="hidden" name="id" value={a.id} />
+                    <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                      Delete
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
           ))
@@ -107,12 +136,45 @@ export default async function ParentPortalAdminPage() {
                   <p style={{ marginBottom: 0, fontWeight: 700 }}>{d.title}</p>
                   {d.description && <p style={{ marginBottom: 0, fontSize: 14 }}>{d.description}</p>}
                 </div>
-                <form action={deleteDeadlineAction}>
-                  <input type="hidden" name="id" value={d.id} />
-                  <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
-                    Delete
-                  </button>
-                </form>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <details>
+                    <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
+                      Edit
+                    </summary>
+                    <form action={updateDeadlineAction} style={{ marginTop: 12, minWidth: 240 }}>
+                      <input type="hidden" name="id" value={d.id} />
+                      <div className="form-field">
+                        <label htmlFor={`dl-title-${d.id}`}>Title</label>
+                        <input id={`dl-title-${d.id}`} name="title" defaultValue={d.title} required />
+                      </div>
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                          <label htmlFor={`dl-category-${d.id}`}>Category</label>
+                          <select id={`dl-category-${d.id}`} name="category" defaultValue={d.category}>
+                            {Object.entries(DEADLINE_CATEGORY_LABELS).map(([value, label]) => (
+                              <option key={value} value={value}>{label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                          <label htmlFor={`dl-dueDate-${d.id}`}>Due Date</label>
+                          <input id={`dl-dueDate-${d.id}`} name="dueDate" type="date" defaultValue={toDateInputValue(d.dueDate)} required />
+                        </div>
+                      </div>
+                      <div className="form-field">
+                        <label htmlFor={`dl-description-${d.id}`}>Description (optional)</label>
+                        <textarea id={`dl-description-${d.id}`} name="description" rows={2} defaultValue={d.description ?? ""} />
+                      </div>
+                      <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                    </form>
+                  </details>
+                  <form action={deleteDeadlineAction}>
+                    <input type="hidden" name="id" value={d.id} />
+                    <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                      Delete
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
           ))
