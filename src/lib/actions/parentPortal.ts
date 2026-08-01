@@ -140,6 +140,26 @@ export async function createVolunteerNeedAction(formData: FormData) {
   revalidatePath(PARENT_DASHBOARD_PATH);
 }
 
+export async function updateVolunteerNeedAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const id = String(formData.get("id") || "");
+  const title = String(formData.get("title") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  if (!id) throw new Error("Missing volunteer need id.");
+  if (!title) throw new Error("Title is required.");
+
+  await prisma.volunteerNeed.update({
+    where: { id },
+    data: { title, description: description || null },
+  });
+
+  revalidatePath(PARENT_PORTAL_ADMIN_PATH);
+  revalidatePath(PARENT_DASHBOARD_PATH);
+}
+
 export async function toggleVolunteerNeedAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");

@@ -9,6 +9,7 @@ import {
   updateDeadlineAction,
   deleteDeadlineAction,
   createVolunteerNeedAction,
+  updateVolunteerNeedAction,
   toggleVolunteerNeedAction,
   deleteVolunteerNeedAction,
 } from "@/lib/actions/parentPortal";
@@ -211,6 +212,23 @@ export default async function ParentPortalAdminPage() {
                   {v.description && <p style={{ marginBottom: 0, fontSize: 14 }}>{v.description}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <details className="edit-popover">
+                    <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
+                      Edit
+                    </summary>
+                    <form action={updateVolunteerNeedAction}>
+                      <input type="hidden" name="id" value={v.id} />
+                      <div className="form-field">
+                        <label htmlFor={`vn-title-${v.id}`}>Title</label>
+                        <input id={`vn-title-${v.id}`} name="title" defaultValue={v.title} required />
+                      </div>
+                      <div className="form-field">
+                        <label htmlFor={`vn-description-${v.id}`}>Description (optional)</label>
+                        <textarea id={`vn-description-${v.id}`} name="description" rows={2} defaultValue={v.description ?? ""} />
+                      </div>
+                      <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                    </form>
+                  </details>
                   <form action={toggleVolunteerNeedAction}>
                     <input type="hidden" name="id" value={v.id} />
                     <input type="hidden" name="active" value={String(v.active)} />
