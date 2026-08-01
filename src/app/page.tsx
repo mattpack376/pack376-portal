@@ -149,10 +149,10 @@ export default async function HomePage() {
           <div className="section-head center">
             <div className="eyebrow">Cub Scouts Near You</div>
             <h2>Proudly Based in Gravesend, Brooklyn</h2>
-            <p>We welcome all families from these neighborhoods:</p>
+            <p>We welcome all families from Gravesend and nearby neighborhoods:</p>
           </div>
           <div className="neighborhood-chips">
-            {NEARBY_NEIGHBORHOODS.map((neighborhood) => (
+            {NEARBY_NEIGHBORHOODS.filter((neighborhood) => neighborhood !== "Gravesend").map((neighborhood) => (
               <span className="neighborhood-chip" key={neighborhood}>
                 {neighborhood}
               </span>
