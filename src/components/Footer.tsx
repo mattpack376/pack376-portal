@@ -16,8 +16,8 @@ export default function Footer() {
           <p>
             Cub Scout Pack 376, chartered by Our Lady of Grace in Gravesend, Brooklyn, NY. We
             welcome all families from Bath Beach, Bensonhurst, Brighton Beach, Coney Island,
-            Gerritsen Beach, Gravesend, Homecrest, Madison, Manhattan Beach, Mapleton, Marine
-            Park, Midwood, Seagate &amp; Sheepshead Bay. Boys and girls, K–5.
+            Gravesend, Homecrest, Madison, Manhattan Beach, Mapleton, Midwood, Seagate &amp;
+            Sheepshead Bay. Boys and girls, K–5.
           </p>
           <a className="footer-instagram" href="https://instagram.com/pack.376" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
