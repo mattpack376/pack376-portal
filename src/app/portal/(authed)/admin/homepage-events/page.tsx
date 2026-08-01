@@ -109,11 +109,11 @@ export default async function HomepageEventsAdminPage() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <details>
+                  <details className="edit-popover">
                     <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
                       Edit
                     </summary>
-                    <form action={updateSiteBannerAction} style={{ marginTop: 12, minWidth: 260 }}>
+                    <form action={updateSiteBannerAction}>
                       <input type="hidden" name="id" value={banner.id} />
                       <div className="form-field">
                         <label htmlFor={`banner-message-${banner.id}`}>Message</label>

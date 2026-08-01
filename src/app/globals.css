@@ -696,6 +696,28 @@ section { padding: 64px 0; }
   box-shadow: var(--shadow-card);
   padding: 28px;
 }
+
+/*
+ * Inline "Edit" trigger (a <details>/<summary> pair) used in admin list
+ * rows. The form is positioned as an absolute popover rather than left to
+ * expand inline — otherwise, as a flex sibling of the row's other buttons,
+ * opening it grows that flex item and shoves the other buttons out of place.
+ */
+.edit-popover {
+  position: relative;
+}
+.edit-popover > form {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  width: 280px;
+  max-width: calc(100vw - 40px);
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: var(--shadow-pop);
+  padding: 16px;
+}
 .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;

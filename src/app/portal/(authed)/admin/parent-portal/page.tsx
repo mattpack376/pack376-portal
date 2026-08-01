@@ -63,11 +63,11 @@ export default async function ParentPortalAdminPage() {
                   <p style={{ marginBottom: 0, fontSize: 14 }}>{a.body}</p>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <details>
+                  <details className="edit-popover">
                     <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
                       Edit
                     </summary>
-                    <form action={updateAnnouncementAction} style={{ marginTop: 12, minWidth: 240 }}>
+                    <form action={updateAnnouncementAction}>
                       <input type="hidden" name="id" value={a.id} />
                       <div className="form-field">
                         <label htmlFor={`ann-title-${a.id}`}>Title</label>
@@ -137,11 +137,11 @@ export default async function ParentPortalAdminPage() {
                   {d.description && <p style={{ marginBottom: 0, fontSize: 14 }}>{d.description}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <details>
+                  <details className="edit-popover">
                     <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
                       Edit
                     </summary>
-                    <form action={updateDeadlineAction} style={{ marginTop: 12, minWidth: 240 }}>
+                    <form action={updateDeadlineAction}>
                       <input type="hidden" name="id" value={d.id} />
                       <div className="form-field">
                         <label htmlFor={`dl-title-${d.id}`}>Title</label>
