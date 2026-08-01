@@ -60,7 +60,12 @@ export default async function AdminDenDetailPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Roster</h3>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+          <h3 style={{ marginTop: 0 }}>Roster</h3>
+          <span className="badge-pill badge-den" style={{ whiteSpace: "nowrap" }}>
+            {scouts.length} scout{scouts.length === 1 ? "" : "s"}
+          </span>
+        </div>
         {scouts.length === 0 && <p>No scouts yet.</p>}
         {scouts.length > 0 && (
           <table className="data-table" style={{ marginBottom: 20 }}>
