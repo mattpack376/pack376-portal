@@ -24,10 +24,7 @@ const NEARBY_NEIGHBORHOODS = [
 ];
 
 const OTHER_NEIGHBORHOODS = NEARBY_NEIGHBORHOODS.filter((n) => n !== "Gravesend");
-// Desktop: two rows of 5 then 6. Mobile: two columns of 5 then a lone 11th chip below.
 const NEIGHBORHOOD_ROWS = [OTHER_NEIGHBORHOODS.slice(0, 5), OTHER_NEIGHBORHOODS.slice(5)];
-const NEIGHBORHOOD_COLUMNS = [OTHER_NEIGHBORHOODS.slice(0, 5), OTHER_NEIGHBORHOODS.slice(5, 10)];
-const NEIGHBORHOOD_EXTRA = OTHER_NEIGHBORHOODS[10];
 
 export const metadata: Metadata = {
   title: "Pack 376 — Cub Scouts in Gravesend, Brooklyn NY",
@@ -155,7 +152,7 @@ export default async function HomePage() {
             <h2>Proudly Based in Gravesend, Brooklyn</h2>
             <p>We welcome all families from Gravesend and nearby neighborhoods:</p>
           </div>
-          <div className="neighborhood-chips-desktop">
+          <div className="neighborhood-chips">
             {NEIGHBORHOOD_ROWS.map((row, i) => (
               <div className="neighborhood-row" key={i}>
                 {row.map((neighborhood) => (
@@ -165,20 +162,6 @@ export default async function HomePage() {
                 ))}
               </div>
             ))}
-          </div>
-          <div className="neighborhood-chips-mobile">
-            <div className="neighborhood-columns">
-              {NEIGHBORHOOD_COLUMNS.map((column, i) => (
-                <div className="neighborhood-column" key={i}>
-                  {column.map((neighborhood) => (
-                    <span className="neighborhood-chip" key={neighborhood}>
-                      {neighborhood}
-                    </span>
-                  ))}
-                </div>
-              ))}
-            </div>
-            <span className="neighborhood-chip">{NEIGHBORHOOD_EXTRA}</span>
           </div>
         </div>
       </section>
