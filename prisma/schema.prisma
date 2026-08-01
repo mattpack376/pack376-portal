@@ -351,11 +351,17 @@ model HomepageEvent {
  * this isn't a list of posts, just a way to swap the current message.
  */
 model SiteBanner {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   message   String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  active    Boolean   @default(true)
+  // Optional scheduling window (UTC instants; entered/displayed in the pack's
+  // America/New_York local time — see src/lib/bannerSchedule.ts). A banner
+  // with both null is a "default" banner: it only shows when no scheduled
+  // banner is currently within its window. See getActiveSiteBanner.
+  startAt   DateTime?
+  endAt     DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 /**
