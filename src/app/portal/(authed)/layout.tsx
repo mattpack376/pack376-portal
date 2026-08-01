@@ -3,13 +3,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { requireSession, homeForRole } from "@/lib/authorize";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
+import { getActiveSiteBanner } from "@/lib/siteBannerData";
 import PortalNav from "@/components/PortalNav";
 import LogoutButton from "@/components/LogoutButton";
 
 export default async function AuthedPortalLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const session = await requireSession();
+  const [session, siteBanner] = await Promise.all([requireSession(), getActiveSiteBanner()]);
 
   return (
     <div className="portal-shell">
@@ -39,6 +40,7 @@ export default async function AuthedPortalLayout({
           </div>
         </div>
       </header>
+      {siteBanner && <div className="site-banner">{siteBanner.message}</div>}
       <main className="portal-main">
         <div className="portal-container">{children}</div>
       </main>
