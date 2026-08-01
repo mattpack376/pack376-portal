@@ -339,6 +339,26 @@ section { padding: 64px 0; }
 }
 .fact-bar .dot { opacity: 0.4; color: var(--carnival-red); }
 
+/* ---------- Neighborhood chips (local-area SEO section) ---------- */
+.neighborhood-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 24px;
+}
+.neighborhood-chip {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--scout-blue-dark);
+  background: var(--white);
+  border: 2px solid var(--cream-dark);
+  border-radius: 999px;
+  padding: 8px 18px;
+  box-shadow: var(--shadow-card);
+}
+
 /* ---------- Cards ---------- */
 .card-grid {
   display: grid;

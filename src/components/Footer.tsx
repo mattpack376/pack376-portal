@@ -14,8 +14,9 @@ export default function Footer() {
             <span className="pack-name">Pack 376</span>
           </div>
           <p>
-            Cub Scout Pack 376, chartered by Our Lady of Grace, Brooklyn, NY. All families
-            welcome — boys and girls, K–5. Real adventures, lifelong skills, boardwalk spirit.
+            Cub Scout Pack 376, chartered by Our Lady of Grace in Gravesend, Brooklyn, NY.
+            Serving Gravesend, Madison, Homecrest, Sheepshead Bay, Bensonhurst, Marine Park,
+            Coney Island &amp; Seagate. All families welcome — boys and girls, K–5.
           </p>
           <a className="footer-instagram" href="https://instagram.com/pack.376" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
@@ -55,7 +56,7 @@ export default function Footer() {
             <br />
             430 Avenue W
             <br />
-            Brooklyn, NY 11223
+            Gravesend, Brooklyn, NY 11223
           </p>
         </div>
       </div>

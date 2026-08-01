@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
@@ -7,6 +8,46 @@ import { getActiveSiteBanner } from "@/lib/siteBannerData";
 
 const JOIN_URL = "https://my.scouting.org/VES/OnlineReg/1.0.0/?tu=UF-MB-640paa3376";
 
+const NEARBY_NEIGHBORHOODS = [
+  "Gravesend",
+  "Madison",
+  "Homecrest",
+  "Sheepshead Bay",
+  "Bensonhurst",
+  "Marine Park",
+  "Coney Island",
+  "Seagate",
+];
+
+export const metadata: Metadata = {
+  title: "Pack 376 — Cub Scouts in Gravesend, Brooklyn NY",
+  description:
+    "Pack 376 is a Cub Scout pack based in Gravesend, Brooklyn, welcoming families from Gravesend, Madison, Homecrest, Sheepshead Bay, Bensonhurst, Marine Park, Coney Island, and Seagate. All families welcome — boys and girls, kindergarten through 5th grade.",
+};
+
+const localOrgJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Cub Scout Pack 376",
+  url: "https://pack376nyc.org",
+  logo: "https://pack376nyc.org/cub-scout-emblem.png",
+  description:
+    "Cub Scout Pack 376 is based in Gravesend, Brooklyn, NY, welcoming Cub Scout families from Gravesend, Madison, Homecrest, Sheepshead Bay, Bensonhurst, Marine Park, Coney Island, and Seagate.",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "430 Avenue W",
+    addressLocality: "Brooklyn",
+    addressRegion: "NY",
+    postalCode: "11223",
+    addressCountry: "US",
+  },
+  areaServed: NEARBY_NEIGHBORHOODS.map((name) => ({
+    "@type": "Place",
+    name: `${name}, Brooklyn`,
+  })),
+  sameAs: ["https://instagram.com/pack.376"],
+};
+
 export default async function HomePage() {
   const [homepageEvents, siteBanner] = await Promise.all([
     getUpcomingHomepageEvents(),
@@ -15,6 +56,10 @@ export default async function HomePage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localOrgJsonLd) }}
+      />
       <Header />
       {siteBanner && <div className="site-banner">{siteBanner.message}</div>}
 
@@ -37,7 +82,8 @@ export default async function HomePage() {
             </h1>
             <p className="lead">
               Pack 376 brings the boardwalk to Cub Scouting — real adventures, lifelong
-              skills, and a pack family that feels like Brooklyn. All families welcome —
+              skills, and a pack family that feels like Brooklyn. Based in Gravesend,
+              we welcome scouts from all over southern Brooklyn. All families welcome —
               boys and girls, kindergarten through 5th grade.
             </p>
             <div className="hero-actions">
@@ -84,13 +130,33 @@ export default async function HomePage() {
 
       <div className="fact-bar-wrap">
         <div className="fact-bar">
-          <span>📍 Veltri Hall, Our Lady of Grace — 430 Avenue W, Brooklyn, NY</span>
+          <span>📍 Veltri Hall, Our Lady of Grace — 430 Avenue W, Gravesend, Brooklyn</span>
           <span className="dot">•</span>
           <span>🗓️ Weekly Meetings — Fridays, 7:00–9:30 PM</span>
           <span className="dot">•</span>
           <span>👦👧 All Families Welcome — Boys &amp; Girls</span>
         </div>
       </div>
+
+      <section className="section-tight">
+        <div className="container">
+          <div className="section-head center">
+            <div className="eyebrow">Cub Scouts Near You</div>
+            <h2>Proudly Based in Gravesend, Brooklyn</h2>
+            <p>
+              Our pack meets at Our Lady of Grace in Gravesend and draws scouting families
+              from all over southern Brooklyn, including:
+            </p>
+          </div>
+          <div className="neighborhood-chips">
+            {NEARBY_NEIGHBORHOODS.map((neighborhood) => (
+              <span className="neighborhood-chip" key={neighborhood}>
+                {neighborhood}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section>
         <div className="container">
