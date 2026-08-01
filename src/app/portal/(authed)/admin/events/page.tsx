@@ -3,7 +3,7 @@ import { requireAdminSession } from "@/lib/authorize";
 import { getEvents } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
-import { createEventAction } from "@/lib/actions/events";
+import { createEventAction, toggleEventVisibilityAction } from "@/lib/actions/events";
 
 export default async function AdminEventsPage() {
   await requireAdminSession();
@@ -34,6 +34,7 @@ export default async function AdminEventsPage() {
               <th>Date</th>
               <th>Registered</th>
               <th>Collected</th>
+              <th>Status</th>
               <th></th>
             </tr>
           </thead>
@@ -55,6 +56,11 @@ export default async function AdminEventsPage() {
                 <td>
                   {formatCents(event.totalPaidCents)} / {formatCents(event.totalOwedCents)}
                 </td>
+                <td>
+                  <span className={`badge-pill ${event.visible ? "badge-attendance" : "badge-pending"}`}>
+                    {event.visible ? "Visible" : "Hidden"}
+                  </span>
+                </td>
                 <td className="actions">
                   <Link
                     className="btn btn-outline btn-small"
@@ -63,6 +69,13 @@ export default async function AdminEventsPage() {
                   >
                     Manage
                   </Link>
+                  <form action={toggleEventVisibilityAction}>
+                    <input type="hidden" name="id" value={event.id} />
+                    <input type="hidden" name="visible" value={String(event.visible)} />
+                    <button type="submit" className="btn btn-outline btn-small">
+                      {event.visible ? "Hide" : "Show"}
+                    </button>
+                  </form>
                 </td>
               </tr>
             ))}

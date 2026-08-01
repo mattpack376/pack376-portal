@@ -86,6 +86,23 @@ export async function updateEventAction(formData: FormData) {
   revalidatePath("/portal/admin/events");
 }
 
+export async function toggleEventVisibilityAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const id = String(formData.get("id") || "");
+  const visible = String(formData.get("visible") || "") === "true";
+  if (!id) throw new Error("Missing event id.");
+
+  await prisma.event.update({ where: { id }, data: { visible: !visible } });
+
+  revalidatePath(`/portal/admin/events/${id}`);
+  revalidatePath("/portal/admin/events");
+  revalidatePath("/portal/parent");
+  revalidatePath("/portal/roster/family-view");
+}
+
 export async function deleteEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");

@@ -386,6 +386,10 @@ model Event {
   // Same idea as adultFeeCents, but per guest child (childCount *
   // guestChildFeeCents) — null means guest children can't self-register.
   guestChildFeeCents Int?
+  // Hides the event from parent/leader self-registration (Parent Dashboard,
+  // Family View) without deleting it — admins still see and manage it, and
+  // anyone already registered keeps their existing registration/balance.
+  visible            Boolean             @default(true)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   registrations      EventRegistration[]

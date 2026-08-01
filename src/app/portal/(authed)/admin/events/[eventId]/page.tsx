@@ -10,6 +10,7 @@ import {
   registerScoutForEventAction,
   removeRegistrationAction,
   updateEventAction,
+  toggleEventVisibilityAction,
   addGuestGroupAction,
   removeGuestGroupAction,
 } from "@/lib/actions/events";
@@ -90,6 +91,9 @@ export default async function AdminEventDetailPage({
             {event.feeCents !== null && ` · Default fee ${formatCents(event.feeCents)}`}
           </p>
           {event.description && <p style={{ fontSize: 16 }}>{event.description}</p>}
+          <span className={`badge-pill ${event.visible ? "badge-attendance" : "badge-pending"}`}>
+            {event.visible ? "Visible to families" : "Hidden from families"}
+          </span>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {(event.registrations.length > 0 || event.guestGroups.length > 0) && (
@@ -101,6 +105,17 @@ export default async function AdminEventDetailPage({
               Export CSV (Scouts &amp; Guests)
             </a>
           )}
+          <form action={toggleEventVisibilityAction}>
+            <input type="hidden" name="id" value={event.id} />
+            <input type="hidden" name="visible" value={String(event.visible)} />
+            <button
+              type="submit"
+              className="btn btn-outline btn-small"
+              style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+            >
+              {event.visible ? "Hide from Families" : "Show to Families"}
+            </button>
+          </form>
           <DeleteEventButton eventId={event.id} title={event.title} />
         </div>
       </div>

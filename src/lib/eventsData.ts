@@ -45,6 +45,7 @@ export async function getEvents() {
       feeCents: event.feeCents,
       adultFeeCents: event.adultFeeCents,
       guestChildFeeCents: event.guestChildFeeCents,
+      visible: event.visible,
       registrationCount: registrations.length,
       guestAdultCount: guestGroups.reduce((sum, g) => sum + g.adultCount, 0),
       guestChildCount: guestGroups.reduce((sum, g) => sum + g.childCount, 0),
@@ -91,6 +92,7 @@ export async function getEventDetail(eventId: string) {
     feeCents: event.feeCents,
     adultFeeCents: event.adultFeeCents,
     guestChildFeeCents: event.guestChildFeeCents,
+    visible: event.visible,
     registrations: event.registrations.map((reg) => ({
       ...withBalance(reg),
       scout: { id: reg.scout.id, firstName: reg.scout.firstName, lastName: reg.scout.lastName, den: reg.scout.den },
@@ -235,6 +237,7 @@ export async function getOpenEventsForSelfRegistration(scoutIds: string[], userI
   const events = await prisma.event.findMany({
     where: {
       eventDate: { gte: todayUtc },
+      visible: true,
       OR: [{ feeCents: { not: null } }, { adultFeeCents: { not: null } }, { guestChildFeeCents: { not: null } }],
     },
     include: {
