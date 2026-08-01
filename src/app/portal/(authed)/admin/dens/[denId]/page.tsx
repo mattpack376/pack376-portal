@@ -62,7 +62,7 @@ export default async function AdminDenDetailPage({
       <div className="info-card" style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
           <h3 style={{ marginTop: 0 }}>Roster</h3>
-          <span className="badge-pill badge-den" style={{ whiteSpace: "nowrap" }}>
+          <span className="badge-pill badge-den badge-count" style={{ whiteSpace: "nowrap" }}>
             {scouts.length} scout{scouts.length === 1 ? "" : "s"}
           </span>
         </div>

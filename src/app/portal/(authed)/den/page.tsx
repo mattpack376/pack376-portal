@@ -33,7 +33,7 @@ export default async function DenPortalPage({
           <h2>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h2>
           <p>Tap an adventure to mark it complete.</p>
         </div>
-        <span className="badge-pill badge-den" style={{ whiteSpace: "nowrap" }}>
+        <span className="badge-pill badge-den badge-count" style={{ whiteSpace: "nowrap" }}>
           {scouts.length} scout{scouts.length === 1 ? "" : "s"}
         </span>
       </div>

@@ -62,7 +62,7 @@ export default async function RosterPage() {
         <div key={year} style={{ marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
             <h3 style={{ fontSize: 19, margin: 0 }}>{year}</h3>
-            <span className="badge-pill badge-den" style={{ whiteSpace: "nowrap" }}>
+            <span className="badge-pill badge-den badge-count" style={{ whiteSpace: "nowrap" }}>
               {yearScoutCount} scout{yearScoutCount === 1 ? "" : "s"} total
             </span>
           </div>
@@ -72,7 +72,7 @@ export default async function RosterPage() {
                 <div className="info-card" key={den.id}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                     <h3 style={{ marginTop: 0, fontSize: 18 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
-                    <span className="badge-pill badge-den" style={{ whiteSpace: "nowrap" }}>
+                    <span className="badge-pill badge-den badge-count" style={{ whiteSpace: "nowrap" }}>
                       {den.scouts.length} scout{den.scouts.length === 1 ? "" : "s"}
                     </span>
                   </div>
