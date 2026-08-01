@@ -63,7 +63,12 @@ export default async function RosterPage() {
               .filter((d) => d.scoutingYear === year)
               .map((den) => (
                 <div className="info-card" key={den.id}>
-                  <h3 style={{ marginTop: 0, fontSize: 18 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                    <h3 style={{ marginTop: 0, fontSize: 18 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
+                    <span className="badge-pill badge-den" style={{ whiteSpace: "nowrap" }}>
+                      {den.scouts.length} scout{den.scouts.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
                   <p style={{ fontSize: 15, color: "var(--ink-soft)", marginBottom: 12 }}>
                     Den Leader(s):{" "}
                     {den.denAssignments.length > 0 ? (
