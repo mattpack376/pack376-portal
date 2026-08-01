@@ -246,7 +246,7 @@ export default async function HomePage() {
           <div className="section-head center">
             <div className="eyebrow">Save the Date</div>
             <h2>Upcoming Attractions</h2>
-            <p>A few highlights from our 2026–2027 calendar — see the full schedule at a pack meeting.</p>
+            <p>A few highlights from our 2026–2027 calendar — see the full schedule in the Calendar menu.</p>
           </div>
           <div className="event-list">
             {homepageEvents.map((event) => (
