@@ -18,6 +18,10 @@ export default async function AdminDuesPage({
 
   const { amountCents, dens } = await getDuesOverview(scoutingYear);
 
+  const allScouts = dens.flatMap((den) => den.scouts);
+  const totalDuesCents = amountCents === null ? null : amountCents * allScouts.length;
+  const collectedCents = allScouts.reduce((sum, s) => sum + s.paidCents, 0);
+
   return (
     <>
       <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
@@ -40,29 +44,54 @@ export default async function AdminDuesPage({
         </form>
       </div>
 
-      <div className="info-card" style={{ maxWidth: 360, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Season Fee — {scoutingYear}</h3>
-        <p>
-          {amountCents === null
-            ? "Not set yet. Enter the amount once the pack decides on it."
-            : `Current fee: ${formatCents(amountCents)} per scout.`}
-        </p>
-        <form action={setDuesAmountAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-          <input type="hidden" name="scoutingYear" value={scoutingYear} />
-          <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
-            <label htmlFor="amount">Amount ($)</label>
-            <input
-              id="amount"
-              name="amount"
-              type="number"
-              min="0"
-              step="0.01"
-              defaultValue={amountCents === null ? "" : (amountCents / 100).toFixed(2)}
-              required
-            />
-          </div>
-          <button type="submit" className="btn btn-primary">Save</button>
-        </form>
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 24 }}>
+        <div className="info-card" style={{ maxWidth: 360, marginBottom: 0 }}>
+          <h3 style={{ marginTop: 0 }}>Season Fee — {scoutingYear}</h3>
+          <p>
+            {amountCents === null
+              ? "Not set yet. Enter the amount once the pack decides on it."
+              : `Current fee: ${formatCents(amountCents)} per scout.`}
+          </p>
+          <form action={setDuesAmountAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+            <input type="hidden" name="scoutingYear" value={scoutingYear} />
+            <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
+              <label htmlFor="amount">Amount ($)</label>
+              <input
+                id="amount"
+                name="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={amountCents === null ? "" : (amountCents / 100).toFixed(2)}
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary">Save</button>
+          </form>
+        </div>
+
+        <div className="info-card" style={{ maxWidth: 260, marginBottom: 0 }}>
+          <h3 style={{ marginTop: 0 }}>Total Dues to be Collected</h3>
+          <p style={{ fontSize: 28, fontWeight: 700, color: "var(--scout-blue)", margin: 0 }}>
+            {totalDuesCents === null ? "—" : formatCents(totalDuesCents)}
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            {allScouts.length} scout{allScouts.length === 1 ? "" : "s"}
+            {amountCents === null ? " (fee not set)" : ""}
+          </p>
+        </div>
+
+        <div className="info-card" style={{ maxWidth: 260, marginBottom: 0 }}>
+          <h3 style={{ marginTop: 0 }}>Collected So Far</h3>
+          <p style={{ fontSize: 28, fontWeight: 700, color: "var(--scout-blue)", margin: 0 }}>
+            {formatCents(collectedCents)}
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            {totalDuesCents === null
+              ? "Fee not set"
+              : `${formatCents(Math.max(totalDuesCents - collectedCents, 0))} remaining`}
+          </p>
+        </div>
       </div>
 
       {dens.length === 0 && <div className="info-card">No dens for this scouting year.</div>}
