@@ -340,12 +340,23 @@ section { padding: 64px 0; }
 .fact-bar .dot { opacity: 0.4; color: var(--carnival-red); }
 
 /* ---------- Neighborhood chips (local-area SEO section) ---------- */
-.neighborhood-chips {
+/* Desktop: two rows of 5 then 6 (.neighborhood-chips-desktop).
+   Mobile (<=560px): two columns of 5 with the 11th chip below (.neighborhood-chips-mobile). */
+.neighborhood-chips-desktop {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  margin-top: 24px;
+}
+.neighborhood-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
-  margin-top: 24px;
+}
+.neighborhood-chips-mobile {
+  display: none;
 }
 .neighborhood-chip {
   font-family: var(--font-display);
@@ -1144,6 +1155,28 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   .event-list { grid-template-columns: 1fr; }
   .event-ticket--camping { grid-column: span 1; }
   .exec-grid { grid-template-columns: 1fr; }
+  .neighborhood-chips-desktop { display: none; }
+  .neighborhood-chips-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    margin-top: 24px;
+  }
+  .neighborhood-columns {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    width: 100%;
+  }
+  .neighborhood-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+    flex: 1;
+    max-width: 160px;
+  }
 }
 
 /* ---------- Print ---------- */
