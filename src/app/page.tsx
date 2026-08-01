@@ -17,12 +17,13 @@ const NEARBY_NEIGHBORHOODS = [
   "Marine Park",
   "Coney Island",
   "Seagate",
+  "Brighton Beach",
 ];
 
 export const metadata: Metadata = {
   title: "Pack 376 — Cub Scouts in Gravesend, Brooklyn NY",
   description:
-    "Pack 376 is a Cub Scout pack based in Gravesend, Brooklyn, welcoming families from Gravesend, Madison, Homecrest, Sheepshead Bay, Bensonhurst, Marine Park, Coney Island, and Seagate. All families welcome — boys and girls, kindergarten through 5th grade.",
+    "Pack 376 is a Cub Scout pack based in Gravesend, Brooklyn, welcoming families from Gravesend, Madison, Homecrest, Sheepshead Bay, Bensonhurst, Marine Park, Coney Island, Seagate, and Brighton Beach. All families welcome — boys and girls, kindergarten through 5th grade.",
 };
 
 const localOrgJsonLd = {
@@ -32,7 +33,7 @@ const localOrgJsonLd = {
   url: "https://pack376nyc.org",
   logo: "https://pack376nyc.org/cub-scout-emblem.png",
   description:
-    "Cub Scout Pack 376 is based in Gravesend, Brooklyn, NY, welcoming Cub Scout families from Gravesend, Madison, Homecrest, Sheepshead Bay, Bensonhurst, Marine Park, Coney Island, and Seagate.",
+    "Cub Scout Pack 376 is based in Gravesend, Brooklyn, NY, welcoming Cub Scout families from Gravesend, Madison, Homecrest, Sheepshead Bay, Bensonhurst, Marine Park, Coney Island, Seagate, and Brighton Beach.",
   address: {
     "@type": "PostalAddress",
     streetAddress: "430 Avenue W",
