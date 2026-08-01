@@ -27,13 +27,15 @@ export default async function DenPortalPage({
 
   return (
     <>
-      <div className="section-head">
-        <div className="eyebrow">My Den</div>
-        <h2>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h2>
-        <p>
-          {scouts.length} scout{scouts.length === 1 ? "" : "s"} on your roster. Tap an adventure to
-          mark it complete.
-        </p>
+      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
+        <div>
+          <div className="eyebrow">My Den</div>
+          <h2>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h2>
+          <p>Tap an adventure to mark it complete.</p>
+        </div>
+        <span className="badge-pill badge-den" style={{ whiteSpace: "nowrap" }}>
+          {scouts.length} scout{scouts.length === 1 ? "" : "s"}
+        </span>
       </div>
       <DenSwitcher denIds={session.denIds} currentDenId={denId} basePath="/portal/den" />
       <ScoutChecklist scouts={scouts} editable />
