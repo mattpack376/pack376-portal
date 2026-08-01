@@ -18,7 +18,7 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "Pack 376 — Cub Scouts in Gravesend, Brooklyn NY",
   description:
-    "Pack 376 is a Cub Scout pack based in Gravesend, Brooklyn, NY chartered by Our Lady of Grace, serving families from Gravesend, Madison, Homecrest, Sheepshead Bay, Bensonhurst, Marine Park, Coney Island, Seagate, and Brighton Beach. All families welcome — boys and girls, kindergarten through 5th grade.",
+    "Pack 376 is a Cub Scout pack based in Gravesend, Brooklyn, NY chartered by Our Lady of Grace, serving families from Bensonhurst, Brighton Beach, Coney Island, Gravesend, Homecrest, Madison, Marine Park, Seagate, and Sheepshead Bay. All families welcome — boys and girls, kindergarten through 5th grade.",
   appleWebApp: {
     capable: true,
     title: "Pack 376 Portal",
