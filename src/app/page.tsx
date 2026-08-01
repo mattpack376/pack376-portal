@@ -9,13 +9,18 @@ import { getActiveSiteBanner } from "@/lib/siteBannerData";
 const JOIN_URL = "https://my.scouting.org/VES/OnlineReg/1.0.0/?tu=UF-MB-640paa3376";
 
 const NEARBY_NEIGHBORHOODS = [
+  "Bath Beach",
   "Bensonhurst",
   "Brighton Beach",
   "Coney Island",
+  "Gerritsen Beach",
   "Gravesend",
   "Homecrest",
   "Madison",
+  "Manhattan Beach",
+  "Mapleton",
   "Marine Park",
+  "Midwood",
   "Seagate",
   "Sheepshead Bay",
 ];
@@ -23,7 +28,7 @@ const NEARBY_NEIGHBORHOODS = [
 export const metadata: Metadata = {
   title: "Pack 376 — Cub Scouts in Gravesend, Brooklyn NY",
   description:
-    "Pack 376 is a Cub Scout pack based in Gravesend, Brooklyn, welcoming families from Bensonhurst, Brighton Beach, Coney Island, Gravesend, Homecrest, Madison, Marine Park, Seagate, and Sheepshead Bay. All families welcome — boys and girls, kindergarten through 5th grade.",
+    "Pack 376 is a Cub Scout pack based in Gravesend, Brooklyn, welcoming families from Bath Beach, Bensonhurst, Brighton Beach, Coney Island, Gerritsen Beach, Gravesend, Homecrest, Madison, Manhattan Beach, Mapleton, Marine Park, Midwood, Seagate, and Sheepshead Bay. All families welcome — boys and girls, kindergarten through 5th grade.",
 };
 
 const localOrgJsonLd = {
@@ -33,7 +38,7 @@ const localOrgJsonLd = {
   url: "https://pack376nyc.org",
   logo: "https://pack376nyc.org/cub-scout-emblem.png",
   description:
-    "Cub Scout Pack 376 is based in Gravesend, Brooklyn, NY, welcoming Cub Scout families from Bensonhurst, Brighton Beach, Coney Island, Gravesend, Homecrest, Madison, Marine Park, Seagate, and Sheepshead Bay.",
+    "Cub Scout Pack 376 is based in Gravesend, Brooklyn, NY, welcoming Cub Scout families from Bath Beach, Bensonhurst, Brighton Beach, Coney Island, Gerritsen Beach, Gravesend, Homecrest, Madison, Manhattan Beach, Mapleton, Marine Park, Midwood, Seagate, and Sheepshead Bay.",
   address: {
     "@type": "PostalAddress",
     streetAddress: "430 Avenue W",
@@ -144,10 +149,7 @@ export default async function HomePage() {
           <div className="section-head center">
             <div className="eyebrow">Cub Scouts Near You</div>
             <h2>Proudly Based in Gravesend, Brooklyn</h2>
-            <p>
-              Our pack meets at Our Lady of Grace in Gravesend and draws scouting families
-              from all over southern Brooklyn, including:
-            </p>
+            <p>We welcome all families from these neighborhoods:</p>
           </div>
           <div className="neighborhood-chips">
             {NEARBY_NEIGHBORHOODS.map((neighborhood) => (

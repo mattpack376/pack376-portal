@@ -14,9 +14,10 @@ export default function Footer() {
             <span className="pack-name">Pack 376</span>
           </div>
           <p>
-            Cub Scout Pack 376, chartered by Our Lady of Grace in Gravesend, Brooklyn, NY.
-            Serving Bensonhurst, Brighton Beach, Coney Island, Gravesend, Homecrest, Madison,
-            Marine Park, Seagate &amp; Sheepshead Bay. All families welcome — boys and girls, K–5.
+            Cub Scout Pack 376, chartered by Our Lady of Grace in Gravesend, Brooklyn, NY. We
+            welcome all families from Bath Beach, Bensonhurst, Brighton Beach, Coney Island,
+            Gerritsen Beach, Gravesend, Homecrest, Madison, Manhattan Beach, Mapleton, Marine
+            Park, Midwood, Seagate &amp; Sheepshead Bay. Boys and girls, K–5.
           </p>
           <a className="footer-instagram" href="https://instagram.com/pack.376" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
