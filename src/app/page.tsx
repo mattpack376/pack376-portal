@@ -112,7 +112,7 @@ export default async function HomePage() {
               <small>Open House Anytime</small>
             </div>
             <h1>
-              You Belong <span className="hi">In Scouts</span>
+              <span className="hi">You Belong In Scouts</span>
               <br />
               Cub Scouts in Gravesend <span className="hi">&amp; Southern Brooklyn</span>
             </h1>
