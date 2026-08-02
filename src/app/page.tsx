@@ -112,13 +112,15 @@ export default async function HomePage() {
               <small>Open House Anytime</small>
             </div>
             <h1>
+              You Belong <span className="hi">In Scouts</span>
+              <br />
               Cub Scouts in Gravesend <span className="hi">&amp; Southern Brooklyn</span>
             </h1>
             <p className="lead">
-              <strong>You belong in Scouts.</strong> Pack 376 brings the boardwalk to Cub
-              Scouting — real adventures, lifelong skills, and a pack family that feels
-              like Brooklyn. We welcome scouts from Sheepshead Bay, Coney Island, Brighton
-              Beach, Bensonhurst, and all over southern Brooklyn. All families welcome —
+              Pack 376 brings the boardwalk to Cub Scouting — real adventures, lifelong
+              skills, and a pack family that feels like Brooklyn. We welcome scouts from
+              Sheepshead Bay, Coney Island, Brighton Beach, Bensonhurst, and all over
+              southern Brooklyn. All families welcome —
               boys and girls, kindergarten through 5th grade.
             </p>
             <div className="hero-actions">
