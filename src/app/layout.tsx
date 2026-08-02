@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Baloo_2, Poppins } from "next/font/google";
 import FilteredAnalytics from "@/components/FilteredAnalytics";
+import { getPublicBaseUrl } from "@/lib/appUrl";
 import "./globals.css";
 
 const baloo2 = Baloo_2({
@@ -16,6 +17,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getPublicBaseUrl()),
   title: "Pack 376 — Cub Scouts in Gravesend, Brooklyn NY",
   description:
     "Pack 376 is a Cub Scout pack based in Gravesend, Brooklyn, NY chartered by Our Lady of Grace, serving families from Bath Beach, Bensonhurst, Brighton Beach, Coney Island, Gravesend, Homecrest, Madison, Manhattan Beach, Mapleton, Midwood, Seagate, and Sheepshead Bay. All families welcome — boys and girls, kindergarten through 5th grade.",

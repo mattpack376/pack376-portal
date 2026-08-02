@@ -26,10 +26,37 @@ const NEARBY_NEIGHBORHOODS = [
 const OTHER_NEIGHBORHOODS = NEARBY_NEIGHBORHOODS.filter((n) => n !== "Gravesend");
 const NEIGHBORHOOD_ROWS = [OTHER_NEIGHBORHOODS.slice(0, 5), OTHER_NEIGHBORHOODS.slice(5)];
 
+const HOMEPAGE_TITLE = "Pack 376 — Cub Scouts in Gravesend, Brooklyn NY";
+const HOMEPAGE_DESCRIPTION =
+  "Pack 376 is a Cub Scout pack based in Gravesend, Brooklyn, welcoming families from Bath Beach, Bensonhurst, Brighton Beach, Coney Island, Gravesend, Homecrest, Madison, Manhattan Beach, Mapleton, Midwood, Seagate, and Sheepshead Bay. All families welcome — boys and girls, kindergarten through 5th grade.";
+
 export const metadata: Metadata = {
-  title: "Pack 376 — Cub Scouts in Gravesend, Brooklyn NY",
-  description:
-    "Pack 376 is a Cub Scout pack based in Gravesend, Brooklyn, welcoming families from Bath Beach, Bensonhurst, Brighton Beach, Coney Island, Gravesend, Homecrest, Madison, Manhattan Beach, Mapleton, Midwood, Seagate, and Sheepshead Bay. All families welcome — boys and girls, kindergarten through 5th grade.",
+  title: HOMEPAGE_TITLE,
+  description: HOMEPAGE_DESCRIPTION,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: HOMEPAGE_TITLE,
+    description: HOMEPAGE_DESCRIPTION,
+    url: "/",
+    type: "website",
+    siteName: "Pack 376",
+    images: [
+      {
+        url: "/pack-376-recruitment-flyer.jpeg",
+        width: 1536,
+        height: 1086,
+        alt: "Cub Scout Pack 376 — join us in Gravesend, Brooklyn",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: HOMEPAGE_TITLE,
+    description: HOMEPAGE_DESCRIPTION,
+    images: ["/pack-376-recruitment-flyer.jpeg"],
+  },
 };
 
 const localOrgJsonLd = {
@@ -85,12 +112,13 @@ export default async function HomePage() {
               <small>Open House Anytime</small>
             </div>
             <h1>
-              You Belong <span className="hi">In Scouts</span>
+              Cub Scouts in Gravesend <span className="hi">&amp; Southern Brooklyn</span>
             </h1>
             <p className="lead">
-              Pack 376 brings the boardwalk to Cub Scouting — real adventures, lifelong
-              skills, and a pack family that feels like Brooklyn. Based in Gravesend,
-              we welcome scouts from all over southern Brooklyn. All families welcome —
+              <strong>You belong in Scouts.</strong> Pack 376 brings the boardwalk to Cub
+              Scouting — real adventures, lifelong skills, and a pack family that feels
+              like Brooklyn. We welcome scouts from Sheepshead Bay, Coney Island, Brighton
+              Beach, Bensonhurst, and all over southern Brooklyn. All families welcome —
               boys and girls, kindergarten through 5th grade.
             </p>
             <div className="hero-actions">
