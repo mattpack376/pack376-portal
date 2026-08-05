@@ -243,7 +243,8 @@ export default async function FamilyViewPage({
                   key={den?.id ?? "none"}
                   label={`${den ? denDisplayName(den.rank, den.scoutingYear, den.label) : "No Den Assigned"} (${regs.length})`}
                 >
-                  <table className="data-table" style={{ marginBottom: 0 }}>
+                  <div className="table-scroll">
+                  <table className="data-table">
                     <thead>
                       <tr>
                         <th>Scout</th>
@@ -283,13 +284,15 @@ export default async function FamilyViewPage({
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </CollapsibleGroup>
               ))}
 
               {guestGroups.length > 0 && (
                 <div>
                   <p className="form-note" style={{ marginBottom: 6 }}>GUEST GROUPS</p>
-                  <table className="data-table" style={{ marginBottom: 0 }}>
+                  <div className="table-scroll">
+                  <table className="data-table">
                     <thead>
                       <tr>
                         <SortableColumnHeader href={guestSortHref("family")} label="Family Name / Guest Name" active={guestSort === "family"} />
@@ -335,6 +338,7 @@ export default async function FamilyViewPage({
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
               </div>
