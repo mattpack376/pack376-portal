@@ -32,6 +32,7 @@ export default async function AdminParentAccountsPage() {
 
       <UsersSubNav active="parents" />
 
+      <div className="table-scroll">
       <table className="data-table">
         <thead>
           <tr>
@@ -83,6 +84,7 @@ export default async function AdminParentAccountsPage() {
           ))}
         </tbody>
       </table>
+      </div>
     </>
   );
 }

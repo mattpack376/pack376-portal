@@ -201,6 +201,7 @@ export default async function AdminEventDetailPage({
         <div className="info-card" style={{ marginBottom: 24 }}>
           {scoutDenGroups.map(({ den, regs }) => (
             <CollapsibleGroup key={den.id} label={`${denDisplayName(den.rank, den.scoutingYear, den.label)} (${regs.length})`}>
+              <div className="table-scroll">
               <table className="data-table" style={{ marginBottom: 0 }}>
                 <thead>
                   <tr>
@@ -250,6 +251,7 @@ export default async function AdminEventDetailPage({
                   })}
                 </tbody>
               </table>
+              </div>
             </CollapsibleGroup>
           ))}
         </div>
@@ -310,7 +312,8 @@ export default async function AdminEventDetailPage({
           <p style={{ marginBottom: 0 }}>No guest groups registered yet.</p>
         </div>
       ) : (
-        <table className="data-table" style={{ marginBottom: 32 }}>
+        <div className="table-scroll" style={{ marginBottom: 32 }}>
+        <table className="data-table">
           <thead>
             <tr>
               <SortableColumnHeader href={`/portal/admin/events/${event.id}?guestSort=family`} label="Family Name / Guest Name" active={guestSort === "family"} />
@@ -365,6 +368,7 @@ export default async function AdminEventDetailPage({
             })}
           </tbody>
         </table>
+        </div>
       )}
 
       <div className="info-card" style={{ maxWidth: 460 }}>

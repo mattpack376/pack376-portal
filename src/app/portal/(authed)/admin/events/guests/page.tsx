@@ -156,6 +156,7 @@ function FamilyGrouping({ groups }: { groups: Group[] }) {
             key={rows[0].familyName + rows[0].id}
             label={`${rows[0].familyName} — ${totals.adults} adult${totals.adults === 1 ? "" : "s"}, ${totals.kids} kid${totals.kids === 1 ? "" : "s"} · ${formatCents(totals.paid)} paid of ${formatCents(totals.owed)}`}
           >
+            <div className="table-scroll">
             <table className="data-table" style={{ marginBottom: 0 }}>
               <thead>
                 <tr>
@@ -195,6 +196,7 @@ function FamilyGrouping({ groups }: { groups: Group[] }) {
                 })}
               </tbody>
             </table>
+            </div>
           </CollapsibleGroup>
         );
       })}
@@ -206,6 +208,7 @@ function FamilySubTable({ rows }: { rows: Group[] }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <p className="form-note" style={{ marginBottom: 6 }}>{rows[0].familyName.toUpperCase()}</p>
+      <div className="table-scroll">
       <table className="data-table" style={{ marginBottom: 0 }}>
         <thead>
           <tr>
@@ -243,6 +246,7 @@ function FamilySubTable({ rows }: { rows: Group[] }) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

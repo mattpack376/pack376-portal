@@ -104,6 +104,7 @@ export default async function AdminDuesPage({
           {den.scouts.length === 0 ? (
             <p>No scouts in this den yet.</p>
           ) : (
+            <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
@@ -144,6 +145,7 @@ export default async function AdminDuesPage({
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       ))}

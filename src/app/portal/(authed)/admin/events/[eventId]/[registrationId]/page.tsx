@@ -89,6 +89,7 @@ export default async function AdminEventRegistrationPage({
       {reg.payments.length === 0 ? (
         <p>No payments recorded yet.</p>
       ) : (
+        <div className="table-scroll">
         <table className="data-table">
           <thead>
             <tr>
@@ -127,6 +128,7 @@ export default async function AdminEventRegistrationPage({
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </>
   );

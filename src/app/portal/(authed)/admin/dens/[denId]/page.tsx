@@ -68,7 +68,8 @@ export default async function AdminDenDetailPage({
         </div>
         {scouts.length === 0 && <p>No scouts yet.</p>}
         {scouts.length > 0 && (
-          <table className="data-table" style={{ marginBottom: 20 }}>
+          <div className="table-scroll" style={{ marginBottom: 20 }}>
+          <table className="data-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -142,6 +143,7 @@ export default async function AdminDenDetailPage({
               ))}
             </tbody>
           </table>
+          </div>
         )}
 
         {isFullAdmin && (

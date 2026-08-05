@@ -72,6 +72,7 @@ export default async function AdminAlbumsPage() {
         <h3 style={{ marginTop: 0 }}>Upcoming Events</h3>
         {upcoming.length === 0 && <p>No upcoming albums yet.</p>}
         {upcoming.length > 0 && (
+          <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
@@ -82,6 +83,7 @@ export default async function AdminAlbumsPage() {
             </thead>
             <tbody>{renderRows(upcoming)}</tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -89,6 +91,7 @@ export default async function AdminAlbumsPage() {
         <h3 style={{ marginTop: 0 }}>Past Events</h3>
         {past.length === 0 && <p>No past albums yet.</p>}
         {past.length > 0 && (
+          <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
@@ -99,6 +102,7 @@ export default async function AdminAlbumsPage() {
             </thead>
             <tbody>{renderRows(past)}</tbody>
           </table>
+          </div>
         )}
       </div>
     </>

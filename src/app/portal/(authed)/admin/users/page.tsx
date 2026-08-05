@@ -32,7 +32,8 @@ export default async function AdminUsersPage() {
 
       <UsersSubNav active="staff" />
 
-      <table className="data-table" style={{ marginBottom: 32 }}>
+      <div className="table-scroll" style={{ marginBottom: 32 }}>
+      <table className="data-table">
         <thead>
           <tr>
             <th>Username</th>
@@ -79,6 +80,7 @@ export default async function AdminUsersPage() {
           ))}
         </tbody>
       </table>
+      </div>
 
       <div className="info-card" style={{ maxWidth: 420 }}>
         <h3 style={{ marginTop: 0 }}>Add an Admin, Junior Admin, Attendance Only, or Photographer Account</h3>

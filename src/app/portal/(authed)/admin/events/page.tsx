@@ -27,7 +27,8 @@ export default async function AdminEventsPage() {
           <p style={{ marginBottom: 0 }}>No events yet — add one below.</p>
         </div>
       ) : (
-        <table className="data-table" style={{ marginBottom: 32 }}>
+        <div className="table-scroll" style={{ marginBottom: 32 }}>
+        <table className="data-table">
           <thead>
             <tr>
               <th>Event</th>
@@ -81,6 +82,7 @@ export default async function AdminEventsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <div className="info-card" style={{ maxWidth: 460 }}>

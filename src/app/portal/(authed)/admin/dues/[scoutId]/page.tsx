@@ -64,6 +64,7 @@ export default async function AdminScoutDuesPage({
       {payments.length === 0 ? (
         <p>No payments recorded yet.</p>
       ) : (
+        <div className="table-scroll">
         <table className="data-table">
           <thead>
             <tr>
@@ -101,6 +102,7 @@ export default async function AdminScoutDuesPage({
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </>
   );
