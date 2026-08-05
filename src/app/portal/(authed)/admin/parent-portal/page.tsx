@@ -63,7 +63,7 @@ export default async function ParentPortalAdminPage() {
                   <p style={{ marginBottom: 2, fontWeight: 700 }}>{a.pinned && "📌 "}{a.title}</p>
                   <p style={{ marginBottom: 0, fontSize: 14 }}>{a.body}</p>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
                   <details className="edit-popover">
                     <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
                       Edit
@@ -137,7 +137,7 @@ export default async function ParentPortalAdminPage() {
                   <p style={{ marginBottom: 0, fontWeight: 700 }}>{d.title}</p>
                   {d.description && <p style={{ marginBottom: 0, fontSize: 14 }}>{d.description}</p>}
                 </div>
-                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
                   <details className="edit-popover">
                     <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
                       Edit
@@ -211,7 +211,7 @@ export default async function ParentPortalAdminPage() {
                   </p>
                   {v.description && <p style={{ marginBottom: 0, fontSize: 14 }}>{v.description}</p>}
                 </div>
-                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
                   <details className="edit-popover">
                     <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
                       Edit

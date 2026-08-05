@@ -718,6 +718,25 @@ section { padding: 64px 0; }
   box-shadow: var(--shadow-pop);
   padding: 16px;
 }
+/*
+ * Below ~640px the trigger button is rarely at the right edge of its row
+ * (it usually has Delete/Toggle siblings after it), so anchoring the popover
+ * to the trigger's own right edge can push it partway off-screen. Pin it to
+ * the viewport instead, independent of where the trigger sits.
+ */
+@media (max-width: 640px) {
+  .edit-popover > form {
+    position: fixed;
+    top: auto;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+  }
+}
 .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
