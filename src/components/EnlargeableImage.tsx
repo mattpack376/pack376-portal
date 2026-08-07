@@ -26,7 +26,7 @@ export default function EnlargeableImage({
         type="button"
         onClick={() => dialogRef.current?.showModal()}
         aria-label={`Enlarge: ${alt}`}
-        style={{ padding: 0, border: "none", background: "none", cursor: "zoom-in", lineHeight: 0 }}
+        style={{ position: "relative", display: "inline-block", padding: 0, border: "none", background: "none", cursor: "zoom-in", lineHeight: 0 }}
       >
         <Image
           src={src}
@@ -35,6 +35,25 @@ export default function EnlargeableImage({
           height={height}
           style={{ borderRadius: 8, border: "1px solid var(--cream-dark)", display: "block" }}
         />
+        <span
+          style={{
+            position: "absolute",
+            bottom: 6,
+            right: 6,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 26,
+            height: 26,
+            borderRadius: "50%",
+            background: "var(--scout-blue)",
+            color: "var(--white)",
+            fontSize: 13,
+            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          🔍
+        </span>
       </button>
       <dialog ref={dialogRef} className="enlarge-dialog" onClick={(e) => {
         if (e.target === dialogRef.current) dialogRef.current?.close();
