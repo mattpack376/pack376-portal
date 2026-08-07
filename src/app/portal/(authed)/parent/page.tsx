@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { requireParentSession } from "@/lib/authorize";
 import { getParentDashboardData } from "@/lib/parentDashboardData";
@@ -9,6 +8,7 @@ import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import ScoutChecklist from "@/components/ScoutChecklist";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
+import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
 import {
   registerMyScoutsForEventAction,
   registerMyGuestGroupForEventAction,
@@ -115,34 +115,8 @@ export default async function ParentDashboardPage() {
             </div>
           )}
         </div>
-      </div>
 
-      <div className="info-card" style={{ marginBottom: 32 }}>
-        <h3 style={{ marginTop: 0 }}>💳 How to Pay</h3>
-        <p>Pay by cash to Dianaliz or Matt at any meeting, or send a Zelle payment using the QR code or link below.</p>
-        <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
-          <Image
-            src="/zelle-payment-qr.png"
-            alt="Zelle QR code for GNYC BSA Pack 3376F — Matt.pack376@gmail.com"
-            width={160}
-            height={157}
-            style={{ borderRadius: 8, border: "1px solid var(--cream-dark)" }}
-          />
-          <div>
-            <p style={{ marginBottom: 8 }}>
-              <strong>Zelle:</strong> Matt.pack376@gmail.com
-            </p>
-            <a
-              href="https://enroll.zellepay.com/qr-codes?data=eyJuYW1lIjoiR05ZQyBCU0EgUEFDSyAzMzc2RiIsInRva2VuIjoibWF0dC5wYWNrMzc2QGdtYWlsLmNvbSJ9"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline btn-small"
-              style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
-            >
-              Pay with Zelle →
-            </a>
-          </div>
-        </div>
+        <PaymentInstructionsCard />
       </div>
 
       <div className="section-head">

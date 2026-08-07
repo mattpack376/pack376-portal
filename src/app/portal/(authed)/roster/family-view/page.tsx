@@ -11,6 +11,7 @@ import { getPublicBaseUrl } from "@/lib/appUrl";
 import DenSwitcher from "@/components/DenSwitcher";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import SortableColumnHeader from "@/components/SortableColumnHeader";
+import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
 import { sortGuestGroups } from "@/lib/guestSort";
 import { registerMyGuestGroupForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
 
@@ -167,6 +168,8 @@ export default async function FamilyViewPage({
             </div>
           )}
         </div>
+
+        <PaymentInstructionsCard />
       </div>
 
       <div className="section-head">
