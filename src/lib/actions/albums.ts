@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin, assertAlbumEditAccess } from "@/lib/authorize";
@@ -12,22 +13,8 @@ function readAlbumFields(formData: FormData) {
   const title = String(formData.get("title") || "").trim();
   const eventDateRaw = String(formData.get("eventDate") || "").trim();
   const description = String(formData.get("description") || "").trim();
-  const coverImageUrl = String(formData.get("coverImageUrl") || "").trim();
   const photoAlbumUrl = String(formData.get("photoAlbumUrl") || "").trim();
-  return { title, eventDateRaw, description, coverImageUrl, photoAlbumUrl };
-}
-
-// Album share pages (Google Photos' photos.app.goo.gl/... and photos.google.com/share/...,
-// or a PhotoPrism share link's /s/... path) are HTML viewer pages, not image files —
-// they can't be hotlinked as a cover photo. Catch this at save time instead of
-// silently storing a broken link.
-const ALBUM_SHARE_LINK = /photos\.(app\.goo\.gl|google\.com\/share)|\/s\/[\w-]+\/?$/i;
-
-function validateCoverImageUrl(coverImageUrl: string): string | null {
-  if (coverImageUrl && ALBUM_SHARE_LINK.test(coverImageUrl)) {
-    return "That looks like an album share link, not a direct image link — share pages can't be used as a cover photo. Open the shared album, right-click a photo, choose \"Open image in new tab,\" and paste that image URL here instead.";
-  }
-  return null;
+  return { title, eventDateRaw, description, photoAlbumUrl };
 }
 
 /**
@@ -45,6 +32,36 @@ function isSafeHttpUrl(raw: string): boolean {
   }
 }
 
+const MAX_COVER_IMAGE_BYTES = 8 * 1024 * 1024;
+const ALLOWED_COVER_IMAGE_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
+/**
+ * Cover photos used to be a pasted PhotoPrism thumbnail link, which broke
+ * every time PhotoPrism's preview token rotated (on restart/redeploy). We
+ * now upload the file to Vercel Blob at save time so the gallery page never
+ * depends on PhotoPrism staying up or a token staying stable.
+ */
+async function uploadCoverImage(file: File): Promise<{ url?: string; error?: string }> {
+  const extension = ALLOWED_COVER_IMAGE_TYPES[file.type];
+  if (!extension) {
+    return { error: "Cover image must be a JPEG, PNG, WEBP, or GIF." };
+  }
+  if (file.size > MAX_COVER_IMAGE_BYTES) {
+    return { error: "Cover image must be 8MB or smaller." };
+  }
+
+  const blob = await put(`album-covers/${crypto.randomUUID()}.${extension}`, file, {
+    access: "public",
+    contentType: file.type,
+  });
+  return { url: blob.url };
+}
+
 export async function createAlbumAction(
   _prevState: AlbumActionState,
   formData: FormData
@@ -57,7 +74,7 @@ export async function createAlbumAction(
     return { error: "Not authorized." };
   }
 
-  const { title, eventDateRaw, description, coverImageUrl, photoAlbumUrl } = readAlbumFields(formData);
+  const { title, eventDateRaw, description, photoAlbumUrl } = readAlbumFields(formData);
   if (!title || !eventDateRaw || !photoAlbumUrl) {
     return { error: "Title, event date, and photo album link are required." };
   }
@@ -68,18 +85,21 @@ export async function createAlbumAction(
   if (!isSafeHttpUrl(photoAlbumUrl)) {
     return { error: "Enter a valid photo album link starting with https://" };
   }
-  if (coverImageUrl && !isSafeHttpUrl(coverImageUrl)) {
-    return { error: "Enter a valid cover image link starting with https://" };
+
+  let coverImageUrl: string | null = null;
+  const coverImage = formData.get("coverImage");
+  if (coverImage instanceof File && coverImage.size > 0) {
+    const uploaded = await uploadCoverImage(coverImage);
+    if (uploaded.error) return { error: uploaded.error };
+    coverImageUrl = uploaded.url ?? null;
   }
-  const coverImageError = validateCoverImageUrl(coverImageUrl);
-  if (coverImageError) return { error: coverImageError };
 
   await prisma.photoAlbum.create({
     data: {
       title,
       eventDate,
       description: description || null,
-      coverImageUrl: coverImageUrl || null,
+      coverImageUrl,
       photoAlbumUrl,
     },
   });
@@ -102,7 +122,7 @@ export async function updateAlbumAction(
   }
 
   const albumId = String(formData.get("albumId") || "");
-  const { title, eventDateRaw, description, coverImageUrl, photoAlbumUrl } = readAlbumFields(formData);
+  const { title, eventDateRaw, description, photoAlbumUrl } = readAlbumFields(formData);
   if (!albumId) return { error: "Missing album id." };
   if (!title || !eventDateRaw || !photoAlbumUrl) {
     return { error: "Title, event date, and photo album link are required." };
@@ -114,11 +134,16 @@ export async function updateAlbumAction(
   if (!isSafeHttpUrl(photoAlbumUrl)) {
     return { error: "Enter a valid photo album link starting with https://" };
   }
-  if (coverImageUrl && !isSafeHttpUrl(coverImageUrl)) {
-    return { error: "Enter a valid cover image link starting with https://" };
+
+  // Only touch coverImageUrl when a new file was uploaded, so leaving the
+  // file input blank keeps whatever cover image is already saved.
+  let coverImageUrl: string | undefined;
+  const coverImage = formData.get("coverImage");
+  if (coverImage instanceof File && coverImage.size > 0) {
+    const uploaded = await uploadCoverImage(coverImage);
+    if (uploaded.error) return { error: uploaded.error };
+    coverImageUrl = uploaded.url;
   }
-  const coverImageError = validateCoverImageUrl(coverImageUrl);
-  if (coverImageError) return { error: coverImageError };
 
   await prisma.photoAlbum.update({
     where: { id: albumId },
@@ -126,7 +151,7 @@ export async function updateAlbumAction(
       title,
       eventDate,
       description: description || null,
-      coverImageUrl: coverImageUrl || null,
+      ...(coverImageUrl !== undefined ? { coverImageUrl } : {}),
       photoAlbumUrl,
     },
   });

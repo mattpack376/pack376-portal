@@ -13,7 +13,7 @@ export default function NewAlbumPage() {
       <div className="section-head">
         <div className="eyebrow">Admin</div>
         <h2>Add a Photo Album</h2>
-        <p>Paste the shareable link to the album in our photo library — photos stay hosted there, this just lists it on the site.</p>
+        <p>Paste the shareable link to the album in our photo library, then upload a cover photo — photos stay hosted there, this just lists the album on the site.</p>
       </div>
 
       <div className="info-card" style={{ maxWidth: 480 }}>
@@ -31,12 +31,11 @@ export default function NewAlbumPage() {
             <textarea id="description" name="description" rows={3} placeholder="A few sentences about the event." />
           </div>
           <div className="form-field">
-            <label htmlFor="coverImageUrl">Cover Image URL (optional)</label>
-            <input id="coverImageUrl" name="coverImageUrl" type="url" placeholder="https://…" />
+            <label htmlFor="coverImage">Cover Image (optional)</label>
+            <input id="coverImage" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
             <p className="form-note">
-              Must be a direct image link, not an album share/viewer page (those are HTML pages, not
-              images, so they won&apos;t display). Open the shared album, right-click a photo, choose
-              &quot;Open image in new tab,&quot; and paste that URL here. Leave blank to use the pack emblem.
+              Upload a photo from your device (JPEG, PNG, WEBP, or GIF, up to 8MB) — download it from our
+              photo library first, don&apos;t paste a link. Leave blank to use the pack emblem.
             </p>
           </div>
           <div className="form-field">

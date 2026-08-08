@@ -13,10 +13,12 @@ import type { NextConfig } from "next";
  * That in turn forces every page to render dynamically — this app's public
  * marketing pages are statically prerendered (see `next build` output), so
  * that tradeoff needs its own decision rather than folding it in here.
- * img-src allows any https origin because PhotoAlbum.coverImageUrl (gallery)
- * is an admin-entered external URL, same trust level as the album link itself.
+ * img-src is scoped to Vercel Blob because PhotoAlbum.coverImageUrl (gallery)
+ * now points there — covers are uploaded via createAlbumAction/updateAlbumAction
+ * (src/lib/actions/albums.ts) rather than hotlinked from an admin-entered URL.
  */
 const isDev = process.env.NODE_ENV === "development";
+const BLOB_HOSTNAME = "*.public.blob.vercel-storage.com";
 
 const securityHeaders = [
   {
@@ -38,7 +40,7 @@ const securityHeaders = [
       // and the Turbopack/webpack HMR socket — neither exists in production.
       `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' https: data:",
+      `img-src 'self' https://${BLOB_HOSTNAME} data:`,
       "font-src 'self'",
       `connect-src 'self'${isDev ? " ws:" : ""}`,
       // Contact page embeds a Google Maps iframe (src/app/contact/page.tsx).
@@ -53,6 +55,16 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: BLOB_HOSTNAME }],
+  },
+  experimental: {
+    serverActions: {
+      // Cover photo uploads (src/lib/actions/albums.ts) go through Server Actions
+      // as multipart FormData; the 1MB default is too small for a phone photo.
+      bodySizeLimit: "8mb",
+    },
+  },
   async headers() {
     return [
       {

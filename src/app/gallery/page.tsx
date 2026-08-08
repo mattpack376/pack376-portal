@@ -31,7 +31,6 @@ export default async function GalleryPage() {
               fill
               sizes="(max-width: 640px) 100vw, 320px"
               style={{ objectFit: album.coverImageUrl ? "cover" : "contain" }}
-              unoptimized={!!album.coverImageUrl}
             />
           </div>
           <div className="album-tile-body">
