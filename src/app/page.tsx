@@ -6,6 +6,13 @@ import Footer from "@/components/Footer";
 import { getUpcomingHomepageEvents } from "@/lib/homepageEventsData";
 import { getActiveSiteBanner } from "@/lib/siteBannerData";
 
+// Statically prerendered (see next.config.ts), but the banner and events list
+// have time-based expiry (SiteBanner.startAt/endAt, HomepageEvent.sortDate)
+// that isn't tied to any admin action — revalidatePath only fires on edits,
+// so without this the page would stay stuck on whatever was active at the
+// last build or admin change and never notice a window closing on its own.
+export const revalidate = 300;
+
 const JOIN_URL = "https://my.scouting.org/VES/OnlineReg/1.0.0/?tu=UF-MB-640paa3376";
 
 const NEARBY_NEIGHBORHOODS = [
