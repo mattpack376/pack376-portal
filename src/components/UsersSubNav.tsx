@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export default function UsersSubNav({ active }: { active: "staff" | "parents" }) {
+export default function UsersSubNav({ active }: { active: "staff" | "parents" | "scouts" }) {
   const linkStyle = (isActive: boolean) =>
     isActive ? undefined : { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" };
 
@@ -19,6 +19,13 @@ export default function UsersSubNav({ active }: { active: "staff" | "parents" })
         style={linkStyle(active === "parents")}
       >
         Parent Accounts
+      </Link>
+      <Link
+        href="/portal/admin/users/scouts"
+        className={`btn btn-small ${active === "scouts" ? "btn-primary" : "btn-outline"}`}
+        style={linkStyle(active === "scouts")}
+      >
+        Scouts
       </Link>
     </div>
   );

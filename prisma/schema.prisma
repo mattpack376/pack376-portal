@@ -129,20 +129,27 @@ model DenAssignment {
 }
 
 model Scout {
-  id                 String              @id @default(cuid())
-  denId              String
-  den                Den                 @relation(fields: [denId], references: [id], onDelete: Cascade)
-  firstName          String
-  lastName           String
-  notes              String?
-  createdAt          DateTime            @default(now())
-  records            AdvancementRecord[]
-  attendances        Attendance[]
-  duesPayments       DuesPayment[]
-  parents            Parent[]
-  photoConsent       PhotoConsent?
-  eventRegistrations EventRegistration[]
-  guestGroupsGuestOf EventGuestGroup[]
+  id                    String              @id @default(cuid())
+  denId                 String
+  den                   Den                 @relation(fields: [denId], references: [id], onDelete: Cascade)
+  firstName             String
+  lastName              String
+  // BSA member ID (a.k.a. Scouter ID#). Not collected when a leader adds a
+  // scout from the den roster — only editable from the admin Users → Scouts
+  // screen, since it's office paperwork, not something a den leader tracks.
+  scouterId             String?
+  // Date this scout's BSA registration lapses. Same admin-only screen as
+  // scouterId — not part of the quick den add-scout flow.
+  registrationExpiresOn DateTime?           @db.Date
+  notes                 String?
+  createdAt             DateTime            @default(now())
+  records               AdvancementRecord[]
+  attendances           Attendance[]
+  duesPayments          DuesPayment[]
+  parents               Parent[]
+  photoConsent          PhotoConsent?
+  eventRegistrations    EventRegistration[]
+  guestGroupsGuestOf    EventGuestGroup[]
 }
 
 model Parent {

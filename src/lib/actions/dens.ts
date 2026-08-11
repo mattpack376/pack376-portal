@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { hashPassword } from "@/lib/auth";
 import { generatePassword } from "@/lib/passwords";
+import { deleteScoutCascade } from "@/lib/scoutDeletion";
 import { issueInviteToken } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { nextRank as computeNextRank } from "@/lib/rankConfig";
@@ -124,23 +125,10 @@ export async function removeScoutAction(formData: FormData) {
   const denId = String(formData.get("denId") || "");
   if (!scoutId) throw new Error("Missing scout id.");
 
-  // Deleting the scout cascades to its Parent rows at the DB level, which
-  // bypasses removeParentAction's sessionVersion bump — do it here instead so
-  // an already-issued parent session can't keep seeing this scout's data for
-  // the rest of its 45-day life.
-  const linkedParents = await prisma.parent.findMany({
-    where: { scoutId, userId: { not: null } },
-    select: { userId: true },
-  });
-  const linkedUserIds = [...new Set(linkedParents.map((p) => p.userId!))];
-
-  await prisma.$transaction([
-    prisma.scout.delete({ where: { id: scoutId } }),
-    ...linkedUserIds.map((userId) =>
-      prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } })
-    ),
-  ]);
+  await deleteScoutCascade(scoutId);
   revalidatePath(`/portal/admin/dens/${denId}`);
+  revalidatePath("/portal/admin/users/scouts");
+  revalidatePath("/portal/roster");
 }
 
 export async function promoteDenAction(
