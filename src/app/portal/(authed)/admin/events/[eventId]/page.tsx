@@ -197,7 +197,7 @@ export default async function AdminEventDetailPage({
             <p className="form-note">Image or PDF, up to 8MB. Uploading a new file replaces the current flyer.</p>
             {event.flyerUrl && (
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, marginTop: 8 }}>
-                <input type="checkbox" name="removeFlyer" value="true" />
+                <input type="checkbox" name="removeFlyer" value="true" style={{ width: "auto" }} />
                 Remove current flyer
               </label>
             )}
