@@ -184,6 +184,24 @@ export default async function AdminEventDetailPage({
             <label htmlFor="edit-description">Description (optional)</label>
             <textarea id="edit-description" name="description" rows={2} defaultValue={event.description ?? ""} />
           </div>
+          <div className="form-field">
+            <label htmlFor="edit-flyer">Flyer (optional)</label>
+            {event.flyerUrl && (
+              <p style={{ marginTop: 0, marginBottom: 8 }}>
+                <a href={event.flyerUrl} target="_blank" rel="noopener noreferrer" className="link">
+                  View current flyer →
+                </a>
+              </p>
+            )}
+            <input id="edit-flyer" name="flyer" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" />
+            <p className="form-note">Image or PDF, up to 8MB. Uploading a new file replaces the current flyer.</p>
+            {event.flyerUrl && (
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, marginTop: 8 }}>
+                <input type="checkbox" name="removeFlyer" value="true" />
+                Remove current flyer
+              </label>
+            )}
+          </div>
           <button type="submit" className="btn btn-primary">Save Changes</button>
         </form>
       </div>

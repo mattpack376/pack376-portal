@@ -2,7 +2,12 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { scoutingYearForDate, ensureMeetingDates, formatMeetingDate } from "@/lib/attendanceSchedule";
 import { getScoutDuesDetail } from "@/lib/duesData";
-import { getScoutEventBalances, getGuestGroupBalances, getOpenEventsForSelfRegistration } from "@/lib/eventsData";
+import {
+  getScoutEventBalances,
+  getGuestGroupBalances,
+  getOpenEventsForSelfRegistration,
+  getUpcomingVisibleEvents,
+} from "@/lib/eventsData";
 
 function todayUtc() {
   const now = new Date();
@@ -45,11 +50,12 @@ export async function getParentDashboardData(scoutIds: string[], userId: string)
     }),
   ]);
 
-  const [duesByScout, eventBalances, guestGroupBalances, openEvents] = await Promise.all([
+  const [duesByScout, eventBalances, guestGroupBalances, openEvents, upcomingEvents] = await Promise.all([
     Promise.all(scouts.map((s) => getScoutDuesDetail(s.id))),
     getScoutEventBalances(scoutIds),
     getGuestGroupBalances(userId),
     getOpenEventsForSelfRegistration(scoutIds, userId),
+    getUpcomingVisibleEvents(),
   ]);
 
   return {
@@ -70,5 +76,6 @@ export async function getParentDashboardData(scoutIds: string[], userId: string)
     eventBalances,
     guestGroupBalances,
     openEvents,
+    upcomingEvents,
   };
 }

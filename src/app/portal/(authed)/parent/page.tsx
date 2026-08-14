@@ -9,6 +9,7 @@ import { getPublicBaseUrl } from "@/lib/appUrl";
 import ScoutChecklist from "@/components/ScoutChecklist";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
+import EventFlyer from "@/components/EventFlyer";
 import {
   registerMyScoutsForEventAction,
   registerMyGuestGroupForEventAction,
@@ -19,7 +20,17 @@ import type { Rank } from "@/generated/prisma/enums";
 export default async function ParentDashboardPage() {
   const session = await requireParentSession();
   const [
-    { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, guestGroupBalances, openEvents },
+    {
+      scouts,
+      nextMeeting,
+      announcements,
+      deadlines,
+      volunteerNeeds,
+      eventBalances,
+      guestGroupBalances,
+      openEvents,
+      upcomingEvents,
+    },
     advancement,
   ] = await Promise.all([
     getParentDashboardData(session.scoutIds, session.userId),
@@ -118,6 +129,32 @@ export default async function ParentDashboardPage() {
 
         <PaymentInstructionsCard />
       </div>
+
+      <div className="section-head">
+        <div className="eyebrow">What&apos;s Coming Up</div>
+        <h2>🎉 Upcoming Events</h2>
+      </div>
+      {upcomingEvents.length === 0 ? (
+        <div className="info-card" style={{ marginBottom: 32 }}>
+          <p style={{ marginBottom: 0 }}>No upcoming events posted right now.</p>
+        </div>
+      ) : (
+        <div className="resource-grid" style={{ marginBottom: 32 }}>
+          {upcomingEvents.map((event) => (
+            <div className="resource-card" key={event.id}>
+              <div className="icon-badge">{DEADLINE_CATEGORY_ICONS[event.category]}</div>
+              <div>
+                <p className="form-note" style={{ marginBottom: 4 }}>
+                  {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
+                </p>
+                <h3>{event.title}</h3>
+                {event.description && <p style={{ marginBottom: 10 }}>{event.description}</p>}
+                <EventFlyer flyerUrl={event.flyerUrl} title={event.title} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="section-head">
         <div className="eyebrow">Lend a Hand</div>

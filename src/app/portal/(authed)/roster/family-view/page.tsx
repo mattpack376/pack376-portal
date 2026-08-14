@@ -14,6 +14,7 @@ import SortableColumnHeader from "@/components/SortableColumnHeader";
 import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
 import { sortGuestGroups } from "@/lib/guestSort";
 import { registerMyGuestGroupForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
+import EventFlyer from "@/components/EventFlyer";
 
 export default async function FamilyViewPage({
   searchParams,
@@ -44,10 +45,8 @@ export default async function FamilyViewPage({
   }
 
   const scoutIds = den ? den.scouts.map((s) => s.id) : (await prisma.scout.findMany({ select: { id: true } })).map((s) => s.id);
-  const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances } = await getParentDashboardData(
-    scoutIds,
-    session.userId,
-  );
+  const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, upcomingEvents } =
+    await getParentDashboardData(scoutIds, session.userId);
 
   const [rawGuestGroups, myOpenGuestEvents] = await Promise.all([
     canViewGuestGroups ? getAllGuestGroups() : Promise.resolve([]),
@@ -171,6 +170,32 @@ export default async function FamilyViewPage({
 
         <PaymentInstructionsCard />
       </div>
+
+      <div className="section-head">
+        <div className="eyebrow">What&apos;s Coming Up</div>
+        <h2>🎉 Upcoming Events</h2>
+      </div>
+      {upcomingEvents.length === 0 ? (
+        <div className="info-card" style={{ marginBottom: 32 }}>
+          <p style={{ marginBottom: 0 }}>No upcoming events posted right now.</p>
+        </div>
+      ) : (
+        <div className="resource-grid" style={{ marginBottom: 32 }}>
+          {upcomingEvents.map((event) => (
+            <div className="resource-card" key={event.id}>
+              <div className="icon-badge">{DEADLINE_CATEGORY_ICONS[event.category]}</div>
+              <div>
+                <p className="form-note" style={{ marginBottom: 4 }}>
+                  {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
+                </p>
+                <h3>{event.title}</h3>
+                {event.description && <p style={{ marginBottom: 10 }}>{event.description}</p>}
+                <EventFlyer flyerUrl={event.flyerUrl} title={event.title} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="section-head">
         <div className="eyebrow">Lend a Hand</div>

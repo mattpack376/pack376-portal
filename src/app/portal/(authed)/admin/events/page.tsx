@@ -124,6 +124,11 @@ export default async function AdminEventsPage() {
             <label htmlFor="description">Description (optional)</label>
             <textarea id="description" name="description" rows={2} />
           </div>
+          <div className="form-field">
+            <label htmlFor="flyer">Flyer (optional)</label>
+            <input id="flyer" name="flyer" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" />
+            <p className="form-note">Image or PDF, up to 8MB. Shown in the Upcoming Events list on the Parent Dashboard and Family View.</p>
+          </div>
           <button type="submit" className="btn btn-primary">Create Event</button>
         </form>
       </div>

@@ -398,6 +398,10 @@ model Event {
   // Family View) without deleting it — admins still see and manage it, and
   // anyone already registered keeps their existing registration/balance.
   visible            Boolean             @default(true)
+  // Uploaded flyer (image or PDF), stored in Vercel Blob — shown on the
+  // Parent Dashboard / Family View "Upcoming Events" list so families can
+  // see event details without one being open for registration.
+  flyerUrl           String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   registrations      EventRegistration[]

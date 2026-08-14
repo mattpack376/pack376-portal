@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin, assertEventPaymentDenAccess, assertGuestGroupAccess } from "@/lib/authorize";
@@ -14,6 +15,27 @@ function dollarsToCents(raw: string): number | null {
   const value = Number(trimmed);
   if (!Number.isFinite(value) || value < 0) return null;
   return Math.round(value * 100);
+}
+
+const MAX_FLYER_BYTES = 8 * 1024 * 1024;
+const ALLOWED_FLYER_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "application/pdf": "pdf",
+};
+
+async function uploadFlyer(file: File): Promise<string> {
+  const extension = ALLOWED_FLYER_TYPES[file.type];
+  if (!extension) throw new Error("Flyer must be a JPEG, PNG, WEBP, GIF, or PDF.");
+  if (file.size > MAX_FLYER_BYTES) throw new Error("Flyer must be 8MB or smaller.");
+
+  const blob = await put(`event-flyers/${crypto.randomUUID()}.${extension}`, file, {
+    access: "public",
+    contentType: file.type,
+  });
+  return blob.url;
 }
 
 export async function createEventAction(formData: FormData) {
@@ -42,11 +64,19 @@ export async function createEventAction(formData: FormData) {
   const guestChildFeeCents = guestChildFeeRaw.trim() ? dollarsToCents(guestChildFeeRaw) : null;
   if (guestChildFeeRaw.trim() && guestChildFeeCents === null) throw new Error("Invalid guest child fee amount.");
 
+  let flyerUrl: string | null = null;
+  const flyer = formData.get("flyer");
+  if (flyer instanceof File && flyer.size > 0) {
+    flyerUrl = await uploadFlyer(flyer);
+  }
+
   const event = await prisma.event.create({
-    data: { title, category, eventDate, description: description || null, feeCents, adultFeeCents, guestChildFeeCents },
+    data: { title, category, eventDate, description: description || null, feeCents, adultFeeCents, guestChildFeeCents, flyerUrl },
   });
 
   revalidatePath("/portal/admin/events");
+  revalidatePath("/portal/parent");
+  revalidatePath("/portal/roster/family-view");
   redirect(`/portal/admin/events/${event.id}`);
 }
 
@@ -77,13 +107,34 @@ export async function updateEventAction(formData: FormData) {
   const guestChildFeeCents = guestChildFeeRaw.trim() ? dollarsToCents(guestChildFeeRaw) : null;
   if (guestChildFeeRaw.trim() && guestChildFeeCents === null) throw new Error("Invalid guest child fee amount.");
 
+  // Only touch flyerUrl when a new file was uploaded or "remove" was checked,
+  // so leaving both alone keeps whatever flyer is already saved.
+  let flyerUrl: string | null | undefined;
+  const flyer = formData.get("flyer");
+  if (flyer instanceof File && flyer.size > 0) {
+    flyerUrl = await uploadFlyer(flyer);
+  } else if (String(formData.get("removeFlyer") || "") === "true") {
+    flyerUrl = null;
+  }
+
   await prisma.event.update({
     where: { id },
-    data: { title, category, eventDate, description: description || null, feeCents, adultFeeCents, guestChildFeeCents },
+    data: {
+      title,
+      category,
+      eventDate,
+      description: description || null,
+      feeCents,
+      adultFeeCents,
+      guestChildFeeCents,
+      ...(flyerUrl !== undefined ? { flyerUrl } : {}),
+    },
   });
 
   revalidatePath(`/portal/admin/events/${id}`);
   revalidatePath("/portal/admin/events");
+  revalidatePath("/portal/parent");
+  revalidatePath("/portal/roster/family-view");
 }
 
 export async function toggleEventVisibilityAction(formData: FormData) {

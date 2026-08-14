@@ -10,6 +10,7 @@ export default function EnlargeableImage({
   height,
   enlargedWidth = 320,
   enlargedHeight = 314,
+  fit,
 }: {
   src: string;
   alt: string;
@@ -17,6 +18,8 @@ export default function EnlargeableImage({
   height: number;
   enlargedWidth?: number;
   enlargedHeight?: number;
+  /** Optional object-fit for the thumbnail — use "contain" when the source aspect ratio may not match width/height (e.g. uploaded flyers/posters). Leaving unset preserves the default (unstretched) rendering used everywhere else. */
+  fit?: "contain" | "cover";
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -33,7 +36,7 @@ export default function EnlargeableImage({
           alt={alt}
           width={width}
           height={height}
-          style={{ borderRadius: 8, border: "1px solid var(--cream-dark)", display: "block" }}
+          style={{ borderRadius: 8, border: "1px solid var(--cream-dark)", display: "block", ...(fit ? { objectFit: fit, width, height } : {}) }}
         />
         <span
           style={{
@@ -63,7 +66,7 @@ export default function EnlargeableImage({
           alt={alt}
           width={enlargedWidth}
           height={enlargedHeight}
-          style={{ display: "block", width: "100%", height: "auto", borderRadius: 8 }}
+          style={{ display: "block", width: "100%", height: "auto", borderRadius: 8, ...(fit ? { objectFit: fit } : {}) }}
         />
         <button
           type="button"

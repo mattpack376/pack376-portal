@@ -93,6 +93,7 @@ export async function getEventDetail(eventId: string) {
     adultFeeCents: event.adultFeeCents,
     guestChildFeeCents: event.guestChildFeeCents,
     visible: event.visible,
+    flyerUrl: event.flyerUrl,
     registrations: event.registrations.map((reg) => ({
       ...withBalance(reg),
       scout: { id: reg.scout.id, firstName: reg.scout.firstName, lastName: reg.scout.lastName, den: reg.scout.den },
@@ -217,6 +218,32 @@ export async function getGuestGroupBalances(userId: string) {
   return groups.map((group) => ({
     ...withBalance(group),
     event: group.event,
+  }));
+}
+
+/**
+ * Every upcoming, visible pack event (regardless of fee/registration status)
+ * — used by the Parent Dashboard's and Family View's "Upcoming Events" list
+ * so a flyer/description is visible even for events that aren't open for
+ * self-registration (e.g. no fee set), unlike getOpenEventsForSelfRegistration
+ * below which only surfaces events someone can actually sign up for.
+ */
+export async function getUpcomingVisibleEvents() {
+  const today = new Date();
+  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+
+  const events = await prisma.event.findMany({
+    where: { eventDate: { gte: todayUtc }, visible: true },
+    orderBy: { eventDate: "asc" },
+  });
+
+  return events.map((event) => ({
+    id: event.id,
+    title: event.title,
+    category: event.category,
+    eventDate: event.eventDate,
+    description: event.description,
+    flyerUrl: event.flyerUrl,
   }));
 }
 
