@@ -70,11 +70,19 @@ export async function getTripMeals(tripPageId: string) {
   });
 }
 
+/** All duty slots for the trip, sorted by their linked meal's chronological slot (TripMeal.sortOrder already encodes day + meal type), then their own sortOrder/creation order. General duties (no linked meal) sort last, in creation order. */
 export async function getTripDutySlots(tripPageId: string) {
-  return prisma.tripDutySlot.findMany({
+  const dutySlots = await prisma.tripDutySlot.findMany({
     where: { tripPageId },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     include: { tripMeal: true },
+  });
+
+  return dutySlots.sort((a, b) => {
+    const aMealOrder = a.tripMeal?.sortOrder ?? Number.MAX_SAFE_INTEGER;
+    const bMealOrder = b.tripMeal?.sortOrder ?? Number.MAX_SAFE_INTEGER;
+    if (aMealOrder !== bMealOrder) return aMealOrder - bMealOrder;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.createdAt.getTime() - b.createdAt.getTime();
   });
 }
 

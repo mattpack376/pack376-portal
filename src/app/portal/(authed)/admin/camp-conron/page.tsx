@@ -275,6 +275,7 @@ export default async function AdminCampConronPage() {
           {dutySlots.map((duty) => (
             <CollapsibleGroup
               key={duty.id}
+              defaultOpen={false}
               label={`${duty.tripMeal ? `${DAY_LABELS[duty.tripMeal.day]} ${MEAL_TYPE_LABELS[duty.tripMeal.mealType]}` : "General"} — ${duty.label}${
                 duty.assignedName ? ` · ${duty.assignedName}` : ""
               }${duty.arriveTime ? ` (${duty.arriveTime})` : ""}`}
@@ -392,6 +393,7 @@ export default async function AdminCampConronPage() {
           {activities.map((activity) => (
             <CollapsibleGroup
               key={activity.id}
+              defaultOpen={false}
               label={`${DAY_LABELS[activity.day]}${activity.time ? ` ${activity.time}` : ""} — ${activity.title}`}
             >
               <div className="info-card" style={{ marginTop: 8, maxWidth: 480 }}>
