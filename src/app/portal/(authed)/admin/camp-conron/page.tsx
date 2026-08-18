@@ -3,11 +3,13 @@ import {
   getOrCreateTripPage,
   getTripMeals,
   getTripDutySlots,
+  getTripActivities,
   getTripRegistrations,
   currentTripPriceCents,
   CAMP_CONRON_SLUG,
   DAY_LABELS,
   MEAL_TYPE_LABELS,
+  TRIP_DAY_ORDER,
 } from "@/lib/tripPageData";
 import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
@@ -19,6 +21,8 @@ import {
   updateTripMealsAction,
   createDutySlotAction,
   deleteDutySlotAction,
+  createActivityAction,
+  deleteActivityAction,
   toggleTripPublishedAction,
 } from "@/lib/actions/tripPage";
 import {
@@ -38,9 +42,10 @@ export default async function AdminCampConronPage() {
   const isAdmin = session.role === "ADMIN";
 
   const trip = await getOrCreateTripPage(CAMP_CONRON_SLUG);
-  const [meals, dutySlots, registrations] = await Promise.all([
+  const [meals, dutySlots, activities, registrations] = await Promise.all([
     getTripMeals(trip.id),
     getTripDutySlots(trip.id),
+    getTripActivities(trip.id),
     getTripRegistrations(trip.id),
   ]);
 
@@ -335,6 +340,86 @@ export default async function AdminCampConronPage() {
           <div className="form-field">
             <label htmlFor="notes">Notes (optional)</label>
             <input id="notes" name="notes" />
+          </div>
+          <button type="submit" className="btn btn-primary">Add</button>
+        </form>
+      </div>
+
+      <div className="section-head">
+        <div className="eyebrow">Weekend Itinerary</div>
+        <h2>Activities Schedule</h2>
+        <p>What&apos;s happening and when — shown to families on the public page.</p>
+      </div>
+
+      {activities.length === 0 ? (
+        <div className="info-card" style={{ marginBottom: 24 }}>
+          <p style={{ marginBottom: 0 }}>No activities scheduled yet.</p>
+        </div>
+      ) : (
+        <div className="table-scroll" style={{ marginBottom: 24 }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th>Time</th>
+                <th>Activity</th>
+                <th>Description</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {activities.map((activity) => (
+                <tr key={activity.id}>
+                  <td>{DAY_LABELS[activity.day]}</td>
+                  <td>{activity.time || "—"}</td>
+                  <td>{activity.title}</td>
+                  <td>{activity.description || "—"}</td>
+                  <td className="actions">
+                    <form action={deleteActivityAction}>
+                      <input type="hidden" name="id" value={activity.id} />
+                      <button
+                        type="submit"
+                        className="btn btn-outline btn-small"
+                        style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                      >
+                        Remove
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="info-card" style={{ maxWidth: 480, marginBottom: 32 }}>
+        <h3 style={{ marginTop: 0 }}>Add an Activity</h3>
+        <form action={createActivityAction}>
+          <input type="hidden" name="tripPageId" value={trip.id} />
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+              <label htmlFor="activity-day">Day</label>
+              <select id="activity-day" name="day" defaultValue={TRIP_DAY_ORDER[0]}>
+                {TRIP_DAY_ORDER.map((day) => (
+                  <option key={day} value={day}>
+                    {DAY_LABELS[day]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+              <label htmlFor="activity-time">Time</label>
+              <input id="activity-time" name="time" placeholder="e.g. 4:00 PM" />
+            </div>
+          </div>
+          <div className="form-field">
+            <label htmlFor="activity-title">Activity</label>
+            <input id="activity-title" name="title" required placeholder="e.g. Tent Decorating Contest" />
+          </div>
+          <div className="form-field">
+            <label htmlFor="activity-description">Description (optional)</label>
+            <textarea id="activity-description" name="description" rows={2} placeholder="Bring your best decorations!" />
           </div>
           <button type="submit" className="btn btn-primary">Add</button>
         </form>

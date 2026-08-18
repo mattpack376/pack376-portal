@@ -5,6 +5,7 @@ import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertTripPageAccess } from "@/lib/authorize";
+import type { TripDay } from "@/generated/prisma/enums";
 
 const ADMIN_PATH = "/portal/admin/camp-conron";
 const PUBLIC_PATH = "/camp-conron";
@@ -231,6 +232,41 @@ export async function deleteDutySlotAction(formData: FormData) {
   if (!id) throw new Error("Missing duty slot id.");
 
   await prisma.tripDutySlot.delete({ where: { id } });
+
+  revalidateTrip();
+}
+
+export async function createActivityAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertTripPageAccess(session);
+
+  const tripPageId = String(formData.get("tripPageId") || "");
+  const day = String(formData.get("day") || "");
+  const time = String(formData.get("time") || "").trim();
+  const title = String(formData.get("title") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  if (!tripPageId || !title) throw new Error("A title is required.");
+  if (day !== "FRIDAY" && day !== "SATURDAY" && day !== "SUNDAY" && day !== "MONDAY") {
+    throw new Error("Choose a valid day.");
+  }
+
+  await prisma.tripActivity.create({
+    data: { tripPageId, day: day as TripDay, time: time || null, title, description: description || null },
+  });
+
+  revalidateTrip();
+}
+
+export async function deleteActivityAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertTripPageAccess(session);
+
+  const id = String(formData.get("id") || "");
+  if (!id) throw new Error("Missing activity id.");
+
+  await prisma.tripActivity.delete({ where: { id } });
 
   revalidateTrip();
 }

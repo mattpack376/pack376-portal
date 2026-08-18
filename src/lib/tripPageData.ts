@@ -23,6 +23,9 @@ export const DAY_LABELS: Record<TripDay, string> = {
   MONDAY: "Monday",
 };
 
+/** Chronological order for this trip's four days — used to sort TripActivity rows without depending on Postgres enum-ordering semantics, same idiom as RANK_ORDER in rankConfig.ts. */
+export const TRIP_DAY_ORDER: TripDay[] = ["FRIDAY", "SATURDAY", "SUNDAY", "MONDAY"];
+
 export const MEAL_TYPE_LABELS: Record<TripMealType, string> = {
   BREAKFAST: "Breakfast",
   LUNCH: "Lunch",
@@ -72,6 +75,17 @@ export async function getTripDutySlots(tripPageId: string) {
     where: { tripPageId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     include: { tripMeal: true },
+  });
+}
+
+/** All schedule entries for the trip, sorted chronologically (day, then sortOrder, then creation order) rather than trusting DB-level enum ordering. */
+export async function getTripActivities(tripPageId: string) {
+  const activities = await prisma.tripActivity.findMany({ where: { tripPageId } });
+  return activities.sort((a, b) => {
+    const dayDiff = TRIP_DAY_ORDER.indexOf(a.day) - TRIP_DAY_ORDER.indexOf(b.day);
+    if (dayDiff !== 0) return dayDiff;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.createdAt.getTime() - b.createdAt.getTime();
   });
 }
 

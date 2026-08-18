@@ -7,6 +7,7 @@ import {
   getOrCreateTripPage,
   getTripMeals,
   getTripDutySlots,
+  getTripActivities,
   currentTripPriceCents,
   CAMP_CONRON_SLUG,
   DAY_LABELS,
@@ -49,7 +50,11 @@ export default async function CampConronPage() {
     );
   }
 
-  const [meals, dutySlots] = await Promise.all([getTripMeals(trip.id), getTripDutySlots(trip.id)]);
+  const [meals, dutySlots, activities] = await Promise.all([
+    getTripMeals(trip.id),
+    getTripDutySlots(trip.id),
+    getTripActivities(trip.id),
+  ]);
 
   const priceCents = currentTripPriceCents(trip);
   const isEarlyBird = trip.earlyBirdPriceCents !== null && priceCents === trip.earlyBirdPriceCents;
@@ -60,6 +65,19 @@ export default async function CampConronPage() {
     if (!duty.tripMealId) continue;
     if (!dutyByMeal.has(duty.tripMealId)) dutyByMeal.set(duty.tripMealId, []);
     dutyByMeal.get(duty.tripMealId)!.push(duty);
+  }
+
+  // activities is already sorted chronologically (day, then sortOrder, then
+  // creation order) by getTripActivities, so grouping same-day runs
+  // sequentially is enough — no re-sort needed here.
+  const activityGroups: { day: (typeof activities)[number]["day"]; items: typeof activities }[] = [];
+  for (const activity of activities) {
+    const lastGroup = activityGroups[activityGroups.length - 1];
+    if (lastGroup && lastGroup.day === activity.day) {
+      lastGroup.items.push(activity);
+    } else {
+      activityGroups.push({ day: activity.day, items: [activity] });
+    }
   }
 
   return (
@@ -150,6 +168,28 @@ export default async function CampConronPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            <div className="info-card" style={{ marginBottom: 24 }}>
+              <h3 style={{ marginTop: 0 }}>Schedule</h3>
+              {activityGroups.length === 0 ? (
+                <p style={{ marginBottom: 0 }}>Full schedule coming soon.</p>
+              ) : (
+                activityGroups.map((group) => (
+                  <div key={group.day} style={{ marginBottom: 14 }}>
+                    <p style={{ fontWeight: 700, marginBottom: 6 }}>{DAY_LABELS[group.day]}</p>
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {group.items.map((activity) => (
+                        <li key={activity.id}>
+                          {activity.time && <strong>{activity.time} — </strong>}
+                          {activity.title}
+                          {activity.description && ` — ${activity.description}`}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="info-card">
