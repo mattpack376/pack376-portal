@@ -177,6 +177,25 @@ export function assertHomepageContentAccess(session: SessionPayload) {
   }
 }
 
+/**
+ * For Server Components / pages: the Camp Conron trip page's admin editor
+ * (details, pricing, menu, duty roster, registrations/payments) — full admin
+ * and junior admin, same population as homepage content above. The public
+ * conron.pack376nyc.org page itself needs no session at all.
+ */
+export async function requireTripPageSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") redirect(homeForRole(session.role));
+  return session;
+}
+
+/** Full admin or junior admin — trip page content/menu/duty-roster edit actions. */
+export function assertTripPageAccess(session: SessionPayload) {
+  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
+    throw new Error("Not authorized: trip page access required.");
+  }
+}
+
 /** Full admin only — homepage content delete actions; junior admin can add/edit but not delete. */
 export function assertHomepageContentDeleteAccess(session: SessionPayload) {
   if (session.role !== "ADMIN") {

@@ -85,6 +85,7 @@ model User {
   guestGroupsAdded         EventGuestGroup[]        @relation("GuestGroupAddedBy")
   guestGroupsGuestOf       EventGuestGroup[]        @relation("GuestGroupGuestOf")
   guestGroupPaymentsLogged EventGuestGroupPayment[]
+  tripPaymentsLogged       TripPayment[]
 }
 
 /**
@@ -478,4 +479,126 @@ model EventGuestGroupPayment {
   createdAt         DateTime        @default(now())
   recordedByUserId  String?
   recordedByUser    User?           @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+}
+
+enum TripAffiliation {
+  PACK
+  TROOP
+}
+
+enum TripDay {
+  FRIDAY
+  SATURDAY
+  SUNDAY
+  MONDAY
+}
+
+enum TripMealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+}
+
+/**
+ * Content + registration for a single standalone camping-trip micro-site,
+ * served on its own subdomain (e.g. conron.pack376nyc.org, masked onto
+ * /camp-conron by proxy.ts) with no portal login required to view or
+ * register — unlike Event/EventGuestGroup above, which are entirely behind
+ * portal auth. One row per trip, looked up by a fixed slug via
+ * getOrCreateTripPage() in tripPageData.ts.
+ */
+model TripPage {
+  id                       String             @id @default(cuid())
+  slug                     String             @unique
+  title                    String
+  location                 String?
+  startDate                DateTime?          @db.Date
+  endDate                  DateTime?          @db.Date
+  flyerUrl                 String?
+  detailsHtml              String?
+  regularPriceCents        Int                @default(0)
+  earlyBirdPriceCents      Int?
+  earlyBirdDeadline        DateTime?          @db.Date
+  rsvpDeadline             DateTime?          @db.Date
+  freeAgeAndUnder          Int?
+  packPaymentInstructions  String?
+  troopPaymentInstructions String?
+  published                Boolean            @default(true)
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  registrations            TripRegistration[]
+  meals                    TripMeal[]
+  dutySlots                TripDutySlot[]
+}
+
+/**
+ * A family/group's public sign-up for a TripPage — no account required.
+ * payingCount/freeCount (not individually named, same convention as
+ * EventGuestGroup's adult/child counts) drive amountOwedCents, frozen at
+ * whichever price tier (regular vs. early-bird) was active at submit time.
+ */
+model TripRegistration {
+  id              String          @id @default(cuid())
+  tripPageId      String
+  tripPage        TripPage        @relation(fields: [tripPageId], references: [id], onDelete: Cascade)
+  familyName      String
+  contactEmail    String
+  contactPhone    String?
+  affiliation     TripAffiliation
+  payingCount     Int             @default(0)
+  freeCount       Int             @default(0)
+  amountOwedCents Int
+  createdAt       DateTime        @default(now())
+  payments        TripPayment[]
+}
+
+model TripPayment {
+  id                 String           @id @default(cuid())
+  tripRegistrationId String
+  tripRegistration   TripRegistration @relation(fields: [tripRegistrationId], references: [id], onDelete: Cascade)
+  amountCents        Int
+  paidOn             DateTime         @db.Date
+  note               String?
+  createdAt          DateTime         @default(now())
+  recordedByUserId   String?
+  recordedByUser     User?            @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+}
+
+/**
+ * One of the trip's 8 fixed meal slots (Fri Dinner, Sat/Sun each B+L+D, Mon
+ * Breakfast) — seeded automatically by getOrCreateTripPage(), never
+ * created/deleted by admins, just edited (menuText) and optionally staffed
+ * (dutySlots).
+ */
+model TripMeal {
+  id         String         @id @default(cuid())
+  tripPageId String
+  tripPage   TripPage       @relation(fields: [tripPageId], references: [id], onDelete: Cascade)
+  day        TripDay
+  mealType   TripMealType
+  menuText   String?
+  sortOrder  Int
+  dutySlots  TripDutySlot[]
+
+  @@unique([tripPageId, day, mealType])
+}
+
+/**
+ * A duty roster entry — assignedName is free text rather than a User/Scout
+ * FK, since duty helpers won't all be the person who submitted the public
+ * RSVP. tripMealId is optional: set for meal-prep duty, null for a
+ * standalone duty (e.g. "Sunday breakdown crew") not tied to a specific meal.
+ */
+model TripDutySlot {
+  id           String    @id @default(cuid())
+  tripPageId   String
+  tripPage     TripPage  @relation(fields: [tripPageId], references: [id], onDelete: Cascade)
+  tripMealId   String?
+  tripMeal     TripMeal? @relation(fields: [tripMealId], references: [id], onDelete: SetNull)
+  label        String
+  assignedName String?
+  arriveTime   String?
+  notes        String?
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
 }

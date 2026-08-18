@@ -5,6 +5,9 @@ import { jwtVerify } from "jose";
 const SESSION_COOKIE = "pack376_session";
 
 const PORTAL_HOSTS = ["portal.pack376nyc.org", "portal.localhost:3000"];
+// Standalone public micro-site for the Camp Conron trip — no login involved,
+// masked onto /camp-conron the same way PORTAL_HOSTS masks /portal below.
+const CONRON_HOSTS = ["conron.pack376nyc.org", "conron.localhost:3000"];
 
 function secretKey() {
   const secret = process.env.AUTH_SECRET;
@@ -71,28 +74,31 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[]
 ];
 
 /**
- * portal.pack376nyc.org is served by this same deployment, masked onto
- * /portal via rewrite so visitors never see the /portal prefix in the URL
- * bar. `internalPath` is what the rest of this function (and the app's
- * router) sees; `toPublic` translates a /portal/* path back to what the
- * visitor should see in a redirect — prefix-free on that subdomain.
+ * portal.pack376nyc.org and conron.pack376nyc.org are both served by this
+ * same deployment, each masked onto an internal prefix (/portal, /camp-conron)
+ * via rewrite so visitors never see that prefix in the URL bar. `internalPath`
+ * is what the rest of this function (and the app's router) sees; `toPublic`
+ * translates an internal path back to what the visitor should see in a
+ * redirect — prefix-free on that subdomain.
  */
 function resolvePaths(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const isPortalSubdomain = PORTAL_HOSTS.includes(host);
+  const isConronSubdomain = CONRON_HOSTS.includes(host);
   const publicPath = request.nextUrl.pathname;
   const isAsset = publicPath.startsWith("/api") || publicPath.startsWith("/_next") || publicPath.includes(".");
 
-  const internalPath =
-    isPortalSubdomain && !isAsset && !publicPath.startsWith("/portal")
-      ? publicPath === "/"
-        ? "/portal"
-        : `/portal${publicPath}`
-      : publicPath;
+  if (isPortalSubdomain && !isAsset && !publicPath.startsWith("/portal")) {
+    const internalPath = publicPath === "/" ? "/portal" : `/portal${publicPath}`;
+    return { publicPath, internalPath, toPublic: (path: string) => path.replace(/^\/portal/, "") || "/" };
+  }
 
-  const toPublic = (path: string) => (isPortalSubdomain ? path.replace(/^\/portal/, "") || "/" : path);
+  if (isConronSubdomain && !isAsset && !publicPath.startsWith("/camp-conron")) {
+    const internalPath = publicPath === "/" ? "/camp-conron" : `/camp-conron${publicPath}`;
+    return { publicPath, internalPath, toPublic: (path: string) => path.replace(/^\/camp-conron/, "") || "/" };
+  }
 
-  return { publicPath, internalPath, toPublic };
+  return { publicPath, internalPath: publicPath, toPublic: (path: string) => path };
 }
 
 function rewriteTo(request: NextRequest, pathname: string) {
