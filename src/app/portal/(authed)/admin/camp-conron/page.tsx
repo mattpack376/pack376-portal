@@ -20,8 +20,10 @@ import {
   updateTripPaymentInstructionsAction,
   updateTripMealsAction,
   createDutySlotAction,
+  updateDutySlotAction,
   deleteDutySlotAction,
   createActivityAction,
+  updateActivityAction,
   deleteActivityAction,
   toggleTripPublishedAction,
 } from "@/lib/actions/tripPage";
@@ -269,42 +271,72 @@ export default async function AdminCampConronPage() {
           <p style={{ marginBottom: 0 }}>No duty slots yet.</p>
         </div>
       ) : (
-        <div className="table-scroll" style={{ marginBottom: 24 }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Meal</th>
-                <th>Duty</th>
-                <th>Assigned To</th>
-                <th>Arrive</th>
-                <th>Notes</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {dutySlots.map((duty) => (
-                <tr key={duty.id}>
-                  <td>{duty.tripMeal ? `${DAY_LABELS[duty.tripMeal.day]} ${MEAL_TYPE_LABELS[duty.tripMeal.mealType]}` : "General"}</td>
-                  <td>{duty.label}</td>
-                  <td>{duty.assignedName || "—"}</td>
-                  <td>{duty.arriveTime || "—"}</td>
-                  <td>{duty.notes || "—"}</td>
-                  <td className="actions">
-                    <form action={deleteDutySlotAction}>
-                      <input type="hidden" name="id" value={duty.id} />
-                      <button
-                        type="submit"
-                        className="btn btn-outline btn-small"
-                        style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
-                      >
-                        Remove
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ marginBottom: 24 }}>
+          {dutySlots.map((duty) => (
+            <CollapsibleGroup
+              key={duty.id}
+              label={`${duty.tripMeal ? `${DAY_LABELS[duty.tripMeal.day]} ${MEAL_TYPE_LABELS[duty.tripMeal.mealType]}` : "General"} — ${duty.label}${
+                duty.assignedName ? ` · ${duty.assignedName}` : ""
+              }${duty.arriveTime ? ` (${duty.arriveTime})` : ""}`}
+            >
+              <div className="info-card" style={{ marginTop: 8, maxWidth: 480 }}>
+                <form action={updateDutySlotAction}>
+                  <input type="hidden" name="id" value={duty.id} />
+                  <div className="form-field">
+                    <label htmlFor={`duty-label-${duty.id}`}>Duty</label>
+                    <input id={`duty-label-${duty.id}`} name="label" required defaultValue={duty.label} />
+                  </div>
+                  <div className="form-field">
+                    <label htmlFor={`duty-meal-${duty.id}`}>Meal (optional)</label>
+                    <select id={`duty-meal-${duty.id}`} name="tripMealId" defaultValue={duty.tripMealId ?? ""}>
+                      <option value="">— General duty, no meal —</option>
+                      {meals.map((meal) => (
+                        <option key={meal.id} value={meal.id}>
+                          {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                      <label htmlFor={`duty-assigned-${duty.id}`}>Assigned To</label>
+                      <input id={`duty-assigned-${duty.id}`} name="assignedName" defaultValue={duty.assignedName ?? ""} placeholder="Name" />
+                    </div>
+                    <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                      <label htmlFor={`duty-arrive-${duty.id}`}>Arrive</label>
+                      <input
+                        id={`duty-arrive-${duty.id}`}
+                        name="arriveTime"
+                        defaultValue={duty.arriveTime ?? ""}
+                        placeholder="e.g. 4:00 PM Fri"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-field">
+                    <label htmlFor={`duty-notes-${duty.id}`}>Notes (optional)</label>
+                    <input id={`duty-notes-${duty.id}`} name="notes" defaultValue={duty.notes ?? ""} />
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn btn-outline btn-small"
+                    style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                  >
+                    Save Changes
+                  </button>
+                </form>
+                <form action={deleteDutySlotAction} style={{ marginTop: 12 }}>
+                  <input type="hidden" name="id" value={duty.id} />
+                  <button
+                    type="submit"
+                    className="btn btn-outline btn-small"
+                    style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                  >
+                    Remove
+                  </button>
+                </form>
+              </div>
+            </CollapsibleGroup>
+          ))}
         </div>
       )}
 
@@ -356,40 +388,65 @@ export default async function AdminCampConronPage() {
           <p style={{ marginBottom: 0 }}>No activities scheduled yet.</p>
         </div>
       ) : (
-        <div className="table-scroll" style={{ marginBottom: 24 }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Day</th>
-                <th>Time</th>
-                <th>Activity</th>
-                <th>Description</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {activities.map((activity) => (
-                <tr key={activity.id}>
-                  <td>{DAY_LABELS[activity.day]}</td>
-                  <td>{activity.time || "—"}</td>
-                  <td>{activity.title}</td>
-                  <td>{activity.description || "—"}</td>
-                  <td className="actions">
-                    <form action={deleteActivityAction}>
-                      <input type="hidden" name="id" value={activity.id} />
-                      <button
-                        type="submit"
-                        className="btn btn-outline btn-small"
-                        style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
-                      >
-                        Remove
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ marginBottom: 24 }}>
+          {activities.map((activity) => (
+            <CollapsibleGroup
+              key={activity.id}
+              label={`${DAY_LABELS[activity.day]}${activity.time ? ` ${activity.time}` : ""} — ${activity.title}`}
+            >
+              <div className="info-card" style={{ marginTop: 8, maxWidth: 480 }}>
+                <form action={updateActivityAction}>
+                  <input type="hidden" name="id" value={activity.id} />
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+                      <label htmlFor={`activity-day-${activity.id}`}>Day</label>
+                      <select id={`activity-day-${activity.id}`} name="day" defaultValue={activity.day}>
+                        {TRIP_DAY_ORDER.map((day) => (
+                          <option key={day} value={day}>
+                            {DAY_LABELS[day]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+                      <label htmlFor={`activity-time-${activity.id}`}>Time</label>
+                      <input id={`activity-time-${activity.id}`} name="time" defaultValue={activity.time ?? ""} placeholder="e.g. 4:00 PM" />
+                    </div>
+                  </div>
+                  <div className="form-field">
+                    <label htmlFor={`activity-title-${activity.id}`}>Activity</label>
+                    <input id={`activity-title-${activity.id}`} name="title" required defaultValue={activity.title} />
+                  </div>
+                  <div className="form-field">
+                    <label htmlFor={`activity-description-${activity.id}`}>Description (optional)</label>
+                    <textarea
+                      id={`activity-description-${activity.id}`}
+                      name="description"
+                      rows={2}
+                      defaultValue={activity.description ?? ""}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn btn-outline btn-small"
+                    style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                  >
+                    Save Changes
+                  </button>
+                </form>
+                <form action={deleteActivityAction} style={{ marginTop: 12 }}>
+                  <input type="hidden" name="id" value={activity.id} />
+                  <button
+                    type="submit"
+                    className="btn btn-outline btn-small"
+                    style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                  >
+                    Remove
+                  </button>
+                </form>
+              </div>
+            </CollapsibleGroup>
+          ))}
         </div>
       )}
 

@@ -258,6 +258,29 @@ export async function createActivityAction(formData: FormData) {
   revalidateTrip();
 }
 
+export async function updateActivityAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertTripPageAccess(session);
+
+  const id = String(formData.get("id") || "");
+  const day = String(formData.get("day") || "");
+  const time = String(formData.get("time") || "").trim();
+  const title = String(formData.get("title") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  if (!id || !title) throw new Error("A title is required.");
+  if (day !== "FRIDAY" && day !== "SATURDAY" && day !== "SUNDAY" && day !== "MONDAY") {
+    throw new Error("Choose a valid day.");
+  }
+
+  await prisma.tripActivity.update({
+    where: { id },
+    data: { day: day as TripDay, time: time || null, title, description: description || null },
+  });
+
+  revalidateTrip();
+}
+
 export async function deleteActivityAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
