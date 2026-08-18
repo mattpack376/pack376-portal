@@ -93,9 +93,16 @@ function resolvePaths(request: NextRequest) {
     return { publicPath, internalPath, toPublic: (path: string) => path.replace(/^\/portal/, "") || "/" };
   }
 
-  if (isConronSubdomain && !isAsset && !publicPath.startsWith("/camp-conron")) {
-    const internalPath = publicPath === "/" ? "/camp-conron" : `/camp-conron${publicPath}`;
-    return { publicPath, internalPath, toPublic: (path: string) => path.replace(/^\/camp-conron/, "") || "/" };
+  // conron.pack376nyc.org serves exactly one page (the Camp Conron trip
+  // micro-site) at its root — unlike the portal subdomain above, which hosts
+  // many nested routes, this only rewrites "/" itself. Every other path here
+  // (nav links like /activities, /contact, /gallery, etc., all of which the
+  // shared site Header renders as root-relative links) falls through to the
+  // final return below and resolves normally against the same route tree
+  // every other host uses — rewriting them under /camp-conron would 404
+  // since no such nested routes exist.
+  if (isConronSubdomain && !isAsset && publicPath === "/") {
+    return { publicPath, internalPath: "/camp-conron", toPublic: (path: string) => (path === "/camp-conron" ? "/" : path) };
   }
 
   return { publicPath, internalPath: publicPath, toPublic: (path: string) => path };
