@@ -40,7 +40,7 @@ export default async function CampConronPage() {
   if (!trip.published) {
     return (
       <>
-        <Header />
+        <Header homeHref="https://www.pack376nyc.org" />
         <div className="site-banner">
           ⚠️ This page is in testing — everything listed is a placeholder for visual purposes only and is not finalized yet.
         </div>
@@ -85,7 +85,7 @@ export default async function CampConronPage() {
 
   return (
     <>
-      <Header />
+      <Header homeHref="https://www.pack376nyc.org" />
       <div className="site-banner">
         ⚠️ This page is in testing — everything listed is a placeholder for visual purposes only and is not finalized yet.
       </div>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
@@ -20,9 +20,28 @@ const NAV_ITEMS = [
   { href: "https://portal.pack376nyc.org", label: "Sign In", external: true },
 ];
 
-export default function Header() {
+/**
+ * `homeHref` lets a page rendered on a different subdomain (e.g. the Camp
+ * Conron trip micro-site on conron.pack376nyc.org) point "Home" at the real
+ * site homepage instead of "/", which would otherwise just reload that same
+ * subdomain's own root. Every other page renders <Header /> with no prop, so
+ * "Home" stays a normal same-app "/" link there, unchanged.
+ */
+export default function Header({ homeHref = "/" }: { homeHref?: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const navLinksRef = useRef<HTMLDivElement>(null);
+  const isHomeExternal = homeHref !== "/";
+
+  // Belt-and-suspenders against the mobile dropdown opening pre-scrolled to
+  // its last item instead of the first (a scroll-anchoring quirk some mobile
+  // browsers apply when a display:none -> flex element's overflow container
+  // first gets real height) — force it back to the top every time it opens.
+  useEffect(() => {
+    if (open && navLinksRef.current) {
+      navLinksRef.current.scrollTop = 0;
+    }
+  }, [open]);
 
   return (
     <header className="site-header">
@@ -47,9 +66,16 @@ export default function Header() {
         >
           &#9776;
         </button>
-        <div className={`nav-links${open ? " open" : ""}`}>
-          {NAV_ITEMS.map((link) =>
-            link.external ? (
+        <div ref={navLinksRef} className={`nav-links${open ? " open" : ""}`}>
+          {NAV_ITEMS.map((link) => {
+            if (link.label === "Home" && isHomeExternal) {
+              return (
+                <a key="home" href={homeHref} onClick={() => setOpen(false)}>
+                  {link.label}
+                </a>
+              );
+            }
+            return link.external ? (
               <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer">
                 {link.label}
               </a>
@@ -62,8 +88,8 @@ export default function Header() {
               >
                 {link.label}
               </Link>
-            )
-          )}
+            );
+          })}
         </div>
       </nav>
       <div className="string-lights" />

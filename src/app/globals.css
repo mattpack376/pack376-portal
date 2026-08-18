@@ -212,6 +212,11 @@ section { padding: 64px 0; }
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: stretch;
+    /* The base (desktop) rule sets flex-end to right-align the horizontal
+       row — left un-reset here, that packs a column layout's items toward
+       the bottom instead of the top, cutting off the first several links
+       above the scrollable area with no way to scroll up to them. */
+    justify-content: flex-start;
     gap: 0;
     padding: 8px;
     display: none;
@@ -219,6 +224,7 @@ section { padding: 64px 0; }
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    overflow-anchor: none;
   }
   .nav-links.open { display: flex; }
   .nav-links a { padding: 14px 16px; border-radius: 10px; text-align: center; flex-shrink: 0; }
