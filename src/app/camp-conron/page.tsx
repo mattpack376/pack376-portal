@@ -112,12 +112,12 @@ export default async function CampConronPage() {
             <div className="info-card" style={{ marginBottom: 24 }}>
               <h3 style={{ marginTop: 0 }}>Price</h3>
               <p style={{ fontSize: 28, fontWeight: 800, color: "var(--scout-blue-dark)", margin: "0 0 4px" }}>
-                {formatCents(priceCents)} <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-soft)" }}>per person</span>
+                {formatCents(trip.regularPriceCents)} <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-soft)" }}>per person</span>
               </p>
               {trip.earlyBirdPriceCents !== null && trip.earlyBirdDeadline && (
-                <p className="form-note" style={{ marginTop: 0 }}>
+                <p style={{ margin: "0 0 8px", fontWeight: 700, color: isEarlyBird ? "var(--carnival-red)" : "var(--ink-soft)" }}>
                   {isEarlyBird
-                    ? `Early-bird price — pay in full by ${formatDate(trip.earlyBirdDeadline)} to lock this in.`
+                    ? `Early-Bird Special: ${formatCents(trip.earlyBirdPriceCents)}/person if paid in full by ${formatDate(trip.earlyBirdDeadline)}.`
                     : `Early-bird pricing (${formatCents(trip.earlyBirdPriceCents)}/person) ended ${formatDate(trip.earlyBirdDeadline)}.`}
                 </p>
               )}
