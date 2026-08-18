@@ -41,6 +41,9 @@ export default async function CampConronPage() {
     return (
       <>
         <Header />
+        <div className="site-banner">
+          ⚠️ This page is in testing — everything listed is a placeholder for visual purposes only and is not finalized yet.
+        </div>
         <section className="page-hero">
           <h1>{trip.title}</h1>
           <p>Details for this trip are coming soon — check back shortly.</p>
@@ -83,6 +86,9 @@ export default async function CampConronPage() {
   return (
     <>
       <Header />
+      <div className="site-banner">
+        ⚠️ This page is in testing — everything listed is a placeholder for visual purposes only and is not finalized yet.
+      </div>
 
       <section className="page-hero">
         <div className="eyebrow" style={{ background: "rgba(255,255,255,0.15)", color: "var(--scout-gold)" }}>
