@@ -47,8 +47,8 @@ export default function TripRegistrationForm({
           <input id="contactEmail" name="contactEmail" type="email" required />
         </div>
         <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
-          <label htmlFor="contactPhone">Phone (optional)</label>
-          <input id="contactPhone" name="contactPhone" type="tel" />
+          <label htmlFor="contactPhone">Phone</label>
+          <input id="contactPhone" name="contactPhone" type="tel" required />
         </div>
       </div>
 
@@ -77,6 +77,7 @@ export default function TripRegistrationForm({
             type="number"
             min="0"
             step="1"
+            required
             value={payingCount}
             onChange={(e) => setPayingCount(Number(e.target.value) || 0)}
           />
@@ -89,6 +90,7 @@ export default function TripRegistrationForm({
             type="number"
             min="0"
             step="1"
+            required
             value={freeCount}
             onChange={(e) => setFreeCount(Number(e.target.value) || 0)}
           />

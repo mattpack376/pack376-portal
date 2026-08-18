@@ -48,8 +48,8 @@ export async function registerForTripAction(formData: FormData) {
   const payingCount = parseCount(formData.get("payingCount"));
   const freeCount = parseCount(formData.get("freeCount"));
 
-  if (!tripPageId || !familyName || !contactEmail) {
-    throw new Error("Name, email, and trip are required.");
+  if (!tripPageId || !familyName || !contactEmail || !contactPhone) {
+    throw new Error("Name, email, phone, and trip are required.");
   }
   if (!EMAIL_RE.test(contactEmail)) throw new Error("Enter a valid email address.");
   if (affiliationRaw !== "PACK" && affiliationRaw !== "TROOP") throw new Error("Choose Pack 376 or Troop 376.");
@@ -66,7 +66,7 @@ export async function registerForTripAction(formData: FormData) {
       tripPageId,
       familyName,
       contactEmail,
-      contactPhone: contactPhone || null,
+      contactPhone,
       affiliation: affiliationRaw as TripAffiliation,
       payingCount,
       freeCount,
