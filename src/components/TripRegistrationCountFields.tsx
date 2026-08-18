@@ -16,8 +16,13 @@ export default function TripRegistrationCountFields({
   defaultFreeCount: number;
   defaultAmountOwedCents: number;
 }) {
-  const [payingCount, setPayingCount] = useState(defaultPayingCount);
-  const [freeCount, setFreeCount] = useState(defaultFreeCount);
+  // Kept as strings (not numbers) so the field can go genuinely empty while
+  // typing on mobile — type="number" inputs don't support .select()/select-
+  // on-focus in any major mobile browser, so overwriting a pre-filled value
+  // required deleting it first; a plain text input with a numeric keypad
+  // (inputMode) does support selection, letting a tap-and-type replace it.
+  const [payingCount, setPayingCount] = useState(String(defaultPayingCount));
+  const [freeCount, setFreeCount] = useState(String(defaultFreeCount));
   const [amount, setAmount] = useState((defaultAmountOwedCents / 100).toFixed(2));
 
   return (
@@ -28,16 +33,17 @@ export default function TripRegistrationCountFields({
           <input
             id={`${idPrefix}-payingCount`}
             name="payingCount"
-            type="number"
-            min="0"
-            step="1"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             required
             value={payingCount}
             onChange={(e) => {
-              const next = Number(e.target.value) || 0;
+              const next = e.target.value.replace(/\D/g, "");
               setPayingCount(next);
-              setAmount(((next * pricePerPersonCents) / 100).toFixed(2));
+              setAmount(((Number(next || 0) * pricePerPersonCents) / 100).toFixed(2));
             }}
+            onFocus={(e) => e.target.select()}
           />
         </div>
         <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
@@ -45,12 +51,13 @@ export default function TripRegistrationCountFields({
           <input
             id={`${idPrefix}-freeCount`}
             name="freeCount"
-            type="number"
-            min="0"
-            step="1"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             required
             value={freeCount}
-            onChange={(e) => setFreeCount(Number(e.target.value) || 0)}
+            onChange={(e) => setFreeCount(e.target.value.replace(/\D/g, ""))}
+            onFocus={(e) => e.target.select()}
           />
         </div>
       </div>
