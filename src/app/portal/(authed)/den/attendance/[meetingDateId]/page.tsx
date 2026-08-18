@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { requireSession } from "@/lib/authorize";
+import { requireSession, homeForRole } from "@/lib/authorize";
 import { getMeetingDetailForDen } from "@/lib/attendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { denDisplayName } from "@/lib/rankConfig";
@@ -15,8 +15,15 @@ export default async function DenMeetingAttendancePage({
   searchParams: Promise<{ denId?: string }>;
 }) {
   const session = await requireSession();
-  if (session.role !== "DEN" || session.denIds.length === 0) {
-    redirect("/portal/admin/attendance");
+  if (session.role !== "DEN") {
+    redirect(homeForRole(session.role));
+  }
+  if (session.denIds.length === 0) {
+    return (
+      <div className="info-card">
+        Your account isn&apos;t linked to a den yet. Contact an admin to get assigned.
+      </div>
+    );
   }
 
   const { meetingDateId } = await params;

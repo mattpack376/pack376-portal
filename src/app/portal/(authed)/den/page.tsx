@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireSession } from "@/lib/authorize";
+import { requireSession, homeForRole } from "@/lib/authorize";
 import { getDenChecklist } from "@/lib/denData";
 import { denDisplayName } from "@/lib/rankConfig";
 import ScoutChecklist from "@/components/ScoutChecklist";
@@ -11,8 +11,15 @@ export default async function DenPortalPage({
   searchParams: Promise<{ denId?: string }>;
 }) {
   const session = await requireSession();
-  if (session.role !== "DEN" || session.denIds.length === 0) {
-    redirect("/portal/admin");
+  if (session.role !== "DEN") {
+    redirect(homeForRole(session.role));
+  }
+  if (session.denIds.length === 0) {
+    return (
+      <div className="info-card">
+        Your account isn&apos;t linked to a den yet. Contact an admin to get assigned.
+      </div>
+    );
   }
 
   const { denId: requestedDenId } = await searchParams;
