@@ -48,7 +48,7 @@ export default function TripRegistrationForm({
         </div>
         <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
           <label htmlFor="contactPhone">Phone</label>
-          <input id="contactPhone" name="contactPhone" type="tel" required />
+          <input id="contactPhone" name="contactPhone" type="tel" required placeholder="(212)555-1234" />
         </div>
       </div>
 

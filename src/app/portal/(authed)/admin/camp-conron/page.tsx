@@ -21,7 +21,13 @@ import {
   deleteDutySlotAction,
   toggleTripPublishedAction,
 } from "@/lib/actions/tripPage";
-import { addTripPaymentAction, deleteTripPaymentAction, deleteTripRegistrationAction } from "@/lib/actions/tripRegistration";
+import {
+  updateTripRegistrationAction,
+  addTripPaymentAction,
+  deleteTripPaymentAction,
+  deleteTripRegistrationAction,
+} from "@/lib/actions/tripRegistration";
+import TripRegistrationCountFields from "@/components/TripRegistrationCountFields";
 
 function toDateInputValue(date: Date | null) {
   return date ? date.toISOString().slice(0, 10) : "";
@@ -358,13 +364,67 @@ export default async function AdminCampConronPage() {
               >
                 <div className="info-card" style={{ marginTop: 8 }}>
                   <p style={{ marginTop: 0 }}>
-                    {reg.contactEmail}
-                    {reg.contactPhone ? ` · ${reg.contactPhone}` : ""} · Registered{" "}
-                    {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}
-                  </p>
-                  <p>
                     Owed {formatCents(reg.amountOwedCents)} · Paid {formatCents(reg.paidCents)} · Remaining {formatCents(reg.remainingCents)}
                   </p>
+
+                  {isAdmin ? (
+                    <form action={updateTripRegistrationAction} style={{ marginBottom: 16 }}>
+                      <input type="hidden" name="id" value={reg.id} />
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        <div className="form-field" style={{ flex: 1, minWidth: 180 }}>
+                          <label htmlFor={`familyName-${reg.id}`}>Family / Registrant Name</label>
+                          <input id={`familyName-${reg.id}`} name="familyName" required defaultValue={reg.familyName} />
+                        </div>
+                        <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                          <label htmlFor={`affiliation-${reg.id}`}>Affiliation</label>
+                          <select id={`affiliation-${reg.id}`} name="affiliation" defaultValue={reg.affiliation}>
+                            <option value="PACK">Pack 376</option>
+                            <option value="TROOP">Troop 376</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
+                          <label htmlFor={`contactEmail-${reg.id}`}>Email</label>
+                          <input id={`contactEmail-${reg.id}`} name="contactEmail" type="email" required defaultValue={reg.contactEmail} />
+                        </div>
+                        <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                          <label htmlFor={`contactPhone-${reg.id}`}>Phone</label>
+                          <input
+                            id={`contactPhone-${reg.id}`}
+                            name="contactPhone"
+                            type="tel"
+                            required
+                            defaultValue={reg.contactPhone ?? ""}
+                            placeholder="(212)555-1234"
+                          />
+                        </div>
+                      </div>
+                      <TripRegistrationCountFields
+                        idPrefix={`reg-${reg.id}`}
+                        pricePerPersonCents={priceCents}
+                        defaultPayingCount={reg.payingCount}
+                        defaultFreeCount={reg.freeCount}
+                        defaultAmountOwedCents={reg.amountOwedCents}
+                      />
+                      <p className="form-note" style={{ marginTop: -8 }}>
+                        Registered {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}.
+                      </p>
+                      <button
+                        type="submit"
+                        className="btn btn-outline btn-small"
+                        style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                      >
+                        Save Changes
+                      </button>
+                    </form>
+                  ) : (
+                    <p>
+                      {reg.contactEmail}
+                      {reg.contactPhone ? ` · ${reg.contactPhone}` : ""} · Registered{" "}
+                      {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}
+                    </p>
+                  )}
 
                   {reg.payments.length > 0 && (
                     <div className="table-scroll" style={{ marginBottom: 16 }}>

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { currentTripPriceCents } from "@/lib/tripPageData";
+import { formatPhoneNumber } from "@/lib/phone";
 import type { TripAffiliation } from "@/generated/prisma/enums";
 
 const ADMIN_PATH = "/portal/admin/camp-conron";
@@ -43,7 +44,7 @@ export async function registerForTripAction(formData: FormData) {
   const tripPageId = String(formData.get("tripPageId") || "");
   const familyName = String(formData.get("familyName") || "").trim();
   const contactEmail = String(formData.get("contactEmail") || "").trim();
-  const contactPhone = String(formData.get("contactPhone") || "").trim();
+  const contactPhone = formatPhoneNumber(String(formData.get("contactPhone") || "").trim());
   const affiliationRaw = String(formData.get("affiliation") || "");
   const payingCount = parseCount(formData.get("payingCount"));
   const freeCount = parseCount(formData.get("freeCount"));
@@ -64,6 +65,47 @@ export async function registerForTripAction(formData: FormData) {
   await prisma.tripRegistration.create({
     data: {
       tripPageId,
+      familyName,
+      contactEmail,
+      contactPhone,
+      affiliation: affiliationRaw as TripAffiliation,
+      payingCount,
+      freeCount,
+      amountOwedCents,
+    },
+  });
+
+  revalidatePath(ADMIN_PATH);
+  revalidatePath(PUBLIC_PATH);
+}
+
+/** Admin-only, same population as the payment actions below — junior admin can view registrations but not edit them. */
+export async function updateTripRegistrationAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const id = String(formData.get("id") || "");
+  const familyName = String(formData.get("familyName") || "").trim();
+  const contactEmail = String(formData.get("contactEmail") || "").trim();
+  const contactPhone = formatPhoneNumber(String(formData.get("contactPhone") || "").trim());
+  const affiliationRaw = String(formData.get("affiliation") || "");
+  const payingCount = parseCount(formData.get("payingCount"));
+  const freeCount = parseCount(formData.get("freeCount"));
+  const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
+
+  if (!id || !familyName || !contactEmail || !contactPhone) {
+    throw new Error("Name, email, and phone are required.");
+  }
+  if (!EMAIL_RE.test(contactEmail)) throw new Error("Enter a valid email address.");
+  if (affiliationRaw !== "PACK" && affiliationRaw !== "TROOP") throw new Error("Choose Pack 376 or Troop 376.");
+  if (payingCount === null || freeCount === null) throw new Error("Invalid attendee counts.");
+  if (payingCount + freeCount === 0) throw new Error("Enter at least one attendee.");
+  if (amountOwedCents === null) throw new Error("A valid amount owed is required.");
+
+  await prisma.tripRegistration.update({
+    where: { id },
+    data: {
       familyName,
       contactEmail,
       contactPhone,
