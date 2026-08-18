@@ -48,6 +48,12 @@ export default async function AdminCampConronPage() {
   const totalOwed = registrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
   const totalPaid = registrations.reduce((sum, r) => sum + r.paidCents, 0);
 
+  const totalAdults = registrations.reduce((sum, r) => sum + r.payingCount, 0);
+  const totalKids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
+  const paidRegistrations = registrations.filter((r) => r.remainingCents <= 0);
+  const paidAdults = paidRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
+  const paidKids = paidRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
+
   return (
     <>
       <div
@@ -81,6 +87,20 @@ export default async function AdminCampConronPage() {
             </button>
           </form>
         )}
+      </div>
+
+      <div className="info-card" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginTop: 0 }}>Headcount</h3>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          <p style={{ marginBottom: 0 }}>
+            <strong>Registered:</strong> {totalAdults} adult{totalAdults === 1 ? "" : "s"}, {totalKids} kid
+            {totalKids === 1 ? "" : "s"} (4 &amp; under) — {totalAdults + totalKids} total
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            <strong>Paid in Full:</strong> {paidAdults} adult{paidAdults === 1 ? "" : "s"}, {paidKids} kid
+            {paidKids === 1 ? "" : "s"} (4 &amp; under) — {paidAdults + paidKids} total
+          </p>
+        </div>
       </div>
 
       <div className="info-card" style={{ maxWidth: 520, marginBottom: 24 }}>
