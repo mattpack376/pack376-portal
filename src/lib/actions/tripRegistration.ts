@@ -29,17 +29,26 @@ function parseCount(raw: FormDataEntryValue | null): number | null {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export type RegisterForTripState = { error?: string; success?: boolean };
+
 /**
  * Public, unauthenticated registration for conron.pack376nyc.org — anyone
  * can submit this, no portal account involved. `website` is a hidden
  * honeypot field real visitors never see or fill; a bot that fills every
- * field on the form trips it and the submission is silently dropped rather
- * than erroring (an error would tell the bot which field to leave blank).
- * amountOwedCents is computed here from the trip's currently-active price
- * tier — never trust a client-submitted amount.
+ * field on the form trips it and the submission is silently dropped (empty
+ * state, same as a real success from the bot's point of view — an error
+ * would tell it which field to leave blank). amountOwedCents is computed
+ * here from the trip's currently-active price tier — never trust a
+ * client-submitted amount. Returns state (via useActionState in the form,
+ * same convention as loginAction) rather than throwing, so the client can
+ * show a confirmation popup on success or an inline message on failure
+ * instead of hitting Next's default error boundary.
  */
-export async function registerForTripAction(formData: FormData) {
-  if (String(formData.get("website") || "").trim() !== "") return;
+export async function registerForTripAction(
+  _prevState: RegisterForTripState,
+  formData: FormData,
+): Promise<RegisterForTripState> {
+  if (String(formData.get("website") || "").trim() !== "") return {};
 
   const tripPageId = String(formData.get("tripPageId") || "");
   const familyName = String(formData.get("familyName") || "").trim();
@@ -50,15 +59,15 @@ export async function registerForTripAction(formData: FormData) {
   const freeCount = parseCount(formData.get("freeCount"));
 
   if (!tripPageId || !familyName || !contactEmail || !contactPhone) {
-    throw new Error("Name, email, phone, and trip are required.");
+    return { error: "Name, email, phone, and trip are required." };
   }
-  if (!EMAIL_RE.test(contactEmail)) throw new Error("Enter a valid email address.");
-  if (affiliationRaw !== "PACK" && affiliationRaw !== "TROOP") throw new Error("Choose Pack 376 or Troop 376.");
-  if (payingCount === null || freeCount === null) throw new Error("Invalid attendee counts.");
-  if (payingCount + freeCount === 0) throw new Error("Enter at least one attendee.");
+  if (!EMAIL_RE.test(contactEmail)) return { error: "Enter a valid email address." };
+  if (affiliationRaw !== "PACK" && affiliationRaw !== "TROOP") return { error: "Choose Pack 376 or Troop 376." };
+  if (payingCount === null || freeCount === null) return { error: "Invalid attendee counts." };
+  if (payingCount + freeCount === 0) return { error: "Enter at least one attendee." };
 
   const trip = await prisma.tripPage.findUnique({ where: { id: tripPageId } });
-  if (!trip) throw new Error("Trip not found.");
+  if (!trip) return { error: "Trip not found." };
 
   const amountOwedCents = payingCount * currentTripPriceCents(trip);
 
@@ -77,6 +86,7 @@ export async function registerForTripAction(formData: FormData) {
 
   revalidatePath(ADMIN_PATH);
   revalidatePath(PUBLIC_PATH);
+  return { success: true };
 }
 
 /** Admin-only, same population as the payment actions below — junior admin can view registrations but not edit them. */

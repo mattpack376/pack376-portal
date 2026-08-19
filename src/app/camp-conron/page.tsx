@@ -250,6 +250,7 @@ export default async function CampConronPage() {
               currentPriceCents={priceCents}
               packPaymentInstructions={trip.packPaymentInstructions}
               troopPaymentInstructions={trip.troopPaymentInstructions}
+              rsvpDeadlineLabel={trip.rsvpDeadline ? formatDate(trip.rsvpDeadline) : null}
             />
           </div>
         </div>
