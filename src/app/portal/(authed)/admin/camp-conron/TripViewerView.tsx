@@ -55,6 +55,21 @@ export default function TripViewerView({
   const paidKids = paidRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
 
   const troopRegistrations = registrations.filter((r) => r.affiliation === "TROOP");
+  const troopAdults = troopRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
+  const troopKids = troopRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
+  const troopOwed = troopRegistrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
+  const troopPaid = troopRegistrations.reduce((sum, r) => sum + r.paidCents, 0);
+  const troopPaidInFull = troopRegistrations.filter((r) => r.remainingCents <= 0).length;
+  const troopAdultsLabel = `${troopAdults} adult${troopAdults === 1 ? "" : "s"}`;
+  const troopKidsLabel = `${troopKids} kid${troopKids === 1 ? "" : "s"}`;
+  // Built as one plain string (not interleaved JSX text/expression children)
+  // because this toolchain's JSX transform was observed dropping the space
+  // that immediately follows a `{expr}` boundary when that boundary is
+  // followed directly by more literal text on the same line — reproducible
+  // and confirmed via the rendered DOM's child nodes, not a typo in the
+  // source. Safest fix is avoiding the adjacency entirely.
+  const troopFamiliesSummary = `${troopRegistrations.length} famil${troopRegistrations.length === 1 ? "y" : "ies"} — ${troopAdultsLabel}, ${troopKidsLabel} (4 and under)`;
+
   const packRegistrations = registrations.filter((r) => r.affiliation === "PACK");
   const packAdults = packRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
   const packKids = packRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
@@ -87,7 +102,8 @@ export default function TripViewerView({
         <p>Read-only — questions or changes go through a Pack 376 admin.</p>
       </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
+      <div className="info-card" style={{ flex: "1 1 320px" }}>
         <h3 style={{ marginTop: 0 }}>Headcount</h3>
         <p style={{ marginBottom: 8 }}>
           <strong>Registered:</strong> {totalAdults} adult{totalAdults === 1 ? "" : "s"}, {totalKids} kid
@@ -99,7 +115,7 @@ export default function TripViewerView({
         </p>
       </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+      <div className="info-card" style={{ flex: "1 1 320px" }}>
         <h3 style={{ marginTop: 0 }}>Money</h3>
         <p style={{ marginBottom: 8 }}>
           <strong>Anticipated Money to be Collected:</strong> {formatCents(totalOwed)}
@@ -111,8 +127,10 @@ export default function TripViewerView({
           <strong>Remaining:</strong> {formatCents(totalOwed - totalPaid)}
         </p>
       </div>
+      </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
+      <div className="info-card" style={{ flex: "1 1 400px" }}>
         <h3 style={{ marginTop: 0 }}>Event Details</h3>
         <p>
           <strong>{trip.title}</strong>
@@ -133,7 +151,7 @@ export default function TripViewerView({
         )}
       </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+      <div className="info-card" style={{ flex: "1 1 400px" }}>
         <h3 style={{ marginTop: 0 }}>Price Structure</h3>
         <p>
           <strong>Regular:</strong> {formatCents(trip.regularPriceCents)}/person
@@ -150,6 +168,7 @@ export default function TripViewerView({
           </p>
         )}
         {trip.rsvpDeadline && <p style={{ marginBottom: 0 }}>RSVP &amp; payment due by {formatDate(trip.rsvpDeadline)}.</p>}
+      </div>
       </div>
 
       <div className="section-head">
@@ -179,11 +198,13 @@ export default function TripViewerView({
         </div>
       </div>
 
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 24 }}>
+      <div style={{ flex: "1 1 400px" }}>
       <div className="section-head">
         <div className="eyebrow">Weekend Staffing</div>
         <h2>Duty Roster</h2>
       </div>
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+      <div className="info-card">
         {dutySlots.length === 0 ? (
           <p style={{ marginBottom: 0 }}>Not assigned yet.</p>
         ) : (
@@ -225,12 +246,14 @@ export default function TripViewerView({
           </>
         )}
       </div>
+      </div>
 
+      <div style={{ flex: "1 1 400px" }}>
       <div className="section-head">
         <div className="eyebrow">Weekend Itinerary</div>
         <h2>Activities Schedule</h2>
       </div>
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+      <div className="info-card">
         {activityGroups.length === 0 ? (
           <p style={{ marginBottom: 0 }}>Full schedule coming soon.</p>
         ) : (
@@ -250,10 +273,23 @@ export default function TripViewerView({
           ))
         )}
       </div>
+      </div>
+      </div>
 
       <div className="section-head">
         <div className="eyebrow">Registrations</div>
         <h2>Troop 376 Families ({troopRegistrations.length})</h2>
+      </div>
+
+      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+        <h3 style={{ marginTop: 0 }}>Troop 376 Summary</h3>
+        <p style={{ marginBottom: 8 }}>{troopFamiliesSummary}</p>
+        <p style={{ marginBottom: 8 }}>
+          {troopPaidInFull} of {troopRegistrations.length} paid in full
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          Owed {formatCents(troopOwed)} · Paid {formatCents(troopPaid)} · Remaining {formatCents(troopOwed - troopPaid)}
+        </p>
       </div>
 
       {troopRegistrations.length === 0 ? (
