@@ -73,7 +73,7 @@ export default async function AdminEventsPage() {
                   <form action={toggleEventVisibilityAction}>
                     <input type="hidden" name="id" value={event.id} />
                     <input type="hidden" name="visible" value={String(event.visible)} />
-                    <button type="submit" className="btn btn-outline btn-small">
+                    <button type="submit" className="btn btn-quiet btn-small">
                       {event.visible ? "Hide" : "Show"}
                     </button>
                   </form>

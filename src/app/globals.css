@@ -68,6 +68,24 @@ section { padding: 64px 0; }
 }
 .section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
 
+/*
+ * Page header with a right-aligned action button — the portal's standard
+ * screen opener. Use instead of .section-head, not alongside it:
+ * .section-head's 640px cap is a prose measure, so a space-between row
+ * built on it strands the action mid-page while the table below runs the
+ * full 960px of .portal-container. The inner text block keeps that
+ * measure; only the row itself spans the container.
+ */
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0 0 40px;
+}
+.page-head > div:first-child { max-width: 640px; }
+
 /* ---------- Buttons ---------- */
 .btn {
   display: inline-flex;
@@ -110,6 +128,43 @@ section { padding: 64px 0; }
   padding: 8px 16px;
   font-size: 13px;
 }
+
+/*
+ * Portal-weight secondary buttons. The portal is mostly rows of quiet
+ * actions (Manage, Edit, Hide, Export CSV) sitting on cream or white
+ * cards — .btn-outline is white-on-white there, since it's built for the
+ * public site's blue hero. These carry their own colors so call sites
+ * don't each hand-write `style={{ borderColor, color }}` to compensate.
+ *
+ * They also drop .btn's lift-and-slab treatment: an 8px hard shadow under
+ * a 31px table button reads as a misprint, and translateY on hover makes
+ * table rows twitch as the cursor crosses them. The thinner border and
+ * softer radius come along for the same reason — .btn's 3px/999px is
+ * sized for a 56px marketing button, not a row action.
+ */
+.btn-quiet,
+.btn-danger {
+  background: var(--white);
+  box-shadow: none;
+  border-width: 1.5px;
+  border-radius: 8px;
+}
+.btn-quiet:hover,
+.btn-danger:hover { transform: none; }
+.btn-quiet:active,
+.btn-danger:active { transform: none; }
+
+.btn-quiet {
+  border-color: #c9d4e4;
+  color: var(--scout-blue);
+}
+.btn-quiet:hover { background: var(--cream); }
+
+.btn-danger {
+  border-color: #e8b6c0;
+  color: var(--carnival-red);
+}
+.btn-danger:hover { background: rgba(228, 0, 43, 0.06); }
 
 /* ---------- String lights ---------- */
 .string-lights {
@@ -871,6 +926,16 @@ section { padding: 64px 0; }
   border-color: var(--scout-gold);
 }
 .form-note { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; }
+
+/*
+ * Side-by-side fields inside a form. .form-field carries its own
+ * margin-bottom for stacked use, which doubles up on a wrapped flex row
+ * and leaves the row's own spacing to be undone per-field — zero it here
+ * and let the row's gap do the work. The 160px basis is the point below
+ * which a date or currency input starts clipping its own control.
+ */
+.form-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.form-row > .form-field { flex: 1 1 160px; margin-bottom: 0; min-width: 0; }
 .den-toggle {
   cursor: pointer;
   font-size: 12.5px;
@@ -982,6 +1047,38 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .portal-main { flex: 1; padding: 32px 24px 64px; }
 .portal-container { max-width: 960px; margin: 0 auto; }
 
+/*
+ * "Nothing here yet" placeholder. The dashed border distinguishes a
+ * section waiting to fill up from a card that holds content — a useful
+ * difference on a portal where most sections are empty in July and full
+ * in October. Replaces the mix of .info-card, bare <p>, and <td colSpan>
+ * currently used for the same message.
+ */
+.empty-state {
+  background: var(--white);
+  border: 1.5px dashed var(--cream-dark);
+  border-radius: var(--radius);
+  padding: 28px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+}
+.empty-state p:last-child { margin-bottom: 0; }
+
+/*
+ * Card padding shouldn't need undoing at every call site. The base h3/p
+ * margins are tuned for flowing prose and fight .info-card's padding, so
+ * pages hand-write `style={{ marginTop: 0 }}` on the first child and
+ * `{{ marginBottom: 0 }}` on the last — 106 times between them.
+ *
+ * Scoped to .portal-shell deliberately: .info-card is also used on seven
+ * public pages (contact, volunteer, activities, rank-requirements, and
+ * others) where the trailing space is part of the existing layout. Lift
+ * the scope only after checking those.
+ */
+.portal-shell .info-card > :first-child { margin-top: 0; }
+.portal-shell .info-card > :last-child { margin-bottom: 0; }
+
 .portal-nav-toggle {
   display: none;
   background: none;
@@ -1075,6 +1172,18 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .badge-pending { background: var(--cream-dark); color: var(--ink-soft); }
 .badge-viewer { background: var(--ink-soft); color: var(--white); }
 .badge-count { font-size: 13px; font-weight: 800; padding: 6px 14px; }
+
+/*
+ * Payment status. Separate from the role badges above, which were being
+ * borrowed for this — "Partial" rendered as .badge-junior and "Unpaid" as
+ * .badge-photographer, so restyling a role badge would have silently
+ * restyled every unpaid amount in the portal and on the parent dashboard.
+ * Partial is gold rather than blue: it's an attention state, and gold
+ * already carries that meaning everywhere else in this palette.
+ */
+.badge-paid { background: var(--teal); color: var(--white); }
+.badge-partial { background: var(--scout-gold); color: var(--scout-blue-dark); }
+.badge-unpaid { background: var(--carnival-red); color: var(--white); }
 
 /*
  * Wraps every .data-table. table-layout:auto tables never shrink below their

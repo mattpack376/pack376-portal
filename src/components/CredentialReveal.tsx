@@ -42,7 +42,7 @@ export default function CredentialReveal({
       <p style={{ fontFamily: "monospace", fontSize: 13, wordBreak: "break-all", marginBottom: 8 }}>
         {invite.url}
       </p>
-      <button type="button" className="btn btn-outline btn-small" onClick={copyLink}>
+      <button type="button" className="btn btn-quiet btn-small" onClick={copyLink}>
         {copied ? "Copied!" : "Copy Link"}
       </button>
     </div>
