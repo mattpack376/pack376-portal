@@ -118,32 +118,35 @@ export default async function AdminCampConronPage({
         )}
       </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Headcount</h3>
-        <p style={{ marginBottom: 8 }}>
-          <strong>Registered:</strong> {totalAdults} adult{totalAdults === 1 ? "" : "s"}, {totalKids} kid
-          {totalKids === 1 ? "" : "s"} (4 &amp; under) — {totalAdults + totalKids} total
-        </p>
-        <p style={{ marginBottom: 0 }}>
-          <strong>Paid in Full:</strong> {paidAdults} adult{paidAdults === 1 ? "" : "s"}, {paidKids} kid
-          {paidKids === 1 ? "" : "s"} (4 &amp; under) — {paidAdults + paidKids} total
-        </p>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
+        <div className="info-card" style={{ flex: "1 1 320px" }}>
+          <h3 style={{ marginTop: 0 }}>Headcount</h3>
+          <p style={{ marginBottom: 8 }}>
+            <strong>Registered:</strong> {totalAdults} adult{totalAdults === 1 ? "" : "s"}, {totalKids} kid
+            {totalKids === 1 ? "" : "s"} (4 &amp; under) — {totalAdults + totalKids} total
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            <strong>Paid in Full:</strong> {paidAdults} adult{paidAdults === 1 ? "" : "s"}, {paidKids} kid
+            {paidKids === 1 ? "" : "s"} (4 &amp; under) — {paidAdults + paidKids} total
+          </p>
+        </div>
+
+        <div className="info-card" style={{ flex: "1 1 320px" }}>
+          <h3 style={{ marginTop: 0 }}>Money</h3>
+          <p style={{ marginBottom: 8 }}>
+            <strong>Anticipated Money to be Collected:</strong> {formatCents(totalOwed)}
+          </p>
+          <p style={{ marginBottom: 8 }}>
+            <strong>Collected So Far:</strong> {formatCents(totalPaid)}
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            <strong>Remaining:</strong> {formatCents(totalOwed - totalPaid)}
+          </p>
+        </div>
       </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Money</h3>
-        <p style={{ marginBottom: 8 }}>
-          <strong>Anticipated Money to be Collected:</strong> {formatCents(totalOwed)}
-        </p>
-        <p style={{ marginBottom: 8 }}>
-          <strong>Collected So Far:</strong> {formatCents(totalPaid)}
-        </p>
-        <p style={{ marginBottom: 0 }}>
-          <strong>Remaining:</strong> {formatCents(totalOwed - totalPaid)}
-        </p>
-      </div>
-
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 24 }}>
+      <div className="info-card" style={{ flex: "1 1 400px" }}>
         <h3 style={{ marginTop: 0 }}>Event Details</h3>
         <form action={updateTripDetailsAction}>
           <input type="hidden" name="id" value={trip.id} />
@@ -191,7 +194,8 @@ export default async function AdminCampConronPage({
         </form>
       </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+      <div style={{ flex: "1 1 400px", display: "flex", flexDirection: "column", gap: 24 }}>
+      <div className="info-card">
         <h3 style={{ marginTop: 0 }}>Price Structure</h3>
         <p className="form-note" style={{ marginTop: 0 }}>
           Current price: <strong>{formatCents(priceCents)}</strong>/person.
@@ -248,7 +252,7 @@ export default async function AdminCampConronPage({
         </form>
       </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+      <div className="info-card">
         <h3 style={{ marginTop: 0 }}>Payment Instructions</h3>
         <p className="form-note" style={{ marginTop: 0 }}>
           Shown to families on the public page once they pick their affiliation.
@@ -266,29 +270,33 @@ export default async function AdminCampConronPage({
           <button type="submit" className="btn btn-primary">Save Instructions</button>
         </form>
       </div>
+      </div>
+      </div>
 
       <div className="section-head">
         <div className="eyebrow">Weekend Menu</div>
         <h2>Menu</h2>
         <p>Friday Dinner only, Saturday and Sunday all 3 meals, Monday Breakfast only.</p>
       </div>
-      <div className="info-card" style={{ marginBottom: 24, maxWidth: CARD_WIDTH }}>
+      <div className="info-card" style={{ marginBottom: 24, maxWidth: 920 }}>
         <form action={updateTripMealsAction}>
-          {meals.map((meal) => (
-            <div key={meal.id} className="form-field">
-              <label htmlFor={`menuText-${meal.id}`}>
-                {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
-              </label>
-              <input type="hidden" name="mealId" value={meal.id} />
-              <textarea
-                id={`menuText-${meal.id}`}
-                name={`menuText-${meal.id}`}
-                rows={2}
-                defaultValue={meal.menuText ?? ""}
-                placeholder="What's being served"
-              />
-            </div>
-          ))}
+          <div style={{ display: "flex", flexWrap: "wrap", columnGap: 24 }}>
+            {meals.map((meal) => (
+              <div key={meal.id} className="form-field" style={{ flex: "1 1 380px" }}>
+                <label htmlFor={`menuText-${meal.id}`}>
+                  {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
+                </label>
+                <input type="hidden" name="mealId" value={meal.id} />
+                <textarea
+                  id={`menuText-${meal.id}`}
+                  name={`menuText-${meal.id}`}
+                  rows={2}
+                  defaultValue={meal.menuText ?? ""}
+                  placeholder="What's being served"
+                />
+              </div>
+            ))}
+          </div>
           <button type="submit" className="btn btn-primary">Save Menu</button>
         </form>
       </div>
@@ -299,12 +307,14 @@ export default async function AdminCampConronPage({
         <p>Assign helpers to a meal, or add a standalone duty (setup, breakdown, etc.) with no meal attached.</p>
       </div>
 
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 32 }}>
+      <div style={{ flex: "2 1 480px" }}>
       {dutySlots.length === 0 ? (
-        <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+        <div className="info-card">
           <p style={{ marginBottom: 0 }}>No duty slots yet.</p>
         </div>
       ) : (
-        <div style={{ marginBottom: 24 }}>
+        <div>
           {dutySlots.map((duty) => (
             <CollapsibleGroup
               key={duty.id}
@@ -373,8 +383,9 @@ export default async function AdminCampConronPage({
           ))}
         </div>
       )}
+      </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 32 }}>
+      <div className="info-card" style={{ flex: "1 1 360px" }}>
         <h3 style={{ marginTop: 0 }}>Add a Duty Slot</h3>
         <form action={createDutySlotAction}>
           <input type="hidden" name="tripPageId" value={trip.id} />
@@ -410,6 +421,7 @@ export default async function AdminCampConronPage({
           <button type="submit" className="btn btn-primary">Add</button>
         </form>
       </div>
+      </div>
 
       <div className="section-head">
         <div className="eyebrow">Weekend Itinerary</div>
@@ -417,12 +429,14 @@ export default async function AdminCampConronPage({
         <p>What&apos;s happening and when — shown to families on the public page.</p>
       </div>
 
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 32 }}>
+      <div style={{ flex: "2 1 480px" }}>
       {activities.length === 0 ? (
-        <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+        <div className="info-card">
           <p style={{ marginBottom: 0 }}>No activities scheduled yet.</p>
         </div>
       ) : (
-        <div style={{ marginBottom: 24 }}>
+        <div>
           {activities.map((activity) => (
             <CollapsibleGroup
               key={activity.id}
@@ -484,8 +498,9 @@ export default async function AdminCampConronPage({
           ))}
         </div>
       )}
+      </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 32 }}>
+      <div className="info-card" style={{ flex: "1 1 360px" }}>
         <h3 style={{ marginTop: 0 }}>Add an Activity</h3>
         <form action={createActivityAction}>
           <input type="hidden" name="tripPageId" value={trip.id} />
@@ -515,6 +530,7 @@ export default async function AdminCampConronPage({
           </div>
           <button type="submit" className="btn btn-primary">Add</button>
         </form>
+      </div>
       </div>
 
       <div
