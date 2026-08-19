@@ -142,6 +142,11 @@ model Scout {
   // Date this scout's BSA registration lapses. Same admin-only screen as
   // scouterId — not part of the quick den add-scout flow.
   registrationExpiresOn DateTime?           @db.Date
+  // Overrides DuesSettings.amountCents for this scout only (e.g. sibling
+  // discount). Null means "use the standard season fee." Manually set by an
+  // admin on the scout's dues page — resets along with the roster each
+  // season since Scout rows are deleted on season reset.
+  duesOverrideCents     Int?
   notes                 String?
   createdAt             DateTime            @default(now())
   records               AdvancementRecord[]

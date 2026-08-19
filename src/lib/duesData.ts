@@ -38,12 +38,15 @@ export async function getDuesOverview(scoutingYear: string) {
       label: den.label,
       scouts: den.scouts.map((s) => {
         const paidCents = s.duesPayments.reduce((sum, p) => sum + p.amountCents, 0);
+        const dueCents = s.duesOverrideCents ?? amountCents;
         return {
           id: s.id,
           firstName: s.firstName,
           lastName: s.lastName,
           paidCents,
-          remainingCents: amountCents === null ? null : amountCents - paidCents,
+          dueCents,
+          isOverridden: s.duesOverrideCents !== null,
+          remainingCents: dueCents === null ? null : dueCents - paidCents,
         };
       }),
     })),
@@ -64,13 +67,16 @@ export async function getScoutDuesDetail(scoutId: string) {
   if (!scout) return null;
 
   const settings = await prisma.duesSettings.findUnique({ where: { scoutingYear: scout.den.scoutingYear } });
-  const amountCents = settings?.amountCents ?? null;
+  const standardAmountCents = settings?.amountCents ?? null;
+  const amountCents = scout.duesOverrideCents ?? standardAmountCents;
   const paidCents = scout.duesPayments.reduce((sum, p) => sum + p.amountCents, 0);
 
   return {
     scout: { id: scout.id, firstName: scout.firstName, lastName: scout.lastName },
     den: scout.den,
+    standardAmountCents,
     amountCents,
+    overrideCents: scout.duesOverrideCents,
     paidCents,
     remainingCents: amountCents === null ? null : amountCents - paidCents,
     payments: scout.duesPayments.map((p) => ({

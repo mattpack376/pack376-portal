@@ -31,6 +31,24 @@ export async function setDuesAmountAction(formData: FormData) {
   revalidatePath("/portal/admin/dues");
 }
 
+export async function setScoutDuesOverrideAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const scoutId = String(formData.get("scoutId") || "");
+  if (!scoutId) throw new Error("Missing scout id.");
+  const amountCents = dollarsToCents(String(formData.get("amount") || ""));
+
+  await prisma.scout.update({
+    where: { id: scoutId },
+    data: { duesOverrideCents: amountCents },
+  });
+
+  revalidatePath(`/portal/admin/dues/${scoutId}`);
+  revalidatePath("/portal/admin/dues");
+}
+
 export async function addDuesPaymentAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getScoutDuesDetail, formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { denDisplayName } from "@/lib/rankConfig";
-import { addDuesPaymentAction, deleteDuesPaymentAction } from "@/lib/actions/dues";
+import { addDuesPaymentAction, deleteDuesPaymentAction, setScoutDuesOverrideAction } from "@/lib/actions/dues";
 
 export default async function AdminScoutDuesPage({
   params,
@@ -14,7 +14,7 @@ export default async function AdminScoutDuesPage({
   const data = await getScoutDuesDetail(scoutId);
   if (!data) notFound();
 
-  const { scout, den, amountCents, paidCents, remainingCents, payments } = data;
+  const { scout, den, standardAmountCents, amountCents, overrideCents, paidCents, remainingCents, payments } = data;
 
   return (
     <>
@@ -38,6 +38,30 @@ export default async function AdminScoutDuesPage({
             {remainingCents !== null && remainingCents < 0 && ` — overpaid by ${formatCents(-remainingCents)}`}
           </p>
         )}
+      </div>
+
+      <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
+        <h3 style={{ marginTop: 0 }}>Custom Rate (Sibling Discount, etc.)</h3>
+        <p>
+          Standard fee is {standardAmountCents === null ? "not set" : formatCents(standardAmountCents)}.
+          {overrideCents !== null && ` This scout is set to ${formatCents(overrideCents)} instead.`}
+        </p>
+        <form action={setScoutDuesOverrideAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+          <input type="hidden" name="scoutId" value={scout.id} />
+          <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
+            <label htmlFor="overrideAmount">Amount ($)</label>
+            <input
+              id="overrideAmount"
+              name="amount"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Leave blank for standard fee"
+              defaultValue={overrideCents === null ? "" : (overrideCents / 100).toFixed(2)}
+            />
+          </div>
+          <button type="submit" className="btn btn-primary">Save</button>
+        </form>
       </div>
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>

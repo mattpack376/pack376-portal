@@ -19,7 +19,9 @@ export default async function AdminDuesPage({
   const { amountCents, dens } = await getDuesOverview(scoutingYear);
 
   const allScouts = dens.flatMap((den) => den.scouts);
-  const totalDuesCents = amountCents === null ? null : amountCents * allScouts.length;
+  const totalDuesCents = amountCents === null
+    ? null
+    : allScouts.reduce((sum, s) => sum + (s.dueCents ?? amountCents), 0);
   const collectedCents = allScouts.reduce((sum, s) => sum + s.paidCents, 0);
 
   return (
@@ -109,6 +111,7 @@ export default async function AdminDuesPage({
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Due</th>
                   <th>Paid</th>
                   <th>Remaining</th>
                   <th>Status</th>
@@ -118,7 +121,7 @@ export default async function AdminDuesPage({
               <tbody>
                 {den.scouts.map((scout) => {
                   const status =
-                    amountCents === null
+                    scout.dueCents === null
                       ? { label: "Fee Not Set", cls: "badge-den" }
                       : scout.remainingCents !== null && scout.remainingCents <= 0
                       ? { label: scout.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
@@ -128,6 +131,14 @@ export default async function AdminDuesPage({
                   return (
                     <tr key={scout.id}>
                       <td>{scout.firstName} {scout.lastName}</td>
+                      <td>
+                        {scout.dueCents === null ? "—" : formatCents(scout.dueCents)}
+                        {scout.isOverridden && (
+                          <span className="badge-pill badge-junior" style={{ marginLeft: 6, fontSize: 11 }}>
+                            custom
+                          </span>
+                        )}
+                      </td>
                       <td>{formatCents(scout.paidCents)}</td>
                       <td>{scout.remainingCents === null ? "—" : formatCents(scout.remainingCents)}</td>
                       <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
