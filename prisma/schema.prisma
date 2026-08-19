@@ -86,6 +86,27 @@ model User {
   guestGroupsGuestOf       EventGuestGroup[]        @relation("GuestGroupGuestOf")
   guestGroupPaymentsLogged EventGuestGroupPayment[]
   tripPaymentsLogged       TripPayment[]
+  householdId              String?
+  household                Household?               @relation(fields: [householdId], references: [id], onDelete: SetNull)
+
+  @@index([householdId])
+}
+
+/**
+ * Groups scouts and logins (any role — a den leader who's also a parent can
+ * be linked alongside their kid) that belong to the same real-world family.
+ * Purely a display/admin-organization concept — it doesn't gate portal
+ * access (that's still Parent.userId) or drive dues billing (that's still
+ * Scout.duesOverrideCents), just lets the admin see and navigate siblings
+ * and staff-who-are-parents as one unit instead of them appearing as
+ * unrelated rows across different den/user lists.
+ */
+model Household {
+  id        String   @id @default(cuid())
+  name      String?
+  createdAt DateTime @default(now())
+  scouts    Scout[]
+  users     User[]
 }
 
 /**
@@ -156,6 +177,10 @@ model Scout {
   photoConsent          PhotoConsent?
   eventRegistrations    EventRegistration[]
   guestGroupsGuestOf    EventGuestGroup[]
+  householdId           String?
+  household             Household?          @relation(fields: [householdId], references: [id], onDelete: SetNull)
+
+  @@index([householdId])
 }
 
 model Parent {

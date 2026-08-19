@@ -25,6 +25,7 @@ export default async function ManageParentAccountPage({
         include: { scout: { include: { den: true } } },
         orderBy: { createdAt: "asc" },
       },
+      household: true,
     },
   });
   if (!user || user.role !== "PARENT") notFound();
@@ -139,6 +140,19 @@ export default async function ManageParentAccountPage({
             </div>
             <button type="submit" className="btn btn-primary">Attach</button>
           </form>
+        )}
+      </div>
+
+      <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
+        <h3 style={{ marginTop: 0 }}>Household</h3>
+        {user.household ? (
+          <p style={{ marginBottom: 0 }}>
+            In <Link href={`/portal/admin/users/households/${user.household.id}`}>{user.household.name || "an unnamed household"}</Link>.
+          </p>
+        ) : (
+          <p style={{ marginBottom: 0 }}>
+            Not grouped with any household yet. Add it from the <Link href="/portal/admin/users/households">Households</Link> tab.
+          </p>
         )}
       </div>
 

@@ -41,7 +41,10 @@ export default async function ParentContactsPage({
     include: {
       scouts: {
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-        include: { parents: { orderBy: { createdAt: "asc" } } },
+        include: {
+          parents: { orderBy: { createdAt: "asc" } },
+          household: { include: { scouts: { include: { den: true } } } },
+        },
       },
     },
   });
@@ -186,6 +189,16 @@ export default async function ParentContactsPage({
                       style={{ marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--cream-dark)" }}
                     >
                       <h4 style={{ marginBottom: 8, fontSize: 18 }}>{scout.firstName} {scout.lastName}</h4>
+
+                      {scout.household && scout.household.scouts.length > 1 && (
+                        <p style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 8 }}>
+                          🔗 Also in {scout.household.name || "this household"}:{" "}
+                          {scout.household.scouts
+                            .filter((sib) => sib.id !== scout.id)
+                            .map((sib) => `${sib.firstName} ${sib.lastName} (${denDisplayName(sib.den.rank, sib.den.scoutingYear, sib.den.label)})`)
+                            .join(", ")}
+                        </p>
+                      )}
 
                       {scout.parents.length === 0 && (
                         <p style={{ fontSize: 16, marginBottom: 8 }}>No parent contacts on file.</p>

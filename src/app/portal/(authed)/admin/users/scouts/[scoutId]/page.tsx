@@ -19,7 +19,7 @@ export default async function ManageScoutPage({
   await requireAdminSession();
 
   const { scoutId } = await params;
-  const scout = await prisma.scout.findUnique({ where: { id: scoutId }, include: { den: true } });
+  const scout = await prisma.scout.findUnique({ where: { id: scoutId }, include: { den: true, household: true } });
   if (!scout) notFound();
 
   const allDens = await prisma.den.findMany();
@@ -86,6 +86,19 @@ export default async function ManageScoutPage({
           </div>
           <button type="submit" className="btn btn-primary">Save Changes</button>
         </form>
+      </div>
+
+      <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
+        <h3 style={{ marginTop: 0 }}>Household</h3>
+        {scout.household ? (
+          <p style={{ marginBottom: 0 }}>
+            In <Link href={`/portal/admin/users/households/${scout.household.id}`}>{scout.household.name || "an unnamed household"}</Link>.
+          </p>
+        ) : (
+          <p style={{ marginBottom: 0 }}>
+            Not grouped with any household yet. Add it from the <Link href="/portal/admin/users/households">Households</Link> tab.
+          </p>
+        )}
       </div>
 
       <div className="info-card" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
