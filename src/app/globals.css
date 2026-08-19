@@ -813,6 +813,16 @@ section { padding: 64px 0; }
   gap: 32px;
   align-items: start;
 }
+/* Keeps a form column pinned in view while its sibling column (longer,
+   reference-style content) scrolls — e.g. the Camp Conron registration
+   form staying visible instead of sitting alone under a lot of empty
+   space once the visitor scrolls past it. Matches .contact-grid's own
+   900px collapse-to-one-column breakpoint below so it never sticks
+   while stacked on top of, rather than beside, its sibling. */
+.sticky-sidebar {
+  position: sticky;
+  top: 146px;
+}
 .contact-method {
   display: flex;
   gap: 14px;
@@ -1248,6 +1258,7 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   .two-col { grid-template-columns: 1fr; }
   .resource-grid { grid-template-columns: 1fr; }
   .contact-grid { grid-template-columns: 1fr; }
+  .sticky-sidebar { position: static; }
   .rank-detail-card { grid-template-columns: 1fr; }
   .rank-detail-side { flex-direction: row; justify-content: flex-start; text-align: left; padding: 16px 20px; }
   .rank-detail-side .rank-star { margin: 0; }

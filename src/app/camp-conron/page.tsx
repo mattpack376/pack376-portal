@@ -127,13 +127,14 @@ export default async function CampConronPage() {
               </div>
             )}
 
-            <div className="info-card" style={{ marginBottom: 24 }}>
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
+            <div className="info-card" style={{ flex: "1 1 200px" }}>
               <h3 style={{ marginTop: 0 }}>Event Details</h3>
               {trip.detailsHtml && <p>{trip.detailsHtml}</p>}
               {trip.rsvpDeadline && <p style={{ fontWeight: 700, marginBottom: 0 }}>RSVP &amp; payment due by {formatDate(trip.rsvpDeadline)}.</p>}
             </div>
 
-            <div className="info-card" style={{ marginBottom: 24 }}>
+            <div className="info-card" style={{ flex: "1 1 200px" }}>
               <h3 style={{ marginTop: 0 }}>Price</h3>
               <p style={{ fontSize: 28, fontWeight: 800, color: "var(--scout-blue-dark)", margin: "0 0 4px" }}>
                 {formatCents(trip.regularPriceCents)} <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-soft)" }}>per person</span>
@@ -150,6 +151,7 @@ export default async function CampConronPage() {
                   Age {trip.freeAgeAndUnder} and under: <strong>free</strong>.
                 </p>
               )}
+            </div>
             </div>
 
             <div className="info-card" style={{ marginBottom: 24 }}>
@@ -243,6 +245,7 @@ export default async function CampConronPage() {
             </div>
           </div>
 
+          <div className="sticky-sidebar">
           <div className="info-card">
             <h3 style={{ marginTop: 0 }}>Register Your Family</h3>
             <TripRegistrationForm
@@ -252,6 +255,7 @@ export default async function CampConronPage() {
               troopPaymentInstructions={trip.troopPaymentInstructions}
               rsvpDeadlineLabel={trip.rsvpDeadline ? formatDate(trip.rsvpDeadline) : null}
             />
+          </div>
           </div>
         </div>
       </section>
