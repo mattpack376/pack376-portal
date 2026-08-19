@@ -2,10 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireSession, homeForRole } from "@/lib/authorize";
-import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import { getActiveSiteBanner } from "@/lib/siteBannerData";
-import PortalNav from "@/components/PortalNav";
-import LogoutButton from "@/components/LogoutButton";
+import PortalHeaderNav from "@/components/PortalHeaderNav";
 
 export default async function AuthedPortalLayout({
   children,
@@ -29,15 +27,8 @@ export default async function AuthedPortalLayout({
             </span>
           </Link>
           <Suspense fallback={null}>
-            <PortalNav role={session.role} />
+            <PortalHeaderNav role={session.role} displayName={session.displayName} />
           </Suspense>
-          <div className="portal-user">
-            <span className={`badge-pill ${ROLE_BADGE_CLASSES[session.role]}`}>
-              {ROLE_LABELS[session.role]}
-            </span>
-            <span>{session.displayName}</span>
-            <LogoutButton />
-          </div>
         </div>
       </header>
       {siteBanner && <div className="site-banner">{siteBanner.message}</div>}

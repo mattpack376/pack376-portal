@@ -5,7 +5,7 @@ export default function UsersSubNav({ active }: { active: "staff" | "parents" | 
     isActive ? undefined : { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" };
 
   return (
-    <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+    <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
       <Link
         href="/portal/admin/users"
         className={`btn btn-small ${active === "staff" ? "btn-primary" : "btn-outline"}`}

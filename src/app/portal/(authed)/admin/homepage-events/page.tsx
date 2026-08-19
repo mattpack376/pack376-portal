@@ -92,7 +92,7 @@ export default async function HomepageEventsAdminPage() {
               key={banner.id}
               style={{ background: "var(--cream)", borderRadius: 8, padding: "10px 14px", marginBottom: 8 }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
                 <div>
                   <p style={{ marginBottom: 2, fontWeight: 700 }}>
                     {banner.message}{" "}

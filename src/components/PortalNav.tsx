@@ -9,7 +9,7 @@ type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHE
  * duplicated here since that helper is server-only and this component is a client component. */
 const WEBSITE_URL = "https://pack376nyc.org";
 
-export default function PortalNav({ role }: { role: Role }) {
+export default function PortalNav({ role, onNavigate }: { role: Role; onNavigate?: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const denId = searchParams.get("denId");
@@ -81,11 +81,12 @@ export default function PortalNav({ role }: { role: Role }) {
           key={link.href}
           href={link.href}
           className={link.href === activeHref ? "active" : ""}
+          onClick={onNavigate}
         >
           {link.label}
         </Link>
       ))}
-      <a href={WEBSITE_URL} target="_blank" rel="noopener noreferrer">Website</a>
+      <a href={WEBSITE_URL} target="_blank" rel="noopener noreferrer" onClick={onNavigate}>Website</a>
     </nav>
   );
 }

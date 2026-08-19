@@ -65,7 +65,7 @@ export default async function AdminAllGuestsPage({
         </a>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         <Link
           href="/portal/admin/events/guests?sort=guestof"
           className={`btn btn-small ${sortMode === "guestof" ? "btn-primary" : "btn-outline"}`}

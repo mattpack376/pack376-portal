@@ -58,7 +58,7 @@ export default async function ParentPortalAdminPage() {
         ) : (
           announcements.map((a) => (
             <div key={a.id} style={{ background: "var(--cream)", borderRadius: 8, padding: "10px 14px", marginBottom: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
                 <div>
                   <p style={{ marginBottom: 2, fontWeight: 700 }}>{a.pinned && "📌 "}{a.title}</p>
                   <p style={{ marginBottom: 0, fontSize: 14 }}>{a.body}</p>
@@ -131,7 +131,7 @@ export default async function ParentPortalAdminPage() {
         ) : (
           deadlines.map((d) => (
             <div key={d.id} style={{ background: "var(--cream)", borderRadius: 8, padding: "10px 14px", marginBottom: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
                 <div>
                   <p className="form-note" style={{ marginBottom: 2 }}>{DEADLINE_CATEGORY_LABELS[d.category].toUpperCase()} · {formatDueDate(d.dueDate)}</p>
                   <p style={{ marginBottom: 0, fontWeight: 700 }}>{d.title}</p>
@@ -201,7 +201,7 @@ export default async function ParentPortalAdminPage() {
         ) : (
           volunteerNeeds.map((v) => (
             <div key={v.id} style={{ background: "var(--cream)", borderRadius: 8, padding: "10px 14px", marginBottom: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
                 <div>
                   <p style={{ marginBottom: 0, fontWeight: 700 }}>
                     {v.title}{" "}
