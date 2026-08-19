@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireTripPageSession } from "@/lib/authorize";
 import {
   getOrCreateTripPage,
@@ -39,9 +40,17 @@ function toDateInputValue(date: Date | null) {
   return date ? date.toISOString().slice(0, 10) : "";
 }
 
-export default async function AdminCampConronPage() {
+const CARD_WIDTH = 480;
+
+export default async function AdminCampConronPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ affiliation?: string }>;
+}) {
   const session = await requireTripPageSession();
   const isAdmin = session.role === "ADMIN";
+  const { affiliation: affiliationParam } = await searchParams;
+  const affiliationFilter = affiliationParam === "PACK" || affiliationParam === "TROOP" ? affiliationParam : "ALL";
 
   const trip = await getOrCreateTripPage(CAMP_CONRON_SLUG);
   const [meals, dutySlots, activities, registrations] = await Promise.all([
@@ -60,6 +69,11 @@ export default async function AdminCampConronPage() {
   const paidRegistrations = registrations.filter((r) => r.remainingCents <= 0);
   const paidAdults = paidRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
   const paidKids = paidRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
+
+  const visibleRegistrations =
+    affiliationFilter === "ALL" ? registrations : registrations.filter((r) => r.affiliation === affiliationFilter);
+  const visibleOwed = visibleRegistrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
+  const visiblePaid = visibleRegistrations.reduce((sum, r) => sum + r.paidCents, 0);
 
   return (
     <>
@@ -96,21 +110,32 @@ export default async function AdminCampConronPage() {
         )}
       </div>
 
-      <div className="info-card" style={{ marginBottom: 24 }}>
+      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>Headcount</h3>
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <p style={{ marginBottom: 0 }}>
-            <strong>Registered:</strong> {totalAdults} adult{totalAdults === 1 ? "" : "s"}, {totalKids} kid
-            {totalKids === 1 ? "" : "s"} (4 &amp; under) — {totalAdults + totalKids} total
-          </p>
-          <p style={{ marginBottom: 0 }}>
-            <strong>Paid in Full:</strong> {paidAdults} adult{paidAdults === 1 ? "" : "s"}, {paidKids} kid
-            {paidKids === 1 ? "" : "s"} (4 &amp; under) — {paidAdults + paidKids} total
-          </p>
-        </div>
+        <p style={{ marginBottom: 8 }}>
+          <strong>Registered:</strong> {totalAdults} adult{totalAdults === 1 ? "" : "s"}, {totalKids} kid
+          {totalKids === 1 ? "" : "s"} (4 &amp; under) — {totalAdults + totalKids} total
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          <strong>Paid in Full:</strong> {paidAdults} adult{paidAdults === 1 ? "" : "s"}, {paidKids} kid
+          {paidKids === 1 ? "" : "s"} (4 &amp; under) — {paidAdults + paidKids} total
+        </p>
       </div>
 
-      <div className="info-card" style={{ maxWidth: 520, marginBottom: 24 }}>
+      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
+        <h3 style={{ marginTop: 0 }}>Money</h3>
+        <p style={{ marginBottom: 8 }}>
+          <strong>Anticipated Money to be Collected:</strong> {formatCents(totalOwed)}
+        </p>
+        <p style={{ marginBottom: 8 }}>
+          <strong>Collected So Far:</strong> {formatCents(totalPaid)}
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          <strong>Remaining:</strong> {formatCents(totalOwed - totalPaid)}
+        </p>
+      </div>
+
+      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>Event Details</h3>
         <form action={updateTripDetailsAction}>
           <input type="hidden" name="id" value={trip.id} />
@@ -158,7 +183,7 @@ export default async function AdminCampConronPage() {
         </form>
       </div>
 
-      <div className="info-card" style={{ maxWidth: 520, marginBottom: 24 }}>
+      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>Price Structure</h3>
         <p className="form-note" style={{ marginTop: 0 }}>
           Current price: <strong>{formatCents(priceCents)}</strong>/person.
@@ -215,7 +240,7 @@ export default async function AdminCampConronPage() {
         </form>
       </div>
 
-      <div className="info-card" style={{ maxWidth: 520, marginBottom: 24 }}>
+      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>Payment Instructions</h3>
         <p className="form-note" style={{ marginTop: 0 }}>
           Shown to families on the public page once they pick their affiliation.
@@ -239,7 +264,7 @@ export default async function AdminCampConronPage() {
         <h2>Menu</h2>
         <p>Friday Dinner only, Saturday and Sunday all 3 meals, Monday Breakfast only.</p>
       </div>
-      <div className="info-card" style={{ marginBottom: 24, maxWidth: 640 }}>
+      <div className="info-card" style={{ marginBottom: 24, maxWidth: CARD_WIDTH }}>
         <form action={updateTripMealsAction}>
           {meals.map((meal) => (
             <div key={meal.id} className="form-field">
@@ -267,7 +292,7 @@ export default async function AdminCampConronPage() {
       </div>
 
       {dutySlots.length === 0 ? (
-        <div className="info-card" style={{ marginBottom: 24 }}>
+        <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
           <p style={{ marginBottom: 0 }}>No duty slots yet.</p>
         </div>
       ) : (
@@ -280,7 +305,7 @@ export default async function AdminCampConronPage() {
                 duty.assignedName ? ` · ${duty.assignedName}` : ""
               }${duty.arriveTime ? ` (${duty.arriveTime})` : ""}`}
             >
-              <div className="info-card" style={{ marginTop: 8, maxWidth: 480 }}>
+              <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
                 <form action={updateDutySlotAction}>
                   <input type="hidden" name="id" value={duty.id} />
                   <div className="form-field">
@@ -341,7 +366,7 @@ export default async function AdminCampConronPage() {
         </div>
       )}
 
-      <div className="info-card" style={{ maxWidth: 480, marginBottom: 32 }}>
+      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 32 }}>
         <h3 style={{ marginTop: 0 }}>Add a Duty Slot</h3>
         <form action={createDutySlotAction}>
           <input type="hidden" name="tripPageId" value={trip.id} />
@@ -385,7 +410,7 @@ export default async function AdminCampConronPage() {
       </div>
 
       {activities.length === 0 ? (
-        <div className="info-card" style={{ marginBottom: 24 }}>
+        <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
           <p style={{ marginBottom: 0 }}>No activities scheduled yet.</p>
         </div>
       ) : (
@@ -396,7 +421,7 @@ export default async function AdminCampConronPage() {
               defaultOpen={false}
               label={`${DAY_LABELS[activity.day]}${activity.time ? ` ${activity.time}` : ""} — ${activity.title}`}
             >
-              <div className="info-card" style={{ marginTop: 8, maxWidth: 480 }}>
+              <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
                 <form action={updateActivityAction}>
                   <input type="hidden" name="id" value={activity.id} />
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -452,7 +477,7 @@ export default async function AdminCampConronPage() {
         </div>
       )}
 
-      <div className="info-card" style={{ maxWidth: 480, marginBottom: 32 }}>
+      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 32 }}>
         <h3 style={{ marginTop: 0 }}>Add an Activity</h3>
         <form action={createActivityAction}>
           <input type="hidden" name="tripPageId" value={trip.id} />
@@ -490,9 +515,9 @@ export default async function AdminCampConronPage() {
       >
         <div>
           <div className="eyebrow">Registrations</div>
-          <h2>Families Registered ({registrations.length})</h2>
+          <h2>Families Registered ({visibleRegistrations.length})</h2>
           <p>
-            Owed {formatCents(totalOwed)} · Paid {formatCents(totalPaid)} · Remaining {formatCents(totalOwed - totalPaid)}
+            Owed {formatCents(visibleOwed)} · Paid {formatCents(visiblePaid)} · Remaining {formatCents(visibleOwed - visiblePaid)}
           </p>
         </div>
         {registrations.length > 0 && (
@@ -506,13 +531,39 @@ export default async function AdminCampConronPage() {
         )}
       </div>
 
-      {registrations.length === 0 ? (
-        <div className="info-card">
-          <p style={{ marginBottom: 0 }}>No registrations yet.</p>
+      {registrations.length > 0 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+          <Link
+            href="/portal/admin/camp-conron?affiliation=ALL"
+            className={`btn btn-small ${affiliationFilter === "ALL" ? "btn-primary" : "btn-outline"}`}
+            style={affiliationFilter !== "ALL" ? { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" } : undefined}
+          >
+            All
+          </Link>
+          <Link
+            href="/portal/admin/camp-conron?affiliation=PACK"
+            className={`btn btn-small ${affiliationFilter === "PACK" ? "btn-primary" : "btn-outline"}`}
+            style={affiliationFilter !== "PACK" ? { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" } : undefined}
+          >
+            Pack 376
+          </Link>
+          <Link
+            href="/portal/admin/camp-conron?affiliation=TROOP"
+            className={`btn btn-small ${affiliationFilter === "TROOP" ? "btn-primary" : "btn-outline"}`}
+            style={affiliationFilter !== "TROOP" ? { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" } : undefined}
+          >
+            Troop 376
+          </Link>
+        </div>
+      )}
+
+      {visibleRegistrations.length === 0 ? (
+        <div className="info-card" style={{ maxWidth: CARD_WIDTH }}>
+          <p style={{ marginBottom: 0 }}>{registrations.length === 0 ? "No registrations yet." : "No registrations match this filter."}</p>
         </div>
       ) : (
         <div>
-          {registrations.map((reg) => {
+          {visibleRegistrations.map((reg) => {
             const status =
               reg.remainingCents <= 0
                 ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
@@ -522,11 +573,12 @@ export default async function AdminCampConronPage() {
             return (
               <CollapsibleGroup
                 key={reg.id}
-                label={`${reg.familyName} — ${reg.affiliation === "PACK" ? "Pack 376" : "Troop 376"} · ${reg.payingCount} paying${
+                defaultOpen={false}
+                label={`${reg.familyName} — ${reg.affiliation === "PACK" ? "Pack 376" : "Troop 376"} · Guest of ${reg.guestOfName} · ${reg.payingCount} paying${
                   reg.freeCount ? `, ${reg.freeCount} free` : ""
                 } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}
               >
-                <div className="info-card" style={{ marginTop: 8 }}>
+                <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
                   <p style={{ marginTop: 0 }}>
                     Owed {formatCents(reg.amountOwedCents)} · Paid {formatCents(reg.paidCents)} · Remaining {formatCents(reg.remainingCents)}
                   </p>
@@ -546,6 +598,10 @@ export default async function AdminCampConronPage() {
                             <option value="TROOP">Troop 376</option>
                           </select>
                         </div>
+                      </div>
+                      <div className="form-field">
+                        <label htmlFor={`guestOfName-${reg.id}`}>Scout/Leader Guest Of</label>
+                        <input id={`guestOfName-${reg.id}`} name="guestOfName" required defaultValue={reg.guestOfName} />
                       </div>
                       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                         <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
@@ -585,7 +641,7 @@ export default async function AdminCampConronPage() {
                   ) : (
                     <p>
                       {reg.contactEmail}
-                      {reg.contactPhone ? ` · ${reg.contactPhone}` : ""} · Registered{" "}
+                      {reg.contactPhone ? ` · ${reg.contactPhone}` : ""} · Guest of {reg.guestOfName} · Registered{" "}
                       {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}
                     </p>
                   )}

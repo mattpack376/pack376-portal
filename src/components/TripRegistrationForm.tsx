@@ -66,6 +66,11 @@ export default function TripRegistrationForm({
           <input id="familyName" name="familyName" required placeholder="e.g. The Smith Family" />
         </div>
 
+        <div className="form-field">
+          <label htmlFor="guestOfName">Scout/Leader You Are a Guest Of</label>
+          <input id="guestOfName" name="guestOfName" required placeholder="e.g. Timmy Test (Wolf Den)" />
+        </div>
+
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
             <label htmlFor="contactEmail">Email</label>

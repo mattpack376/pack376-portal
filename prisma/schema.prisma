@@ -575,6 +575,12 @@ model TripRegistration {
   familyName      String
   contactEmail    String
   contactPhone    String?
+  // The scout or adult leader this family/group is attending as a guest of —
+  // free text, not a Scout/User FK, since this is filled out on the fully
+  // public page with no access to the private roster. Required going
+  // forward; defaults to "" only so the migration adding this column is
+  // safe against any rows that existed before it.
+  guestOfName     String          @default("")
   affiliation     TripAffiliation
   payingCount     Int             @default(0)
   freeCount       Int             @default(0)

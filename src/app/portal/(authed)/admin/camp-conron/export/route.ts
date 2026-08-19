@@ -13,9 +13,10 @@ export async function GET() {
   const registrations = await getTripRegistrations(trip.id);
 
   const rows: (string | number)[][] = [
-    ["Family / Registrant", "Email", "Phone", "Affiliation", "Paying", "Free", "Amount Owed", "Paid", "Remaining", "Status", "Registered"],
+    ["Family / Registrant", "Guest Of", "Email", "Phone", "Affiliation", "Paying", "Free", "Amount Owed", "Paid", "Remaining", "Status", "Registered"],
     ...registrations.map((reg) => [
       reg.familyName,
+      reg.guestOfName,
       reg.contactEmail,
       reg.contactPhone ?? "",
       reg.affiliation === "PACK" ? "Pack 376" : "Troop 376",

@@ -54,12 +54,13 @@ export async function registerForTripAction(
   const familyName = String(formData.get("familyName") || "").trim();
   const contactEmail = String(formData.get("contactEmail") || "").trim();
   const contactPhone = formatPhoneNumber(String(formData.get("contactPhone") || "").trim());
+  const guestOfName = String(formData.get("guestOfName") || "").trim();
   const affiliationRaw = String(formData.get("affiliation") || "");
   const payingCount = parseCount(formData.get("payingCount"));
   const freeCount = parseCount(formData.get("freeCount"));
 
-  if (!tripPageId || !familyName || !contactEmail || !contactPhone) {
-    return { error: "Name, email, phone, and trip are required." };
+  if (!tripPageId || !familyName || !contactEmail || !contactPhone || !guestOfName) {
+    return { error: "Name, email, phone, guest-of, and trip are required." };
   }
   if (!EMAIL_RE.test(contactEmail)) return { error: "Enter a valid email address." };
   if (affiliationRaw !== "PACK" && affiliationRaw !== "TROOP") return { error: "Choose Pack 376 or Troop 376." };
@@ -77,6 +78,7 @@ export async function registerForTripAction(
       familyName,
       contactEmail,
       contactPhone,
+      guestOfName,
       affiliation: affiliationRaw as TripAffiliation,
       payingCount,
       freeCount,
@@ -99,13 +101,14 @@ export async function updateTripRegistrationAction(formData: FormData) {
   const familyName = String(formData.get("familyName") || "").trim();
   const contactEmail = String(formData.get("contactEmail") || "").trim();
   const contactPhone = formatPhoneNumber(String(formData.get("contactPhone") || "").trim());
+  const guestOfName = String(formData.get("guestOfName") || "").trim();
   const affiliationRaw = String(formData.get("affiliation") || "");
   const payingCount = parseCount(formData.get("payingCount"));
   const freeCount = parseCount(formData.get("freeCount"));
   const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
 
-  if (!id || !familyName || !contactEmail || !contactPhone) {
-    throw new Error("Name, email, and phone are required.");
+  if (!id || !familyName || !contactEmail || !contactPhone || !guestOfName) {
+    throw new Error("Name, email, phone, and guest-of are required.");
   }
   if (!EMAIL_RE.test(contactEmail)) throw new Error("Enter a valid email address.");
   if (affiliationRaw !== "PACK" && affiliationRaw !== "TROOP") throw new Error("Choose Pack 376 or Troop 376.");
@@ -119,6 +122,7 @@ export async function updateTripRegistrationAction(formData: FormData) {
       familyName,
       contactEmail,
       contactPhone,
+      guestOfName,
       affiliation: affiliationRaw as TripAffiliation,
       payingCount,
       freeCount,
