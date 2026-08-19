@@ -17,7 +17,7 @@ function secretKey() {
 
 export type SessionPayload = {
   userId: string;
-  role: "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT";
+  role: "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT" | "TRIP_VIEWER";
   denIds: string[];
   // The scout(s) this account is linked to via Parent.userId — only ever
   // non-empty for role PARENT. Present for every role (rather than optional)

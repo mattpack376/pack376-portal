@@ -14,6 +14,12 @@ enum Role {
   JUNIOR_ADMIN
   PHOTOGRAPHER
   PARENT
+  // Read-only access to a single page: /portal/admin/camp-conron. Meant to
+  // be a shared generic login (e.g. one "Troop376" account for a whole
+  // committee) rather than tied to one person — see TRIP_VIEWER checks in
+  // authorize.ts/proxy.ts, which don't grant access to anything else in the
+  // portal, and the read-only branch in the Camp Conron admin page itself.
+  TRIP_VIEWER
 }
 
 enum DeadlineCategory {

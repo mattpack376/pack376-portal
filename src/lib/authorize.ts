@@ -11,6 +11,7 @@ export function homeForRole(role: SessionPayload["role"]) {
   if (role === "ATTENDANCE_ADMIN") return "/portal/admin/attendance";
   if (role === "PHOTOGRAPHER") return "/portal/admin/albums";
   if (role === "PARENT") return "/portal/parent";
+  if (role === "TRIP_VIEWER") return "/portal/admin/camp-conron";
   return "/portal/den";
 }
 
@@ -178,18 +179,28 @@ export function assertHomepageContentAccess(session: SessionPayload) {
 }
 
 /**
- * For Server Components / pages: the Camp Conron trip page's admin editor
- * (details, pricing, menu, duty roster, registrations/payments) — full admin
- * and junior admin, same population as homepage content above. The public
- * conron.pack376nyc.org page itself needs no session at all.
+ * For Server Components / pages: gates the whole /portal/admin/camp-conron
+ * page — full admin, junior admin (both editable, see assertTripPageAccess
+ * below), and TRIP_VIEWER (read-only; the page itself branches on role and
+ * renders a completely separate form-free view for that case — this guard
+ * only decides who reaches the page at all, not what they see once there).
+ * The public conron.pack376nyc.org page needs no session at all.
  */
 export async function requireTripPageSession(): Promise<SessionPayload> {
   const session = await requireSession();
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") redirect(homeForRole(session.role));
+  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "TRIP_VIEWER") {
+    redirect(homeForRole(session.role));
+  }
   return session;
 }
 
-/** Full admin or junior admin — trip page content/menu/duty-roster edit actions. */
+/**
+ * Full admin or junior admin only — every trip page content/menu/duty-roster
+ * EDIT action. Deliberately excludes TRIP_VIEWER even though that role can
+ * reach the page itself (requireTripPageSession above): the page's viewer
+ * branch never renders any of these forms, but this is the real enforcement
+ * boundary, independent of what the UI happens to show.
+ */
 export function assertTripPageAccess(session: SessionPayload) {
   if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
     throw new Error("Not authorized: trip page access required.");

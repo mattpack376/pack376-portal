@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
-type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT";
+type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT" | "TRIP_VIEWER";
 
 /** Public site host (no "portal." prefix) — matches getPublicBaseUrl() in src/lib/appUrl.ts,
  * duplicated here since that helper is server-only and this component is a client component. */
@@ -52,6 +52,8 @@ export default function PortalNav({ role, onNavigate }: { role: Role; onNavigate
         ];
       case "PARENT":
         return [{ href: "/portal/parent", label: "Dashboard" }];
+      case "TRIP_VIEWER":
+        return [{ href: "/portal/admin/camp-conron", label: "Camp Conron Trip" }];
       default:
         // Preserves the currently selected den (for leaders assigned to more
         // than one) when switching between "My Den" and "Attendance" tabs.

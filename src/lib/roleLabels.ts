@@ -1,6 +1,6 @@
 /** Every role assignable from the admin panel, including Den Leader — a Den
  * Leader's specific den(s) are assigned separately (see DenAssignment). */
-export const ASSIGNABLE_ROLES = ["ADMIN", "JUNIOR_ADMIN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER", "DEN"] as const;
+export const ASSIGNABLE_ROLES = ["ADMIN", "JUNIOR_ADMIN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER", "DEN", "TRIP_VIEWER"] as const;
 export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
 
 /**
@@ -18,6 +18,7 @@ export const ROLE_LABELS: Record<string, string> = {
   PHOTOGRAPHER: "Photographer",
   DEN: "Den Leader",
   PARENT: "Parent",
+  TRIP_VIEWER: "Trip Viewer",
 };
 
 export const ROLE_BADGE_CLASSES: Record<string, string> = {
@@ -27,4 +28,5 @@ export const ROLE_BADGE_CLASSES: Record<string, string> = {
   PHOTOGRAPHER: "badge-photographer",
   DEN: "badge-den",
   PARENT: "badge-parent",
+  TRIP_VIEWER: "badge-viewer",
 };

@@ -5,7 +5,7 @@ import PortalNav from "@/components/PortalNav";
 import LogoutButton from "@/components/LogoutButton";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 
-type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT";
+type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT" | "TRIP_VIEWER";
 
 export default function PortalHeaderNav({ role, displayName }: { role: Role; displayName: string }) {
   const [open, setOpen] = useState(false);

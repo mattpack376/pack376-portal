@@ -70,6 +70,7 @@ export default function CreateAdminForm() {
           <option value="ATTENDANCE_ADMIN">Attendance Only — attendance for all dens</option>
           <option value="PHOTOGRAPHER">Photographer — add/edit albums only (no delete)</option>
           <option value="DEN">Den Leader — advancement & attendance for their assigned den(s)</option>
+          <option value="TRIP_VIEWER">Trip Viewer — view only, Camp Conron trip page only</option>
         </select>
       </div>
       {error && <p className="form-error">{error}</p>}

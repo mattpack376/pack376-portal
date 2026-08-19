@@ -35,6 +35,7 @@ import {
   deleteTripRegistrationAction,
 } from "@/lib/actions/tripRegistration";
 import TripRegistrationCountFields from "@/components/TripRegistrationCountFields";
+import TripViewerView from "./TripViewerView";
 
 function toDateInputValue(date: Date | null) {
   return date ? date.toISOString().slice(0, 10) : "";
@@ -59,6 +60,13 @@ export default async function AdminCampConronPage({
     getTripActivities(trip.id),
     getTripRegistrations(trip.id),
   ]);
+
+  // TRIP_VIEWER (e.g. a shared Troop376 login) gets a completely separate,
+  // form-free read-only render — see TripViewerView.tsx for why this isn't
+  // done as inline conditionals throughout the rest of this component.
+  if (session.role === "TRIP_VIEWER") {
+    return <TripViewerView trip={trip} meals={meals} dutySlots={dutySlots} activities={activities} registrations={registrations} />;
+  }
 
   const priceCents = currentTripPriceCents(trip);
   const totalOwed = registrations.reduce((sum, r) => sum + r.amountOwedCents, 0);

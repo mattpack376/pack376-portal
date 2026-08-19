@@ -15,7 +15,7 @@ function secretKey() {
   return new TextEncoder().encode(secret);
 }
 
-type ProxyRole = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT";
+type ProxyRole = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT" | "TRIP_VIEWER";
 
 async function readSession(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
@@ -36,6 +36,7 @@ function homeForRole(role: ProxyRole) {
   if (role === "ATTENDANCE_ADMIN") return "/portal/admin/attendance";
   if (role === "PHOTOGRAPHER") return "/portal/admin/albums";
   if (role === "PARENT") return "/portal/parent";
+  if (role === "TRIP_VIEWER") return "/portal/admin/camp-conron";
   return "/portal/den";
 }
 
@@ -70,6 +71,12 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[]
   { test: (p) => p.endsWith("/promote"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens/new"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens"), roles: ["ADMIN", "JUNIOR_ADMIN"] },
+  // TRIP_VIEWER (e.g. a shared Troop376 login) only reaches this exact page,
+  // read-only — checked before the generic "/portal/admin" rule below, which
+  // would otherwise also match this path but for ADMIN/JUNIOR_ADMIN only.
+  // Deliberately an exact match, not a prefix: the CSV export route
+  // (/portal/admin/camp-conron/export) stays admin-only via the generic rule.
+  { test: (p) => p === "/portal/admin/camp-conron", roles: ["ADMIN", "JUNIOR_ADMIN", "TRIP_VIEWER"] },
   { test: (p) => p.startsWith("/portal/admin"), roles: ["ADMIN", "JUNIOR_ADMIN"] },
 ];
 

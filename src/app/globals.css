@@ -1063,6 +1063,7 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .badge-consent { background: var(--teal); color: var(--white); }
 .badge-decline { background: var(--carnival-red); color: var(--white); }
 .badge-pending { background: var(--cream-dark); color: var(--ink-soft); }
+.badge-viewer { background: var(--ink-soft); color: var(--white); }
 .badge-count { font-size: 13px; font-weight: 800; padding: 6px 14px; }
 
 /*
