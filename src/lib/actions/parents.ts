@@ -11,6 +11,19 @@ import { sendAccountLinkEmail } from "@/lib/email";
 import { formatPhoneNumber } from "@/lib/phone";
 import type { CreatedInvite } from "@/lib/actions/dens";
 
+/**
+ * If this email already belongs to a PARENT-role portal login (e.g. a
+ * sibling's contact was invited earlier), returns that login's id so the new
+ * or edited contact can be linked immediately instead of sitting disconnected
+ * until someone happens to click Invite on it too.
+ */
+async function findExistingParentAccountId(email: string | null): Promise<string | null> {
+  const cleanEmail = email?.trim().toLowerCase();
+  if (!cleanEmail) return null;
+  const existing = await prisma.user.findUnique({ where: { username: cleanEmail } });
+  return existing && existing.role === "PARENT" ? existing.id : null;
+}
+
 export async function addParentAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
@@ -22,8 +35,10 @@ export async function addParentAction(formData: FormData) {
   const phone = formatPhoneNumber(String(formData.get("phone") || ""));
   if (!scoutId || !name) throw new Error("A parent name is required.");
 
+  const userId = await findExistingParentAccountId(email);
+
   await prisma.parent.create({
-    data: { scoutId, name, email: email || null, phone: phone || null },
+    data: { scoutId, name, email: email || null, phone: phone || null, userId },
   });
 
   revalidatePath("/portal/roster/parents");
@@ -40,18 +55,29 @@ export async function updateParentAction(formData: FormData) {
   const phone = formatPhoneNumber(String(formData.get("phone") || ""));
   if (!parentId || !name) throw new Error("A parent name is required.");
 
+  const before = await prisma.parent.findUnique({ where: { id: parentId }, select: { userId: true } });
+  // If this contact isn't linked yet and its (possibly just-edited) email now
+  // matches an existing PARENT login, link it instead of leaving it stranded.
+  const userId = before?.userId ?? (await findExistingParentAccountId(email));
+
   const parent = await prisma.parent.update({
     where: { id: parentId },
-    data: { name, email: email || null, phone: phone || null },
+    data: { name, email: email || null, phone: phone || null, userId },
   });
 
-  // Keep the linked portal account's phone — and every sibling contact row
-  // sharing that same login — in sync with whatever's edited here, since
-  // they all represent the same parent/guardian's number.
+  // Keep the linked portal account's contact info — and every sibling contact
+  // row sharing that same login — in sync with whatever's edited here, since
+  // they all represent the same parent/guardian.
   if (parent.userId) {
     await prisma.$transaction([
-      prisma.user.update({ where: { id: parent.userId }, data: { phone: phone || null } }),
-      prisma.parent.updateMany({ where: { userId: parent.userId }, data: { phone: phone || null } }),
+      prisma.user.update({
+        where: { id: parent.userId },
+        data: { displayName: name, email: email || null, phone: phone || null },
+      }),
+      prisma.parent.updateMany({
+        where: { userId: parent.userId, id: { not: parentId } },
+        data: { phone: phone || null },
+      }),
     ]);
     revalidatePath(`/portal/admin/users/parents/${parent.userId}`);
   }

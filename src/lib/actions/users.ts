@@ -134,11 +134,17 @@ export async function updateUserEmailAction(formData: FormData) {
   // A master admin's contact identity can only be changed by another master admin.
   if (isMasterAdminUsername(user.username)) await assertMasterAdmin(session);
 
-  await prisma.user.update({ where: { id: userId }, data: { email: email || null } });
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { email: email || null } }),
+    // Mirrors onto every scout contact row this login is linked to (siblings
+    // share one login) — a no-op for staff accounts, which have no parentContacts.
+    prisma.parent.updateMany({ where: { userId }, data: { email: email || null } }),
+  ]);
 
   revalidatePath(`/portal/admin/users/${userId}`);
   revalidatePath(`/portal/admin/users/parents/${userId}`);
   revalidatePath("/portal/admin/users/parents");
+  revalidatePath("/portal/roster/parents");
 }
 
 export async function updateUserPhoneAction(formData: FormData) {
@@ -182,7 +188,12 @@ export async function updateUserDisplayNameAction(formData: FormData) {
   // A master admin's display identity can only be changed by another master admin.
   if (isMasterAdminUsername(user.username)) await assertMasterAdmin(session);
 
-  await prisma.user.update({ where: { id: userId }, data: { displayName } });
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { displayName } }),
+    // Mirrors onto every scout contact row this login is linked to (siblings
+    // share one login) — a no-op for staff accounts, which have no parentContacts.
+    prisma.parent.updateMany({ where: { userId }, data: { name: displayName } }),
+  ]);
 
   revalidatePath(`/portal/admin/users/${userId}`);
   revalidatePath(`/portal/admin/users/parents/${userId}`);
@@ -190,6 +201,7 @@ export async function updateUserDisplayNameAction(formData: FormData) {
   revalidatePath("/portal/admin/users/parents");
   revalidatePath("/portal/admin");
   revalidatePath("/portal/roster");
+  revalidatePath("/portal/roster/parents");
 }
 
 export type UpdateUserRoleState = { error?: string };

@@ -56,18 +56,22 @@ export default async function AdminParentAccountsPage() {
               <td>{user.displayName}</td>
               <td>{user.phone ? formatPhoneNumber(user.phone) : "—"}</td>
               <td>
-                {user.parentContacts.length > 0
-                  ? user.parentContacts
-                      .map(
-                        (c) =>
-                          `${c.scout.firstName} ${c.scout.lastName} (${denDisplayName(
-                            c.scout.den.rank,
-                            c.scout.den.scoutingYear,
-                            c.scout.den.label
-                          )})`
-                      )
-                      .join(", ")
-                  : "—"}
+                {user.parentContacts.length > 0 ? (
+                  user.parentContacts
+                    .map(
+                      (c) =>
+                        `${c.scout.firstName} ${c.scout.lastName} (${denDisplayName(
+                          c.scout.den.rank,
+                          c.scout.den.scoutingYear,
+                          c.scout.den.label
+                        )})`
+                    )
+                    .join(", ")
+                ) : (
+                  <span className="badge-pill badge-photographer" title="This login isn't attached to any scout — likely left over after its last scout was removed. Consider deleting it from Manage.">
+                    No scouts attached
+                  </span>
+                )}
               </td>
               <td>{user.lockedUntil && user.lockedUntil.getTime() > now ? "🔒 Locked" : "Active"}</td>
               <td className="actions">
