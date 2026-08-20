@@ -16,11 +16,13 @@ import { sortGuestGroups } from "@/lib/guestSort";
 import { registerMyGuestGroupForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
 import EventFlyer from "@/components/EventFlyer";
 import { paymentStatus } from "@/lib/paymentStatus";
+import ParentPreviewPicker from "@/components/ParentPreviewPicker";
+import ParentDashboardView from "@/components/ParentDashboardView";
 
 export default async function FamilyViewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ denId?: string; guestSort?: string }>;
+  searchParams: Promise<{ denId?: string; guestSort?: string; previewScoutId?: string }>;
 }) {
   const session = await requireParentContactsSession();
   const canRecordPayments = session.role === "ADMIN" || session.role === "DEN";
@@ -33,7 +35,7 @@ export default async function FamilyViewPage({
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
   }
 
-  const { denId: requestedDenId, guestSort } = await searchParams;
+  const { denId: requestedDenId, guestSort, previewScoutId } = await searchParams;
   const denId = isDenScoped
     ? requestedDenId && session.denIds.includes(requestedDenId)
       ? requestedDenId
@@ -46,6 +48,78 @@ export default async function FamilyViewPage({
   }
 
   const scoutIds = den ? den.scouts.map((s) => s.id) : (await prisma.scout.findMany({ select: { id: true } })).map((s) => s.id);
+
+  /*
+   * Parent Dashboard preview. Scoped to the same scouts this session can
+   * already see on this page, so a den login can't reach a family outside
+   * its den by editing the query string.
+   */
+  const previewScouts = await prisma.scout.findMany({
+    where: { id: { in: scoutIds } },
+    include: { den: true, parents: { where: { userId: { not: null } }, include: { user: true } } },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+  });
+  const previewOptions = previewScouts
+    .slice()
+    .sort((a, b) => {
+      if (a.den.scoutingYear !== b.den.scoutingYear) return b.den.scoutingYear.localeCompare(a.den.scoutingYear);
+      return RANK_ORDER.indexOf(a.den.rank as Rank) - RANK_ORDER.indexOf(b.den.rank as Rank);
+    })
+    .map((s) => ({
+      id: s.id,
+      name: `${s.firstName} ${s.lastName}`,
+      den: denDisplayName(s.den.rank, s.den.scoutingYear, s.den.label),
+      hasParentLogin: s.parents.length > 0,
+    }));
+
+  const previewScout = previewScoutId ? previewScouts.find((s) => s.id === previewScoutId) : undefined;
+  if (previewScoutId && !previewScout) {
+    return (
+      <div className="info-card">
+        That scout isn&apos;t on the roster you can see.{" "}
+        <Link href="/portal/roster/family-view">Back to Family View</Link>
+      </div>
+    );
+  }
+
+  if (previewScout) {
+    // Show it exactly as the parent gets it: their login sees every scout it
+    // is attached to, so a sibling's rows belong in the preview too. With no
+    // login yet, fall back to this scout alone and say so.
+    const parentUser = previewScout.parents[0]?.user ?? null;
+    const previewScoutIds = parentUser
+      ? [...new Set((await prisma.parent.findMany({ where: { userId: parentUser.id }, select: { scoutId: true } })).map((p) => p.scoutId))]
+      : [previewScout.id];
+    const childName = `${previewScout.firstName} ${previewScout.lastName}`;
+
+    return (
+      <>
+        <div className="page-head">
+          <div>
+            <div className="eyebrow">Parent Preview</div>
+            <h2>{childName}&apos;s Parent Dashboard</h2>
+            <p style={{ marginBottom: 0 }}>
+              {parentUser
+                ? `Exactly what ${parentUser.displayName} (${parentUser.username}) sees when they sign in. Read-only — the buttons that would submit something are hidden.`
+                : `${childName} has no Parent Portal login yet, so this is what one would show. Read-only.`}
+            </p>
+          </div>
+          <Link className="btn btn-quiet btn-small no-print" href="/portal/roster/family-view">
+            ← Full Family View
+          </Link>
+        </div>
+
+        <ParentPreviewPicker scouts={previewOptions} selected={previewScout.id} basePath="/portal/roster/family-view" />
+
+        <ParentDashboardView
+          scoutIds={previewScoutIds}
+          userId={parentUser?.id ?? session.userId}
+          displayName={parentUser?.displayName ?? childName}
+          preview
+        />
+      </>
+    );
+  }
   const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, upcomingEvents } =
     await getParentDashboardData(scoutIds, session.userId);
 
@@ -136,6 +210,8 @@ export default async function FamilyViewPage({
           — dues and consent forms aren&apos;t shown here since those aren&apos;t applicable to this view.
         </p>
       </div>
+
+      <ParentPreviewPicker scouts={previewOptions} basePath="/portal/roster/family-view" />
 
       {isDenScoped && <DenSwitcher denIds={session.denIds} currentDenId={denId!} basePath="/portal/roster/family-view" />}
 
