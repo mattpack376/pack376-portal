@@ -124,10 +124,28 @@ section { padding: 64px 0; }
 }
 .btn-red:hover { box-shadow: 0 10px 0 var(--carnival-red-dark); }
 .btn-red:active { transform: translateY(4px); box-shadow: 0 4px 0 var(--carnival-red-dark); }
+/*
+ * Small buttons are an admin-screen control, not a marketing one: they sit in
+ * table rows, filter bars, and card footers. Geometry is set here rather than
+ * per-variant so an active .btn-primary pill and its inactive .btn-quiet
+ * neighbours in the same segmented control read as one set — .btn's 3px
+ * border and 999px pill are sized for a 56px hero button, and the 8px slab
+ * shadow under a 31px control looks like a misprint.
+ *
+ * Large buttons keep the full treatment: "+ New Den" and "Create Event" are
+ * still gold, round, and raised.
+ */
 .btn-small {
-  padding: 8px 16px;
+  padding: 7px 15px;
   font-size: 13px;
+  border-width: 1.5px;
+  border-radius: 8px;
 }
+.btn-small.btn-primary,
+.btn-small.btn-red { box-shadow: none; }
+.btn-small:hover { transform: none; }
+.btn-small.btn-primary:active,
+.btn-small.btn-red:active { transform: none; box-shadow: none; }
 
 /*
  * Portal-weight secondary buttons. The portal is mostly rows of quiet
