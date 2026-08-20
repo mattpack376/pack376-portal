@@ -15,6 +15,7 @@ import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
 import { sortGuestGroups } from "@/lib/guestSort";
 import { registerMyGuestGroupForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
 import EventFlyer from "@/components/EventFlyer";
+import { paymentStatus } from "@/lib/paymentStatus";
 
 export default async function FamilyViewPage({
   searchParams,
@@ -284,12 +285,7 @@ export default async function FamilyViewPage({
                     </thead>
                     <tbody>
                       {regs.map((reg) => {
-                        const status =
-                          reg.remainingCents <= 0
-                            ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                            : reg.paidCents > 0
-                            ? { label: "Partial", cls: "badge-junior" }
-                            : { label: "Unpaid", cls: "badge-photographer" };
+                        const status = paymentStatus(reg.remainingCents, reg.paidCents);
                         return (
                           <tr key={reg.id}>
                             <td>{reg.scoutFirstName}</td>
@@ -334,12 +330,7 @@ export default async function FamilyViewPage({
                     </thead>
                     <tbody>
                       {guestGroups.map((group) => {
-                        const status =
-                          group.remainingCents <= 0
-                            ? { label: group.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                            : group.paidCents > 0
-                            ? { label: "Partial", cls: "badge-junior" }
-                            : { label: "Unpaid", cls: "badge-photographer" };
+                        const status = paymentStatus(group.remainingCents, group.paidCents);
                         return (
                           <tr key={group.id}>
                             <td>{group.familyName}</td>

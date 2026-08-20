@@ -21,6 +21,7 @@ import GuestOfSelect from "@/components/GuestOfSelect";
 import GuestGroupCountFields from "@/components/GuestGroupCountFields";
 import SortableColumnHeader from "@/components/SortableColumnHeader";
 import { sortGuestGroups } from "@/lib/guestSort";
+import { paymentStatus } from "@/lib/paymentStatus";
 
 function toDateInputValue(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -230,12 +231,7 @@ export default async function AdminEventDetailPage({
                 </thead>
                 <tbody>
                   {regs.map((reg) => {
-                    const status =
-                      reg.remainingCents <= 0
-                        ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                        : reg.paidCents > 0
-                        ? { label: "Partial", cls: "badge-junior" }
-                        : { label: "Unpaid", cls: "badge-photographer" };
+                    const status = paymentStatus(reg.remainingCents, reg.paidCents);
                     return (
                       <tr key={reg.id}>
                         <td>{reg.scout.firstName} {reg.scout.lastName}</td>
@@ -342,12 +338,7 @@ export default async function AdminEventDetailPage({
           </thead>
           <tbody>
             {sortedGuestGroups.map((group) => {
-              const status =
-                group.remainingCents <= 0
-                  ? { label: group.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                  : group.paidCents > 0
-                  ? { label: "Partial", cls: "badge-junior" }
-                  : { label: "Unpaid", cls: "badge-photographer" };
+              const status = paymentStatus(group.remainingCents, group.paidCents);
               return (
                 <tr key={group.id}>
                   <td>{group.familyName}</td>

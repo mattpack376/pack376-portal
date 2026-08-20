@@ -3,10 +3,8 @@ import { requireAdminSession } from "@/lib/authorize";
 import { getEventDetail } from "@/lib/eventsData";
 import { toCsv, centsToDollarsString, csvResponse } from "@/lib/csv";
 import { denDisplayName } from "@/lib/rankConfig";
+import { paymentStatusLabel } from "@/lib/paymentStatus";
 
-function statusFor(remainingCents: number, paidCents: number) {
-  return remainingCents <= 0 ? (remainingCents < 0 ? "Overpaid" : "Paid in Full") : paidCents > 0 ? "Partial" : "Unpaid";
-}
 
 export async function GET(_request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   await requireAdminSession();
@@ -26,7 +24,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ eve
       centsToDollarsString(reg.amountOwedCents),
       centsToDollarsString(reg.paidCents),
       centsToDollarsString(reg.remainingCents),
-      statusFor(reg.remainingCents, reg.paidCents),
+      paymentStatusLabel(reg.remainingCents, reg.paidCents),
       "",
     ]),
     ...event.guestGroups.map((g) => [
@@ -38,7 +36,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ eve
       centsToDollarsString(g.amountOwedCents),
       centsToDollarsString(g.paidCents),
       centsToDollarsString(g.remainingCents),
-      statusFor(g.remainingCents, g.paidCents),
+      paymentStatusLabel(g.remainingCents, g.paidCents),
       g.addedByDisplayName ?? "",
     ]),
   ];

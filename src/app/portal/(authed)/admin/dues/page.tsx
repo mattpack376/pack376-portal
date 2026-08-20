@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getDuesScoutingYears, getDuesOverview, formatCents } from "@/lib/duesData";
 import { RANK_INFO } from "@/lib/rankConfig";
 import { setDuesAmountAction } from "@/lib/actions/dues";
+import { paymentStatus } from "@/lib/paymentStatus";
 
 export default async function AdminDuesPage({
   searchParams,
@@ -120,14 +121,7 @@ export default async function AdminDuesPage({
               </thead>
               <tbody>
                 {den.scouts.map((scout) => {
-                  const status =
-                    scout.dueCents === null
-                      ? { label: "Fee Not Set", cls: "badge-den" }
-                      : scout.remainingCents !== null && scout.remainingCents <= 0
-                      ? { label: scout.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                      : scout.paidCents > 0
-                      ? { label: "Partial", cls: "badge-junior" }
-                      : { label: "Unpaid", cls: "badge-photographer" };
+                  const status = paymentStatus(scout.remainingCents, scout.paidCents);
                   return (
                     <tr key={scout.id}>
                       <td>{scout.firstName} {scout.lastName}</td>

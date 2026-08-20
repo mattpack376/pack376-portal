@@ -1,10 +1,8 @@
 import { requireAdminSession } from "@/lib/authorize";
 import { getOrCreateTripPage, getTripRegistrations, CAMP_CONRON_SLUG } from "@/lib/tripPageData";
 import { toCsv, centsToDollarsString, csvResponse } from "@/lib/csv";
+import { paymentStatusLabel } from "@/lib/paymentStatus";
 
-function statusFor(remainingCents: number, paidCents: number) {
-  return remainingCents <= 0 ? (remainingCents < 0 ? "Overpaid" : "Paid in Full") : paidCents > 0 ? "Partial" : "Unpaid";
-}
 
 export async function GET() {
   await requireAdminSession();
@@ -25,7 +23,7 @@ export async function GET() {
       centsToDollarsString(reg.amountOwedCents),
       centsToDollarsString(reg.paidCents),
       centsToDollarsString(reg.remainingCents),
-      statusFor(reg.remainingCents, reg.paidCents),
+      paymentStatusLabel(reg.remainingCents, reg.paidCents),
       reg.createdAt.toISOString().slice(0, 10),
     ]),
   ];

@@ -4,16 +4,11 @@ import { getAllGuestGroups } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { formatDueDate } from "@/lib/deadlineCategories";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
+import { paymentStatus } from "@/lib/paymentStatus";
+import SegmentedNav from "@/components/SegmentedNav";
 
 type Group = Awaited<ReturnType<typeof getAllGuestGroups>>[number];
 
-function statusFor(remainingCents: number, paidCents: number) {
-  return remainingCents <= 0
-    ? { label: remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-    : paidCents > 0
-    ? { label: "Partial", cls: "badge-junior" }
-    : { label: "Unpaid", cls: "badge-photographer" };
-}
 
 function sumTotals(groups: Group[]) {
   return groups.reduce(
@@ -64,20 +59,13 @@ export default async function AdminAllGuestsPage({
         </a>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        <Link
-          href="/portal/admin/events/guests?sort=guestof"
-          className={`btn btn-small ${sortMode === "guestof" ? "btn-primary" : "btn-quiet"}`}
-        >
-          Group by Guest Of
-        </Link>
-        <Link
-          href="/portal/admin/events/guests?sort=family"
-          className={`btn btn-small ${sortMode === "family" ? "btn-primary" : "btn-quiet"}`}
-        >
-          Group by Family Name
-        </Link>
-      </div>
+      <SegmentedNav
+        active={sortMode}
+        items={[
+          { key: "guestof", href: "/portal/admin/events/guests?sort=guestof", label: "Group by Guest Of" },
+          { key: "family", href: "/portal/admin/events/guests?sort=family", label: "Group by Family Name" },
+        ]}
+      />
 
       {allGroups.length === 0 ? (
         <div className="info-card">
@@ -169,7 +157,7 @@ function FamilyGrouping({ groups }: { groups: Group[] }) {
               </thead>
               <tbody>
                 {rows.map((g) => {
-                  const status = statusFor(g.remainingCents, g.paidCents);
+                  const status = paymentStatus(g.remainingCents, g.paidCents);
                   return (
                     <tr key={g.id}>
                       <td>{g.event.title} ({formatDueDate(g.event.eventDate)})</td>
@@ -219,7 +207,7 @@ function FamilySubTable({ rows }: { rows: Group[] }) {
         </thead>
         <tbody>
           {rows.map((g) => {
-            const status = statusFor(g.remainingCents, g.paidCents);
+            const status = paymentStatus(g.remainingCents, g.paidCents);
             return (
               <tr key={g.id}>
                 <td>{g.event.title} ({formatDueDate(g.event.eventDate)})</td>

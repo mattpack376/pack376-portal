@@ -952,6 +952,9 @@ section { padding: 64px 0; }
  * and let the row's gap do the work. The 160px basis is the point below
  * which a date or currency input starts clipping its own control.
  */
+/* Row of links where exactly one is selected — see SegmentedNav.tsx. */
+.segmented { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+
 .form-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 /*
  * flex-basis 0 (not 160px) with a min-width floor: columns then divide the

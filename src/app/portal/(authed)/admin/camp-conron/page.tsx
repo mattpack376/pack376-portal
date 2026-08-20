@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireTripPageSession } from "@/lib/authorize";
 import {
   getOrCreateTripPage,
@@ -36,6 +35,8 @@ import {
 } from "@/lib/actions/tripRegistration";
 import TripRegistrationCountFields from "@/components/TripRegistrationCountFields";
 import TripViewerView from "./TripViewerView";
+import { paymentStatus } from "@/lib/paymentStatus";
+import SegmentedNav from "@/components/SegmentedNav";
 
 function toDateInputValue(date: Date | null) {
   return date ? date.toISOString().slice(0, 10) : "";
@@ -548,26 +549,14 @@ export default async function AdminCampConronPage({
       </div>
 
       {registrations.length > 0 && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-          <Link
-            href="/portal/admin/camp-conron?affiliation=ALL"
-            className={`btn btn-small ${affiliationFilter === "ALL" ? "btn-primary" : "btn-quiet"}`}
-          >
-            All
-          </Link>
-          <Link
-            href="/portal/admin/camp-conron?affiliation=PACK"
-            className={`btn btn-small ${affiliationFilter === "PACK" ? "btn-primary" : "btn-quiet"}`}
-          >
-            Pack 376
-          </Link>
-          <Link
-            href="/portal/admin/camp-conron?affiliation=TROOP"
-            className={`btn btn-small ${affiliationFilter === "TROOP" ? "btn-primary" : "btn-quiet"}`}
-          >
-            Troop 376
-          </Link>
-        </div>
+        <SegmentedNav
+          active={affiliationFilter}
+          items={[
+            { key: "ALL", href: "/portal/admin/camp-conron?affiliation=ALL", label: "All" },
+            { key: "PACK", href: "/portal/admin/camp-conron?affiliation=PACK", label: "Pack 376" },
+            { key: "TROOP", href: "/portal/admin/camp-conron?affiliation=TROOP", label: "Troop 376" },
+          ]}
+        />
       )}
 
       {visibleRegistrations.length === 0 ? (
@@ -577,12 +566,7 @@ export default async function AdminCampConronPage({
       ) : (
         <div>
           {visibleRegistrations.map((reg) => {
-            const status =
-              reg.remainingCents <= 0
-                ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                : reg.paidCents > 0
-                ? { label: "Partial", cls: "badge-junior" }
-                : { label: "Unpaid", cls: "badge-photographer" };
+            const status = paymentStatus(reg.remainingCents, reg.paidCents);
             return (
               <CollapsibleGroup
                 key={reg.id}

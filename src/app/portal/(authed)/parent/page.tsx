@@ -16,6 +16,7 @@ import {
   removeMyGuestGroupAction,
 } from "@/lib/actions/events";
 import type { Rank } from "@/generated/prisma/enums";
+import { paymentStatus } from "@/lib/paymentStatus";
 
 export default async function ParentDashboardPage() {
   const session = await requireParentSession();
@@ -245,7 +246,7 @@ export default async function ParentDashboardPage() {
               <p style={{ marginBottom: 0 }}>Dues amount for this scouting year hasn&apos;t been set yet.</p>
             ) : scout.dues.remainingCents !== null && scout.dues.remainingCents <= 0 ? (
               <p style={{ marginBottom: 0 }}>
-                <span className="badge-pill badge-attendance" style={{ marginRight: 8 }}>Paid in Full</span>
+                <span className="badge-pill badge-paid" style={{ marginRight: 8 }}>Paid in Full</span>
                 {formatCents(scout.dues.paidCents)} paid.
               </p>
             ) : (
@@ -390,12 +391,7 @@ export default async function ParentDashboardPage() {
                       </thead>
                       <tbody>
                         {regs.map((reg) => {
-                          const status =
-                            reg.remainingCents <= 0
-                              ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                              : reg.paidCents > 0
-                              ? { label: "Partial", cls: "badge-junior" }
-                              : { label: "Unpaid", cls: "badge-photographer" };
+                          const status = paymentStatus(reg.remainingCents, reg.paidCents);
                           return (
                             <tr key={reg.id}>
                               <td>{reg.scoutFirstName}</td>
@@ -428,12 +424,7 @@ export default async function ParentDashboardPage() {
                       </thead>
                       <tbody>
                         {guestGroups.map((group) => {
-                          const status =
-                            group.remainingCents <= 0
-                              ? { label: group.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                              : group.paidCents > 0
-                              ? { label: "Partial", cls: "badge-junior" }
-                              : { label: "Unpaid", cls: "badge-photographer" };
+                          const status = paymentStatus(group.remainingCents, group.paidCents);
                           return (
                             <tr key={group.id}>
                               <td>{group.familyName}</td>

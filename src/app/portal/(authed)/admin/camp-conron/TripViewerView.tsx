@@ -1,6 +1,7 @@
 import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
+import { paymentStatus } from "@/lib/paymentStatus";
 import {
   DAY_LABELS,
   MEAL_TYPE_LABELS,
@@ -299,12 +300,7 @@ export default function TripViewerView({
       ) : (
         <div style={{ marginBottom: 24 }}>
           {troopRegistrations.map((reg) => {
-            const status =
-              reg.remainingCents <= 0
-                ? { label: reg.remainingCents < 0 ? "Overpaid" : "Paid in Full", cls: "badge-attendance" }
-                : reg.paidCents > 0
-                ? { label: "Partial", cls: "badge-junior" }
-                : { label: "Unpaid", cls: "badge-photographer" };
+            const status = paymentStatus(reg.remainingCents, reg.paidCents);
             return (
               <CollapsibleGroup
                 key={reg.id}
