@@ -86,7 +86,11 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     userId: user.id,
     role: user.role,
     denIds: denAssignments.map((a) => a.denId),
-    scoutIds: parentContacts.map((p) => p.scoutId),
+    // Deduped: a scout can have more than one Parent row pointing at the same
+    // login (two contacts for one guardian, or a re-invite), and duplicate ids
+    // here reach every `in: scoutIds` query the dashboard runs — where they
+    // break relation hydration and null out an included den.
+    scoutIds: [...new Set(parentContacts.map((p) => p.scoutId))],
     displayName: user.displayName,
     sv: user.sessionVersion,
   });

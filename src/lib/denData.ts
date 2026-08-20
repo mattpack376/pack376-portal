@@ -111,7 +111,17 @@ export async function getScoutsAdvancementByIds(scoutIds: string[]): Promise<Che
   });
   if (scouts.length === 0) return [];
 
-  const ranks = Array.from(new Set(scouts.map((s) => s.den.rank))) as Rank[];
+  /*
+   * Scout.den is a required relation, so this filter should never drop
+   * anything — but a row whose denId points at a den that is no longer there
+   * comes back with den: null and used to throw here. This runs on the Parent
+   * Dashboard, where that meant one bad row 500'd a family's whole page
+   * instead of costing them one checklist. Skip the scout, keep the page.
+   */
+  const withDen = scouts.filter((s) => s.den !== null);
+  if (withDen.length === 0) return [];
+
+  const ranks = Array.from(new Set(withDen.map((s) => s.den.rank))) as Rank[];
   const adventures = await prisma.adventure.findMany({
     where: { rank: { in: ranks } },
     orderBy: { sortOrder: "asc" },
@@ -123,5 +133,5 @@ export async function getScoutsAdvancementByIds(scoutIds: string[]): Promise<Che
     adventuresByRank.set(adv.rank, list);
   }
 
-  return scouts.map((scout) => toChecklistScout(scout, adventuresByRank.get(scout.den.rank) ?? []));
+  return withDen.map((scout) => toChecklistScout(scout, adventuresByRank.get(scout.den.rank) ?? []));
 }
