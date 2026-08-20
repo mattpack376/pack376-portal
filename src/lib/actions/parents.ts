@@ -221,17 +221,27 @@ export async function attachParentToScoutAction(formData: FormData) {
   const scoutId = String(formData.get("scoutId") || "");
   if (!userId || !scoutId) throw new Error("Missing user or scout.");
 
+  // Any role, not just PARENT: a den leader or admin is often a parent in the
+  // pack too, and linking their own child lets them see that child's family
+  // side without a second login (see /portal/my-family).
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || user.role !== "PARENT") throw new Error("Parent account not found.");
+  if (!user) throw new Error("Account not found.");
 
   const existing = await prisma.parent.findFirst({ where: { userId, scoutId } });
   if (existing) throw new Error("This account is already attached to that scout.");
 
-  await prisma.parent.create({
-    data: { scoutId, userId, name: user.displayName, email: user.email, phone: user.phone },
-  });
+  await prisma.$transaction([
+    prisma.parent.create({
+      data: { scoutId, userId, name: user.displayName, email: user.email, phone: user.phone },
+    }),
+    // scoutIds are baked into the JWT at sign-in, so without this the newly
+    // attached scout stays invisible until the session happens to expire.
+    // Bumping ends the current session; the next sign-in picks the scout up.
+    prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } }),
+  ]);
 
   revalidatePath(`/portal/admin/users/parents/${userId}`);
+  revalidatePath(`/portal/admin/users/${userId}`);
   revalidatePath("/portal/admin/users/parents");
   revalidatePath("/portal/roster/parents");
 }

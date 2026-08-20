@@ -16,7 +16,16 @@ type NavItem = NavLink | NavGroup;
 
 const isGroup = (item: NavItem): item is NavGroup => "children" in item;
 
-export default function PortalNav({ role, onNavigate }: { role: Role; onNavigate?: () => void }) {
+export default function PortalNav({
+  role,
+  hasLinkedScouts = false,
+  onNavigate,
+}: {
+  role: Role;
+  /** Staff account with a scout linked via Parent.userId — see /portal/my-family. */
+  hasLinkedScouts?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const denId = searchParams.get("denId");
@@ -98,6 +107,16 @@ export default function PortalNav({ role, onNavigate }: { role: Role; onNavigate
         ];
     }
   })();
+
+  /*
+   * Staff who are also parents in the pack get their own child's family view.
+   * Appended rather than placed per-role because it applies to every staff
+   * role and only when a scout is actually linked. PARENT already has this as
+   * its whole dashboard.
+   */
+  if (hasLinkedScouts && role !== "PARENT") {
+    items.push({ href: "/portal/my-family", label: "My Family" });
+  }
 
   // Longest matching href wins, so nested routes (e.g. /portal/den/attendance/xyz)
   // highlight "Attendance" and not the shorter "/portal/den" prefix. Compared

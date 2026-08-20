@@ -115,7 +115,7 @@ export default async function FamilyViewPage({
           scoutIds={previewScoutIds}
           userId={parentUser?.id ?? session.userId}
           displayName={parentUser?.displayName ?? childName}
-          preview
+          readOnly
         />
       </>
     );

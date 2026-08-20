@@ -15,6 +15,8 @@ import type { Rank } from "@/generated/prisma/enums";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
 import DeleteUserButton from "@/components/DeleteUserButton";
 import ManageUserRoleForm from "@/components/ManageUserRoleForm";
+import UnlinkParentScoutButton from "@/components/UnlinkParentScoutButton";
+import { attachParentToScoutAction } from "@/lib/actions/parents";
 
 export default async function ManageUserPage({
   params,
@@ -26,7 +28,10 @@ export default async function ManageUserPage({
   const { userId } = await params;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { denAssignments: { include: { den: true } } },
+    include: {
+      denAssignments: { include: { den: true } },
+      parentContacts: { include: { scout: { include: { den: true } } }, orderBy: { createdAt: "asc" } },
+    },
   });
   // Parent Portal accounts are managed from Roster → Parents instead — this
   // screen's role picker doesn't have a PARENT option.
@@ -43,6 +48,18 @@ export default async function ManageUserPage({
     return RANK_ORDER.indexOf(a.rank as Rank) - RANK_ORDER.indexOf(b.rank as Rank);
   });
   const denYears = Array.from(new Set(allDens.map((d) => d.scoutingYear)));
+
+  const linkedScoutIds = new Set(user.parentContacts.map((c) => c.scoutId));
+  const attachableScouts = (
+    await prisma.scout.findMany({
+      where: { id: { notIn: Array.from(linkedScoutIds) } },
+      include: { den: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    })
+  ).sort((a, b) => {
+    if (a.den.scoutingYear !== b.den.scoutingYear) return b.den.scoutingYear.localeCompare(a.den.scoutingYear);
+    return RANK_ORDER.indexOf(a.den.rank as Rank) - RANK_ORDER.indexOf(b.den.rank as Rank);
+  });
 
   return (
     <>
@@ -155,6 +172,61 @@ export default async function ManageUserPage({
           )}
         </div>
       )}
+
+      <div className="info-card" style={{ marginBottom: 24, maxWidth: 560 }}>
+        <h3>Linked Children</h3>
+        <p className="form-note" style={{ marginBottom: 16 }}>
+          For staff who are also parents in the pack. Linking a scout here lets this account open My Family and
+          see that child&apos;s dashboard — announcements, deadlines, events, balances, advancement — without a
+          separate Parent Portal login. It grants no extra admin access, and unlinking leaves the scout&apos;s
+          roster contact alone. The link is read at sign-in, so they&apos;ll need to sign in again after a change.
+        </p>
+        {user.parentContacts.length === 0 ? (
+          <p>No children linked to this account.</p>
+        ) : (
+          user.parentContacts.map((c) => (
+            <div
+              key={c.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                background: "var(--cream)",
+                borderRadius: 8,
+                padding: "8px 12px",
+                marginBottom: 8,
+              }}
+            >
+              <span>
+                <strong>{c.scout.firstName} {c.scout.lastName}</strong> ·{" "}
+                {denDisplayName(c.scout.den.rank, c.scout.den.scoutingYear, c.scout.den.label)}
+              </span>
+              <UnlinkParentScoutButton parentId={c.id} scoutName={`${c.scout.firstName} ${c.scout.lastName}`} />
+            </div>
+          ))
+        )}
+
+        {attachableScouts.length > 0 && (
+          <form action={attachParentToScoutAction} className="form-row" style={{ alignItems: "flex-end", marginTop: 16 }}>
+            <input type="hidden" name="userId" value={user.id} />
+            <div className="form-field">
+              <label htmlFor="linkScoutId">Link a child</label>
+              <select id="linkScoutId" name="scoutId" required>
+                {attachableScouts.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.firstName} {s.lastName} — {denDisplayName(s.den.rank, s.den.scoutingYear, s.den.label)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button type="submit" className="btn btn-quiet btn-small" style={{ flex: "0 0 auto" }}>
+              Link Child
+            </button>
+          </form>
+        )}
+      </div>
 
       <div className="info-card" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
         <ResetPasswordButton userId={user.id} />

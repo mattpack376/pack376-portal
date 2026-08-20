@@ -7,7 +7,15 @@ import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 
 type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT" | "TRIP_VIEWER";
 
-export default function PortalHeaderNav({ role, displayName }: { role: Role; displayName: string }) {
+export default function PortalHeaderNav({
+  role,
+  displayName,
+  hasLinkedScouts = false,
+}: {
+  role: Role;
+  displayName: string;
+  hasLinkedScouts?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -20,7 +28,7 @@ export default function PortalHeaderNav({ role, displayName }: { role: Role; dis
         &#9776;
       </button>
       <div className={`portal-collapsible${open ? " open" : ""}`}>
-        <PortalNav role={role} onNavigate={() => setOpen(false)} />
+        <PortalNav role={role} hasLinkedScouts={hasLinkedScouts} onNavigate={() => setOpen(false)} />
         <div className="portal-user">
           <span className={`badge-pill ${ROLE_BADGE_CLASSES[role]}`}>{ROLE_LABELS[role]}</span>
           <span>{displayName}</span>

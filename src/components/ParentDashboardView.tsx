@@ -22,20 +22,22 @@ import { paymentStatus } from "@/lib/paymentStatus";
  * for whoever is signed in — so an admin can preview a family's view from
  * Family View without signing in as them.
  *
- * `preview` hides the three self-registration forms. Everything a parent can
- * read stays visible; only what would write is withheld, since a submit here
- * would run as the admin, not as the family.
+ * `readOnly` hides the three self-registration forms. Everything a parent can
+ * read stays visible; only what would write is withheld — used both for an
+ * admin previewing a family (a submit would run as the admin, not the family)
+ * and for a staff account viewing its own linked child, where the write
+ * actions are still PARENT-only.
  */
 export default async function ParentDashboardView({
   scoutIds,
   userId,
   displayName,
-  preview = false,
+  readOnly = false,
 }: {
   scoutIds: string[];
   userId: string;
   displayName: string;
-  preview?: boolean;
+  readOnly?: boolean;
 }) {
   const [
     {
@@ -310,7 +312,7 @@ export default async function ParentDashboardView({
                     {registeredScouts.map((s) => s.firstName).join(", ")}
                   </p>
                 )}
-                {!preview && event.feeCents !== null && unregisteredScouts.length > 0 && (
+                {!readOnly && event.feeCents !== null && unregisteredScouts.length > 0 && (
                   <form action={registerMyScoutsForEventAction} style={{ marginBottom: showGuestForm ? 14 : 0 }}>
                     <input type="hidden" name="eventId" value={event.id} />
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
@@ -333,7 +335,7 @@ export default async function ParentDashboardView({
                           <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
                             <span className="badge-pill badge-attendance">Registered</span>
                             {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
-                            {!preview && <form action={removeMyGuestGroupAction}>
+                            {!readOnly && <form action={removeMyGuestGroupAction}>
                               <input type="hidden" name="guestGroupId" value={g.id} />
                               <button type="submit" className="btn btn-danger btn-small">
                                 Remove
@@ -343,7 +345,7 @@ export default async function ParentDashboardView({
                         ))}
                       </div>
                     )}
-                    {!preview && <form action={registerMyGuestGroupForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                    {!readOnly && <form action={registerMyGuestGroupForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                       <input type="hidden" name="eventId" value={event.id} />
                       <div className="form-field" style={{ marginBottom: 0, flex: "1 1 200px" }}>
                         <label htmlFor={`familyName-${event.id}`}>Family Name / Guest Name (guests attending)</label>
