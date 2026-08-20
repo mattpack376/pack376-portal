@@ -1070,6 +1070,62 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   background: rgba(255,255,255,0.1);
 }
 .portal-nav a.active { background: var(--scout-gold); color: var(--scout-blue-dark); }
+
+/*
+ * Grouped nav (ADMIN only — see PortalNav.tsx). The trigger is a <button>
+ * styled to match its sibling links so the row reads as one set, with a
+ * caret marking the ones that open.
+ */
+.portal-nav-group { position: relative; }
+.portal-nav-group > button {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--white);
+  padding: 8px 14px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.1);
+  cursor: pointer;
+}
+.portal-nav-group > button::after {
+  content: "▾";
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+/* Marks the group containing the current page, matching a plain link's active state. */
+.portal-nav-group > button.active { background: var(--scout-gold); color: var(--scout-blue-dark); }
+
+.portal-nav-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  min-width: 200px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: var(--shadow-pop);
+}
+.portal-nav-group.open .portal-nav-menu { display: flex; }
+/*
+ * Two classes deep so this beats `.portal-nav a` (equal specificity, and
+ * that rule's white-on-translucent is meant for the blue header bar, not
+ * for a white menu panel).
+ */
+.portal-nav .portal-nav-menu a {
+  background: none;
+  color: var(--scout-blue-dark);
+  padding: 10px 14px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.portal-nav .portal-nav-menu a:hover { background: var(--cream); }
+.portal-nav .portal-nav-menu a.active { background: var(--scout-gold); color: var(--scout-blue-dark); }
 .portal-user { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
 .portal-main { flex: 1; padding: 32px 24px 64px; }
 .portal-container { max-width: 960px; margin: 0 auto; }
@@ -1146,6 +1202,44 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   .portal-collapsible.open { display: flex; }
   .portal-nav { flex-direction: column; flex-wrap: nowrap; gap: 0; width: 100%; }
   .portal-nav a { padding: 14px 16px; border-radius: 10px; text-align: center; }
+
+  /*
+   * Inside the hamburger panel the groups stop being menus — a dropdown
+   * nested in an already-open drawer is a second thing to tap for no gain.
+   * The trigger becomes an inert section heading and its links always show.
+   */
+  .portal-nav-group { width: 100%; }
+  .portal-nav-group > button {
+    width: 100%;
+    background: none;
+    color: rgba(255,255,255,0.55);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 14px 16px 4px;
+    pointer-events: none;
+  }
+  .portal-nav-group > button::after { content: none; }
+  .portal-nav-group > button.active { background: none; color: var(--scout-gold); }
+  .portal-nav-menu,
+  .portal-nav-group.open .portal-nav-menu {
+    display: flex;
+    position: static;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .portal-nav .portal-nav-menu a {
+    color: var(--white);
+    background: rgba(255,255,255,0.1);
+    padding: 14px 16px;
+    border-radius: 10px;
+    text-align: center;
+    white-space: normal;
+  }
+  .portal-nav .portal-nav-menu a.active { background: var(--scout-gold); color: var(--scout-blue-dark); }
   .portal-user {
     justify-content: center;
     flex-wrap: wrap;
