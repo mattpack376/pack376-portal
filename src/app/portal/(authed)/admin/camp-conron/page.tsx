@@ -227,11 +227,11 @@ export default async function AdminCampConronPage({
             </div>
           </div>
           <div className="form-row">
-            <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
+            <div className="form-field">
               <label htmlFor="earlyBirdDeadline">Early-Bird Deadline (paid in full by)</label>
               <input id="earlyBirdDeadline" name="earlyBirdDeadline" type="date" defaultValue={toDateInputValue(trip.earlyBirdDeadline)} />
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
+            <div className="form-field">
               <label htmlFor="rsvpDeadline">RSVP &amp; Payment Deadline</label>
               <input id="rsvpDeadline" name="rsvpDeadline" type="date" defaultValue={toDateInputValue(trip.rsvpDeadline)} />
             </div>

@@ -963,6 +963,14 @@ section { padding: 64px 0; }
  * render 160px wider than a sibling that sets its own basis.
  */
 .form-row > .form-field { flex: 1 1 0; min-width: 160px; margin-bottom: 0; }
+/*
+ * Keep the inputs in a row on one line even when one label wraps and its
+ * neighbour's doesn't ("Early-Bird Price ($/person, optional)" next to
+ * "Regular Price ($/person)"). The row already stretches every field to the
+ * tallest, so letting the label absorb that extra height drops each control
+ * to the same baseline instead of leaving one sitting a line lower.
+ */
+.form-row > .form-field > label { flex-grow: 1; }
 .den-toggle {
   cursor: pointer;
   font-size: 12.5px;
