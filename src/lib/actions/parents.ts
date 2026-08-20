@@ -255,3 +255,85 @@ export async function revokeParentPortalAction(parentId: string) {
   revalidatePath("/portal/roster/parents");
   return { ok: true as const };
 }
+
+/**
+ * Creates a Parent Portal login directly, without going through a scout's
+ * parent contact and its Invite button. That flow needs an email already on
+ * the contact and one contact row per scout; this one is for the cases it
+ * can't reach — a guardian who isn't on any roster yet, a second login for a
+ * household, or a parent who gave their email verbally.
+ *
+ * Attaching a scout is optional but expected: a PARENT login sees scouts
+ * through Parent.userId (see scoutIds in lib/auth.ts), so one with nothing
+ * attached signs in to an empty dashboard. Attach more later from Manage.
+ */
+export async function createParentAccountAction(
+  username: string,
+  displayName: string,
+  email?: string,
+  phone?: string,
+  scoutId?: string,
+) {
+  const session = await getSession();
+  if (!session) return { ok: false as const, error: "Not authorized." };
+  try {
+    assertAdmin(session);
+  } catch {
+    return { ok: false as const, error: "Not authorized." };
+  }
+
+  const clean = username.trim().toLowerCase();
+  const name = displayName.trim();
+  const cleanEmail = email?.trim().toLowerCase() || null;
+  const cleanPhone = phone?.trim() ? formatPhoneNumber(phone.trim()) : null;
+  if (!clean || !name) return { ok: false as const, error: "Login and display name are required." };
+
+  const existing = await prisma.user.findUnique({ where: { username: clean } });
+  if (existing) {
+    return {
+      ok: false as const,
+      error:
+        existing.role === "PARENT"
+          ? "That login already exists — attach the scout from its Manage page instead."
+          : "That login is already in use by a different portal account.",
+    };
+  }
+
+  if (scoutId) {
+    const scout = await prisma.scout.findUnique({ where: { id: scoutId }, select: { id: true } });
+    if (!scout) return { ok: false as const, error: "That scout no longer exists." };
+  }
+
+  // No password is ever generated server-side for anyone to see — the account
+  // starts with a random, immediately-discarded hash, and the parent sets
+  // their own password via a one-time invite link.
+  const user = await prisma.user.create({
+    data: {
+      username: clean,
+      passwordHash: await hashPassword(generatePassword()),
+      role: "PARENT",
+      displayName: name,
+      email: cleanEmail,
+      phone: cleanPhone,
+    },
+  });
+
+  if (scoutId) {
+    await prisma.parent.create({
+      data: { scoutId, userId: user.id, name, email: cleanEmail, phone: cleanPhone },
+    });
+  }
+
+  revalidatePath("/portal/admin/users/parents");
+  revalidatePath("/portal/roster/parents");
+
+  const token = await issueInviteToken(user.id);
+  const url = `${getAppBaseUrl()}/portal/reset/${token}`;
+
+  if (cleanEmail) {
+    const { sent } = await sendAccountLinkEmail(cleanEmail, { username: clean, url, isNewAccount: true });
+    if (sent) return { ok: true as const, emailedTo: cleanEmail };
+  }
+  const invite: CreatedInvite = { username: clean, url };
+  return { ok: true as const, invite };
+}
