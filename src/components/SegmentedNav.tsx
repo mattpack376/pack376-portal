@@ -11,6 +11,11 @@ export type SegmentedItem = {
  * A row of links where exactly one is selected — sub-navigation, filters,
  * sort modes. Not for the attendance page's jump links, which scroll to an
  * anchor on the same page and have no selected state.
+ *
+ * scroll={false}: these links only ever change a search param on the page
+ * the visitor is already looking at (e.g. switching a filter further down
+ * a long admin page) — Next's default post-navigation scroll-to-top would
+ * otherwise yank them back up to the header on every click.
  */
 export default function SegmentedNav({
   items,
@@ -27,6 +32,7 @@ export default function SegmentedNav({
         <Link
           key={item.key}
           href={item.href}
+          scroll={false}
           aria-current={item.key === active ? "page" : undefined}
           className={`btn btn-small ${item.key === active ? "btn-primary" : "btn-quiet"}`}
         >
