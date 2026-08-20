@@ -63,8 +63,8 @@ export default async function ManageUserPage({
 
       {protectedAccount && (
         <div className="info-card" style={{ marginBottom: 24 }}>
-          <h3 style={{ marginTop: 0 }}>🔒 Protected Master Admin</h3>
-          <p style={{ marginBottom: 0 }}>
+          <h3>🔒 Protected Master Admin</h3>
+          <p>
             This account&apos;s permission level can&apos;t be changed and it can&apos;t be deleted from the admin
             panel — only by editing src/lib/masterAdmins.ts in code and deploying.
           </p>
@@ -73,13 +73,13 @@ export default async function ManageUserPage({
 
       {roleEditable && (
         <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-          <h3 style={{ marginTop: 0 }}>Permission Level</h3>
+          <h3>Permission Level</h3>
           <ManageUserRoleForm userId={user.id} role={user.role as AssignableRole} />
         </div>
       )}
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Display Name</h3>
+        <h3>Display Name</h3>
         <form action={updateUserDisplayNameAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <input type="hidden" name="userId" value={user.id} />
           <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
@@ -91,7 +91,7 @@ export default async function ManageUserPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Contact Email</h3>
+        <h3>Contact Email</h3>
         <p>When set, password resets and new-account credentials are emailed here instead of shown on screen.</p>
         <form action={updateUserEmailAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <input type="hidden" name="userId" value={user.id} />
@@ -104,7 +104,7 @@ export default async function ManageUserPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Phone Number</h3>
+        <h3>Phone Number</h3>
         <form action={updateUserPhoneAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <input type="hidden" name="userId" value={user.id} />
           <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
@@ -117,7 +117,7 @@ export default async function ManageUserPage({
 
       {canAssignDens && (
         <div className="info-card" style={{ marginBottom: 24 }}>
-          <h3 style={{ marginTop: 0 }}>Assigned Dens</h3>
+          <h3>Assigned Dens</h3>
           <p>
             {user.role === "DEN"
               ? "Check every den this leader should have advancement & attendance access to."

@@ -27,8 +27,7 @@ export default function DeleteScoutButton({ scoutId, scoutName }: { scoutId: str
     <div>
       <button
         type="button"
-        className="btn btn-outline btn-small"
-        style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+        className="btn btn-danger btn-small"
         onClick={handleClick}
         disabled={isPending}
       >

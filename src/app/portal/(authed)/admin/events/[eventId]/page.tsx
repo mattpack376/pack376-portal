@@ -80,7 +80,7 @@ export default async function AdminEventDetailPage({
 
   return (
     <>
-      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+      <div className="page-head">
         <div>
           <div className="eyebrow">
             <Link href="/portal/admin/events">← Events</Link>
@@ -98,8 +98,7 @@ export default async function AdminEventDetailPage({
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {(event.registrations.length > 0 || event.guestGroups.length > 0) && (
             <a
-              className="btn btn-outline btn-small"
-              style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+              className="btn btn-quiet btn-small"
               href={`/portal/admin/events/${event.id}/guests/export`}
             >
               Export CSV (Scouts &amp; Guests)
@@ -110,8 +109,7 @@ export default async function AdminEventDetailPage({
             <input type="hidden" name="visible" value={String(event.visible)} />
             <button
               type="submit"
-              className="btn btn-outline btn-small"
-              style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+              className="btn btn-quiet btn-small"
             >
               {event.visible ? "Hide from Families" : "Show to Families"}
             </button>
@@ -121,15 +119,15 @@ export default async function AdminEventDetailPage({
       </div>
 
       <div className="info-card" style={{ maxWidth: 460, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Edit Event Details</h3>
+        <h3>Edit Event Details</h3>
         <form action={updateEventAction}>
           <input type="hidden" name="id" value={event.id} />
           <div className="form-field">
             <label htmlFor="edit-title">Title</label>
             <input id="edit-title" name="title" required defaultValue={event.title} />
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="edit-category">Category</label>
               <select id="edit-category" name="category" defaultValue={event.category}>
                 {Object.entries(DEADLINE_CATEGORY_LABELS).map(([value, label]) => (
@@ -137,13 +135,13 @@ export default async function AdminEventDetailPage({
                 ))}
               </select>
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="edit-eventDate">Date</label>
               <input id="edit-eventDate" name="eventDate" type="date" required defaultValue={toDateInputValue(event.eventDate)} />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="edit-fee">Default Fee Per Scout ($, optional)</label>
               <input
                 id="edit-fee"
@@ -155,7 +153,7 @@ export default async function AdminEventDetailPage({
                 placeholder="Also required for parent self-signup"
               />
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="edit-adultFee">Default Fee Per Adult Guest ($, optional)</label>
               <input
                 id="edit-adultFee"
@@ -167,7 +165,7 @@ export default async function AdminEventDetailPage({
                 placeholder="Also required for guest self-signup"
               />
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="edit-guestChildFee">Default Fee Per Guest Child ($, optional)</label>
               <input
                 id="edit-guestChildFee"
@@ -187,7 +185,7 @@ export default async function AdminEventDetailPage({
           <div className="form-field">
             <label htmlFor="edit-flyer">Flyer (optional)</label>
             {event.flyerUrl && (
-              <p style={{ marginTop: 0, marginBottom: 8 }}>
+              <p style={{ marginBottom: 8 }}>
                 <a href={event.flyerUrl} target="_blank" rel="noopener noreferrer" className="link">
                   View current flyer →
                 </a>
@@ -213,7 +211,7 @@ export default async function AdminEventDetailPage({
 
       {event.registrations.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 24 }}>
-          <p style={{ marginBottom: 0 }}>No scouts registered yet.</p>
+          <p>No scouts registered yet.</p>
         </div>
       ) : (
         <div className="info-card" style={{ marginBottom: 24 }}>
@@ -246,8 +244,7 @@ export default async function AdminEventDetailPage({
                         <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                         <td className="actions">
                           <Link
-                            className="btn btn-outline btn-small"
-                            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                            className="btn btn-quiet btn-small"
                             href={`/portal/admin/events/${event.id}/${reg.id}`}
                           >
                             Manage Payments
@@ -257,8 +254,7 @@ export default async function AdminEventDetailPage({
                             <input type="hidden" name="eventId" value={event.id} />
                             <button
                               type="submit"
-                              className="btn btn-outline btn-small"
-                              style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                              className="btn btn-danger btn-small"
                             >
                               Remove
                             </button>
@@ -276,7 +272,7 @@ export default async function AdminEventDetailPage({
       )}
 
       <div className="info-card" style={{ maxWidth: 460, marginBottom: 32 }}>
-        <h3 style={{ marginTop: 0 }}>Register Scouts</h3>
+        <h3>Register Scouts</h3>
         {availableDens.length === 0 ? (
           <p style={{ marginBottom: 0 }}>Every scout is already registered for this event.</p>
         ) : (
@@ -327,7 +323,7 @@ export default async function AdminEventDetailPage({
 
       {event.guestGroups.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 24 }}>
-          <p style={{ marginBottom: 0 }}>No guest groups registered yet.</p>
+          <p>No guest groups registered yet.</p>
         </div>
       ) : (
         <div className="table-scroll" style={{ marginBottom: 32 }}>
@@ -363,8 +359,7 @@ export default async function AdminEventDetailPage({
                   <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                   <td className="actions">
                     <Link
-                      className="btn btn-outline btn-small"
-                      style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                      className="btn btn-quiet btn-small"
                       href={`/portal/admin/events/${event.id}/guests/${group.id}`}
                     >
                       Manage Payments
@@ -374,8 +369,7 @@ export default async function AdminEventDetailPage({
                       <input type="hidden" name="eventId" value={event.id} />
                       <button
                         type="submit"
-                        className="btn btn-outline btn-small"
-                        style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                        className="btn btn-danger btn-small"
                       >
                         Remove
                       </button>
@@ -390,7 +384,7 @@ export default async function AdminEventDetailPage({
       )}
 
       <div className="info-card" style={{ maxWidth: 460 }}>
-        <h3 style={{ marginTop: 0 }}>Register a Guest Group</h3>
+        <h3>Register a Guest Group</h3>
         <form action={addGuestGroupAction}>
           <input type="hidden" name="eventId" value={event.id} />
           <div className="form-field">

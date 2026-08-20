@@ -71,12 +71,12 @@ export default function TripRegistrationForm({
           <input id="guestOfName" name="guestOfName" required placeholder="e.g. Timmy Test (Wolf Den)" />
         </div>
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="form-row">
           <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
             <label htmlFor="contactEmail">Email</label>
             <input id="contactEmail" name="contactEmail" type="email" required />
           </div>
-          <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+          <div className="form-field">
             <label htmlFor="contactPhone">Phone</label>
             <input id="contactPhone" name="contactPhone" type="tel" required placeholder="(212)555-1234" />
           </div>
@@ -98,7 +98,7 @@ export default function TripRegistrationForm({
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="form-row">
           <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
             <label htmlFor="payingCount">Attendees (paying)</label>
             <input
@@ -140,7 +140,7 @@ export default function TripRegistrationForm({
 
       <dialog ref={dialogRef} className="confirm-dialog">
         <p style={{ fontSize: 32, margin: "0 0 8px" }}>🎉</p>
-        <h3 style={{ marginTop: 0 }}>Registration Submitted!</h3>
+        <h3>Registration Submitted!</h3>
         <p>Thanks — your family is registered for Camp Conron.</p>
         {rsvpDeadlineLabel && (
           <p style={{ fontWeight: 700 }}>Please remember to make payment by {rsvpDeadlineLabel}!</p>

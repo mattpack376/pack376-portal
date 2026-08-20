@@ -60,7 +60,7 @@ export default async function HomepageEventsAdminPage() {
       </div>
 
       <div className="info-card" style={{ maxWidth: 480, marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Top Banner</h3>
+        <h3>Top Banner</h3>
         <p className="form-note" style={{ marginTop: 0, marginBottom: 16 }}>
           A short, urgent notice in a black bar with yellow text, shown just below the header. Give a banner a start
           and/or end time to pre-schedule it — it goes up and comes down automatically. Leave both blank to make it a
@@ -71,7 +71,7 @@ export default async function HomepageEventsAdminPage() {
             <label htmlFor="new-banner-message">Message</label>
             <input id="new-banner-message" name="message" required placeholder="e.g. Meeting cancelled this Friday due to weather" />
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="form-row">
             <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
               <label htmlFor="new-banner-startAt">Starts (optional)</label>
               <input id="new-banner-startAt" name="startAt" type="datetime-local" />
@@ -110,7 +110,7 @@ export default async function HomepageEventsAdminPage() {
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
                   <details className="edit-popover">
-                    <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
+                    <summary className="btn btn-quiet btn-small" style={{ display: "inline-block", cursor: "pointer" }}>
                       Edit
                     </summary>
                     <form action={updateSiteBannerAction}>
@@ -144,14 +144,14 @@ export default async function HomepageEventsAdminPage() {
                   <form action={toggleSiteBannerAction}>
                     <input type="hidden" name="id" value={banner.id} />
                     <input type="hidden" name="active" value={String(banner.active)} />
-                    <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+                    <button type="submit" className="btn btn-quiet btn-small">
                       Turn {banner.active ? "Off" : "On"}
                     </button>
                   </form>
                   {canDelete && (
                     <form action={deleteSiteBannerAction}>
                       <input type="hidden" name="id" value={banner.id} />
-                      <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                      <button type="submit" className="btn btn-danger btn-small">
                         Delete
                       </button>
                     </form>
@@ -170,18 +170,18 @@ export default async function HomepageEventsAdminPage() {
       </div>
 
       <div className="info-card" style={{ maxWidth: 480, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Add an Event</h3>
+        <h3>Add an Event</h3>
         <form action={createHomepageEventAction}>
           <div className="form-field">
             <label htmlFor="new-title">Title</label>
             <input id="new-title" name="title" required placeholder="e.g. Halloween Pack Night" />
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="new-dateLabel">Date Label</label>
               <input id="new-dateLabel" name="dateLabel" required placeholder="e.g. Oct 30 or Oct 9–12" />
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="new-sortDate">Sort Date</label>
               <input id="new-sortDate" name="sortDate" type="date" required />
             </div>
@@ -201,7 +201,7 @@ export default async function HomepageEventsAdminPage() {
 
       {events.length === 0 ? (
         <div className="info-card">
-          <p style={{ marginBottom: 0 }}>No homepage events yet — add one above.</p>
+          <p>No homepage events yet — add one above.</p>
         </div>
       ) : (
         eventsByMonth.map((group) => (
@@ -222,12 +222,12 @@ export default async function HomepageEventsAdminPage() {
                       <label htmlFor={`title-${event.id}`}>Title</label>
                       <input id={`title-${event.id}`} name="title" required defaultValue={event.title} />
                     </div>
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                    <div className="form-row">
+                      <div className="form-field">
                         <label htmlFor={`dateLabel-${event.id}`}>Date Label</label>
                         <input id={`dateLabel-${event.id}`} name="dateLabel" required defaultValue={event.dateLabel} />
                       </div>
-                      <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                      <div className="form-field">
                         <label htmlFor={`sortDate-${event.id}`}>Sort Date</label>
                         <input
                           id={`sortDate-${event.id}`}
@@ -257,8 +257,7 @@ export default async function HomepageEventsAdminPage() {
                       <input type="hidden" name="visible" value={String(event.visible)} />
                       <button
                         type="submit"
-                        className="btn btn-outline btn-small"
-                        style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                        className="btn btn-quiet btn-small"
                       >
                         {event.visible ? "Hide from Site" : "Show on Site"}
                       </button>
@@ -268,8 +267,7 @@ export default async function HomepageEventsAdminPage() {
                         <input type="hidden" name="id" value={event.id} />
                         <button
                           type="submit"
-                          className="btn btn-outline btn-small"
-                          style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                          className="btn btn-danger btn-small"
                         >
                           Delete
                         </button>

@@ -15,7 +15,7 @@ export default function CredentialReveal({
   if (emailedTo) {
     return (
       <div className="info-card" style={{ borderLeft: "6px solid var(--teal)", marginTop: 16 }}>
-        <p style={{ marginBottom: 0, fontWeight: 700, color: "var(--scout-blue-dark)" }}>
+        <p style={{ fontWeight: 700, color: "var(--scout-blue-dark)" }}>
           ✉️ A setup link was emailed to {emailedTo}.
         </p>
       </div>

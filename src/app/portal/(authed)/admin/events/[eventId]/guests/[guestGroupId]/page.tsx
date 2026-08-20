@@ -48,7 +48,7 @@ export default async function AdminGuestGroupPage({
       </div>
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Details &amp; Balance</h3>
+        <h3>Details &amp; Balance</h3>
         <p>
           Paid {formatCents(group.paidCents)} of {formatCents(group.amountOwedCents)}
           {group.remainingCents > 0 && ` — ${formatCents(group.remainingCents)} remaining`}
@@ -79,7 +79,7 @@ export default async function AdminGuestGroupPage({
             defaultChildCount={group.childCount}
             defaultAmountOwedCents={group.amountOwedCents}
           />
-          <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+          <button type="submit" className="btn btn-quiet btn-small">
             Save Changes
           </button>
         </form>
@@ -89,8 +89,7 @@ export default async function AdminGuestGroupPage({
             <input type="hidden" name="eventId" value={eventId} />
             <button
               type="submit"
-              className="btn btn-outline btn-small"
-              style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+              className="btn btn-danger btn-small"
             >
               Remove This Group
             </button>
@@ -99,7 +98,7 @@ export default async function AdminGuestGroupPage({
       </div>
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Record a Payment</h3>
+        <h3>Record a Payment</h3>
         <form action={addGuestGroupPaymentAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
           <input type="hidden" name="guestGroupId" value={group.id} />
           <input type="hidden" name="eventId" value={eventId} />
@@ -151,8 +150,7 @@ export default async function AdminGuestGroupPage({
                     <input type="hidden" name="eventId" value={eventId} />
                     <button
                       type="submit"
-                      className="btn btn-outline btn-small"
-                      style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                      className="btn btn-danger btn-small"
                     >
                       Delete
                     </button>

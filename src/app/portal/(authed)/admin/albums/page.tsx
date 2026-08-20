@@ -32,8 +32,7 @@ export default async function AdminAlbumsPage() {
         <td className="actions">
           <AlbumVisibilityToggle albumId={album.id} isVisible={album.isVisible} />
           <Link
-            className="btn btn-outline btn-small"
-            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+            className="btn btn-quiet btn-small"
             href={`/portal/admin/albums/${album.id}`}
           >
             Edit
@@ -43,8 +42,7 @@ export default async function AdminAlbumsPage() {
               <input type="hidden" name="albumId" value={album.id} />
               <button
                 type="submit"
-                className="btn btn-outline btn-small"
-                style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                className="btn btn-danger btn-small"
               >
                 Delete
               </button>
@@ -57,8 +55,7 @@ export default async function AdminAlbumsPage() {
   return (
     <>
       <div
-        className="section-head"
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}
+        className="page-head"
       >
         <div>
           <div className="eyebrow">Admin</div>
@@ -69,7 +66,7 @@ export default async function AdminAlbumsPage() {
       </div>
 
       <div className="info-card" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Upcoming Events</h3>
+        <h3>Upcoming Events</h3>
         {upcoming.length === 0 && <p>No upcoming albums yet.</p>}
         {upcoming.length > 0 && (
           <div className="table-scroll">
@@ -88,7 +85,7 @@ export default async function AdminAlbumsPage() {
       </div>
 
       <div className="info-card">
-        <h3 style={{ marginTop: 0 }}>Past Events</h3>
+        <h3>Past Events</h3>
         {past.length === 0 && <p>No past albums yet.</p>}
         {past.length > 0 && (
           <div className="table-scroll">

@@ -86,8 +86,7 @@ export default async function AdminCampConronPage({
   return (
     <>
       <div
-        className="section-head"
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}
+        className="page-head"
       >
         <div>
           <div className="eyebrow">Admin</div>
@@ -109,8 +108,7 @@ export default async function AdminCampConronPage({
             <input type="hidden" name="published" value={String(trip.published)} />
             <button
               type="submit"
-              className="btn btn-outline btn-small"
-              style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+              className="btn btn-quiet btn-small"
             >
               {trip.published ? "Unpublish" : "Publish"}
             </button>
@@ -120,26 +118,26 @@ export default async function AdminCampConronPage({
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
         <div className="info-card" style={{ flex: "1 1 320px" }}>
-          <h3 style={{ marginTop: 0 }}>Headcount</h3>
+          <h3>Headcount</h3>
           <p style={{ marginBottom: 8 }}>
             <strong>Registered:</strong> {totalAdults} adult{totalAdults === 1 ? "" : "s"}, {totalKids} kid
             {totalKids === 1 ? "" : "s"} (4 &amp; under) — {totalAdults + totalKids} total
           </p>
-          <p style={{ marginBottom: 0 }}>
+          <p>
             <strong>Paid in Full:</strong> {paidAdults} adult{paidAdults === 1 ? "" : "s"}, {paidKids} kid
             {paidKids === 1 ? "" : "s"} (4 &amp; under) — {paidAdults + paidKids} total
           </p>
         </div>
 
         <div className="info-card" style={{ flex: "1 1 320px" }}>
-          <h3 style={{ marginTop: 0 }}>Money</h3>
+          <h3>Money</h3>
           <p style={{ marginBottom: 8 }}>
             <strong>Anticipated Money to be Collected:</strong> {formatCents(totalOwed)}
           </p>
           <p style={{ marginBottom: 8 }}>
             <strong>Collected So Far:</strong> {formatCents(totalPaid)}
           </p>
-          <p style={{ marginBottom: 0 }}>
+          <p>
             <strong>Remaining:</strong> {formatCents(totalOwed - totalPaid)}
           </p>
         </div>
@@ -147,7 +145,7 @@ export default async function AdminCampConronPage({
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 24 }}>
       <div className="info-card" style={{ flex: "1 1 400px" }}>
-        <h3 style={{ marginTop: 0 }}>Event Details</h3>
+        <h3>Event Details</h3>
         <form action={updateTripDetailsAction}>
           <input type="hidden" name="id" value={trip.id} />
           <div className="form-field">
@@ -158,12 +156,12 @@ export default async function AdminCampConronPage({
             <label htmlFor="location">Location</label>
             <input id="location" name="location" defaultValue={trip.location ?? ""} />
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="startDate">Start Date</label>
               <input id="startDate" name="startDate" type="date" defaultValue={toDateInputValue(trip.startDate)} />
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="endDate">End Date</label>
               <input id="endDate" name="endDate" type="date" defaultValue={toDateInputValue(trip.endDate)} />
             </div>
@@ -175,7 +173,7 @@ export default async function AdminCampConronPage({
           <div className="form-field">
             <label htmlFor="flyer">Flyer</label>
             {trip.flyerUrl && (
-              <p style={{ marginTop: 0, marginBottom: 8 }}>
+              <p style={{ marginBottom: 8 }}>
                 <a href={trip.flyerUrl} target="_blank" rel="noopener noreferrer" className="link">
                   View current flyer →
                 </a>
@@ -196,14 +194,14 @@ export default async function AdminCampConronPage({
 
       <div style={{ flex: "1 1 400px", display: "flex", flexDirection: "column", gap: 24 }}>
       <div className="info-card">
-        <h3 style={{ marginTop: 0 }}>Price Structure</h3>
+        <h3>Price Structure</h3>
         <p className="form-note" style={{ marginTop: 0 }}>
           Current price: <strong>{formatCents(priceCents)}</strong>/person.
         </p>
         <form action={updateTripPricingAction}>
           <input type="hidden" name="id" value={trip.id} />
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="regularPrice">Regular Price ($/person)</label>
               <input
                 id="regularPrice"
@@ -215,7 +213,7 @@ export default async function AdminCampConronPage({
                 defaultValue={(trip.regularPriceCents / 100).toFixed(2)}
               />
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="earlyBirdPrice">Early-Bird Price ($/person, optional)</label>
               <input
                 id="earlyBirdPrice"
@@ -227,7 +225,7 @@ export default async function AdminCampConronPage({
               />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="form-row">
             <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
               <label htmlFor="earlyBirdDeadline">Early-Bird Deadline (paid in full by)</label>
               <input id="earlyBirdDeadline" name="earlyBirdDeadline" type="date" defaultValue={toDateInputValue(trip.earlyBirdDeadline)} />
@@ -253,7 +251,7 @@ export default async function AdminCampConronPage({
       </div>
 
       <div className="info-card">
-        <h3 style={{ marginTop: 0 }}>Payment Instructions</h3>
+        <h3>Payment Instructions</h3>
         <p className="form-note" style={{ marginTop: 0 }}>
           Shown to families on the public page once they pick their affiliation.
         </p>
@@ -311,7 +309,7 @@ export default async function AdminCampConronPage({
       <div style={{ flex: "2 1 480px" }}>
       {dutySlots.length === 0 ? (
         <div className="info-card">
-          <p style={{ marginBottom: 0 }}>No duty slots yet.</p>
+          <p>No duty slots yet.</p>
         </div>
       ) : (
         <div>
@@ -341,12 +339,12 @@ export default async function AdminCampConronPage({
                       ))}
                     </select>
                   </div>
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                  <div className="form-row">
+                    <div className="form-field">
                       <label htmlFor={`duty-assigned-${duty.id}`}>Assigned To</label>
                       <input id={`duty-assigned-${duty.id}`} name="assignedName" defaultValue={duty.assignedName ?? ""} placeholder="Name" />
                     </div>
-                    <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                    <div className="form-field">
                       <label htmlFor={`duty-arrive-${duty.id}`}>Arrive</label>
                       <input
                         id={`duty-arrive-${duty.id}`}
@@ -362,8 +360,7 @@ export default async function AdminCampConronPage({
                   </div>
                   <button
                     type="submit"
-                    className="btn btn-outline btn-small"
-                    style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                    className="btn btn-quiet btn-small"
                   >
                     Save Changes
                   </button>
@@ -372,8 +369,7 @@ export default async function AdminCampConronPage({
                   <input type="hidden" name="id" value={duty.id} />
                   <button
                     type="submit"
-                    className="btn btn-outline btn-small"
-                    style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                    className="btn btn-danger btn-small"
                   >
                     Remove
                   </button>
@@ -386,7 +382,7 @@ export default async function AdminCampConronPage({
       </div>
 
       <div className="info-card" style={{ flex: "1 1 360px" }}>
-        <h3 style={{ marginTop: 0 }}>Add a Duty Slot</h3>
+        <h3>Add a Duty Slot</h3>
         <form action={createDutySlotAction}>
           <input type="hidden" name="tripPageId" value={trip.id} />
           <div className="form-field">
@@ -404,12 +400,12 @@ export default async function AdminCampConronPage({
               ))}
             </select>
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="assignedName">Assigned To</label>
               <input id="assignedName" name="assignedName" placeholder="Name" />
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="arriveTime">Arrive</label>
               <input id="arriveTime" name="arriveTime" placeholder="e.g. 4:00 PM Fri" />
             </div>
@@ -433,7 +429,7 @@ export default async function AdminCampConronPage({
       <div style={{ flex: "2 1 480px" }}>
       {activities.length === 0 ? (
         <div className="info-card">
-          <p style={{ marginBottom: 0 }}>No activities scheduled yet.</p>
+          <p>No activities scheduled yet.</p>
         </div>
       ) : (
         <div>
@@ -446,7 +442,7 @@ export default async function AdminCampConronPage({
               <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
                 <form action={updateActivityAction}>
                   <input type="hidden" name="id" value={activity.id} />
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <div className="form-row">
                     <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
                       <label htmlFor={`activity-day-${activity.id}`}>Day</label>
                       <select id={`activity-day-${activity.id}`} name="day" defaultValue={activity.day}>
@@ -477,8 +473,7 @@ export default async function AdminCampConronPage({
                   </div>
                   <button
                     type="submit"
-                    className="btn btn-outline btn-small"
-                    style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                    className="btn btn-quiet btn-small"
                   >
                     Save Changes
                   </button>
@@ -487,8 +482,7 @@ export default async function AdminCampConronPage({
                   <input type="hidden" name="id" value={activity.id} />
                   <button
                     type="submit"
-                    className="btn btn-outline btn-small"
-                    style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                    className="btn btn-danger btn-small"
                   >
                     Remove
                   </button>
@@ -501,10 +495,10 @@ export default async function AdminCampConronPage({
       </div>
 
       <div className="info-card" style={{ flex: "1 1 360px" }}>
-        <h3 style={{ marginTop: 0 }}>Add an Activity</h3>
+        <h3>Add an Activity</h3>
         <form action={createActivityAction}>
           <input type="hidden" name="tripPageId" value={trip.id} />
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="form-row">
             <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
               <label htmlFor="activity-day">Day</label>
               <select id="activity-day" name="day" defaultValue={TRIP_DAY_ORDER[0]}>
@@ -534,8 +528,7 @@ export default async function AdminCampConronPage({
       </div>
 
       <div
-        className="section-head"
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}
+        className="page-head"
       >
         <div>
           <div className="eyebrow">Registrations</div>
@@ -546,8 +539,7 @@ export default async function AdminCampConronPage({
         </div>
         {registrations.length > 0 && (
           <a
-            className="btn btn-outline btn-small"
-            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+            className="btn btn-quiet btn-small"
             href="/portal/admin/camp-conron/export"
           >
             Export CSV
@@ -559,22 +551,19 @@ export default async function AdminCampConronPage({
         <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
           <Link
             href="/portal/admin/camp-conron?affiliation=ALL"
-            className={`btn btn-small ${affiliationFilter === "ALL" ? "btn-primary" : "btn-outline"}`}
-            style={affiliationFilter !== "ALL" ? { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" } : undefined}
+            className={`btn btn-small ${affiliationFilter === "ALL" ? "btn-primary" : "btn-quiet"}`}
           >
             All
           </Link>
           <Link
             href="/portal/admin/camp-conron?affiliation=PACK"
-            className={`btn btn-small ${affiliationFilter === "PACK" ? "btn-primary" : "btn-outline"}`}
-            style={affiliationFilter !== "PACK" ? { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" } : undefined}
+            className={`btn btn-small ${affiliationFilter === "PACK" ? "btn-primary" : "btn-quiet"}`}
           >
             Pack 376
           </Link>
           <Link
             href="/portal/admin/camp-conron?affiliation=TROOP"
-            className={`btn btn-small ${affiliationFilter === "TROOP" ? "btn-primary" : "btn-outline"}`}
-            style={affiliationFilter !== "TROOP" ? { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" } : undefined}
+            className={`btn btn-small ${affiliationFilter === "TROOP" ? "btn-primary" : "btn-quiet"}`}
           >
             Troop 376
           </Link>
@@ -583,7 +572,7 @@ export default async function AdminCampConronPage({
 
       {visibleRegistrations.length === 0 ? (
         <div className="info-card" style={{ maxWidth: CARD_WIDTH }}>
-          <p style={{ marginBottom: 0 }}>{registrations.length === 0 ? "No registrations yet." : "No registrations match this filter."}</p>
+          <p>{registrations.length === 0 ? "No registrations yet." : "No registrations match this filter."}</p>
         </div>
       ) : (
         <div>
@@ -603,19 +592,19 @@ export default async function AdminCampConronPage({
                 } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}
               >
                 <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
-                  <p style={{ marginTop: 0 }}>
+                  <p>
                     Owed {formatCents(reg.amountOwedCents)} · Paid {formatCents(reg.paidCents)} · Remaining {formatCents(reg.remainingCents)}
                   </p>
 
                   {isAdmin ? (
                     <form action={updateTripRegistrationAction} style={{ marginBottom: 16 }}>
                       <input type="hidden" name="id" value={reg.id} />
-                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <div className="form-row">
                         <div className="form-field" style={{ flex: 1, minWidth: 180 }}>
                           <label htmlFor={`familyName-${reg.id}`}>Family / Registrant Name</label>
                           <input id={`familyName-${reg.id}`} name="familyName" required defaultValue={reg.familyName} />
                         </div>
-                        <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                        <div className="form-field">
                           <label htmlFor={`affiliation-${reg.id}`}>Affiliation</label>
                           <select id={`affiliation-${reg.id}`} name="affiliation" defaultValue={reg.affiliation}>
                             <option value="PACK">Pack 376</option>
@@ -627,12 +616,12 @@ export default async function AdminCampConronPage({
                         <label htmlFor={`guestOfName-${reg.id}`}>Scout/Leader Guest Of</label>
                         <input id={`guestOfName-${reg.id}`} name="guestOfName" required defaultValue={reg.guestOfName} />
                       </div>
-                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <div className="form-row">
                         <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
                           <label htmlFor={`contactEmail-${reg.id}`}>Email</label>
                           <input id={`contactEmail-${reg.id}`} name="contactEmail" type="email" required defaultValue={reg.contactEmail} />
                         </div>
-                        <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                        <div className="form-field">
                           <label htmlFor={`contactPhone-${reg.id}`}>Phone</label>
                           <input
                             id={`contactPhone-${reg.id}`}
@@ -656,8 +645,7 @@ export default async function AdminCampConronPage({
                       </p>
                       <button
                         type="submit"
-                        className="btn btn-outline btn-small"
-                        style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                        className="btn btn-quiet btn-small"
                       >
                         Save Changes
                       </button>
@@ -698,8 +686,7 @@ export default async function AdminCampConronPage({
                                     <input type="hidden" name="paymentId" value={p.id} />
                                     <button
                                       type="submit"
-                                      className="btn btn-outline btn-small"
-                                      style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                                      className="btn btn-danger btn-small"
                                     >
                                       Delete
                                     </button>
@@ -738,8 +725,7 @@ export default async function AdminCampConronPage({
                         <input type="hidden" name="id" value={reg.id} />
                         <button
                           type="submit"
-                          className="btn btn-outline btn-small"
-                          style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                          className="btn btn-danger btn-small"
                         >
                           Remove Registration
                         </button>

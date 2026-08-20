@@ -77,8 +77,7 @@ export default async function AdminParentAccountsPage() {
               <td className="actions">
                 <ResetPasswordButton userId={user.id} />
                 <Link
-                  className="btn btn-outline btn-small"
-                  style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                  className="btn btn-quiet btn-small"
                   href={`/portal/admin/users/parents/${user.id}`}
                 >
                   Manage

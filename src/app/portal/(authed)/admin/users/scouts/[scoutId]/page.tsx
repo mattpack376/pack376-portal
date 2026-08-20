@@ -40,15 +40,15 @@ export default async function ManageScoutPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Scout Info</h3>
+        <h3>Scout Info</h3>
         <form action={updateScoutAction}>
           <input type="hidden" name="scoutId" value={scout.id} />
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: "1 1 160px" }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="firstName">First Name</label>
               <input id="firstName" name="firstName" type="text" defaultValue={scout.firstName} required />
             </div>
-            <div className="form-field" style={{ flex: "1 1 160px" }}>
+            <div className="form-field">
               <label htmlFor="lastName">Last Name</label>
               <input id="lastName" name="lastName" type="text" defaultValue={scout.lastName} required />
             </div>
@@ -69,8 +69,8 @@ export default async function ManageScoutPage({
               ))}
             </select>
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: "1 1 160px" }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="registrationExpiresOn">Registration Expires</label>
               <input
                 id="registrationExpiresOn"
@@ -79,7 +79,7 @@ export default async function ManageScoutPage({
                 defaultValue={scout.registrationExpiresOn ? toDateInputValue(scout.registrationExpiresOn) : ""}
               />
             </div>
-            <div className="form-field" style={{ flex: "1 1 160px" }}>
+            <div className="form-field">
               <label htmlFor="scouterId">Scouter ID#</label>
               <input id="scouterId" name="scouterId" type="text" defaultValue={scout.scouterId ?? ""} />
             </div>
@@ -89,7 +89,7 @@ export default async function ManageScoutPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Household</h3>
+        <h3>Household</h3>
         {scout.household ? (
           <p style={{ marginBottom: 0 }}>
             In <Link href={`/portal/admin/users/households/${scout.household.id}`}>{scout.household.name || "an unnamed household"}</Link>.

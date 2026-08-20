@@ -34,7 +34,7 @@ export default async function DenPortalPage({
 
   return (
     <>
-      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
+      <div className="page-head" style={{ alignItems: "flex-start" }}>
         <div>
           <div className="eyebrow">My Den</div>
           <h2>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h2>

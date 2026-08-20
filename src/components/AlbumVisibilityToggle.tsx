@@ -24,12 +24,7 @@ export default function AlbumVisibilityToggle({
   return (
     <button
       type="button"
-      className="btn btn-outline btn-small"
-      style={
-        isVisible
-          ? { borderColor: "var(--ink-soft)", color: "var(--ink-soft)" }
-          : { borderColor: "var(--teal)", color: "var(--teal)" }
-      }
+      className="btn btn-quiet btn-small" style={isVisible ? { borderColor: "var(--ink-soft)", color: "var(--ink-soft)" } : { borderColor: "var(--teal)", color: "var(--teal)" }}
       onClick={handleClick}
       disabled={isPending}
     >

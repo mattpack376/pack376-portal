@@ -104,26 +104,26 @@ export default function TripViewerView({
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
       <div className="info-card" style={{ flex: "1 1 320px" }}>
-        <h3 style={{ marginTop: 0 }}>Headcount</h3>
+        <h3>Headcount</h3>
         <p style={{ marginBottom: 8 }}>
           <strong>Registered:</strong> {totalAdults} adult{totalAdults === 1 ? "" : "s"}, {totalKids} kid
           {totalKids === 1 ? "" : "s"} (4 &amp; under) — {totalAdults + totalKids} total
         </p>
-        <p style={{ marginBottom: 0 }}>
+        <p>
           <strong>Paid in Full:</strong> {paidAdults} adult{paidAdults === 1 ? "" : "s"}, {paidKids} kid
           {paidKids === 1 ? "" : "s"} (4 &amp; under) — {paidAdults + paidKids} total
         </p>
       </div>
 
       <div className="info-card" style={{ flex: "1 1 320px" }}>
-        <h3 style={{ marginTop: 0 }}>Money</h3>
+        <h3>Money</h3>
         <p style={{ marginBottom: 8 }}>
           <strong>Anticipated Money to be Collected:</strong> {formatCents(totalOwed)}
         </p>
         <p style={{ marginBottom: 8 }}>
           <strong>Collected So Far:</strong> {formatCents(totalPaid)}
         </p>
-        <p style={{ marginBottom: 0 }}>
+        <p>
           <strong>Remaining:</strong> {formatCents(totalOwed - totalPaid)}
         </p>
       </div>
@@ -131,7 +131,7 @@ export default function TripViewerView({
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
       <div className="info-card" style={{ flex: "1 1 400px" }}>
-        <h3 style={{ marginTop: 0 }}>Event Details</h3>
+        <h3>Event Details</h3>
         <p>
           <strong>{trip.title}</strong>
           {trip.location && <> — {trip.location}</>}
@@ -152,7 +152,7 @@ export default function TripViewerView({
       </div>
 
       <div className="info-card" style={{ flex: "1 1 400px" }}>
-        <h3 style={{ marginTop: 0 }}>Price Structure</h3>
+        <h3>Price Structure</h3>
         <p>
           <strong>Regular:</strong> {formatCents(trip.regularPriceCents)}/person
         </p>
@@ -282,19 +282,19 @@ export default function TripViewerView({
       </div>
 
       <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Troop 376 Summary</h3>
+        <h3>Troop 376 Summary</h3>
         <p style={{ marginBottom: 8 }}>{troopFamiliesSummary}</p>
         <p style={{ marginBottom: 8 }}>
           {troopPaidInFull} of {troopRegistrations.length} paid in full
         </p>
-        <p style={{ marginBottom: 0 }}>
+        <p>
           Owed {formatCents(troopOwed)} · Paid {formatCents(troopPaid)} · Remaining {formatCents(troopOwed - troopPaid)}
         </p>
       </div>
 
       {troopRegistrations.length === 0 ? (
         <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
-          <p style={{ marginBottom: 0 }}>No Troop 376 registrations yet.</p>
+          <p>No Troop 376 registrations yet.</p>
         </div>
       ) : (
         <div style={{ marginBottom: 24 }}>
@@ -314,7 +314,7 @@ export default function TripViewerView({
                 } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}
               >
                 <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
-                  <p style={{ marginTop: 0 }}>
+                  <p>
                     {reg.contactEmail}
                     {reg.contactPhone ? ` · ${reg.contactPhone}` : ""} · Registered{" "}
                     {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}
@@ -354,8 +354,8 @@ export default function TripViewerView({
       )}
 
       <div className="info-card" style={{ maxWidth: CARD_WIDTH }}>
-        <h3 style={{ marginTop: 0 }}>Pack 376 (Summary Only)</h3>
-        <p style={{ marginBottom: 0 }}>
+        <h3>Pack 376 (Summary Only)</h3>
+        <p>
           {packRegistrations.length} famil{packRegistrations.length === 1 ? "y" : "ies"} registered — {packAdults} adult
           {packAdults === 1 ? "" : "s"}, {packKids} kid{packKids === 1 ? "" : "s"} · {formatCents(packPaid)} paid of{" "}
           {formatCents(packOwed)} owed.

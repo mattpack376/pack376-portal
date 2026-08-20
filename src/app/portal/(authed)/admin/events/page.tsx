@@ -11,20 +11,20 @@ export default async function AdminEventsPage() {
 
   return (
     <>
-      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+      <div className="page-head">
         <div>
           <div className="eyebrow">Admin</div>
           <h2>Events</h2>
           <p>Track camping trips, day trips, and special events scouts sign up for — who&apos;s registered and what they owe.</p>
         </div>
-        <Link className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }} href="/portal/admin/events/guests">
+        <Link className="btn btn-quiet btn-small" href="/portal/admin/events/guests">
           All Guests (All Events)
         </Link>
       </div>
 
       {events.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 24 }}>
-          <p style={{ marginBottom: 0 }}>No events yet — add one below.</p>
+          <p>No events yet — add one below.</p>
         </div>
       ) : (
         <div className="table-scroll" style={{ marginBottom: 32 }}>
@@ -64,8 +64,7 @@ export default async function AdminEventsPage() {
                 </td>
                 <td className="actions">
                   <Link
-                    className="btn btn-outline btn-small"
-                    style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                    className="btn btn-quiet btn-small"
                     href={`/portal/admin/events/${event.id}`}
                   >
                     Manage
@@ -86,14 +85,14 @@ export default async function AdminEventsPage() {
       )}
 
       <div className="info-card" style={{ maxWidth: 460 }}>
-        <h3 style={{ marginTop: 0 }}>Add an Event</h3>
+        <h3>Add an Event</h3>
         <form action={createEventAction}>
           <div className="form-field">
             <label htmlFor="title">Title</label>
             <input id="title" name="title" required placeholder="e.g. Camp Conron Weekend" />
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="category">Category</label>
               <select id="category" name="category" defaultValue="CAMPING">
                 {Object.entries(DEADLINE_CATEGORY_LABELS).map(([value, label]) => (
@@ -101,21 +100,21 @@ export default async function AdminEventsPage() {
                 ))}
               </select>
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="eventDate">Date</label>
               <input id="eventDate" name="eventDate" type="date" required />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="fee">Default Fee Per Scout ($, optional)</label>
               <input id="fee" name="fee" type="number" min="0" step="0.01" placeholder="Also required for parent self-signup" />
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="adultFee">Default Fee Per Adult ($, optional)</label>
               <input id="adultFee" name="adultFee" type="number" min="0" step="0.01" placeholder="Also required for parent self-signup" />
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="guestChildFee">Default Fee Per Guest Child ($, optional)</label>
               <input id="guestChildFee" name="guestChildFee" type="number" min="0" step="0.01" placeholder="Also required for parent self-signup" />
             </div>

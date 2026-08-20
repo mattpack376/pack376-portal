@@ -45,8 +45,7 @@ export default async function DenAttendancePage({
 
       <div style={{ marginBottom: 16 }}>
         <a
-          className="btn btn-outline"
-          style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+          className="btn btn-quiet"
           href={`/api/attendance/export/den/${den.id}`}
         >
           ⬇ Export CSV

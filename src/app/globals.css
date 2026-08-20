@@ -935,7 +935,13 @@ section { padding: 64px 0; }
  * which a date or currency input starts clipping its own control.
  */
 .form-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-.form-row > .form-field { flex: 1 1 160px; margin-bottom: 0; min-width: 0; }
+/*
+ * flex-basis 0 (not 160px) with a min-width floor: columns then divide the
+ * row evenly regardless of content, and a field that needs more room raises
+ * its own min-width. Basing on 160px instead would make a default field
+ * render 160px wider than a sibling that sets its own basis.
+ */
+.form-row > .form-field { flex: 1 1 0; min-width: 160px; margin-bottom: 0; }
 .den-toggle {
   cursor: pointer;
   font-size: 12.5px;

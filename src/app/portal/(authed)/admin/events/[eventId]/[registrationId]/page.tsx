@@ -36,7 +36,7 @@ export default async function AdminEventRegistrationPage({
       </div>
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Balance</h3>
+        <h3>Balance</h3>
         <p>
           Paid {formatCents(reg.paidCents)} of {formatCents(reg.amountOwedCents)}
           {reg.remainingCents > 0 && ` — ${formatCents(reg.remainingCents)} remaining`}
@@ -58,14 +58,14 @@ export default async function AdminEventRegistrationPage({
               defaultValue={(reg.amountOwedCents / 100).toFixed(2)}
             />
           </div>
-          <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+          <button type="submit" className="btn btn-quiet btn-small">
             Update Amount Owed
           </button>
         </form>
       </div>
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Record a Payment</h3>
+        <h3>Record a Payment</h3>
         <form action={addEventPaymentAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
           <input type="hidden" name="registrationId" value={reg.id} />
           <input type="hidden" name="eventId" value={eventId} />
@@ -117,8 +117,7 @@ export default async function AdminEventRegistrationPage({
                     <input type="hidden" name="eventId" value={eventId} />
                     <button
                       type="submit"
-                      className="btn btn-outline btn-small"
-                      style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                      className="btn btn-danger btn-small"
                     >
                       Delete
                     </button>

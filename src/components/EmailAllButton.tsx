@@ -35,8 +35,7 @@ export default function EmailAllButton({ emails, label }: { emails: (string | nu
       <button
         type="button"
         onClick={copyAddresses}
-        className="btn btn-outline btn-small"
-        style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+        className="btn btn-quiet btn-small"
       >
         {copied ? "Copied!" : "Copy Addresses"}
       </button>

@@ -71,8 +71,8 @@ export default function EnlargeableImage({
         <button
           type="button"
           onClick={() => dialogRef.current?.close()}
-          className="btn btn-outline btn-small"
-          style={{ marginTop: 14, borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+          className="btn btn-quiet btn-small"
+          style={{ marginTop: 14 }}
         >
           Close
         </button>

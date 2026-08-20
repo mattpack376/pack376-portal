@@ -12,7 +12,7 @@ export default function EmailConsentLinkButton({ scoutId, parentEmail }: { scout
     <form action={formAction} style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <input type="hidden" name="scoutId" value={scoutId} />
       <input type="hidden" name="parentEmail" value={parentEmail} />
-      <button type="submit" disabled={pending} className="btn btn-outline btn-small" style={{ borderColor: "var(--teal)", color: "var(--teal)" }}>
+      <button type="submit" disabled={pending} className="btn btn-quiet btn-small" style={{ borderColor: "var(--teal)", color: "var(--teal)" }}>
         {pending ? "Sending…" : `Email Link to ${parentEmail}`}
       </button>
       {state?.sent && <span style={{ fontSize: 13, color: "var(--teal)", fontWeight: 600 }}>Sent!</span>}

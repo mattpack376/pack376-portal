@@ -69,8 +69,7 @@ export default async function AdminUsersPage() {
               <td className="actions">
                 <ResetPasswordButton userId={user.id} />
                 <Link
-                  className="btn btn-outline btn-small"
-                  style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                  className="btn btn-quiet btn-small"
                   href={`/portal/admin/users/${user.id}`}
                 >
                   Manage
@@ -83,7 +82,7 @@ export default async function AdminUsersPage() {
       </div>
 
       <div className="info-card" style={{ maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Add an Admin, Junior Admin, Attendance Only, or Photographer Account</h3>
+        <h3>Add an Admin, Junior Admin, Attendance Only, or Photographer Account</h3>
         <CreateAdminForm />
       </div>
     </>

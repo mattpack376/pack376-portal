@@ -74,7 +74,7 @@ export default async function PhotoConsentPage() {
             .filter((d) => d.scoutingYear === year)
             .map((den) => (
               <div className="info-card" key={den.id} style={{ marginBottom: 20 }}>
-                <h3 style={{ marginTop: 0, fontSize: 19 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
+                <h3 style={{ fontSize: 19 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
                 {den.scouts.length === 0 ? (
                   <p style={{ marginBottom: 0, fontSize: 16 }}>No scouts yet.</p>
                 ) : (

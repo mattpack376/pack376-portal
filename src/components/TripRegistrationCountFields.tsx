@@ -27,7 +27,7 @@ export default function TripRegistrationCountFields({
 
   return (
     <>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      <div className="form-row">
         <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
           <label htmlFor={`${idPrefix}-payingCount`}>Attendees (paying)</label>
           <input

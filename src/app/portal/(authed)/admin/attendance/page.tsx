@@ -19,7 +19,7 @@ export default async function AdminAttendancePage({
 
   return (
     <>
-      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+      <div className="page-head">
         <div>
           <div className="eyebrow">Attendance</div>
           <h2>Pack-Wide Meeting Calendar</h2>
@@ -33,14 +33,14 @@ export default async function AdminAttendancePage({
               ))}
             </select>
           </div>
-          <button type="submit" className="btn btn-outline" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+          <button type="submit" className="btn btn-quiet">
             Go
           </button>
         </form>
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <a className="btn btn-outline" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }} href={`/api/attendance/export/pack?scoutingYear=${encodeURIComponent(scoutingYear)}`}>
+        <a className="btn btn-quiet" href={`/api/attendance/export/pack?scoutingYear=${encodeURIComponent(scoutingYear)}`}>
           ⬇ Export {scoutingYear} CSV
         </a>
       </div>

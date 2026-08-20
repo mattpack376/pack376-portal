@@ -140,7 +140,7 @@ export default async function FamilyViewPage({
 
       <div className="two-col" style={{ marginBottom: 32 }}>
         <div className="info-card">
-          <h3 style={{ marginTop: 0 }}>🗓️ Next Meeting</h3>
+          <h3>🗓️ Next Meeting</h3>
           {nextMeeting ? (
             <p style={{ fontSize: 18, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{nextMeeting.formatted}</p>
           ) : (
@@ -150,7 +150,7 @@ export default async function FamilyViewPage({
         </div>
 
         <div className="info-card">
-          <h3 style={{ marginTop: 0 }}>📣 Announcements</h3>
+          <h3>📣 Announcements</h3>
           {announcements.length === 0 ? (
             <p>No announcements right now — check back soon.</p>
           ) : (
@@ -177,7 +177,7 @@ export default async function FamilyViewPage({
       </div>
       {upcomingEvents.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>No upcoming events posted right now.</p>
+          <p>No upcoming events posted right now.</p>
         </div>
       ) : (
         <div className="resource-grid" style={{ marginBottom: 32 }}>
@@ -203,7 +203,7 @@ export default async function FamilyViewPage({
       </div>
       {volunteerNeeds.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>No open volunteer needs posted right now.</p>
+          <p>No open volunteer needs posted right now.</p>
         </div>
       ) : (
         <div className="resource-grid" style={{ marginBottom: 32 }}>
@@ -226,7 +226,7 @@ export default async function FamilyViewPage({
       </div>
       {deadlines.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>Nothing on the calendar right now.</p>
+          <p>Nothing on the calendar right now.</p>
         </div>
       ) : (
         <div className="resource-grid" style={{ marginBottom: 32 }}>
@@ -252,7 +252,7 @@ export default async function FamilyViewPage({
       </div>
       {eventPaymentGroups.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>No paid events on the books right now.</p>
+          <p>No paid events on the books right now.</p>
         </div>
       ) : (
         <div style={{ marginBottom: 32 }}>
@@ -262,7 +262,7 @@ export default async function FamilyViewPage({
                 <p className="form-note" style={{ marginBottom: 4 }}>
                   {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
                 </p>
-                <h3 style={{ marginTop: 0, marginBottom: 0 }}>{event.title}</h3>
+                <h3 style={{ marginBottom: 0 }}>{event.title}</h3>
               </summary>
 
               <div style={{ marginTop: 14 }}>
@@ -299,8 +299,7 @@ export default async function FamilyViewPage({
                             {canRecordPayments && (
                               <td className="actions">
                                 <Link
-                                  className="btn btn-outline btn-small"
-                                  style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                                  className="btn btn-quiet btn-small"
                                   href={`/portal/admin/events/${event.id}/${reg.id}`}
                                 >
                                   Record Payment
@@ -353,8 +352,7 @@ export default async function FamilyViewPage({
                             {canRecordPayments && (
                               <td className="actions">
                                 <Link
-                                  className="btn btn-outline btn-small"
-                                  style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                                  className="btn btn-quiet btn-small"
                                   href={`/portal/admin/events/${event.id}/guests/${group.id}`}
                                 >
                                   Record Payment
@@ -383,7 +381,7 @@ export default async function FamilyViewPage({
           </div>
           {openGuestEvents.length === 0 ? (
             <div className="info-card">
-              <p style={{ marginBottom: 0 }}>No upcoming events open for guest self-registration right now.</p>
+              <p>No upcoming events open for guest self-registration right now.</p>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -405,7 +403,7 @@ export default async function FamilyViewPage({
                           {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
                           <form action={removeMyGuestGroupAction}>
                             <input type="hidden" name="guestGroupId" value={g.id} />
-                            <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                            <button type="submit" className="btn btn-danger btn-small">
                               Remove
                             </button>
                           </form>

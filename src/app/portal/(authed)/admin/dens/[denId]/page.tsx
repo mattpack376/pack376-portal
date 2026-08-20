@@ -28,7 +28,7 @@ export default async function AdminDenDetailPage({
 
   return (
     <>
-      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+      <div className="page-head">
         <div>
           <div className="eyebrow">
             <Link href="/portal/admin">← All Dens</Link>
@@ -61,7 +61,7 @@ export default async function AdminDenDetailPage({
 
       <div className="info-card" style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-          <h3 style={{ marginTop: 0 }}>Roster</h3>
+          <h3>Roster</h3>
           <span className="badge-pill badge-den badge-count" style={{ whiteSpace: "nowrap" }}>
             {scouts.length} scout{scouts.length === 1 ? "" : "s"}
           </span>
@@ -116,7 +116,7 @@ export default async function AdminDenDetailPage({
                             fontSize: 14,
                           }}
                         />
-                        <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+                        <button type="submit" className="btn btn-quiet btn-small">
                           Save
                         </button>
                       </form>
@@ -133,7 +133,7 @@ export default async function AdminDenDetailPage({
                       <form action={removeScoutAction}>
                         <input type="hidden" name="scoutId" value={scout.id} />
                         <input type="hidden" name="denId" value={den.id} />
-                        <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                        <button type="submit" className="btn btn-danger btn-small">
                           Remove
                         </button>
                       </form>

@@ -27,7 +27,7 @@ export default async function AdminScoutDuesPage({
       </div>
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Balance</h3>
+        <h3>Balance</h3>
         {amountCents === null ? (
           <p>The season fee hasn&apos;t been set yet for {den.scoutingYear}.</p>
         ) : (
@@ -41,7 +41,7 @@ export default async function AdminScoutDuesPage({
       </div>
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Custom Rate (Sibling Discount, etc.)</h3>
+        <h3>Custom Rate (Sibling Discount, etc.)</h3>
         <p>
           Standard fee is {standardAmountCents === null ? "not set" : formatCents(standardAmountCents)}.
           {overrideCents !== null && ` This scout is set to ${formatCents(overrideCents)} instead.`}
@@ -65,7 +65,7 @@ export default async function AdminScoutDuesPage({
       </div>
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Record a Payment</h3>
+        <h3>Record a Payment</h3>
         <form action={addDuesPaymentAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
           <input type="hidden" name="scoutId" value={scout.id} />
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
@@ -115,8 +115,7 @@ export default async function AdminScoutDuesPage({
                     <input type="hidden" name="scoutId" value={scout.id} />
                     <button
                       type="submit"
-                      className="btn btn-outline btn-small"
-                      style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                      className="btn btn-danger btn-small"
                     >
                       Delete
                     </button>

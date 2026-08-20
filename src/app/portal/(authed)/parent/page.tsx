@@ -99,7 +99,7 @@ export default async function ParentDashboardPage() {
 
       <div className="two-col" style={{ marginBottom: 32 }}>
         <div className="info-card">
-          <h3 style={{ marginTop: 0 }}>🗓️ Next Meeting</h3>
+          <h3>🗓️ Next Meeting</h3>
           {nextMeeting ? (
             <p style={{ fontSize: 18, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{nextMeeting.formatted}</p>
           ) : (
@@ -109,7 +109,7 @@ export default async function ParentDashboardPage() {
         </div>
 
         <div className="info-card">
-          <h3 style={{ marginTop: 0 }}>📣 Announcements</h3>
+          <h3>📣 Announcements</h3>
           {announcements.length === 0 ? (
             <p>No announcements right now — check back soon.</p>
           ) : (
@@ -136,7 +136,7 @@ export default async function ParentDashboardPage() {
       </div>
       {upcomingEvents.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>No upcoming events posted right now.</p>
+          <p>No upcoming events posted right now.</p>
         </div>
       ) : (
         <div className="resource-grid" style={{ marginBottom: 32 }}>
@@ -164,11 +164,10 @@ export default async function ParentDashboardPage() {
         <div className="info-card" style={{ marginBottom: 32 }}>
           <p style={{ marginBottom: 12 }}>No open volunteer needs posted right now.</p>
           <a
-            className="btn btn-outline"
+            className="btn btn-quiet"
             href={`${getPublicBaseUrl()}/volunteer`}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
           >
             See Volunteer Roles
           </a>
@@ -194,7 +193,7 @@ export default async function ParentDashboardPage() {
       </div>
       {deadlines.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>Nothing on the calendar right now — check Parent Resources for the full pack calendar.</p>
+          <p>Nothing on the calendar right now — check Parent Resources for the full pack calendar.</p>
         </div>
       ) : (
         <div className="resource-grid" style={{ marginBottom: 32 }}>
@@ -220,12 +219,12 @@ export default async function ParentDashboardPage() {
       </div>
       {scouts.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>Nothing to show until a scout is linked to your account.</p>
+          <p>Nothing to show until a scout is linked to your account.</p>
         </div>
       ) : (
         scouts.map((scout) => (
           <div className="info-card" key={scout.id} style={{ marginBottom: 20 }}>
-            <h3 style={{ marginTop: 0 }}>{scout.firstName} {scout.lastName}</h3>
+            <h3>{scout.firstName} {scout.lastName}</h3>
 
             <p className="form-note" style={{ marginBottom: 6 }}>FORMS</p>
             {scout.photoConsent === null ? (
@@ -268,7 +267,7 @@ export default async function ParentDashboardPage() {
       </div>
       {openEvents.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>No upcoming events open for registration right now.</p>
+          <p>No upcoming events open for registration right now.</p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
@@ -318,7 +317,7 @@ export default async function ParentDashboardPage() {
                             {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
                             <form action={removeMyGuestGroupAction}>
                               <input type="hidden" name="guestGroupId" value={g.id} />
-                              <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                              <button type="submit" className="btn btn-danger btn-small">
                                 Remove
                               </button>
                             </form>
@@ -344,7 +343,7 @@ export default async function ParentDashboardPage() {
                           <input id={`childCount-${event.id}`} name="childCount" type="number" min="0" step="1" defaultValue={0} />
                         </div>
                       )}
-                      <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+                      <button type="submit" className="btn btn-quiet btn-small">
                         Add Guests
                       </button>
                     </form>
@@ -362,7 +361,7 @@ export default async function ParentDashboardPage() {
       </div>
       {eventPaymentGroups.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 0 }}>No paid events on the books for your scout(s) or any guests you&apos;ve registered right now.</p>
+          <p>No paid events on the books for your scout(s) or any guests you&apos;ve registered right now.</p>
         </div>
       ) : (
         <>
@@ -372,7 +371,7 @@ export default async function ParentDashboardPage() {
                 <p className="form-note" style={{ marginBottom: 4 }}>
                   {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
                 </p>
-                <h3 style={{ marginTop: 0, marginBottom: 14 }}>{event.title}</h3>
+                <h3 style={{ marginBottom: 14 }}>{event.title}</h3>
 
                 {denGroups.map(({ den, regs }) => (
                   <CollapsibleGroup
@@ -466,7 +465,7 @@ export default async function ParentDashboardPage() {
       </div>
       {advancement.length === 0 ? (
         <div className="info-card">
-          <p style={{ marginBottom: 0 }}>Nothing to show until a scout is linked to your account.</p>
+          <p>Nothing to show until a scout is linked to your account.</p>
         </div>
       ) : (
         <ScoutChecklist scouts={advancement} editable={false} />

@@ -43,7 +43,7 @@ export default async function AdminHouseholdsPage() {
       <UsersSubNav active="households" />
 
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>New Household</h3>
+        <h3>New Household</h3>
         <form action={createHouseholdAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
             <label htmlFor="name">Name (optional)</label>
@@ -81,8 +81,7 @@ export default async function AdminHouseholdsPage() {
                   <td>{h.users.length === 0 ? "—" : h.users.map((u) => u.displayName).join(", ")}</td>
                   <td className="actions">
                     <Link
-                      className="btn btn-outline btn-small"
-                      style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                      className="btn btn-quiet btn-small"
                       href={`/portal/admin/users/households/${h.id}`}
                     >
                       Manage

@@ -77,8 +77,7 @@ export default async function ParentContactsPage({
           {isMasterAdmin && !printView && (
             <Link
               href="/portal/roster/parents?view=print"
-              className="btn btn-outline btn-small no-print"
-              style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+              className="btn btn-quiet btn-small no-print"
             >
               Printable View
             </Link>
@@ -86,8 +85,7 @@ export default async function ParentContactsPage({
           {(session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") && !printView && (
             <a
               href="/api/parents/export"
-              className="btn btn-outline btn-small no-print"
-              style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+              className="btn btn-quiet btn-small no-print"
             >
               Export All Parent Contacts (CSV)
             </a>
@@ -163,13 +161,12 @@ export default async function ParentContactsPage({
                     marginBottom: 8,
                   }}
                 >
-                  <h3 style={{ marginTop: 0, fontSize: 19 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
+                  <h3 style={{ fontSize: 19 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
                   {!printView && (
                     <div className="no-print" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <a
                         href={`/api/parents/export/den/${den.id}`}
-                        className="btn btn-outline btn-small"
-                        style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                        className="btn btn-quiet btn-small"
                       >
                         Export CSV
                       </a>
@@ -239,8 +236,7 @@ export default async function ParentContactsPage({
                                   />
                                   <button
                                     type="submit"
-                                    className="btn btn-outline btn-small"
-                                    style={{ ...buttonStyle, borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                                    className="btn btn-quiet btn-small" style={buttonStyle}
                                   >
                                     Save
                                   </button>
@@ -249,8 +245,7 @@ export default async function ParentContactsPage({
                                   <input type="hidden" name="parentId" value={parent.id} />
                                   <button
                                     type="submit"
-                                    className="btn btn-outline btn-small"
-                                    style={{ ...buttonStyle, borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                                    className="btn btn-danger btn-small" style={buttonStyle}
                                   >
                                     Remove
                                   </button>

@@ -42,7 +42,7 @@ export default async function AdminAllGuestsPage({
 
   return (
     <>
-      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+      <div className="page-head">
         <div>
           <div className="eyebrow">
             <Link href="/portal/admin/events">← Events</Link>
@@ -57,8 +57,7 @@ export default async function AdminAllGuestsPage({
         </div>
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download (Route Handler), not a page navigation */}
         <a
-          className="btn btn-outline btn-small"
-          style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+          className="btn btn-quiet btn-small"
           href="/portal/admin/events/guests/export"
         >
           Export CSV (All Attendees)
@@ -68,15 +67,13 @@ export default async function AdminAllGuestsPage({
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         <Link
           href="/portal/admin/events/guests?sort=guestof"
-          className={`btn btn-small ${sortMode === "guestof" ? "btn-primary" : "btn-outline"}`}
-          style={sortMode !== "guestof" ? { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" } : undefined}
+          className={`btn btn-small ${sortMode === "guestof" ? "btn-primary" : "btn-quiet"}`}
         >
           Group by Guest Of
         </Link>
         <Link
           href="/portal/admin/events/guests?sort=family"
-          className={`btn btn-small ${sortMode === "family" ? "btn-primary" : "btn-outline"}`}
-          style={sortMode !== "family" ? { borderColor: "var(--scout-blue)", color: "var(--scout-blue)" } : undefined}
+          className={`btn btn-small ${sortMode === "family" ? "btn-primary" : "btn-quiet"}`}
         >
           Group by Family Name
         </Link>
@@ -84,7 +81,7 @@ export default async function AdminAllGuestsPage({
 
       {allGroups.length === 0 ? (
         <div className="info-card">
-          <p style={{ marginBottom: 0 }}>No guest groups registered for any event yet.</p>
+          <p>No guest groups registered for any event yet.</p>
         </div>
       ) : sortMode === "guestof" ? (
         <GuestOfGrouping groups={allGroups} />
@@ -184,8 +181,7 @@ function FamilyGrouping({ groups }: { groups: Group[] }) {
                       <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                       <td className="actions">
                         <Link
-                          className="btn btn-outline btn-small"
-                          style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                          className="btn btn-quiet btn-small"
                           href={`/portal/admin/events/${g.event.id}/guests/${g.id}`}
                         >
                           Manage Payments
@@ -234,8 +230,7 @@ function FamilySubTable({ rows }: { rows: Group[] }) {
                 <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                 <td className="actions">
                   <Link
-                    className="btn btn-outline btn-small"
-                    style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                    className="btn btn-quiet btn-small"
                     href={`/portal/admin/events/${g.event.id}/guests/${g.id}`}
                   >
                     Manage Payments

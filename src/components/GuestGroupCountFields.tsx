@@ -36,7 +36,7 @@ export default function GuestGroupCountFields({
 
   return (
     <>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      <div className="form-row">
         <div className="form-field" style={{ flex: 1, minWidth: 120 }}>
           <label htmlFor={`${idPrefix}-adultCount`}>Adults</label>
           <input

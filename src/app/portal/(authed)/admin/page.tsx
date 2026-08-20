@@ -35,7 +35,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <>
-      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+      <div className="page-head">
         <div>
           <div className="eyebrow">All Dens</div>
           <h2>Admin Dashboard</h2>
@@ -47,7 +47,7 @@ export default async function AdminDashboardPage() {
 
       {session.role === "ADMIN" && (
         <div className="info-card" style={{ marginBottom: 24 }}>
-          <h3 style={{ marginTop: 0 }}>Email Everyone</h3>
+          <h3>Email Everyone</h3>
           <p style={{ marginBottom: 12 }}>
             Every scout&apos;s parent/guardian and every user account (den leaders, admins, etc.) that has an
             email address on file. Opens your own email app with everyone in the To: field and pack376.brooklyn@gmail.com
@@ -81,8 +81,8 @@ export default async function AdminDashboardPage() {
       ))}
 
       <div className="info-card" style={{ marginTop: 8 }}>
-        <h3 style={{ marginTop: 0 }}>Ranks</h3>
-        <p style={{ marginBottom: 0 }}>
+        <h3>Ranks</h3>
+        <p>
           {RANK_ORDER.map((r) => RANK_INFO[r].label).join(" → ")} — a den&apos;s scouts move up one rank each
           scouting year. Use &quot;Promote Den&quot; on a den&apos;s page each fall to carry the roster forward.
         </p>

@@ -36,7 +36,7 @@ export default async function ParentPortalAdminPage() {
       </div>
 
       <div className="info-card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Announcements</h3>
+        <h3>Announcements</h3>
         <form action={createAnnouncementAction} style={{ marginBottom: 20 }}>
           <div className="form-field">
             <label htmlFor="ann-title">Title</label>
@@ -65,7 +65,7 @@ export default async function ParentPortalAdminPage() {
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
                   <details className="edit-popover">
-                    <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
+                    <summary className="btn btn-quiet btn-small" style={{ display: "inline-block", cursor: "pointer" }}>
                       Edit
                     </summary>
                     <form action={updateAnnouncementAction}>
@@ -87,7 +87,7 @@ export default async function ParentPortalAdminPage() {
                   </details>
                   <form action={deleteAnnouncementAction}>
                     <input type="hidden" name="id" value={a.id} />
-                    <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                    <button type="submit" className="btn btn-danger btn-small">
                       Delete
                     </button>
                   </form>
@@ -99,14 +99,14 @@ export default async function ParentPortalAdminPage() {
       </div>
 
       <div className="info-card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Deadlines</h3>
+        <h3>Deadlines</h3>
         <form action={createDeadlineAction} style={{ marginBottom: 20 }}>
           <div className="form-field">
             <label htmlFor="dl-title">Title</label>
             <input id="dl-title" name="title" required />
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+          <div className="form-row">
+            <div className="form-field">
               <label htmlFor="dl-category">Category</label>
               <select id="dl-category" name="category" defaultValue="GENERAL">
                 {Object.entries(DEADLINE_CATEGORY_LABELS).map(([value, label]) => (
@@ -114,7 +114,7 @@ export default async function ParentPortalAdminPage() {
                 ))}
               </select>
             </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+            <div className="form-field">
               <label htmlFor="dl-dueDate">Due Date</label>
               <input id="dl-dueDate" name="dueDate" type="date" required />
             </div>
@@ -139,7 +139,7 @@ export default async function ParentPortalAdminPage() {
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
                   <details className="edit-popover">
-                    <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
+                    <summary className="btn btn-quiet btn-small" style={{ display: "inline-block", cursor: "pointer" }}>
                       Edit
                     </summary>
                     <form action={updateDeadlineAction}>
@@ -148,8 +148,8 @@ export default async function ParentPortalAdminPage() {
                         <label htmlFor={`dl-title-${d.id}`}>Title</label>
                         <input id={`dl-title-${d.id}`} name="title" defaultValue={d.title} required />
                       </div>
-                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                        <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                      <div className="form-row">
+                        <div className="form-field">
                           <label htmlFor={`dl-category-${d.id}`}>Category</label>
                           <select id={`dl-category-${d.id}`} name="category" defaultValue={d.category}>
                             {Object.entries(DEADLINE_CATEGORY_LABELS).map(([value, label]) => (
@@ -157,7 +157,7 @@ export default async function ParentPortalAdminPage() {
                             ))}
                           </select>
                         </div>
-                        <div className="form-field" style={{ flex: 1, minWidth: 160 }}>
+                        <div className="form-field">
                           <label htmlFor={`dl-dueDate-${d.id}`}>Due Date</label>
                           <input id={`dl-dueDate-${d.id}`} name="dueDate" type="date" defaultValue={toDateInputValue(d.dueDate)} required />
                         </div>
@@ -171,7 +171,7 @@ export default async function ParentPortalAdminPage() {
                   </details>
                   <form action={deleteDeadlineAction}>
                     <input type="hidden" name="id" value={d.id} />
-                    <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                    <button type="submit" className="btn btn-danger btn-small">
                       Delete
                     </button>
                   </form>
@@ -183,7 +183,7 @@ export default async function ParentPortalAdminPage() {
       </div>
 
       <div className="info-card">
-        <h3 style={{ marginTop: 0 }}>Volunteer Needs</h3>
+        <h3>Volunteer Needs</h3>
         <form action={createVolunteerNeedAction} style={{ marginBottom: 20 }}>
           <div className="form-field">
             <label htmlFor="vn-title">Title</label>
@@ -213,7 +213,7 @@ export default async function ParentPortalAdminPage() {
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
                   <details className="edit-popover">
-                    <summary className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)", display: "inline-block", cursor: "pointer" }}>
+                    <summary className="btn btn-quiet btn-small" style={{ display: "inline-block", cursor: "pointer" }}>
                       Edit
                     </summary>
                     <form action={updateVolunteerNeedAction}>
@@ -232,13 +232,13 @@ export default async function ParentPortalAdminPage() {
                   <form action={toggleVolunteerNeedAction}>
                     <input type="hidden" name="id" value={v.id} />
                     <input type="hidden" name="active" value={String(v.active)} />
-                    <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+                    <button type="submit" className="btn btn-quiet btn-small">
                       Mark {v.active ? "Filled" : "Open"}
                     </button>
                   </form>
                   <form action={deleteVolunteerNeedAction}>
                     <input type="hidden" name="id" value={v.id} />
-                    <button type="submit" className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+                    <button type="submit" className="btn btn-danger btn-small">
                       Delete
                     </button>
                   </form>

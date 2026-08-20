@@ -24,7 +24,7 @@ export default async function AdminMeetingAttendancePage({
 
   return (
     <>
-      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+      <div className="page-head">
         <div>
           <div className="eyebrow">
             <Link href="/portal/admin/attendance">← All Meetings</Link>

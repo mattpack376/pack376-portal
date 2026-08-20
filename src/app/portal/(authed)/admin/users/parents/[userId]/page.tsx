@@ -52,7 +52,7 @@ export default async function ManageParentAccountPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Display Name</h3>
+        <h3>Display Name</h3>
         <form action={updateUserDisplayNameAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <input type="hidden" name="userId" value={user.id} />
           <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
@@ -64,7 +64,7 @@ export default async function ManageParentAccountPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Contact Email</h3>
+        <h3>Contact Email</h3>
         <p>This is also their portal login username — changing it here updates contact use only, not how they sign in.</p>
         <form action={updateUserEmailAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <input type="hidden" name="userId" value={user.id} />
@@ -77,7 +77,7 @@ export default async function ManageParentAccountPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Phone Number</h3>
+        <h3>Phone Number</h3>
         <p>Kept in sync with this contact&apos;s phone on Roster → Parents for every scout attached below.</p>
         <form action={updateUserPhoneAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <input type="hidden" name="userId" value={user.id} />
@@ -90,7 +90,7 @@ export default async function ManageParentAccountPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Kids Attached</h3>
+        <h3>Kids Attached</h3>
         <p>
           Scouts this login can see on the Parent Dashboard. Unlinking keeps the roster contact info on the scout —
           it only revokes this account&apos;s portal access to that scout.
@@ -144,7 +144,7 @@ export default async function ManageParentAccountPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Household</h3>
+        <h3>Household</h3>
         {user.household ? (
           <p style={{ marginBottom: 0 }}>
             In <Link href={`/portal/admin/users/households/${user.household.id}`}>{user.household.name || "an unnamed household"}</Link>.

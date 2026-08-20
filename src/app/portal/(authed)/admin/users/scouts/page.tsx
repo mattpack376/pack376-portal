@@ -63,8 +63,7 @@ export default async function AdminScoutsPage() {
                   <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                   <td className="actions">
                     <Link
-                      className="btn btn-outline btn-small"
-                      style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+                      className="btn btn-quiet btn-small"
                       href={`/portal/admin/users/scouts/${scout.id}`}
                     >
                       Manage

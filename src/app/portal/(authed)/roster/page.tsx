@@ -71,7 +71,7 @@ export default async function RosterPage() {
               .map((den) => (
                 <div className="info-card" key={den.id}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                    <h3 style={{ marginTop: 0, fontSize: 18 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
+                    <h3 style={{ fontSize: 18 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
                     <span className="badge-pill badge-den badge-count" style={{ whiteSpace: "nowrap" }}>
                       {den.scouts.length} scout{den.scouts.length === 1 ? "" : "s"}
                     </span>

@@ -14,7 +14,7 @@ export function CopyConsentLinkButton({ url }: { url: string }) {
   }
 
   return (
-    <button type="button" onClick={copyLink} className="btn btn-outline btn-small" style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}>
+    <button type="button" onClick={copyLink} className="btn btn-quiet btn-small">
       {copied ? "Copied!" : "Copy Link"}
     </button>
   );
@@ -38,7 +38,7 @@ export function RegenerateConsentLinkButton({ scoutId, scoutName }: { scoutId: s
   }
 
   return (
-    <button type="button" onClick={handleClick} disabled={isPending} className="btn btn-outline btn-small" style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}>
+    <button type="button" onClick={handleClick} disabled={isPending} className="btn btn-danger btn-small">
       {isPending ? "Regenerating…" : "Regenerate Link"}
     </button>
   );

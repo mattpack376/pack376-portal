@@ -26,8 +26,7 @@ export default function InviteParentPortalButton({ parentId, hasEmail }: { paren
     <div>
       <button
         type="button"
-        className="btn btn-outline btn-small"
-        style={{ borderColor: "var(--scout-gold-dark)", color: "var(--scout-gold-dark)" }}
+        className="btn btn-quiet btn-small" style={{ borderColor: "var(--scout-gold-dark)", color: "var(--scout-gold-dark)" }}
         onClick={handleClick}
         disabled={isPending || !hasEmail}
         title={hasEmail ? undefined : "Add an email to invite this parent"}
@@ -37,7 +36,7 @@ export default function InviteParentPortalButton({ parentId, hasEmail }: { paren
       {error && <p className="form-error" style={{ marginTop: 8 }}>{error}</p>}
       {result?.linkedExisting && (
         <div className="info-card" style={{ borderLeft: "6px solid var(--teal)", marginTop: 8 }}>
-          <p style={{ marginBottom: 0, fontWeight: 700, color: "var(--scout-blue-dark)" }}>
+          <p style={{ fontWeight: 700, color: "var(--scout-blue-dark)" }}>
             Linked to an existing Parent Portal account for that email.
           </p>
         </div>

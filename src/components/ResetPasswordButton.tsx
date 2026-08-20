@@ -27,8 +27,7 @@ export default function ResetPasswordButton({ userId }: { userId: string }) {
     <div>
       <button
         type="button"
-        className="btn btn-outline btn-small"
-        style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
+        className="btn btn-quiet btn-small"
         onClick={handleClick}
         disabled={isPending}
       >

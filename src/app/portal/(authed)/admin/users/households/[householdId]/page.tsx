@@ -62,7 +62,7 @@ export default async function ManageHouseholdPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
-        <h3 style={{ marginTop: 0 }}>Name</h3>
+        <h3>Name</h3>
         <form action={renameHouseholdAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <input type="hidden" name="householdId" value={household.id} />
           <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
@@ -74,7 +74,7 @@ export default async function ManageHouseholdPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Scouts</h3>
+        <h3>Scouts</h3>
         {household.scouts.length === 0 ? (
           <p style={{ marginBottom: 12 }}>No scouts in this household yet.</p>
         ) : (
@@ -101,8 +101,7 @@ export default async function ManageHouseholdPage({
                 <input type="hidden" name="householdId" value={household.id} />
                 <button
                   type="submit"
-                  className="btn btn-outline btn-small"
-                  style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                  className="btn btn-danger btn-small"
                 >
                   Remove
                 </button>
@@ -134,7 +133,7 @@ export default async function ManageHouseholdPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Logins</h3>
+        <h3>Logins</h3>
         <p>Any portal account — parent or staff who&apos;s also this family&apos;s parent/guardian.</p>
         {household.users.length === 0 ? (
           <p style={{ marginBottom: 12 }}>No logins in this household yet.</p>
@@ -163,8 +162,7 @@ export default async function ManageHouseholdPage({
                 <input type="hidden" name="householdId" value={household.id} />
                 <button
                   type="submit"
-                  className="btn btn-outline btn-small"
-                  style={{ borderColor: "var(--carnival-red)", color: "var(--carnival-red)" }}
+                  className="btn btn-danger btn-small"
                 >
                   Remove
                 </button>
