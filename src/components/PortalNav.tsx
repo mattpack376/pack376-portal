@@ -27,20 +27,24 @@ export default function PortalNav({ role, onNavigate }: { role: Role; onNavigate
       /*
        * Only ADMIN is grouped. Every other role has four links or fewer,
        * where a flat row is easier to scan than a menu you have to open.
-       * The groups follow what the pages do rather than where they sit in
-       * the routes: "Money" is exactly the set that tracks what families
-       * owe (the three importers of lib/paymentStatus), and Roster,
-       * Family View, and Users are all views of who is in the pack.
+       *
+       * Grouping follows what the pages do rather than where they sit in the
+       * routes — Dues and Events both track what families owe, Roster and
+       * Users are both views of who is in the pack. The exceptions are the
+       * two reached often enough that a menu would just be in the way:
+       * Family View and Camp Conron stay top level even though they'd
+       * otherwise sit under People and Money.
        */
       case "ADMIN":
         return [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
+          { href: "/portal/roster/family-view", label: "Family View" },
+          { href: "/portal/admin/camp-conron", label: "Camp Conron Trip" },
           {
             label: "People",
             children: [
               { href: "/portal/roster", label: "Roster" },
-              { href: "/portal/roster/family-view", label: "Family View" },
               { href: "/portal/admin/users", label: "Users" },
             ],
           },
@@ -49,7 +53,6 @@ export default function PortalNav({ role, onNavigate }: { role: Role; onNavigate
             children: [
               { href: "/portal/admin/dues", label: "Dues" },
               { href: "/portal/admin/events", label: "Events" },
-              { href: "/portal/admin/camp-conron", label: "Camp Conron Trip" },
             ],
           },
           {
