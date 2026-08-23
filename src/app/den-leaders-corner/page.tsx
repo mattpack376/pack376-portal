@@ -119,9 +119,8 @@ export default function DenLeadersCornerPage() {
                 <div className="corner-photo corner-photo-patch">
                   <Image src="/patches/den-leader.jpg" alt="Cub Scout Den Leader patch" width={88} height={88} />
                 </div>
-                <h3>Jeanne Drago</h3>
+                <h3>TBD</h3>
                 <div className="corner-role">Tiger Den Leader</div>
-                <p className="corner-bio">Jeanne leads our Tigers, guiding scouts through their first hands-on adventures.</p>
               </div>
             </div>
 
