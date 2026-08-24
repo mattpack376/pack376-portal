@@ -176,7 +176,7 @@ export default async function HomePage() {
         <div className="fact-bar">
           <span>📍 Veltri Hall, Our Lady of Grace — 430 Avenue W, Gravesend, Brooklyn</span>
           <span className="dot">•</span>
-          <span>🗓️ Weekly Meetings — Fridays, 7:00–9:30 PM</span>
+          <span>🗓️ Weekly Meetings — Fridays, 7:15–9:30 PM</span>
           <span className="dot">•</span>
           <span>👦👧 All Families Welcome — Boys &amp; Girls</span>
         </div>
