@@ -83,6 +83,13 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
       {
+        source: "/:path*",
+        has: [{ type: "host", value: "register.pack376nyc.org" }],
+        destination:
+          "https://docs.google.com/forms/d/e/1FAIpQLSdAwkU9i7Sp7QY33BWRezh4d29tfMfEf4YTZG8xLWoh-8PxZA/viewform",
+        permanent: false,
+      },
+      {
         source: "/leader-resources",
         destination: "/den-leaders-corner",
         permanent: true,
