@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { ELECTIVES_REQUIRED } from "@/lib/rankConfig";
+import { toDateOnlyString } from "@/lib/dateOnly";
 import type { AdventureType, Rank } from "@/generated/prisma/enums";
 
 export type ChecklistAdventure = {
@@ -10,7 +11,9 @@ export type ChecklistAdventure = {
   sortOrder: number;
   note: string | null;
   completed: boolean;
-  completedDate: Date | null;
+  /** YYYY-MM-DD, or null when never recorded — see @/lib/dateOnly. */
+  completedDate: string | null;
+  awardedDate: string | null;
   updatedAt: Date | null;
   updatedByUsername: string | null;
 };
@@ -34,6 +37,7 @@ type ScoutWithRecords = {
     adventureId: string;
     completed: boolean;
     completedDate: Date | null;
+    awardedDate: Date | null;
     updatedAt: Date;
     updatedByUser: { username: string } | null;
   }[];
@@ -58,7 +62,8 @@ function toChecklistScout(scout: ScoutWithRecords, adventures: AdventureRow[]): 
       sortOrder: adv.sortOrder,
       note: adv.note,
       completed: rec?.completed ?? false,
-      completedDate: rec?.completedDate ?? null,
+      completedDate: toDateOnlyString(rec?.completedDate),
+      awardedDate: toDateOnlyString(rec?.awardedDate),
       updatedAt: rec?.updatedAt ?? null,
       updatedByUsername: rec?.updatedByUser?.username ?? null,
     };

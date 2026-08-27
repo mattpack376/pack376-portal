@@ -225,7 +225,11 @@ model AdvancementRecord {
   adventureId     String
   adventure       Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
   completed       Boolean   @default(false)
-  completedDate   DateTime?
+  // Both are dates a leader types in, not audit stamps (updatedAt covers
+  // that). awardedDate stays null until the badge is actually handed out at a
+  // pack meeting, which is usually weeks after the adventure is finished.
+  completedDate   DateTime? @db.Date
+  awardedDate     DateTime? @db.Date
   updatedAt       DateTime  @updatedAt
   updatedByUserId String?
   updatedByUser   User?     @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
