@@ -65,8 +65,13 @@ export default function AdventureCheckbox({
             {awardedDate ? `Awarded ${formatDateOnly(awardedDate)}` : "Not yet awarded"}
           </span>
           {editable && (
+            /*
+             * Always "Edit dates", never "Add award date": both dates are
+             * editable here, and an award-only label hid the fact that a
+             * completion date typed in wrong could be corrected at all.
+             */
             <button type="button" className="btn-link" disabled={disabled} onClick={onEditDates}>
-              {awardedDate ? "Edit dates" : "Add award date"}
+              Edit dates
             </button>
           )}
         </div>

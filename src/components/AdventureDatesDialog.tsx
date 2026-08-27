@@ -88,8 +88,8 @@ export default function AdventureDatesDialog({
             }}
           />
           <p className="form-note">
-            Leave blank if the badge hasn&apos;t been presented yet — you can come back and add it
-            with the &ldquo;Add award date&rdquo; link under this adventure.
+            Leave blank if the badge hasn&apos;t been presented yet. Both dates stay editable —
+            the &ldquo;Edit dates&rdquo; link under this adventure reopens this box any time.
           </p>
         </div>
 
