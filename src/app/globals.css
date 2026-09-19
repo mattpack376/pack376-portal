@@ -821,6 +821,13 @@ section { padding: 64px 0; }
   grid-template-columns: 1fr 1fr;
   gap: 28px;
 }
+/*
+ * A .two-col cell holding a whole section — its own .section-head plus a card
+ * list — rather than a single card. The nested .resource-grid drops to one
+ * card per row, since two of them inside a half-width column leaves each card
+ * too narrow to read. Collapses with .two-col itself at 900px.
+ */
+.two-col-section .resource-grid { grid-template-columns: 1fr; }
 .resource-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

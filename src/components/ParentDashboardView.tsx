@@ -178,62 +178,69 @@ export default async function ParentDashboardView({
         </div>
       )}
 
-      <div className="section-head">
-        <div className="eyebrow">Lend a Hand</div>
-        <h2>Volunteer Needs</h2>
-      </div>
-      {volunteerNeeds.length === 0 ? (
-        <div className="info-card" style={{ marginBottom: 32 }}>
-          <p style={{ marginBottom: 12 }}>No open volunteer needs posted right now.</p>
-          <a
-            className="btn btn-quiet"
-            href={`${getPublicBaseUrl()}/volunteer`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            See Volunteer Roles
-          </a>
-        </div>
-      ) : (
-        <div className="resource-grid" style={{ marginBottom: 32 }}>
-          {volunteerNeeds.map((need) => (
-            <div className="resource-card" key={need.id}>
-              <div className="icon-badge">🙋</div>
-              <div>
-                <h3>{need.title}</h3>
-                {need.description && <p>{need.description}</p>}
-                <a href={`${getPublicBaseUrl()}/volunteer`} target="_blank" rel="noopener noreferrer" className="link">Volunteer With Us →</a>
-              </div>
+      {/* Two short lists that read as a pair — side by side on desktop, stacked below 900px. */}
+      <div className="two-col" style={{ marginBottom: 32 }}>
+        <div className="two-col-section">
+          <div className="section-head">
+            <div className="eyebrow">Lend a Hand</div>
+            <h2>Volunteer Needs</h2>
+          </div>
+          {volunteerNeeds.length === 0 ? (
+            <div className="info-card">
+              <p style={{ marginBottom: 12 }}>No open volunteer needs posted right now.</p>
+              <a
+                className="btn btn-quiet"
+                href={`${getPublicBaseUrl()}/volunteer`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                See Volunteer Roles
+              </a>
             </div>
-          ))}
+          ) : (
+            <div className="resource-grid">
+              {volunteerNeeds.map((need) => (
+                <div className="resource-card" key={need.id}>
+                  <div className="icon-badge">🙋</div>
+                  <div>
+                    <h3>{need.title}</h3>
+                    {need.description && <p>{need.description}</p>}
+                    <a href={`${getPublicBaseUrl()}/volunteer`} target="_blank" rel="noopener noreferrer" className="link">Volunteer With Us →</a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
 
-      <div className="section-head">
-        <div className="eyebrow">Mark Your Calendar</div>
-        <h2>Upcoming Deadlines</h2>
-      </div>
-      {deadlines.length === 0 ? (
-        <div className="info-card" style={{ marginBottom: 32 }}>
-          <p>Nothing on the calendar right now — check Parent Resources for the full pack calendar.</p>
-        </div>
-      ) : (
-        <div className="resource-grid" style={{ marginBottom: 32 }}>
-          {deadlines.map((d) => (
-            <div className="resource-card" key={d.id}>
-              <div className="icon-badge">{DEADLINE_CATEGORY_ICONS[d.category]}</div>
-              <div>
-                <p className="form-note" style={{ marginBottom: 4 }}>{DEADLINE_CATEGORY_LABELS[d.category].toUpperCase()}</p>
-                <h3>{d.title}</h3>
-                <p style={{ marginBottom: d.description ? 6 : 0, fontWeight: 700, color: "var(--carnival-red)" }}>
-                  Due {formatDueDate(d.dueDate)}
-                </p>
-                {d.description && <p style={{ marginBottom: 0 }}>{d.description}</p>}
-              </div>
+        <div className="two-col-section">
+          <div className="section-head">
+            <div className="eyebrow">Mark Your Calendar</div>
+            <h2>Upcoming Deadlines</h2>
+          </div>
+          {deadlines.length === 0 ? (
+            <div className="info-card">
+              <p>Nothing on the calendar right now — check Parent Resources for the full pack calendar.</p>
             </div>
-          ))}
+          ) : (
+            <div className="resource-grid">
+              {deadlines.map((d) => (
+                <div className="resource-card" key={d.id}>
+                  <div className="icon-badge">{DEADLINE_CATEGORY_ICONS[d.category]}</div>
+                  <div>
+                    <p className="form-note" style={{ marginBottom: 4 }}>{DEADLINE_CATEGORY_LABELS[d.category].toUpperCase()}</p>
+                    <h3>{d.title}</h3>
+                    <p style={{ marginBottom: d.description ? 6 : 0, fontWeight: 700, color: "var(--carnival-red)" }}>
+                      Due {formatDueDate(d.dueDate)}
+                    </p>
+                    {d.description && <p style={{ marginBottom: 0 }}>{d.description}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="section-head">
         <div className="eyebrow">Per Scout</div>
