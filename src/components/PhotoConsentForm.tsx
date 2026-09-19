@@ -153,7 +153,7 @@ export default function PhotoConsentForm({
       </div>
 
       {state?.error && <div className="form-error">{state.error}</div>}
-      {state?.saved && <div className="form-success">Saved — thank you. This link has now been used; to change your answer later, use the link on your Parent Dashboard, or ask your den leader for a new one.</div>}
+      {state?.saved && <div className="form-success">Saved — thank you. This link has now been used; if you need to change your answer later, ask your den leader for a new one.</div>}
 
       <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={pending}>
         {pending ? "Saving…" : `Save Photo Consent for ${scoutFirstName}`}

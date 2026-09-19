@@ -278,10 +278,8 @@ export default async function ParentDashboardView({
                     .
                   </p>
                 )}
-                <p style={{ marginBottom: 0 }}>
-                  <Link href={`/consent/${scout.photoConsent.token}`} className="link" style={{ fontWeight: 700 }}>
-                    Change My Answers →
-                  </Link>
+                <p className="form-note" style={{ marginBottom: 0 }}>
+                  To change any of these, ask your den leader to send you a new consent form link.
                 </p>
               </>
             )}
