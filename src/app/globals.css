@@ -828,6 +828,8 @@ section { padding: 64px 0; }
  * too narrow to read. Collapses with .two-col itself at 900px.
  */
 .two-col-section .resource-grid { grid-template-columns: 1fr; }
+/* A .two-col cell that runs the whole row instead of taking one column. */
+.two-col-full { grid-column: 1 / -1; }
 .resource-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

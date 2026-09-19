@@ -119,8 +119,13 @@ export default async function ParentDashboardView({
         </p>
       </div>
 
+      {/*
+        Next Meeting runs the full row on its own — it's the one fact every
+        parent opens this page for — then Announcements and How to Pay share
+        the row below it. All three stack at 900px.
+      */}
       <div className="two-col" style={{ marginBottom: 32 }}>
-        <div className="info-card">
+        <div className="info-card two-col-full">
           <h3>🗓️ Next Meeting</h3>
           {nextMeeting ? (
             <p style={{ fontSize: 18, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{nextMeeting.formatted}</p>
