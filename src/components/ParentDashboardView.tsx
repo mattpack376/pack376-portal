@@ -9,6 +9,8 @@ import ScoutChecklist from "@/components/ScoutChecklist";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
 import EventFlyer from "@/components/EventFlyer";
+import ConsentStatusBadge from "@/components/ConsentStatusBadge";
+import { RELATIONSHIP_LABELS, formatSignedDate } from "@/lib/photoConsentLabels";
 import {
   registerMyScoutsForEventAction,
   registerMyGuestGroupForEventAction,
@@ -257,7 +259,31 @@ export default async function ParentDashboardView({
                 </Link>
               </p>
             ) : (
-              <p><span className="badge-pill badge-consent">Complete</span> Photo consent form on file.</p>
+              <>
+                <p style={{ marginBottom: 8 }}>
+                  <span className="badge-pill badge-consent" style={{ marginRight: 8 }}>Complete</span>
+                  Photo consent form on file — here&apos;s what you told us:
+                </p>
+                <div style={{ marginBottom: 8 }}>
+                  <ConsentStatusBadge label="Instagram/Facebook" status={scout.photoConsent.facebook} />
+                  <ConsentStatusBadge label="Website" status={scout.photoConsent.website} />
+                  <ConsentStatusBadge label="Fliers" status={scout.photoConsent.fliers} />
+                </div>
+                {scout.photoConsent.signedByName && (
+                  <p style={{ marginBottom: 8 }}>
+                    Signed by <strong>{scout.photoConsent.signedByName}</strong>
+                    {scout.photoConsent.signedRelationship &&
+                      ` (${RELATIONSHIP_LABELS[scout.photoConsent.signedRelationship]})`}
+                    {scout.photoConsent.signedDate && ` on ${formatSignedDate(scout.photoConsent.signedDate)}`}
+                    .
+                  </p>
+                )}
+                <p style={{ marginBottom: 0 }}>
+                  <Link href={`/consent/${scout.photoConsent.token}`} className="link" style={{ fontWeight: 700 }}>
+                    Change My Answers →
+                  </Link>
+                </p>
+              </>
             )}
 
             <p className="form-note" style={{ marginTop: 14, marginBottom: 6 }}>ANNUAL DUES</p>

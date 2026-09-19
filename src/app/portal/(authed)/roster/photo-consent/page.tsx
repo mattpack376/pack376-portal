@@ -3,29 +3,12 @@ import { requirePhotoConsentSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
-import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
+import { RELATIONSHIP_LABELS, formatSignedDate } from "@/lib/photoConsentLabels";
+import ConsentStatusBadge from "@/components/ConsentStatusBadge";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import { generatePhotoConsentLinkAction } from "@/lib/actions/photoConsent";
 import { CopyConsentLinkButton, RegenerateConsentLinkButton } from "@/components/PhotoConsentLinkControls";
 import EmailConsentLinkButton from "@/components/EmailConsentLinkButton";
-
-const RELATIONSHIP_LABELS: Record<SignerRelationship, string> = {
-  PARENT: "Parent",
-  GUARDIAN: "Guardian",
-  GRANDPARENT: "Grandparent",
-  AUNT_UNCLE: "Aunt/Uncle",
-  ADULT_SIBLING: "Adult Sibling (18+)",
-};
-
-function StatusBadge({ label, status }: { label: string; status: ConsentStatus }) {
-  const badgeClass = status === "CONSENT" ? "badge-consent" : status === "DECLINE" ? "badge-decline" : "badge-pending";
-  const statusLabel = status === "CONSENT" ? "Consented" : status === "DECLINE" ? "Declined" : "Pending";
-  return (
-    <span className={`badge-pill ${badgeClass}`} style={{ marginRight: 6 }}>
-      {label}: {statusLabel}
-    </span>
-  );
-}
 
 export default async function PhotoConsentPage() {
   const session = await requirePhotoConsentSession();
@@ -105,9 +88,9 @@ export default async function PhotoConsentPage() {
                         ) : (
                           <>
                             <div style={{ marginBottom: 8 }}>
-                              <StatusBadge label="Instagram/Facebook" status={scout.photoConsent.facebook} />
-                              <StatusBadge label="Website" status={scout.photoConsent.website} />
-                              <StatusBadge label="Fliers" status={scout.photoConsent.fliers} />
+                              <ConsentStatusBadge label="Instagram/Facebook" status={scout.photoConsent.facebook} />
+                              <ConsentStatusBadge label="Website" status={scout.photoConsent.website} />
+                              <ConsentStatusBadge label="Fliers" status={scout.photoConsent.fliers} />
                             </div>
                             {scout.photoConsent.signedByName && (
                               <p style={{ fontSize: 14, marginBottom: 8 }}>
@@ -115,12 +98,7 @@ export default async function PhotoConsentPage() {
                                 {scout.photoConsent.signedRelationship &&
                                   ` (${RELATIONSHIP_LABELS[scout.photoConsent.signedRelationship]})`}
                                 {scout.photoConsent.signedDate &&
-                                  ` on ${scout.photoConsent.signedDate.toLocaleDateString("en-US", {
-                                    timeZone: "UTC",
-                                    year: "numeric",
-                                    month: "long",
-                                    day: "numeric",
-                                  })}`}
+                                  ` on ${formatSignedDate(scout.photoConsent.signedDate)}`}
                               </p>
                             )}
                             {canManage && (

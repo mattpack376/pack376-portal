@@ -65,7 +65,21 @@ export async function getParentDashboardData(scoutIds: string[], userId: string)
       lastName: scout.lastName,
       den: scout.den,
       photoConsent: scout.photoConsent
-        ? { needsSignature: !scout.photoConsent.signedAt, token: scout.photoConsent.token }
+        ? {
+            needsSignature: !scout.photoConsent.signedAt,
+            // The live token, same one the leader roster shows. Whether the
+            // form has been signed or not, it's good for exactly one
+            // submission and rotates on submit, so handing it to the parent
+            // whose scout it is lets them revise their answers without a
+            // leader having to issue a fresh link.
+            token: scout.photoConsent.token,
+            facebook: scout.photoConsent.facebook,
+            website: scout.photoConsent.website,
+            fliers: scout.photoConsent.fliers,
+            signedByName: scout.photoConsent.signedByName,
+            signedRelationship: scout.photoConsent.signedRelationship,
+            signedDate: scout.photoConsent.signedDate,
+          }
         : null,
       dues: duesByScout[i],
     })),
