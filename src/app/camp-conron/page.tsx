@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import EnlargeableImage from "@/components/EnlargeableImage";
 import TripRegistrationForm from "@/components/TripRegistrationForm";
+import Linkify from "@/components/Linkify";
 import {
   getOrCreateTripPage,
   getTripMeals,
@@ -192,7 +193,12 @@ export default async function CampConronPage() {
                         <li key={activity.id}>
                           {activity.time && <strong>{activity.time} — </strong>}
                           {activity.title}
-                          {activity.description && ` — ${activity.description}`}
+                          {activity.description && (
+                            <>
+                              {" — "}
+                              <Linkify text={activity.description} />
+                            </>
+                          )}
                         </li>
                       ))}
                     </ul>

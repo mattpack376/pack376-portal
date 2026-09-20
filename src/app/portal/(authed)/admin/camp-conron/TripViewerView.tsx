@@ -1,6 +1,7 @@
 import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
+import Linkify from "@/components/Linkify";
 import { paymentStatus } from "@/lib/paymentStatus";
 import {
   DAY_LABELS,
@@ -266,7 +267,12 @@ export default function TripViewerView({
                   <li key={activity.id}>
                     {activity.time && <strong>{activity.time} — </strong>}
                     {activity.title}
-                    {activity.description && ` — ${activity.description}`}
+                    {activity.description && (
+                      <>
+                        {" — "}
+                        <Linkify text={activity.description} />
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -915,6 +915,16 @@ section { padding: 64px 0; }
   position: sticky;
   top: 146px;
 }
+/* Links found inside admin-entered copy (see components/Linkify.tsx). The
+   base `a` rule inherits its color and drops the underline, which would
+   leave these indistinguishable from the text around them. */
+.text-link {
+  color: var(--scout-blue);
+  font-weight: 700;
+  text-decoration: underline;
+}
+.text-link:hover { color: var(--carnival-red); }
+
 .contact-method {
   display: flex;
   gap: 14px;
