@@ -29,14 +29,24 @@ export default function EnlargeableImage({
         type="button"
         onClick={() => dialogRef.current?.showModal()}
         aria-label={`Enlarge: ${alt}`}
-        style={{ position: "relative", display: "inline-block", padding: 0, border: "none", background: "none", cursor: "zoom-in", lineHeight: 0 }}
+        // maxWidth keeps the thumbnail (and the zoom badge pinned to its corner) inside a
+        // narrow column instead of pushing its whole grid track past a phone's viewport.
+        style={{ position: "relative", display: "inline-block", maxWidth: "100%", padding: 0, border: "none", background: "none", cursor: "zoom-in", lineHeight: 0 }}
       >
         <Image
           src={src}
           alt={alt}
           width={width}
           height={height}
-          style={{ borderRadius: 8, border: "1px solid var(--cream-dark)", display: "block", ...(fit ? { objectFit: fit, width, height } : {}) }}
+          // height:auto + aspectRatio let the box scale down proportionally once maxWidth
+          // (100%, from globals.css) shrinks it, rather than staying at its full pixel height.
+          style={{
+            borderRadius: 8,
+            border: "1px solid var(--cream-dark)",
+            display: "block",
+            height: "auto",
+            ...(fit ? { objectFit: fit, width, aspectRatio: `${width} / ${height}` } : {}),
+          }}
         />
         <span
           style={{

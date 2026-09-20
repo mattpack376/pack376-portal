@@ -38,6 +38,13 @@ h1, h2, h3, h4 {
 }
 p { line-height: 1.65; margin: 0 0 1em; color: var(--ink-soft); }
 ul { line-height: 1.65; color: var(--ink-soft); }
+/* Admin-entered copy can hold a pasted URL or other unbreakable string. Left
+   alone it sets the element's min-content width, which a grid/flex track is
+   sized from, so one long link stretches an entire column past a phone's
+   viewport and the page ends up scrolled off-center. "anywhere" rather than
+   "break-word" is deliberate: only "anywhere" shrinks that intrinsic width
+   too. Table cells are left out — .table-scroll scrolls them instead. */
+p, li, dt, dd, h1, h2, h3, h4 { overflow-wrap: anywhere; }
 .container {
   max-width: 1120px;
   margin: 0 auto;
@@ -895,6 +902,9 @@ section { padding: 64px 0; }
   gap: 32px;
   align-items: start;
 }
+/* Grid items default to min-width:auto, so anything that refuses to shrink
+   (a fixed-width image, an unbreakable string) widens the whole track. */
+.contact-grid > * { min-width: 0; }
 /* Keeps a form column pinned in view while its sibling column (longer,
    reference-style content) scrolls — e.g. the Camp Conron registration
    form staying visible instead of sitting alone under a lot of empty
