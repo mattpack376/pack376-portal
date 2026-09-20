@@ -86,12 +86,44 @@ export async function getTripDutySlots(tripPageId: string) {
   });
 }
 
-/** All schedule entries for the trip, sorted chronologically (day, then sortOrder, then creation order) rather than trusting DB-level enum ordering. */
+/**
+ * TripActivity.time is free text an admin types ("4:00 PM", "9am", "17:30",
+ * "9:00 AM - 11:00 AM", "Noon"), so turn it into minutes since midnight to
+ * sort a day's activities morning → evening. A range sorts by its start time.
+ * Returns null when there's nothing time-like to read ("TBD", "After dinner"),
+ * and an hour with no AM/PM is read literally (so "7:00" is 7am, not dinner).
+ */
+export function activityTimeMinutes(time: string | null): number | null {
+  if (!time) return null;
+  const text = time.toLowerCase();
+
+  const match = text.match(/(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?/);
+  if (!match) {
+    if (text.includes("midnight")) return 0;
+    if (text.includes("noon")) return 12 * 60;
+    return null;
+  }
+
+  let hour = Number(match[1]);
+  const minute = match[2] ? Number(match[2]) : 0;
+  if (hour > 23 || minute > 59) return null;
+
+  const meridiem = match[3]?.[0];
+  if (meridiem === "p" && hour < 12) hour += 12;
+  if (meridiem === "a" && hour === 12) hour = 0;
+
+  return hour * 60 + minute;
+}
+
+/** All schedule entries for the trip, sorted chronologically (day, then time of day, then sortOrder, then creation order) rather than trusting DB-level enum ordering. Entries with no readable time sort after that day's timed ones. */
 export async function getTripActivities(tripPageId: string) {
   const activities = await prisma.tripActivity.findMany({ where: { tripPageId } });
   return activities.sort((a, b) => {
     const dayDiff = TRIP_DAY_ORDER.indexOf(a.day) - TRIP_DAY_ORDER.indexOf(b.day);
     if (dayDiff !== 0) return dayDiff;
+    const aMinutes = activityTimeMinutes(a.time) ?? Number.MAX_SAFE_INTEGER;
+    const bMinutes = activityTimeMinutes(b.time) ?? Number.MAX_SAFE_INTEGER;
+    if (aMinutes !== bMinutes) return aMinutes - bMinutes;
     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
     return a.createdAt.getTime() - b.createdAt.getTime();
   });

@@ -70,9 +70,9 @@ export default async function CampConronPage() {
     dutyByMeal.get(duty.tripMealId)!.push(duty);
   }
 
-  // activities is already sorted chronologically (day, then sortOrder, then
-  // creation order) by getTripActivities, so grouping same-day runs
-  // sequentially is enough — no re-sort needed here.
+  // activities is already sorted chronologically (day, then time of day, then
+  // sortOrder, then creation order) by getTripActivities, so grouping same-day
+  // runs sequentially is enough — no re-sort needed here.
   const activityGroups: { day: (typeof activities)[number]["day"]; items: typeof activities }[] = [];
   for (const activity of activities) {
     const lastGroup = activityGroups[activityGroups.length - 1];
