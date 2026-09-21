@@ -192,7 +192,7 @@ export default function TripViewerView({
                   <td>
                     {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
                   </td>
-                  <td>{meal.menuText || "Menu TBD"}</td>
+                  <td>{meal.menuText ? <Linkify text={meal.menuText} /> : "Menu TBD"}</td>
                 </tr>
               ))}
             </tbody>
@@ -222,8 +222,13 @@ export default function TripViewerView({
                   <ul style={{ margin: 0, paddingLeft: 20 }}>
                     {duties.map((d) => (
                       <li key={d.id}>
-                        {d.label}
-                        {d.assignedName && ` — ${d.assignedName}`}
+                        <Linkify text={d.label} />
+                        {d.assignedName && (
+                          <>
+                            {" — "}
+                            <Linkify text={d.assignedName} />
+                          </>
+                        )}
                         {d.arriveTime && ` (${d.arriveTime})`}
                       </li>
                     ))}
@@ -237,8 +242,13 @@ export default function TripViewerView({
                 <ul style={{ margin: 0, paddingLeft: 20 }}>
                   {generalDuties.map((d) => (
                     <li key={d.id}>
-                      {d.label}
-                      {d.assignedName && ` — ${d.assignedName}`}
+                      <Linkify text={d.label} />
+                      {d.assignedName && (
+                        <>
+                          {" — "}
+                          <Linkify text={d.assignedName} />
+                        </>
+                      )}
                       {d.arriveTime && ` (${d.arriveTime})`}
                     </li>
                   ))}

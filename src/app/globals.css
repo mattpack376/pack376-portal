@@ -922,6 +922,10 @@ section { padding: 64px 0; }
   color: var(--scout-blue);
   font-weight: 700;
   text-decoration: underline;
+  /* A pasted URL is one long unbreakable token. Table cells are otherwise
+     left to size themselves (see the wrapping rule up top), so without this
+     a link in a menu cell widens the whole table into a sideways scroll. */
+  overflow-wrap: anywhere;
 }
 .text-link:hover { color: var(--carnival-red); }
 
