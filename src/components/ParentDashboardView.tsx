@@ -17,7 +17,7 @@ import {
   removeMyGuestGroupAction,
 } from "@/lib/actions/events";
 import type { Rank } from "@/generated/prisma/enums";
-import { paymentStatus } from "@/lib/paymentStatus";
+import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 
 /**
  * The Parent Dashboard, rendered for an explicit set of scouts rather than
@@ -448,7 +448,7 @@ export default async function ParentDashboardView({
                         {regs.map((reg) => {
                           const status = paymentStatus(reg.remainingCents, reg.paidCents);
                           return (
-                            <tr key={reg.id}>
+                            <tr key={reg.id} className={paymentRowClass(reg.remainingCents, reg.paidCents)}>
                               <td>{reg.scoutFirstName}</td>
                               <td>{formatCents(reg.paidCents)}</td>
                               <td>{formatCents(reg.remainingCents)}</td>
@@ -481,7 +481,7 @@ export default async function ParentDashboardView({
                         {guestGroups.map((group) => {
                           const status = paymentStatus(group.remainingCents, group.paidCents);
                           return (
-                            <tr key={group.id}>
+                            <tr key={group.id} className={paymentRowClass(group.remainingCents, group.paidCents)}>
                               <td>{group.familyName}</td>
                               <td>{group.adultCount}</td>
                               <td>{group.childCount}</td>

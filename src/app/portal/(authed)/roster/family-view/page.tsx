@@ -15,7 +15,7 @@ import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
 import { sortGuestGroups } from "@/lib/guestSort";
 import { registerMyGuestGroupForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
 import EventFlyer from "@/components/EventFlyer";
-import { paymentStatus } from "@/lib/paymentStatus";
+import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import ParentPreviewPicker from "@/components/ParentPreviewPicker";
 import ParentDashboardView from "@/components/ParentDashboardView";
 
@@ -363,7 +363,7 @@ export default async function FamilyViewPage({
                       {regs.map((reg) => {
                         const status = paymentStatus(reg.remainingCents, reg.paidCents);
                         return (
-                          <tr key={reg.id}>
+                          <tr key={reg.id} className={paymentRowClass(reg.remainingCents, reg.paidCents)}>
                             <td>{reg.scoutFirstName}</td>
                             <td>{formatCents(reg.paidCents)}</td>
                             <td>{formatCents(reg.remainingCents)}</td>
@@ -408,7 +408,7 @@ export default async function FamilyViewPage({
                       {guestGroups.map((group) => {
                         const status = paymentStatus(group.remainingCents, group.paidCents);
                         return (
-                          <tr key={group.id}>
+                          <tr key={group.id} className={paymentRowClass(group.remainingCents, group.paidCents)}>
                             <td>{group.familyName}</td>
                             <td>{group.guestOfLabel ?? "—"}</td>
                             <td>{group.adultCount}</td>
