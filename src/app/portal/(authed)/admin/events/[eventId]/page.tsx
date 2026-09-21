@@ -21,7 +21,7 @@ import GuestOfSelect from "@/components/GuestOfSelect";
 import GuestGroupCountFields from "@/components/GuestGroupCountFields";
 import SortableColumnHeader from "@/components/SortableColumnHeader";
 import { sortGuestGroups } from "@/lib/guestSort";
-import { paymentStatus } from "@/lib/paymentStatus";
+import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 
 function toDateInputValue(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -233,7 +233,7 @@ export default async function AdminEventDetailPage({
                   {regs.map((reg) => {
                     const status = paymentStatus(reg.remainingCents, reg.paidCents);
                     return (
-                      <tr key={reg.id}>
+                      <tr key={reg.id} className={paymentRowClass(reg.remainingCents, reg.paidCents)}>
                         <td>{reg.scout.firstName} {reg.scout.lastName}</td>
                         <td>{formatCents(reg.paidCents)}</td>
                         <td>{formatCents(reg.remainingCents)}</td>

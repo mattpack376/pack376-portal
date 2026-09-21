@@ -2,7 +2,7 @@ import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import Linkify from "@/components/Linkify";
-import { paymentStatus } from "@/lib/paymentStatus";
+import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import {
   DAY_LABELS,
   MEAL_TYPE_LABELS,
@@ -321,7 +321,7 @@ export default function TripViewerView({
               <CollapsibleGroup
                 key={reg.id}
                 defaultOpen={false}
-                labelClassName={reg.remainingCents > 0 ? "status-owing" : "status-paid"}
+                labelClassName={paymentRowClass(reg.remainingCents, reg.paidCents)}
                 label={`${reg.familyName} · Guest of ${reg.guestOfName} · ${reg.payingCount} paying${
                   reg.freeCount ? `, ${reg.freeCount} free` : ""
                 } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}

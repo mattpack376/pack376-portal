@@ -35,7 +35,7 @@ import {
 } from "@/lib/actions/tripRegistration";
 import TripRegistrationCountFields from "@/components/TripRegistrationCountFields";
 import TripViewerView from "./TripViewerView";
-import { paymentStatus } from "@/lib/paymentStatus";
+import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import SegmentedNav from "@/components/SegmentedNav";
 
 function toDateInputValue(date: Date | null) {
@@ -571,7 +571,7 @@ export default async function AdminCampConronPage({
               <CollapsibleGroup
                 key={reg.id}
                 defaultOpen={false}
-                labelClassName={reg.remainingCents > 0 ? "status-owing" : "status-paid"}
+                labelClassName={paymentRowClass(reg.remainingCents, reg.paidCents)}
                 label={`${reg.familyName} — ${reg.affiliation === "PACK" ? "Pack 376" : "Troop 376"} · Guest of ${reg.guestOfName} · ${reg.payingCount} paying${
                   reg.freeCount ? `, ${reg.freeCount} free` : ""
                 } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}

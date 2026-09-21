@@ -4,7 +4,7 @@ import { getAllGuestGroups } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { formatDueDate } from "@/lib/deadlineCategories";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
-import { paymentStatus } from "@/lib/paymentStatus";
+import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import SegmentedNav from "@/components/SegmentedNav";
 
 type Group = Awaited<ReturnType<typeof getAllGuestGroups>>[number];
@@ -111,6 +111,7 @@ function GuestOfGrouping({ groups }: { groups: Group[] }) {
         return (
           <CollapsibleGroup
             key={section.label}
+            labelClassName={paymentRowClass(totals.remaining, totals.paid)}
             label={`${section.label} — ${totals.adults} adult${totals.adults === 1 ? "" : "s"}, ${totals.kids} kid${totals.kids === 1 ? "" : "s"} · ${formatCents(totals.paid)} paid of ${formatCents(totals.owed)}`}
           >
             {families.map((rows) => (
@@ -139,6 +140,7 @@ function FamilyGrouping({ groups }: { groups: Group[] }) {
         return (
           <CollapsibleGroup
             key={rows[0].familyName + rows[0].id}
+            labelClassName={paymentRowClass(totals.remaining, totals.paid)}
             label={`${rows[0].familyName} — ${totals.adults} adult${totals.adults === 1 ? "" : "s"}, ${totals.kids} kid${totals.kids === 1 ? "" : "s"} · ${formatCents(totals.paid)} paid of ${formatCents(totals.owed)}`}
           >
             <div className="table-scroll">
@@ -159,7 +161,7 @@ function FamilyGrouping({ groups }: { groups: Group[] }) {
                 {rows.map((g) => {
                   const status = paymentStatus(g.remainingCents, g.paidCents);
                   return (
-                    <tr key={g.id}>
+                    <tr key={g.id} className={paymentRowClass(g.remainingCents, g.paidCents)}>
                       <td>{g.event.title} ({formatDueDate(g.event.eventDate)})</td>
                       <td>{g.guestOfLabel ?? "—"}</td>
                       <td>{g.adultCount}</td>
@@ -209,7 +211,7 @@ function FamilySubTable({ rows }: { rows: Group[] }) {
           {rows.map((g) => {
             const status = paymentStatus(g.remainingCents, g.paidCents);
             return (
-              <tr key={g.id}>
+              <tr key={g.id} className={paymentRowClass(g.remainingCents, g.paidCents)}>
                 <td>{g.event.title} ({formatDueDate(g.event.eventDate)})</td>
                 <td>{g.adultCount}</td>
                 <td>{g.childCount}</td>

@@ -1360,6 +1360,11 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
  */
 .den-toggle.status-owing { color: var(--carnival-red-dark); }
 .den-toggle.status-paid { color: var(--money-green); }
+/* Same states on a table row (dues, event rosters, guest groups). The status
+   badge and the row's buttons set their own colors, so this reaches the
+   name/amount cells — exactly the ones worth scanning. */
+.data-table tr.status-owing > td { color: var(--carnival-red-dark); }
+.data-table tr.status-paid > td { color: var(--money-green); }
 
 /*
  * Wraps every .data-table. table-layout:auto tables never shrink below their

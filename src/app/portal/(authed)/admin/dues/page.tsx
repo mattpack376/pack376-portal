@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getDuesScoutingYears, getDuesOverview, formatCents } from "@/lib/duesData";
 import { RANK_INFO } from "@/lib/rankConfig";
 import { setDuesAmountAction } from "@/lib/actions/dues";
-import { paymentStatus } from "@/lib/paymentStatus";
+import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 
 export default async function AdminDuesPage({
   searchParams,
@@ -123,7 +123,7 @@ export default async function AdminDuesPage({
                 {den.scouts.map((scout) => {
                   const status = paymentStatus(scout.remainingCents, scout.paidCents);
                   return (
-                    <tr key={scout.id}>
+                    <tr key={scout.id} className={paymentRowClass(scout.remainingCents, scout.paidCents)}>
                       <td>{scout.firstName} {scout.lastName}</td>
                       <td>
                         {scout.dueCents === null ? "—" : formatCents(scout.dueCents)}

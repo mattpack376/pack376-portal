@@ -23,6 +23,20 @@ export function paymentStatus(remainingCents: number | null, paidCents: number):
   return { label: "Unpaid", cls: "badge-unpaid" };
 }
 
+/**
+ * Row color for a list of people who owe money — red while anything is
+ * outstanding, green once it's settled, and nothing at all when no fee has
+ * been set, since "Fee Not Set" is not the same as owing nothing and
+ * shouldn't read as paid. Applied to a table row or to a collapsed group's
+ * summary line (CollapsibleGroup's labelClassName), so a list scans by color
+ * without reading every amount.
+ */
+export function paymentRowClass(remainingCents: number | null, paidCents: number): string | undefined {
+  const { cls } = paymentStatus(remainingCents, paidCents);
+  if (cls === "badge-pending") return undefined;
+  return cls === "badge-paid" ? "status-paid" : "status-owing";
+}
+
 /** Label alone, for CSV exports and summary lines that have no badge to color. */
 export function paymentStatusLabel(remainingCents: number | null, paidCents: number) {
   return paymentStatus(remainingCents, paidCents).label;
