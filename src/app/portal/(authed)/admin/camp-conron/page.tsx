@@ -571,6 +571,7 @@ export default async function AdminCampConronPage({
               <CollapsibleGroup
                 key={reg.id}
                 defaultOpen={false}
+                labelClassName={reg.remainingCents > 0 ? "status-owing" : "status-paid"}
                 label={`${reg.familyName} — ${reg.affiliation === "PACK" ? "Pack 376" : "Troop 376"} · Guest of ${reg.guestOfName} · ${reg.payingCount} paying${
                   reg.freeCount ? `, ${reg.freeCount} free` : ""
                 } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}

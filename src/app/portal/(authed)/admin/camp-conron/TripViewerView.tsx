@@ -321,6 +321,7 @@ export default function TripViewerView({
               <CollapsibleGroup
                 key={reg.id}
                 defaultOpen={false}
+                labelClassName={reg.remainingCents > 0 ? "status-owing" : "status-paid"}
                 label={`${reg.familyName} · Guest of ${reg.guestOfName} · ${reg.payingCount} paying${
                   reg.freeCount ? `, ${reg.freeCount} free` : ""
                 } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}

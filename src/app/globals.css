@@ -9,6 +9,10 @@
   --carnival-red: #e4002b;
   --carnival-red-dark: #b3001f;
   --teal: #0aa3a3;
+  /* Paid-up green for text. The paid badge's --teal is a fill behind white
+     text; as text on cream it's too light to read at the portal's small
+     bold sizes, so money states get their own darker green. */
+  --money-green: #0f7a43;
   --cream: #fff8ea;
   --cream-dark: #fbecc6;
   --ink: #1a1a2e;
@@ -1346,6 +1350,16 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .badge-paid { background: var(--teal); color: var(--white); }
 .badge-partial { background: var(--scout-gold); color: var(--scout-blue-dark); }
 .badge-unpaid { background: var(--carnival-red); color: var(--white); }
+
+/*
+ * Payment state on a collapsed row's own summary line (CollapsibleGroup's
+ * labelClassName), so a list of families reads as red/green at a glance
+ * without opening any of them. Scoped to .den-toggle to beat its ink-soft
+ * color, and red uses the darker carnival red — the bright one is a fill
+ * color and doesn't carry enough contrast as small text on cream.
+ */
+.den-toggle.status-owing { color: var(--carnival-red-dark); }
+.den-toggle.status-paid { color: var(--money-green); }
 
 /*
  * Wraps every .data-table. table-layout:auto tables never shrink below their
