@@ -332,7 +332,26 @@ export default async function AdminCampConronPage({
                   </div>
                   <div className="form-field">
                     <label htmlFor={`duty-meal-${duty.id}`}>Meal (optional)</label>
-                    <select id={`duty-meal-${duty.id}`} name="tripMealId" defaultValue={duty.tripMealId ?? ""}>
+                    {/*
+                      The key is load-bearing, not decoration. This <select> is
+                      uncontrolled, and saving a duty re-sorts this list (duties
+                      are ordered by their meal), so React moves the row's DOM
+                      node — and the moved <select> kept the option the server
+                      marked selected on first render instead of picking up the
+                      new defaultValue. The box then showed the OLD meal while
+                      the summary above it showed the newly saved one, which
+                      looks like the save was ignored. Worse, the next save from
+                      that row submitted the stale id and genuinely reverted the
+                      meal. Keying on the saved value remounts the select with
+                      fresh options whenever the meal actually changes, and
+                      leaves an unsaved in-progress choice alone.
+                    */}
+                    <select
+                      key={duty.tripMealId ?? "none"}
+                      id={`duty-meal-${duty.id}`}
+                      name="tripMealId"
+                      defaultValue={duty.tripMealId ?? ""}
+                    >
                       <option value="">— General duty, no meal —</option>
                       {meals.map((meal) => (
                         <option key={meal.id} value={meal.id}>
@@ -447,7 +466,16 @@ export default async function AdminCampConronPage({
                   <div className="form-row">
                     <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
                       <label htmlFor={`activity-day-${activity.id}`}>Day</label>
-                      <select id={`activity-day-${activity.id}`} name="day" defaultValue={activity.day}>
+                      {/* Keyed for the same reason as the duty meal select above:
+                          the activity list re-sorts by day, so without this the
+                          moved row's dropdown keeps showing the old day and the
+                          next save from it puts the activity back. */}
+                      <select
+                        key={activity.day}
+                        id={`activity-day-${activity.id}`}
+                        name="day"
+                        defaultValue={activity.day}
+                      >
                         {TRIP_DAY_ORDER.map((day) => (
                           <option key={day} value={day}>
                             {DAY_LABELS[day]}

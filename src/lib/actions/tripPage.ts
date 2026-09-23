@@ -7,7 +7,7 @@ import { getSession } from "@/lib/auth";
 import { assertTripPageAccess } from "@/lib/authorize";
 import { recordAudit, changedFields, auditMoney } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
-import type { TripDay } from "@/generated/prisma/enums";
+import type { TripDay, TripMealType } from "@/generated/prisma/enums";
 
 const ADMIN_PATH = "/portal/admin/camp-conron";
 const PUBLIC_PATH = "/camp-conron";
@@ -352,10 +352,21 @@ export async function updateDutySlotAction(formData: FormData) {
   const notes = String(formData.get("notes") || "").trim();
   if (!id || !label) throw new Error("A label is required.");
 
+  // tripMeal is included because which meal a duty belongs to is the one
+  // thing this form changes that wasn't audited at all — the `before` read
+  // didn't even fetch it. When a duty silently moved back to its old meal
+  // there was no record to check it against, which is exactly the question
+  // the log exists to answer.
   const before = await prisma.tripDutySlot.findUnique({
     where: { id },
-    select: { label: true, assignedName: true, arriveTime: true, notes: true },
+    select: { label: true, assignedName: true, arriveTime: true, notes: true, tripMealId: true, tripMeal: true },
   });
+  const after =
+    tripMealId && tripMealId !== before?.tripMealId
+      ? await prisma.tripMeal.findUnique({ where: { id: tripMealId } })
+      : before?.tripMeal ?? null;
+  const mealLabel = (meal: { day: TripDay; mealType: TripMealType } | null) =>
+    meal ? `${titleCase(meal.day)} ${titleCase(meal.mealType)}` : "General duty (no meal)";
 
   await prisma.tripDutySlot.update({
     where: { id },
@@ -369,6 +380,7 @@ export async function updateDutySlotAction(formData: FormData) {
     entityId: id,
     details: changedFields({
       Duty: [before?.label, label],
+      Meal: [before ? mealLabel(before.tripMeal) : null, mealLabel(after)],
       "Assigned to": [before?.assignedName, assignedName || null],
       "Arrive time": [before?.arriveTime, arriveTime || null],
       Notes: [before?.notes, notes || null],
