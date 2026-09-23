@@ -53,6 +53,11 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[]
   { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "JUNIOR_ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/parent-portal"), roles: ["ADMIN"] },
+  // The audit log is master-admin-only, which this layer can't check — master
+  // admin is a username list (src/lib/masterAdmins.ts) and proxy has no DB
+  // access. ADMIN is the tightest coarse rule available; the real gate is
+  // requireMasterAdminSession() on the page, which bounces everyone else.
+  { test: (p) => p.startsWith("/portal/admin/audit"), roles: ["ADMIN"] },
   // CSV exports (per-event and pack-wide) are an admin-only bookkeeping
   // tool — checked before the DEN-inclusive rules below since "export" would
   // otherwise satisfy their generic segment-count patterns.

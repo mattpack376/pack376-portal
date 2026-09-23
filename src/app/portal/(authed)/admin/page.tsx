@@ -88,8 +88,17 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
+      {/*
+        Both links are master-admin-only, so they live here rather than in the
+        nav: PortalNav is built from the session role alone, and telling a
+        master admin apart needs a username lookup the layout doesn't do on
+        every page. isMasterAdmin is already resolved above for this page.
+      */}
       {isMasterAdmin && (
-        <p style={{ marginTop: 16 }}>
+        <p style={{ marginTop: 16, display: "flex", gap: 20, flexWrap: "wrap" }}>
+          <Link href="/portal/admin/audit" style={{ fontWeight: 700, fontSize: 13 }}>
+            Audit Log: Who Changed What →
+          </Link>
           <Link href="/portal/admin/reset" style={{ color: "var(--carnival-red)", fontWeight: 700, fontSize: 13 }}>
             Danger Zone: Start a Fresh Year →
           </Link>
