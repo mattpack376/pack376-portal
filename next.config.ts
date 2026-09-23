@@ -18,7 +18,22 @@ import type { NextConfig } from "next";
  * (src/lib/actions/albums.ts) rather than hotlinked from an admin-entered URL.
  */
 const isDev = process.env.NODE_ENV === "development";
-const BLOB_HOSTNAME = "*.public.blob.vercel-storage.com";
+/**
+ * The pack's own Vercel Blob store, by exact hostname. This used to be the
+ * wildcard "*.public.blob.vercel-storage.com", which matches every Blob store
+ * on Vercel, not just ours — so an attacker with any free Vercel account could
+ * host a file there and have our own image optimizer fetch and decode it
+ * (see the AVIF image-optimization advisories). The store id below is already
+ * public: it's in the image URLs on the live gallery. It is not a credential.
+ */
+const BLOB_HOSTNAME = "jyclzu7uphezevn7.public.blob.vercel-storage.com";
+/**
+ * The three prefixes anything is ever uploaded under — album covers
+ * (src/lib/actions/albums.ts), event flyers (events.ts) and trip flyers
+ * (tripPage.ts). Nothing else in the store is meant to be rendered through
+ * next/image, so nothing else is allowed through the optimizer.
+ */
+const BLOB_PATHNAMES = ["/album-covers/**", "/event-flyers/**", "/trip-flyers/**"];
 
 const securityHeaders = [
   {
@@ -56,7 +71,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: [{ protocol: "https", hostname: BLOB_HOSTNAME }],
+    remotePatterns: BLOB_PATHNAMES.map((pathname) => ({
+      protocol: "https" as const,
+      hostname: BLOB_HOSTNAME,
+      pathname,
+    })),
   },
   experimental: {
     serverActions: {
@@ -70,6 +89,24 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      /*
+       * Password-reset/invite and photo-consent URLs carry a one-time
+       * capability token in the path, so the URL is the credential. The site
+       * default, strict-origin-when-cross-origin, already trims it to the
+       * bare origin when leaving the site — but these pages don't need to
+       * send a referrer at all, and "not sent" needs no reasoning about which
+       * requests count as cross-origin. Both the canonical path and the
+       * portal subdomain's short alias are listed, matching the paths
+       * FilteredAnalytics drops (src/components/FilteredAnalytics.tsx).
+       */
+      {
+        source: "/:prefix(portal)?/reset/:token*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
+      {
+        source: "/:prefix(portal)?/consent/:token*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
       },
     ];
   },

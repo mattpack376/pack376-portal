@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin, assertAlbumEditAccess } from "@/lib/authorize";
 import { recordAudit, changedFields, auditDate } from "@/lib/audit";
+import { deleteUploadedBlob } from "@/lib/blobCleanup";
 
 export type AlbumActionState = { error?: string };
 
@@ -161,7 +162,9 @@ export async function updateAlbumAction(
 
   const before = await prisma.photoAlbum.findUnique({
     where: { id: albumId },
-    select: { title: true, eventDate: true, description: true, photoAlbumUrl: true },
+    // coverImageUrl so the object the new upload displaces can be deleted
+    // from Blob storage below, instead of being left public forever.
+    select: { title: true, eventDate: true, description: true, photoAlbumUrl: true, coverImageUrl: true },
   });
 
   await prisma.photoAlbum.update({
@@ -174,6 +177,12 @@ export async function updateAlbumAction(
       photoAlbumUrl,
     },
   });
+
+  // After the row is updated, so a cleanup failure can only ever leave a
+  // stray object behind — never a row pointing at an image that's gone.
+  if (coverImageUrl !== undefined && before?.coverImageUrl && before.coverImageUrl !== coverImageUrl) {
+    await deleteUploadedBlob(before.coverImageUrl);
+  }
 
   await recordAudit(session, {
     action: "album.update",
@@ -231,6 +240,11 @@ export async function deleteAlbumAction(formData: FormData) {
 
   const album = await prisma.photoAlbum.delete({ where: { id: albumId } });
 
+  // The gallery entry and the image it pointed at both have to go. Deleting
+  // only the row left the cover public at its original URL, which is the
+  // opposite of what this button is usually pressed for.
+  await deleteUploadedBlob(album.coverImageUrl);
+
   await recordAudit(session, {
     action: "album.delete",
     summary: `Deleted the photo album “${album.title}”`,
@@ -239,6 +253,7 @@ export async function deleteAlbumAction(formData: FormData) {
     details: [
       { label: "Title", from: album.title, to: "—" },
       { label: "Album link", from: album.photoAlbumUrl, to: "—" },
+      ...(album.coverImageUrl ? [{ label: "Cover image", from: "Uploaded", to: "Deleted from storage" }] : []),
     ],
   });
 

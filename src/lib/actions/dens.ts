@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin } from "@/lib/authorize";
+import { assertAdmin, isReservedUsername } from "@/lib/authorize";
 import { hashPassword } from "@/lib/auth";
 import { generatePassword } from "@/lib/passwords";
 import { deleteScoutCascade } from "@/lib/scoutDeletion";
@@ -26,6 +26,11 @@ export type DenActionState = { error?: string; invite?: CreatedInvite };
  * their own password by following the link.
  */
 async function createDenAccount(denId: string, rank: Rank, scoutingYear: string, username: string) {
+  // The master-admin names are reserved everywhere a User row is created, not
+  // just in the Users panel — see the same check in createAdminAction
+  // (actions/users.ts). A den login can't become a master admin by itself,
+  // but squatting one of those names would still block restoring the real one.
+  if (isReservedUsername(username)) throw new Error("That username is reserved.");
   // Returns userId alongside the invite so the caller can audit the account it
   // just made; CreatedInvite itself stays username+url for the UI.
   const user = await prisma.user.create({
@@ -100,6 +105,7 @@ export async function createDenAction(
     if (!username) return { error: "Den created, but a username is required to create its login." };
     const usernameTaken = await prisma.user.findUnique({ where: { username: username.toLowerCase() } });
     if (usernameTaken) return { error: "Den created, but that username is already taken." };
+    if (isReservedUsername(username)) return { error: "Den created, but that username is reserved." };
     const account = await createDenAccount(den.id, rank, scoutingYear, username);
     invite = { username: account.username, url: account.url };
     await recordAudit(session, {
@@ -268,6 +274,7 @@ export async function promoteDenAction(
     if (!username) return { error: "Den promoted, but a username is required to create its login." };
     const usernameTaken = await prisma.user.findUnique({ where: { username: username.toLowerCase() } });
     if (usernameTaken) return { error: "Den promoted, but that username is already taken." };
+    if (isReservedUsername(username)) return { error: "Den promoted, but that username is reserved." };
     const account = await createDenAccount(newDen.id, next, scoutingYear, username);
     invite = { username: account.username, url: account.url };
     await recordAudit(session, {

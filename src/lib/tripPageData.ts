@@ -148,6 +148,21 @@ export async function getTripRegistrations(tripPageId: string) {
  * the "current price" and to freeze a new registration's amountOwedCents;
  * existing registrations keep whatever amount they were charged at signup.
  */
+/**
+ * True once the trip's published RSVP deadline has passed. Dates are stored
+ * as @db.Date, so the deadline means "the end of that day" — the same
+ * end-of-day UTC treatment currentTripPriceCents gives the early-bird
+ * deadline below. Used by both the public page (to stop showing the form)
+ * and registerForTripAction (to stop accepting submissions), so the two can
+ * never disagree about whether registration is open.
+ */
+export function registrationClosed(trip: { rsvpDeadline: Date | null }, now: Date = new Date()): boolean {
+  if (!trip.rsvpDeadline) return false;
+  const endOfDay = new Date(trip.rsvpDeadline);
+  endOfDay.setUTCHours(23, 59, 59, 999);
+  return now > endOfDay;
+}
+
 export function currentTripPriceCents(
   trip: { regularPriceCents: number; earlyBirdPriceCents: number | null; earlyBirdDeadline: Date | null },
   now: Date = new Date(),

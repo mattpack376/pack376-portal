@@ -29,17 +29,27 @@ import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
  * admin previewing a family (a submit would run as the admin, not the family)
  * and for a staff account viewing its own linked child, where the write
  * actions are still PARENT-only.
+ *
+ * `hideConsentToken` additionally withholds the live photo-consent link for
+ * any unsigned form. That link's token is a capability: /consent/<token> is a
+ * public page and submitting it needs no session at all, so rendering it into
+ * a staff preview of someone else's family hands over the ability to sign
+ * that family's consent form, not just the ability to read its status. The
+ * status badge stays either way. Set it wherever the viewer isn't the
+ * family — /portal/my-family is a staff member's own child and doesn't.
  */
 export default async function ParentDashboardView({
   scoutIds,
   userId,
   displayName,
   readOnly = false,
+  hideConsentToken = false,
 }: {
   scoutIds: string[];
   userId: string;
   displayName: string;
   readOnly?: boolean;
+  hideConsentToken?: boolean;
 }) {
   const [
     {
@@ -266,9 +276,16 @@ export default async function ParentDashboardView({
             ) : scout.photoConsent.needsSignature ? (
               <p>
                 <span className="badge-pill badge-pending" style={{ marginRight: 8 }}>Action Needed</span>
-                <Link href={`/consent/${scout.photoConsent.token}`} className="link" style={{ fontWeight: 700 }}>
-                  Fill Out Photo Consent Form →
-                </Link>
+                {hideConsentToken ? (
+                  <span>
+                    Photo consent form not signed yet — the parent sees a link to fill it out here. Send or resend
+                    that link from Photo Consent.
+                  </span>
+                ) : (
+                  <Link href={`/consent/${scout.photoConsent.token}`} className="link" style={{ fontWeight: 700 }}>
+                    Fill Out Photo Consent Form →
+                  </Link>
+                )}
               </p>
             ) : (
               <>

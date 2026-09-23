@@ -10,6 +10,7 @@ import {
   getTripDutySlots,
   getTripActivities,
   currentTripPriceCents,
+  registrationClosed,
   CAMP_CONRON_SLUG,
   DAY_LABELS,
   MEAL_TYPE_LABELS,
@@ -265,13 +266,30 @@ export default async function CampConronPage() {
           <div className="sticky-sidebar">
           <div className="info-card">
             <h3 style={{ marginTop: 0 }}>Register Your Family</h3>
-            <TripRegistrationForm
-              tripPageId={trip.id}
-              currentPriceCents={priceCents}
-              packPaymentInstructions={trip.packPaymentInstructions}
-              troopPaymentInstructions={trip.troopPaymentInstructions}
-              rsvpDeadlineLabel={trip.rsvpDeadline ? formatDate(trip.rsvpDeadline) : null}
-            />
+            {/* registerForTripAction refuses submissions past the deadline, so
+                the form comes down with it rather than failing on submit. */}
+            {registrationClosed(trip) ? (
+              <>
+                <p>
+                  Registration closed{trip.rsvpDeadline ? ` on ${formatDate(trip.rsvpDeadline)}` : ""}.
+                </p>
+                <p style={{ marginBottom: 0 }}>
+                  Still hoping to come? Get in touch and we&apos;ll see what we can do —{" "}
+                  <a href="https://www.pack376nyc.org/contact" className="link">
+                    contact Pack 376
+                  </a>
+                  .
+                </p>
+              </>
+            ) : (
+              <TripRegistrationForm
+                tripPageId={trip.id}
+                currentPriceCents={priceCents}
+                packPaymentInstructions={trip.packPaymentInstructions}
+                troopPaymentInstructions={trip.troopPaymentInstructions}
+                rsvpDeadlineLabel={trip.rsvpDeadline ? formatDate(trip.rsvpDeadline) : null}
+              />
+            )}
           </div>
           </div>
         </div>

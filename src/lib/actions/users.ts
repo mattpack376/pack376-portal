@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession, hashPassword } from "@/lib/auth";
-import { assertAdmin, assertMasterAdmin } from "@/lib/authorize";
+import { assertAdmin, assertMasterAdmin, isReservedUsername } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
 import { issueInviteToken, issueResetToken } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
@@ -39,6 +39,16 @@ export async function createAdminAction(
   const name = displayName.trim();
   const cleanEmail = email?.trim() || null;
   if (!clean || !name) return { ok: false as const, error: "Username and display name are required." };
+
+  // The master-admin names are reserved whether or not a row currently holds
+  // them. Master status is decided by username (src/lib/masterAdmins.ts), so
+  // if one of those names ever came free — by any route, including a bug —
+  // creating it here would hand the creator master privileges, audit log and
+  // season reset included. Reserved is reserved; to reinstate a master admin,
+  // restore the row rather than recreate the name.
+  if (isReservedUsername(clean)) {
+    return { ok: false as const, error: "That username is reserved and can't be created from the admin panel." };
+  }
 
   const existing = await prisma.user.findUnique({ where: { username: clean } });
   if (existing) return { ok: false as const, error: "That username is already taken." };

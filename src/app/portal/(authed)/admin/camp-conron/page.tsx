@@ -28,6 +28,7 @@ import {
   toggleTripPublishedAction,
 } from "@/lib/actions/tripPage";
 import {
+  addTripRegistrationAction,
   updateTripRegistrationAction,
   addTripPaymentAction,
   deleteTripPaymentAction,
@@ -722,6 +723,63 @@ export default async function AdminCampConronPage({
             );
           })}
         </div>
+      )}
+
+      {isAdmin && (
+        <>
+          <div className="section-head" style={{ marginTop: 32 }}>
+            <div className="eyebrow">By Hand</div>
+            <h2>Add a Registration</h2>
+            <p style={{ marginBottom: 0 }}>
+              For a family who called, paid on paper, or signed up after the public form closed. The public form
+              stops accepting submissions once the RSVP deadline passes; this doesn&apos;t. The amount owed is
+              calculated at today&apos;s price — edit it afterwards if they were promised the early-bird rate.
+            </p>
+          </div>
+          <div className="info-card" style={{ maxWidth: CARD_WIDTH }}>
+            <form action={addTripRegistrationAction}>
+              <input type="hidden" name="tripPageId" value={trip.id} />
+              <div className="form-row">
+                <div className="form-field" style={{ flex: 1, minWidth: 180 }}>
+                  <label htmlFor="add-familyName">Family / Registrant Name</label>
+                  <input id="add-familyName" name="familyName" required />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="add-affiliation">Affiliation</label>
+                  <select id="add-affiliation" name="affiliation" defaultValue="PACK">
+                    <option value="PACK">Pack 376</option>
+                    <option value="TROOP">Troop 376</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-field">
+                <label htmlFor="add-guestOfName">Guest Of</label>
+                <input id="add-guestOfName" name="guestOfName" required />
+              </div>
+              <div className="form-row">
+                <div className="form-field" style={{ flex: 1, minWidth: 180 }}>
+                  <label htmlFor="add-contactEmail">Email</label>
+                  <input id="add-contactEmail" name="contactEmail" type="email" required />
+                </div>
+                <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+                  <label htmlFor="add-contactPhone">Phone</label>
+                  <input id="add-contactPhone" name="contactPhone" required />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-field">
+                  <label htmlFor="add-payingCount">Paying Attendees</label>
+                  <input id="add-payingCount" name="payingCount" type="number" min="0" step="1" defaultValue={1} />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="add-freeCount">Free Attendees</label>
+                  <input id="add-freeCount" name="freeCount" type="number" min="0" step="1" defaultValue={0} />
+                </div>
+              </div>
+              <button type="submit" className="btn btn-primary">Add Registration</button>
+            </form>
+          </div>
+        </>
       )}
     </>
   );

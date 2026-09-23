@@ -1,16 +1,38 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { checkRateLimit } from "@vercel/firewall";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
-import { currentTripPriceCents } from "@/lib/tripPageData";
+import { currentTripPriceCents, registrationClosed } from "@/lib/tripPageData";
 import { formatPhoneNumber } from "@/lib/phone";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import type { TripAffiliation } from "@/generated/prisma/enums";
 
 const ADMIN_PATH = "/portal/admin/camp-conron";
 const PUBLIC_PATH = "/camp-conron";
+
+/*
+ * Bounds for the public form below. Nothing here is a business rule — these
+ * are the limits that stop one unauthenticated caller from writing rows of
+ * arbitrary size, or an unbounded number of them, into the database. The
+ * admin actions further down deliberately don't apply them: a signed-in admin
+ * fixing up a registration is a different trust level entirely.
+ */
+const MAX_NAME_LENGTH = 120;
+const MAX_EMAIL_LENGTH = 254; // RFC 5321 maximum for a complete address
+const MAX_PHONE_LENGTH = 40;
+const MAX_ATTENDEES = 50;
+/**
+ * A persistent ceiling on how many separate registrations one email address
+ * can file for one trip. The Vercel Firewall rate limit below is the first
+ * line, but it's configured outside this repo and fails open if the rule is
+ * missing — this one is enforced by the database read that precedes the
+ * write, so it holds regardless.
+ */
+const MAX_REGISTRATIONS_PER_EMAIL = 10;
 
 function dollarsToCents(raw: string): number | null {
   const trimmed = raw.trim();
@@ -56,6 +78,15 @@ export async function registerForTripAction(
 ): Promise<RegisterForTripState> {
   if (String(formData.get("website") || "").trim() !== "") return {};
 
+  // Before any database work, the same way loginAction does it. Enforced by a
+  // matching "trip-registration" rule in the Vercel Firewall dashboard; with
+  // no such rule this is a no-op, which is why the per-email ceiling further
+  // down is enforced in the database rather than relying on this.
+  const { rateLimited } = await checkRateLimit("trip-registration", { headers: await headers() });
+  if (rateLimited) {
+    return { error: "Too many registration attempts from this connection. Try again in a few minutes." };
+  }
+
   const tripPageId = String(formData.get("tripPageId") || "");
   const familyName = String(formData.get("familyName") || "").trim();
   const contactEmail = String(formData.get("contactEmail") || "").trim();
@@ -68,13 +99,49 @@ export async function registerForTripAction(
   if (!tripPageId || !familyName || !contactEmail || !contactPhone || !guestOfName) {
     return { error: "Name, email, phone, guest-of, and trip are required." };
   }
+  // Nothing on the form has a length limit in the browser, and the Server
+  // Action body allowance is 8MB for photo uploads — so without these an
+  // anonymous caller can store a 100,000-character name.
+  if (familyName.length > MAX_NAME_LENGTH || guestOfName.length > MAX_NAME_LENGTH) {
+    return { error: `Names must be ${MAX_NAME_LENGTH} characters or fewer.` };
+  }
+  if (contactEmail.length > MAX_EMAIL_LENGTH) return { error: "Enter a valid email address." };
+  if (contactPhone.length > MAX_PHONE_LENGTH) return { error: "Enter a valid phone number." };
   if (!EMAIL_RE.test(contactEmail)) return { error: "Enter a valid email address." };
   if (affiliationRaw !== "PACK" && affiliationRaw !== "TROOP") return { error: "Choose Pack 376 or Troop 376." };
   if (payingCount === null || freeCount === null) return { error: "Invalid attendee counts." };
   if (payingCount + freeCount === 0) return { error: "Enter at least one attendee." };
+  if (payingCount + freeCount > MAX_ATTENDEES) {
+    return { error: `That's more than ${MAX_ATTENDEES} attendees — email us instead and we'll add your group.` };
+  }
 
   const trip = await prisma.tripPage.findUnique({ where: { id: tripPageId } });
-  if (!trip) return { error: "Trip not found." };
+  // Three separate reasons, one answer: an id that doesn't exist, a trip
+  // that isn't published, and a trip past its RSVP deadline all get the same
+  // message. Registration used to accept any of them — the id came straight
+  // from the form, so neither the unpublished draft nor the closed trip was
+  // actually out of reach. An admin can still add a late family by hand from
+  // the Camp Conron admin page (addTripRegistrationAction below).
+  if (!trip || !trip.published || registrationClosed(trip)) {
+    return { error: "Registration for this trip is closed. Please contact us and we'll help you out." };
+  }
+
+  const normalizedEmail = contactEmail.toLowerCase();
+  const sameEmail = await prisma.tripRegistration.findMany({
+    where: { tripPageId, contactEmail: { equals: normalizedEmail, mode: "insensitive" } },
+    select: { familyName: true, payingCount: true, freeCount: true },
+  });
+  // A resubmitted form — a double-click, a refresh, a replayed request —
+  // reports the success it would have reported the first time rather than
+  // filing a second identical row. A genuinely different second group from
+  // the same address still goes through.
+  const isReplay = sameEmail.some(
+    (r) => r.familyName === familyName && r.payingCount === payingCount && r.freeCount === freeCount,
+  );
+  if (isReplay) return { success: true };
+  if (sameEmail.length >= MAX_REGISTRATIONS_PER_EMAIL) {
+    return { error: "This email already has several registrations for this trip. Please contact us to add more." };
+  }
 
   const amountOwedCents = payingCount * currentTripPriceCents(trip);
 
@@ -95,6 +162,78 @@ export async function registerForTripAction(
   revalidatePath(ADMIN_PATH);
   revalidatePath(PUBLIC_PATH);
   return { success: true };
+}
+
+/**
+ * The staffed way in after the public form has closed — an admin adding a
+ * family who registered late, called in, or signed up on paper. This is the
+ * "controlled exception" that lets registerForTripAction above enforce the
+ * RSVP deadline without stranding anyone: the deadline closes the public
+ * door, not the pack's ability to take a registration.
+ *
+ * Audited, unlike the public action, because here there is an actor.
+ */
+export async function addTripRegistrationAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const tripPageId = String(formData.get("tripPageId") || "");
+  const familyName = String(formData.get("familyName") || "").trim();
+  const contactEmail = String(formData.get("contactEmail") || "").trim();
+  const contactPhone = formatPhoneNumber(String(formData.get("contactPhone") || "").trim());
+  const guestOfName = String(formData.get("guestOfName") || "").trim();
+  const affiliationRaw = String(formData.get("affiliation") || "");
+  const payingCount = parseCount(formData.get("payingCount"));
+  const freeCount = parseCount(formData.get("freeCount"));
+
+  if (!tripPageId || !familyName || !contactEmail || !contactPhone || !guestOfName) {
+    throw new Error("Name, email, phone, and guest-of are required.");
+  }
+  if (!EMAIL_RE.test(contactEmail)) throw new Error("Enter a valid email address.");
+  if (affiliationRaw !== "PACK" && affiliationRaw !== "TROOP") throw new Error("Choose Pack 376 or Troop 376.");
+  if (payingCount === null || freeCount === null) throw new Error("Invalid attendee counts.");
+  if (payingCount + freeCount === 0) throw new Error("Enter at least one attendee.");
+
+  const trip = await prisma.tripPage.findUnique({ where: { id: tripPageId } });
+  if (!trip) throw new Error("Trip not found.");
+
+  // Priced the same way the public form prices it, so a late addition costs
+  // what the tier in effect today costs. Edit the amount afterwards if this
+  // family was promised the early-bird rate.
+  const amountOwedCents = payingCount * currentTripPriceCents(trip);
+
+  const created = await prisma.tripRegistration.create({
+    data: {
+      tripPageId,
+      familyName,
+      contactEmail,
+      contactPhone,
+      guestOfName,
+      affiliation: affiliationRaw as TripAffiliation,
+      payingCount,
+      freeCount,
+      amountOwedCents,
+    },
+  });
+
+  await recordAudit(session, {
+    action: "tripRegistration.create",
+    summary: `Added the trip registration for ${familyName} by hand${
+      registrationClosed(trip) ? " — after the RSVP deadline" : ""
+    }`,
+    entityType: "TripRegistration",
+    entityId: created.id,
+    details: [
+      { label: "Family name", from: "—", to: familyName },
+      { label: "Email", from: "—", to: contactEmail },
+      { label: "Attendees", from: "—", to: `${payingCount} paying, ${freeCount} free` },
+      { label: "Amount owed", from: "—", to: auditMoney(amountOwedCents) },
+    ],
+  });
+
+  revalidatePath(ADMIN_PATH);
+  revalidatePath(PUBLIC_PATH);
 }
 
 /** Admin-only, same population as the payment actions below — junior admin can view registrations but not edit them. */

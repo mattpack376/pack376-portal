@@ -9,6 +9,7 @@ import { assertAdmin, assertEventPaymentDenAccess, assertGuestGroupAccess } from
 import { RANK_ORDER } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS } from "@/lib/deadlineCategories";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
+import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 
 function dollarsToCents(raw: string): number | null {
@@ -173,6 +174,9 @@ export async function updateEventAction(formData: FormData) {
       feeCents: true,
       adultFeeCents: true,
       guestChildFeeCents: true,
+      // So a flyer that's been replaced or removed can be deleted from Blob
+      // storage below rather than left public at its original URL.
+      flyerUrl: true,
     },
   });
 
@@ -189,6 +193,12 @@ export async function updateEventAction(formData: FormData) {
       ...(flyerUrl !== undefined ? { flyerUrl } : {}),
     },
   });
+
+  // After the row is updated: a stray object is a better failure than a row
+  // pointing at a flyer that's already gone. Same helper as albums.ts.
+  if (flyerUrl !== undefined && before?.flyerUrl && before.flyerUrl !== flyerUrl) {
+    await deleteUploadedBlob(before.flyerUrl);
+  }
 
   await recordAudit(session, {
     action: "event.update",
@@ -273,11 +283,15 @@ export async function deleteEventAction(formData: FormData) {
     select: {
       title: true,
       eventDate: true,
+      flyerUrl: true,
       _count: { select: { registrations: true, guestGroups: true } },
     },
   });
 
   await prisma.event.delete({ where: { id } });
+  // The uploaded flyer goes with the event; otherwise it stays public at its
+  // original URL with nothing left linking to it.
+  await deleteUploadedBlob(event?.flyerUrl);
 
   await recordAudit(session, {
     action: "event.delete",

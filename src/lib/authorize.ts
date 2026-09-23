@@ -283,3 +283,30 @@ export async function assertMasterAdmin(session: SessionPayload) {
     throw new Error("Not authorized: master admin only.");
   }
 }
+
+/**
+ * The single guard every mutation that reaches a User row must pass — not
+ * just the ones in the Users panel. A protected master admin
+ * (src/lib/masterAdmins.ts) can only be changed by another master admin.
+ *
+ * This exists because the check used to be copied inline into each action in
+ * src/lib/actions/users.ts, so any *other* path to a User row — the parent
+ * contact editor and the Parent Portal revoke button in actions/parents.ts,
+ * both of which write through a linked Parent row — simply didn't have it.
+ * Route every such write through here instead of re-deriving the rule.
+ */
+export async function assertCanMutateUser(session: SessionPayload, target: { username: string }) {
+  if (!isMasterAdminUsername(target.username)) return;
+  await assertMasterAdmin(session);
+}
+
+/**
+ * Master status is decided by username (src/lib/masterAdmins.ts), so a
+ * protected username that ever becomes free is a way back in: recreate it as
+ * an ordinary ADMIN and that account is a master admin. Account creation
+ * reserves those names so the name alone can never be claimed, whatever
+ * happened to the original row.
+ */
+export function isReservedUsername(username: string) {
+  return isMasterAdminUsername(username);
+}

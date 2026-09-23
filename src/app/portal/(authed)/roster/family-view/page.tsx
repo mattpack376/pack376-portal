@@ -83,13 +83,26 @@ export default async function FamilyViewPage({
   }
 
   if (previewScout) {
-    // Show it exactly as the parent gets it: their login sees every scout it
-    // is attached to, so a sibling's rows belong in the preview too. With no
+    // Show it as the parent gets it: their login sees every scout it is
+    // attached to, so a sibling's rows belong in the preview too. With no
     // login yet, fall back to this scout alone and say so.
+    //
+    // Every one of those siblings is then intersected with `scoutIds` — the
+    // roster this session can already see on this page. Without that, picking
+    // an in-den scout whose parent also has a child in another den handed a
+    // den leader that other den's dues, balances, advancement and consent
+    // status: the selector was scoped, but what the selection expanded into
+    // was not. An admin or junior admin sees the whole pack anyway, so for
+    // them this intersection is a no-op.
     const parentUser = previewScout.parents[0]?.user ?? null;
-    const previewScoutIds = parentUser
+    const visibleScoutIds = new Set(scoutIds);
+    const linkedScoutIds = parentUser
       ? [...new Set((await prisma.parent.findMany({ where: { userId: parentUser.id }, select: { scoutId: true } })).map((p) => p.scoutId))]
       : [previewScout.id];
+    // Keep the Set: duplicate ids in a Prisma `in:` filter null out the
+    // included relations (see the parent scoutIds dedupe bug).
+    const previewScoutIds = linkedScoutIds.filter((id) => visibleScoutIds.has(id));
+    const hiddenSiblingCount = linkedScoutIds.length - previewScoutIds.length;
     const childName = `${previewScout.firstName} ${previewScout.lastName}`;
 
     return (
@@ -100,8 +113,12 @@ export default async function FamilyViewPage({
             <h2>{childName}&apos;s Parent Dashboard</h2>
             <p style={{ marginBottom: 0 }}>
               {parentUser
-                ? `Exactly what ${parentUser.displayName} (${parentUser.username}) sees when they sign in. Read-only — the buttons that would submit something are hidden.`
+                ? `What ${parentUser.displayName} (${parentUser.username}) sees when they sign in. Read-only — the buttons that would submit something are hidden.`
                 : `${childName} has no Parent Portal login yet, so this is what one would show. Read-only.`}
+              {hiddenSiblingCount > 0 &&
+                ` Their family also includes ${hiddenSiblingCount} scout${
+                  hiddenSiblingCount === 1 ? "" : "s"
+                } outside your den, not shown here — the real dashboard shows them.`}
             </p>
           </div>
           <Link className="btn btn-quiet btn-small no-print" href="/portal/roster/family-view">
@@ -116,6 +133,7 @@ export default async function FamilyViewPage({
           userId={parentUser?.id ?? session.userId}
           displayName={parentUser?.displayName ?? childName}
           readOnly
+          hideConsentToken
         />
       </>
     );

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertTripPageAccess } from "@/lib/authorize";
 import { recordAudit, changedFields, auditMoney } from "@/lib/audit";
+import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import type { TripDay } from "@/generated/prisma/enums";
 
 const ADMIN_PATH = "/portal/admin/camp-conron";
@@ -79,7 +80,9 @@ export async function updateTripDetailsAction(formData: FormData) {
 
   const before = await prisma.tripPage.findUnique({
     where: { id },
-    select: { title: true, location: true, startDate: true, endDate: true, detailsHtml: true },
+    // flyerUrl so a flyer that's been replaced or removed can be deleted from
+    // Blob storage below rather than left public at its original URL.
+    select: { title: true, location: true, startDate: true, endDate: true, detailsHtml: true, flyerUrl: true },
   });
 
   await prisma.tripPage.update({
@@ -93,6 +96,11 @@ export async function updateTripDetailsAction(formData: FormData) {
       ...(flyerUrl !== undefined ? { flyerUrl } : {}),
     },
   });
+
+  // After the row is updated, same as albums.ts and events.ts.
+  if (flyerUrl !== undefined && before?.flyerUrl && before.flyerUrl !== flyerUrl) {
+    await deleteUploadedBlob(before.flyerUrl);
+  }
 
   await recordAudit(session, {
     action: "trip.updateDetails",

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession, hashPassword } from "@/lib/auth";
-import { assertAdmin } from "@/lib/authorize";
+import { assertAdmin, assertCanMutateUser, isReservedUsername } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
 import { issueInviteToken } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
@@ -88,6 +88,17 @@ export async function updateParentAction(formData: FormData) {
   // If this contact isn't linked yet and its (possibly just-edited) email now
   // matches an existing PARENT login, link it instead of leaving it stranded.
   const userId = before?.userId ?? (await findExistingParentAccountId(email));
+
+  // Checked before anything is written: the sync below pushes
+  // displayName/email/phone onto the linked User row, which is exactly what
+  // updateUserDisplayNameAction/EmailAction/PhoneAction do in
+  // actions/users.ts — and those are master-admin-gated. This path wasn't, so
+  // a protected admin linked to a scout could have their name and contact
+  // details rewritten from the roster screen instead.
+  const linkedAccount = userId
+    ? await prisma.user.findUnique({ where: { id: userId }, select: { username: true } })
+    : null;
+  if (linkedAccount) await assertCanMutateUser(session, linkedAccount);
 
   const parent = await prisma.parent.update({
     where: { id: parentId },
@@ -367,17 +378,53 @@ export async function revokeParentPortalAction(parentId: string) {
 
   const account = await prisma.user.findUnique({
     where: { id: parent.userId },
-    select: { username: true, displayName: true, _count: { select: { parentContacts: true } } },
+    select: { username: true, displayName: true, role: true, _count: { select: { parentContacts: true } } },
   });
+  if (!account) return { ok: false as const, error: "That portal account no longer exists." };
+
+  /*
+   * This button deletes a whole User row, so it has to hold the same line
+   * deleteUserAction does in actions/users.ts — it used to hold none of it.
+   *
+   * attachParentToScoutAction above deliberately links staff accounts too (a
+   * den leader who is also a parent in the pack), which meant any admin could
+   * link a protected master admin to a scout and then "revoke" it here,
+   * deleting the protected login. Master status is decided by username, so
+   * the freed name could then be recreated as a plain ADMIN — a clean path
+   * from ordinary admin to master admin.
+   *
+   * A staff login is never this button's business: unlinking one child from
+   * an account is unlinkParentScoutAction, and deleting a staff account is
+   * the Users panel, which has its own confirmation and its own guards.
+   */
+  if (account.role !== "PARENT") {
+    return {
+      ok: false as const,
+      error:
+        "That contact is linked to a staff login, not a Parent Portal account. Use “Unlink” to remove its access to this scout, or delete the account from Users.",
+    };
+  }
+  // Belt and braces behind the role check above: a protected account is an
+  // ADMIN and can't reach this line, but the rule lives in one place now, so
+  // ask it rather than assume. Returns rather than throws, like every other
+  // failure here — RevokeParentPortalButton shows the string.
+  try {
+    await assertCanMutateUser(session, account);
+  } catch {
+    return { ok: false as const, error: "That's a protected account. Only a master admin can change it." };
+  }
+  if (parent.userId === session.userId) {
+    return { ok: false as const, error: "You can't delete your own account while logged in." };
+  }
 
   await prisma.user.delete({ where: { id: parent.userId } });
 
   const scout = await scoutContext(parent.scoutId);
   await recordAudit(session, {
     action: "parent.revokePortal",
-    summary: `Deleted the Parent Portal login “${account?.username ?? parent.userId}” (${
-      account?.displayName ?? parent.name
-    }) — revoked for all ${account?._count.parentContacts ?? 1} scout(s) it covered, including ${scout.name}`,
+    summary: `Deleted the Parent Portal login “${account.username}” (${account.displayName}) — revoked for all ${
+      account._count.parentContacts
+    } scout(s) it covered, including ${scout.name}`,
     entityType: "User",
     entityId: parent.userId,
     denId: scout.denId,
@@ -418,6 +465,11 @@ export async function createParentAccountAction(
   const cleanEmail = email?.trim().toLowerCase() || null;
   const cleanPhone = phone?.trim() ? formatPhoneNumber(phone.trim()) : null;
   if (!clean || !name) return { ok: false as const, error: "Login and display name are required." };
+  // Same reservation as createAdminAction in actions/users.ts — this form
+  // creates a User row too, so it's a second way to claim a freed master name.
+  if (isReservedUsername(clean)) {
+    return { ok: false as const, error: "That login is reserved and can't be created from the admin panel." };
+  }
 
   const existing = await prisma.user.findUnique({ where: { username: clean } });
   if (existing) {
