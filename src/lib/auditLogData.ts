@@ -10,6 +10,11 @@ import type { Role } from "@/generated/prisma/enums";
  * reachable by guessing a URL — Attendance Only, Photographer, Parent and
  * Trip Viewer accounts all record entries too, and they'd otherwise be
  * invisible.
+ *
+ * The role filters match on actorRole, which is null for a failed sign-in
+ * against a username no account has. Those entries therefore appear only
+ * under "Everyone" — correct, since they belong to no role, but it means
+ * "Everyone" is the tab to watch for someone probing for accounts.
  */
 export const AUDIT_VIEWS = {
   admins: { label: "Admins", roles: ["ADMIN", "JUNIOR_ADMIN"] as Role[] },
@@ -33,6 +38,7 @@ export const AUDIT_PAGE_SIZE = 50;
 export const AUDIT_CATEGORY_LABELS: Record<string, string> = {
   advancement: "Advancement",
   album: "Photo Albums",
+  auth: "Sign-ins",
   announcement: "Announcements",
   attendance: "Attendance",
   banner: "Homepage Banner",

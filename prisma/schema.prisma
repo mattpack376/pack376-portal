@@ -699,7 +699,13 @@ model AuditLog {
   actorUser        User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
   actorUsername    String
   actorDisplayName String
-  actorRole        Role
+  /**
+   * Null only when there is no account behind the entry at all — a failed
+   * sign-in for a username that doesn't exist. Every other entry, including a
+   * failed sign-in against a real account, carries that account's role, so the
+   * Admins/Den Leaders views stay complete.
+   */
+  actorRole        Role?
 
   /** Machine key, dot-namespaced: "dues.payment.add", "scout.update". */
   action String

@@ -71,9 +71,10 @@ export default async function AuditLogPage({
         <div className="eyebrow">Admin</div>
         <h2>Audit Log</h2>
         <p>
-          Every change made through the portal, newest first — who made it, what it was, and the values before and
-          after. Entries are never edited, and no one can delete a particular one; they age out on their own after{" "}
-          {AUDIT_RETENTION_MONTHS} months. Only the master admin accounts can read this page.
+          Every change made through the portal, plus every sign-in and failed sign-in attempt, newest first — who did
+          it, what it was, and the values before and after. Entries are never edited, and no one can delete a
+          particular one; they age out on their own after {AUDIT_RETENTION_MONTHS} months. Only the master admin
+          accounts can read this page.
         </p>
       </div>
 
@@ -83,7 +84,7 @@ export default async function AuditLogPage({
         {view === "admins" && "Changes made by Admin and Junior Admin accounts."}
         {view === "dens" && "Changes made by Den Leader logins — mostly attendance and advancement for their own den."}
         {view === "all" &&
-          "Every account, including Attendance Only, Photographer, Trip Viewer and parent logins. Entries whose account has since been deleted appear here too."}
+          "Every account, including Attendance Only, Photographer, Trip Viewer and parent logins. Entries whose account has since been deleted appear here too, as do failed sign-ins for usernames that match no account — those belong to no role, so this is the only tab that shows them."}
       </p>
 
       {/*
@@ -202,8 +203,14 @@ export default async function AuditLogPage({
                       <span className="form-note" style={{ marginTop: 0 }}>
                         {entry.actorUsername}
                       </span>
-                      <span className={`badge-pill ${ROLE_BADGE_CLASSES[entry.actorRole] ?? "badge-pending"}`}>
-                        {ROLE_LABELS[entry.actorRole] ?? entry.actorRole}
+                      {/* No role at all means no account behind the entry — a
+                          failed sign-in for a username that doesn't exist. */}
+                      <span
+                        className={`badge-pill ${
+                          entry.actorRole ? ROLE_BADGE_CLASSES[entry.actorRole] ?? "badge-pending" : "badge-pending"
+                        }`}
+                      >
+                        {entry.actorRole ? ROLE_LABELS[entry.actorRole] ?? entry.actorRole : "No account"}
                       </span>
                     </div>
                   </td>

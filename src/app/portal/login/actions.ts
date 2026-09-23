@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { checkRateLimit } from "@vercel/firewall";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionCookie, isLockedOut, lockedUntilForCount } from "@/lib/auth";
+import { recordAuditAs, UNKNOWN_ACCOUNT_ACTOR, type AuditActor } from "@/lib/audit";
 
 export type LoginState = { error?: string };
 
@@ -23,6 +24,10 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   // rule isn't configured, so this alone doesn't throttle anything by itself.
   const { rateLimited } = await checkRateLimit("portal-login", { headers: await headers() });
   if (rateLimited) {
+    // Deliberately not audited. This branch exists to stop doing work for a
+    // flood of requests, and writing a row per blocked attempt would hand that
+    // flood a database write each — turning the defence into the amplifier it
+    // is there to prevent. The rate limiter's own metrics cover this case.
     return { error: "Too many login attempts. Try again in a few minutes." };
   }
 
@@ -37,10 +42,31 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   if (!user) {
     // Burn the same bcrypt time a real login would, then fail identically.
     await verifyPassword(password, TIMING_DUMMY_HASH);
+    await recordAuditAs(UNKNOWN_ACCOUNT_ACTOR, {
+      action: "auth.failed",
+      summary: "Failed sign-in for a username that doesn't match any account",
+    });
     return { error: "Invalid username or password." };
   }
 
+  // Every entry below is about this account, but says nothing about who was at
+  // the keyboard — a failed attempt is as likely to be someone else as the
+  // account holder. Summaries are worded "for <account>", never "<account>
+  // did", so the Who column is never read as an accusation.
+  const actor: AuditActor = {
+    userId: user.id,
+    username: user.username,
+    displayName: user.displayName,
+    role: user.role,
+  };
+
   if (isLockedOut(user.lockedUntil)) {
+    await recordAuditAs(actor, {
+      action: "auth.blocked",
+      summary: `Sign-in attempt for “${user.username}” while the account was locked out`,
+      entityType: "User",
+      entityId: user.id,
+    });
     return { error: "Too many failed attempts. Try again in about 15 minutes." };
   }
 
@@ -72,6 +98,15 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     if (lockedUntil) {
       await prisma.user.update({ where: { id: user.id }, data: { lockedUntil } });
     }
+    await recordAuditAs(actor, {
+      action: "auth.failed",
+      summary: lockedUntil
+        ? `Wrong password for “${user.username}” — ${failedLoginCount} failed attempts in a row, account now locked for 15 minutes`
+        : `Wrong password for “${user.username}” (${failedLoginCount} failed attempt${failedLoginCount === 1 ? "" : "s"} in a row)`,
+      entityType: "User",
+      entityId: user.id,
+      details: [{ label: "Consecutive failures", from: String(failedLoginCount - 1), to: String(failedLoginCount) }],
+    });
     return lockedUntil
       ? { error: "Too many failed attempts. Try again in about 15 minutes." }
       : { error: "Invalid username or password." };
@@ -93,6 +128,20 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     scoutIds: [...new Set(parentContacts.map((p) => p.scoutId))],
     displayName: user.displayName,
     sv: user.sessionVersion,
+  });
+
+  await recordAuditAs(actor, {
+    action: "auth.signIn",
+    summary: `Signed in as “${user.username}” (${user.displayName})`,
+    entityType: "User",
+    entityId: user.id,
+    // Worth surfacing: a success straight after failures is the ordinary
+    // "mistyped it twice" story, and its absence is what makes a run of
+    // failures with no success interesting.
+    details:
+      user.failedLoginCount > 0
+        ? [{ label: "Failed attempts cleared", from: String(user.failedLoginCount), to: "0" }]
+        : null,
   });
 
   redirect("/portal");

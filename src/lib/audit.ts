@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/auth";
+import type { Role } from "@/generated/prisma/enums";
 
 /**
  * One field that changed, already formatted for display. `from` and `to` are
@@ -43,22 +44,59 @@ export const EMPTY = "—";
  * lookup per mutation, which is cheap next to the mutation itself.
  */
 export async function recordAudit(session: SessionPayload, entry: AuditEntry) {
-  try {
-    const actor = await prisma.user.findUnique({
+  const actor = await prisma.user
+    .findUnique({
       where: { id: session.userId },
       select: { username: true, displayName: true, role: true },
-    });
+    })
+    .catch(() => null);
 
+  await recordAuditAs(
+    {
+      // Left null if the row is already gone (an account deleting itself):
+      // the denormalized fields below still say who it was.
+      userId: actor ? session.userId : null,
+      username: actor?.username ?? "(deleted account)",
+      displayName: actor?.displayName ?? session.displayName,
+      // Prefer the stored role over the session's: a session issued before a
+      // role change carries the old one until the user signs in again.
+      role: actor?.role ?? session.role,
+    },
+    entry
+  );
+}
+
+/**
+ * Who an entry is attributed to. Separate from SessionPayload because the
+ * events that matter most here happen when there is no session yet: a
+ * successful sign-in creates one a moment later, and a failed sign-in never
+ * does. `userId` is null when no account backs the entry, and `role` is null
+ * only when there is no account at all (see AuditLog.actorRole).
+ */
+export type AuditActor = {
+  userId: string | null;
+  username: string;
+  displayName: string;
+  role: Role | null;
+};
+
+/**
+ * The low-level writer. Use recordAudit() when a session is in hand; this is
+ * for the sign-in path, which is precisely where one isn't.
+ *
+ * Same swallow-everything contract as recordAudit: a sign-in that already
+ * succeeded must not be turned into a failure — and a sign-in that already
+ * failed must not be reported as some other error — because logging it
+ * afterwards didn't work.
+ */
+export async function recordAuditAs(actor: AuditActor, entry: AuditEntry) {
+  try {
     await prisma.auditLog.create({
       data: {
-        // Left null if the row is already gone (an account deleting itself):
-        // the denormalized fields below still say who it was.
-        actorUserId: actor ? session.userId : null,
-        actorUsername: actor?.username ?? "(deleted account)",
-        actorDisplayName: actor?.displayName ?? session.displayName,
-        // Prefer the stored role over the session's: a session issued before a
-        // role change carries the old one until the user signs in again.
-        actorRole: actor?.role ?? session.role,
+        actorUserId: actor.userId,
+        actorUsername: actor.username,
+        actorDisplayName: actor.displayName,
+        actorRole: actor.role,
         action: entry.action,
         category: entry.action.split(".")[0],
         summary: entry.summary,
@@ -76,6 +114,24 @@ export async function recordAudit(session: SessionPayload, entry: AuditEntry) {
   // dropped entry — the entry is already safely written by this point.
   await sweepExpiredAuditEntries();
 }
+
+/**
+ * Stand-in actor for a failed sign-in against a username no account has.
+ *
+ * The attempted string is deliberately NOT stored. The overwhelmingly common
+ * way to land here by accident is typing a password into the username box, so
+ * recording it would file people's live passwords in a log next to their own
+ * name — and a password is exactly the kind of unknown "username" that reaches
+ * this branch. The security signal worth having (someone is guessing at
+ * accounts, and how often) survives without it; see the sign-in handling in
+ * src/app/portal/login/actions.ts.
+ */
+export const UNKNOWN_ACCOUNT_ACTOR: AuditActor = {
+  userId: null,
+  username: "(unknown username)",
+  displayName: "Not a real account",
+  role: null,
+};
 
 /** The oldest timestamp still inside the retention window. */
 export function auditRetentionCutoff(now = new Date()): Date {
