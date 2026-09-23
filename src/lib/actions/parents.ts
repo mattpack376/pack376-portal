@@ -9,6 +9,7 @@ import { issueInviteToken } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { sendAccountLinkEmail } from "@/lib/email";
 import { formatPhoneNumber } from "@/lib/phone";
+import { recordAudit, changedFields } from "@/lib/audit";
 import type { CreatedInvite } from "@/lib/actions/dens";
 
 /**
@@ -24,6 +25,15 @@ async function findExistingParentAccountId(email: string | null): Promise<string
   return existing && existing.role === "PARENT" ? existing.id : null;
 }
 
+/** A scout's name + den for audit text on parent-contact changes. */
+async function scoutContext(scoutId: string) {
+  const scout = await prisma.scout.findUnique({
+    where: { id: scoutId },
+    select: { firstName: true, lastName: true, denId: true },
+  });
+  return { name: scout ? `${scout.firstName} ${scout.lastName}` : scoutId, denId: scout?.denId ?? null };
+}
+
 export async function addParentAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
@@ -37,8 +47,24 @@ export async function addParentAction(formData: FormData) {
 
   const userId = await findExistingParentAccountId(email);
 
-  await prisma.parent.create({
+  const parent = await prisma.parent.create({
     data: { scoutId, name, email: email || null, phone: phone || null, userId },
+  });
+
+  const scout = await scoutContext(scoutId);
+  await recordAudit(session, {
+    action: "parent.create",
+    summary: `Added ${name} as a parent contact for ${scout.name}${
+      userId ? " — linked to their existing Parent Portal login" : ""
+    }`,
+    entityType: "Parent",
+    entityId: parent.id,
+    denId: scout.denId,
+    details: [
+      { label: "Name", from: "—", to: name },
+      ...(email ? [{ label: "Email", from: "—", to: email }] : []),
+      ...(phone ? [{ label: "Phone", from: "—", to: phone }] : []),
+    ],
   });
 
   revalidatePath("/portal/roster/parents");
@@ -55,7 +81,10 @@ export async function updateParentAction(formData: FormData) {
   const phone = formatPhoneNumber(String(formData.get("phone") || ""));
   if (!parentId || !name) throw new Error("A parent name is required.");
 
-  const before = await prisma.parent.findUnique({ where: { id: parentId }, select: { userId: true } });
+  const before = await prisma.parent.findUnique({
+    where: { id: parentId },
+    select: { userId: true, name: true, email: true, phone: true, scoutId: true },
+  });
   // If this contact isn't linked yet and its (possibly just-edited) email now
   // matches an existing PARENT login, link it instead of leaving it stranded.
   const userId = before?.userId ?? (await findExistingParentAccountId(email));
@@ -82,6 +111,22 @@ export async function updateParentAction(formData: FormData) {
     revalidatePath(`/portal/admin/users/parents/${parent.userId}`);
   }
 
+  const scout = await scoutContext(parent.scoutId);
+  await recordAudit(session, {
+    action: "parent.update",
+    summary: `Edited the parent contact ${name} for ${scout.name}${
+      parent.userId ? " — their Parent Portal login was updated to match" : ""
+    }`,
+    entityType: "Parent",
+    entityId: parentId,
+    denId: scout.denId,
+    details: changedFields({
+      Name: [before?.name, name],
+      Email: [before?.email, email || null],
+      Phone: [before?.phone, phone || null],
+    }),
+  });
+
   revalidatePath("/portal/roster/parents");
   revalidatePath("/portal/admin/users/parents");
 }
@@ -94,7 +139,10 @@ export async function removeParentAction(formData: FormData) {
   const parentId = String(formData.get("parentId") || "");
   if (!parentId) throw new Error("Missing parent id.");
 
-  const parent = await prisma.parent.findUnique({ where: { id: parentId }, select: { userId: true } });
+  const parent = await prisma.parent.findUnique({
+    where: { id: parentId },
+    select: { userId: true, name: true, email: true, phone: true, scoutId: true },
+  });
 
   // scoutIds is baked into the parent's session JWT at login time and lives
   // for up to 45 days; deleting the Parent row alone leaves any already-issued
@@ -108,6 +156,24 @@ export async function removeParentAction(formData: FormData) {
       ? [prisma.user.update({ where: { id: parent.userId }, data: { sessionVersion: { increment: 1 } } })]
       : []),
   ]);
+
+  const scout = parent ? await scoutContext(parent.scoutId) : { name: "a scout", denId: null };
+  await recordAudit(session, {
+    action: "parent.delete",
+    summary: `Removed the parent contact ${parent?.name ?? parentId} from ${scout.name}${
+      parent?.userId ? " — their Parent Portal session was revoked" : ""
+    }`,
+    entityType: "Parent",
+    entityId: parentId,
+    denId: scout.denId,
+    details: parent
+      ? [
+          { label: "Name", from: parent.name, to: "—" },
+          ...(parent.email ? [{ label: "Email", from: parent.email, to: "—" }] : []),
+          ...(parent.phone ? [{ label: "Phone", from: parent.phone, to: "—" }] : []),
+        ]
+      : null,
+  });
 
   revalidatePath("/portal/roster/parents");
 }
@@ -143,6 +209,14 @@ export async function inviteParentPortalAction(parentId: string) {
       return { ok: false as const, error: "That email is already in use by a different portal account." };
     }
     await prisma.parent.update({ where: { id: parentId }, data: { userId: existing.id } });
+    const scout = await scoutContext(parent.scoutId);
+    await recordAudit(session, {
+      action: "parent.linkPortal",
+      summary: `Linked ${parent.name} (${scout.name}'s contact) to the existing Parent Portal login “${existing.username}”`,
+      entityType: "Parent",
+      entityId: parentId,
+      denId: scout.denId,
+    });
     revalidatePath("/portal/roster/parents");
     return { ok: true as const, linkedExisting: true };
   }
@@ -161,6 +235,19 @@ export async function inviteParentPortalAction(parentId: string) {
     },
   });
   await prisma.parent.update({ where: { id: parentId }, data: { userId: user.id } });
+
+  const invitedScout = await scoutContext(parent.scoutId);
+  await recordAudit(session, {
+    action: "parent.invitePortal",
+    summary: `Invited ${parent.name} (${invitedScout.name}'s contact) to the Parent Portal as “${cleanEmail}”`,
+    entityType: "User",
+    entityId: user.id,
+    denId: invitedScout.denId,
+    details: [
+      { label: "Login", from: "—", to: cleanEmail },
+      { label: "Display name", from: "—", to: parent.name },
+    ],
+  });
 
   revalidatePath("/portal/roster/parents");
 
@@ -198,6 +285,15 @@ export async function unlinkParentScoutAction(parentId: string) {
     // vouching for the unlinked scout until the user logs in again.
     prisma.user.update({ where: { id: parent.userId }, data: { sessionVersion: { increment: 1 } } }),
   ]);
+
+  const scout = await scoutContext(parent.scoutId);
+  await recordAudit(session, {
+    action: "parent.unlinkPortal",
+    summary: `Revoked Parent Portal access to ${scout.name} for ${parent.name} — the contact row and their access to any other scouts are unchanged`,
+    entityType: "Parent",
+    entityId: parentId,
+    denId: scout.denId,
+  });
 
   revalidatePath("/portal/admin/users/parents");
   revalidatePath(`/portal/admin/users/parents/${parent.userId}`);
@@ -240,6 +336,15 @@ export async function attachParentToScoutAction(formData: FormData) {
     prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } }),
   ]);
 
+  const scout = await scoutContext(scoutId);
+  await recordAudit(session, {
+    action: "parent.attachScout",
+    summary: `Gave the login “${user.username}” (${user.displayName}) Parent Portal access to ${scout.name}`,
+    entityType: "User",
+    entityId: userId,
+    denId: scout.denId,
+  });
+
   revalidatePath(`/portal/admin/users/parents/${userId}`);
   revalidatePath(`/portal/admin/users/${userId}`);
   revalidatePath("/portal/admin/users/parents");
@@ -260,7 +365,23 @@ export async function revokeParentPortalAction(parentId: string) {
   if (!parent) return { ok: false as const, error: "Parent contact not found." };
   if (!parent.userId) return { ok: false as const, error: "This parent doesn't have a portal account." };
 
+  const account = await prisma.user.findUnique({
+    where: { id: parent.userId },
+    select: { username: true, displayName: true, _count: { select: { parentContacts: true } } },
+  });
+
   await prisma.user.delete({ where: { id: parent.userId } });
+
+  const scout = await scoutContext(parent.scoutId);
+  await recordAudit(session, {
+    action: "parent.revokePortal",
+    summary: `Deleted the Parent Portal login “${account?.username ?? parent.userId}” (${
+      account?.displayName ?? parent.name
+    }) — revoked for all ${account?._count.parentContacts ?? 1} scout(s) it covered, including ${scout.name}`,
+    entityType: "User",
+    entityId: parent.userId,
+    denId: scout.denId,
+  });
 
   revalidatePath("/portal/roster/parents");
   return { ok: true as const };
@@ -333,6 +454,23 @@ export async function createParentAccountAction(
       data: { scoutId, userId: user.id, name, email: cleanEmail, phone: cleanPhone },
     });
   }
+
+  const attached = scoutId ? await scoutContext(scoutId) : null;
+  await recordAudit(session, {
+    action: "parent.createAccount",
+    summary: `Created the Parent Portal login “${clean}” for ${name}${
+      attached ? `, attached to ${attached.name}` : " with no scout attached yet"
+    }`,
+    entityType: "User",
+    entityId: user.id,
+    denId: attached?.denId ?? null,
+    details: [
+      { label: "Login", from: "—", to: clean },
+      { label: "Display name", from: "—", to: name },
+      ...(cleanEmail ? [{ label: "Email", from: "—", to: cleanEmail }] : []),
+      ...(cleanPhone ? [{ label: "Phone", from: "—", to: cleanPhone }] : []),
+    ],
+  });
 
   revalidatePath("/portal/admin/users/parents");
   revalidatePath("/portal/roster/parents");

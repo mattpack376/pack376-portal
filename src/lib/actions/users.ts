@@ -9,10 +9,13 @@ import { generatePassword } from "@/lib/passwords";
 import { issueInviteToken, issueResetToken } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
-import { ASSIGNABLE_ROLES, DEN_ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/roleLabels";
+import { ASSIGNABLE_ROLES, DEN_ASSIGNABLE_ROLES, ROLE_LABELS, type AssignableRole } from "@/lib/roleLabels";
 import { sendAccountLinkEmail } from "@/lib/email";
 import { formatPhoneNumber } from "@/lib/phone";
+import { denDisplayName } from "@/lib/rankConfig";
+import { recordAudit, changedFields } from "@/lib/audit";
 import type { CreatedInvite } from "@/lib/actions/dens";
+import type { Rank } from "@/generated/prisma/enums";
 
 export async function createAdminAction(
   username: string,
@@ -51,6 +54,19 @@ export async function createAdminAction(
       displayName: name,
       email: cleanEmail,
     },
+  });
+
+  await recordAudit(session, {
+    action: "user.create",
+    summary: `Created the ${ROLE_LABELS[role] ?? role} login “${clean}” for ${name}`,
+    entityType: "User",
+    entityId: user.id,
+    details: [
+      { label: "Username", from: "—", to: clean },
+      { label: "Display name", from: "—", to: name },
+      { label: "Role", from: "—", to: ROLE_LABELS[role] ?? role },
+      ...(cleanEmail ? [{ label: "Email", from: "—", to: cleanEmail }] : []),
+    ],
   });
 
   revalidatePath("/portal/admin/users");
@@ -103,6 +119,13 @@ export async function resetPasswordAction(userId: string) {
     },
   });
 
+  await recordAudit(session, {
+    action: "user.resetPassword",
+    summary: `Reset the password for “${user.username}” (${user.displayName}) — the old password and every live session stopped working`,
+    entityType: "User",
+    entityId: userId,
+  });
+
   revalidatePath("/portal/admin/users");
   revalidatePath("/portal/admin/users/parents");
 
@@ -129,7 +152,10 @@ export async function updateUserEmailAction(formData: FormData) {
   const userId = String(formData.get("userId") || "");
   const email = String(formData.get("email") || "").trim();
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { username: true, displayName: true, email: true },
+  });
   if (!user) throw new Error("User not found.");
   // A master admin's contact identity can only be changed by another master admin.
   if (isMasterAdminUsername(user.username)) await assertMasterAdmin(session);
@@ -140,6 +166,14 @@ export async function updateUserEmailAction(formData: FormData) {
     // share one login) — a no-op for staff accounts, which have no parentContacts.
     prisma.parent.updateMany({ where: { userId }, data: { email: email || null } }),
   ]);
+
+  await recordAudit(session, {
+    action: "user.updateEmail",
+    summary: `Changed the email on “${user.username}” (${user.displayName})`,
+    entityType: "User",
+    entityId: userId,
+    details: changedFields({ Email: [user.email, email || null] }),
+  });
 
   revalidatePath(`/portal/admin/users/${userId}`);
   revalidatePath(`/portal/admin/users/parents/${userId}`);
@@ -155,7 +189,10 @@ export async function updateUserPhoneAction(formData: FormData) {
   const userId = String(formData.get("userId") || "");
   const phone = formatPhoneNumber(String(formData.get("phone") || ""));
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { username: true, displayName: true, phone: true },
+  });
   if (!user) throw new Error("User not found.");
   // A master admin's contact identity can only be changed by another master admin.
   if (isMasterAdminUsername(user.username)) await assertMasterAdmin(session);
@@ -167,6 +204,14 @@ export async function updateUserPhoneAction(formData: FormData) {
     // which have no parentContacts.
     prisma.parent.updateMany({ where: { userId }, data: { phone: phone || null } }),
   ]);
+
+  await recordAudit(session, {
+    action: "user.updatePhone",
+    summary: `Changed the phone number on “${user.username}” (${user.displayName})`,
+    entityType: "User",
+    entityId: userId,
+    details: changedFields({ Phone: [user.phone, phone || null] }),
+  });
 
   revalidatePath(`/portal/admin/users/${userId}`);
   revalidatePath(`/portal/admin/users/parents/${userId}`);
@@ -183,7 +228,10 @@ export async function updateUserDisplayNameAction(formData: FormData) {
   const displayName = String(formData.get("displayName") || "").trim();
   if (!displayName) throw new Error("Display name is required.");
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { username: true, displayName: true },
+  });
   if (!user) throw new Error("User not found.");
   // A master admin's display identity can only be changed by another master admin.
   if (isMasterAdminUsername(user.username)) await assertMasterAdmin(session);
@@ -194,6 +242,14 @@ export async function updateUserDisplayNameAction(formData: FormData) {
     // share one login) — a no-op for staff accounts, which have no parentContacts.
     prisma.parent.updateMany({ where: { userId }, data: { name: displayName } }),
   ]);
+
+  await recordAudit(session, {
+    action: "user.updateDisplayName",
+    summary: `Renamed the login “${user.username}” to ${displayName}`,
+    entityType: "User",
+    entityId: userId,
+    details: changedFields({ "Display name": [user.displayName, displayName] }),
+  });
 
   revalidatePath(`/portal/admin/users/${userId}`);
   revalidatePath(`/portal/admin/users/parents/${userId}`);
@@ -241,9 +297,23 @@ export async function updateUserRoleAction(
     where: { id: userId },
     data: { role: role as AssignableRole, sessionVersion: { increment: 1 } },
   });
+  let clearedDenAssignments = false;
   if (user.role === "DEN" && role !== "DEN") {
     await prisma.denAssignment.deleteMany({ where: { userId } });
+    clearedDenAssignments = true;
   }
+
+  await recordAudit(session, {
+    action: "user.updateRole",
+    summary: `Changed “${user.username}” (${user.displayName}) from ${ROLE_LABELS[user.role] ?? user.role} to ${
+      ROLE_LABELS[role] ?? role
+    }${clearedDenAssignments ? " — their den assignments were cleared" : ""}`,
+    entityType: "User",
+    entityId: userId,
+    details: changedFields({
+      Role: [ROLE_LABELS[user.role] ?? user.role, ROLE_LABELS[role] ?? role],
+    }),
+  });
 
   revalidatePath("/portal/admin/users");
   revalidatePath(`/portal/admin/users/${userId}`);
@@ -264,12 +334,38 @@ export async function updateUserDensAction(formData: FormData) {
 
   const denIds = formData.getAll("denIds").map(String);
 
+  // Read the old assignments before replacing them, so the entry can show
+  // which dens this login gained or lost rather than just the new list.
+  const previousAssignments = await prisma.denAssignment.findMany({
+    where: { userId },
+    select: { den: { select: { rank: true, scoutingYear: true, label: true } } },
+  });
+
   await prisma.$transaction([
     prisma.denAssignment.deleteMany({ where: { userId } }),
     prisma.denAssignment.createMany({ data: denIds.map((denId) => ({ userId, denId })) }),
     // Revoke existing sessions so the old denIds in their JWT stop granting access.
     prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } }),
   ]);
+
+  const nextDens = await prisma.den.findMany({
+    where: { id: { in: denIds } },
+    select: { rank: true, scoutingYear: true, label: true },
+  });
+  const nameList = (dens: { rank: Rank; scoutingYear: string; label: string }[]) =>
+    dens.map((d) => denDisplayName(d.rank, d.scoutingYear, d.label)).sort().join(", ");
+
+  await recordAudit(session, {
+    action: "user.updateDens",
+    summary: `Set the den assignments for “${user.username}” (${user.displayName}) to ${
+      denIds.length === 0 ? "none" : nameList(nextDens)
+    }`,
+    entityType: "User",
+    entityId: userId,
+    details: changedFields({
+      "Assigned dens": [nameList(previousAssignments.map((a) => a.den)) || null, nameList(nextDens) || null],
+    }),
+  });
 
   revalidatePath(`/portal/admin/users/${userId}`);
   revalidatePath("/portal/admin");
@@ -294,6 +390,18 @@ export async function deleteUserAction(userId: string) {
   }
 
   await prisma.user.delete({ where: { id: userId } });
+
+  await recordAudit(session, {
+    action: "user.delete",
+    summary: `Deleted the ${ROLE_LABELS[user.role] ?? user.role} login “${user.username}” (${user.displayName})`,
+    entityType: "User",
+    entityId: userId,
+    details: [
+      { label: "Username", from: user.username, to: "—" },
+      { label: "Display name", from: user.displayName, to: "—" },
+      { label: "Role", from: ROLE_LABELS[user.role] ?? user.role, to: "—" },
+    ],
+  });
 
   revalidatePath("/portal/admin/users");
   revalidatePath(`/portal/admin/users/${userId}`);

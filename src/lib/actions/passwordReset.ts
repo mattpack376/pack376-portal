@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, createSessionCookie } from "@/lib/auth";
 import { redeemResetToken } from "@/lib/resetTokens";
+import { recordAudit } from "@/lib/audit";
 
 export type CompleteResetState = { error?: string };
 
@@ -54,6 +55,23 @@ export async function completeResetAction(
       sessionVersion: { increment: 1 },
     },
   });
+
+  /*
+   * Logged even though there's no session yet: the account holder is the actor,
+   * and "who set this password and when" is exactly what the log is for. The
+   * payload below stands in for a session that only exists a few lines later —
+   * recordAudit only reads userId off it (and falls back to displayName/role if
+   * the row is gone), so it's enough to attribute the entry correctly.
+   */
+  await recordAudit(
+    { userId: user.id, role: user.role, denIds: [], scoutIds: [], displayName: user.displayName, sv: user.sessionVersion },
+    {
+      action: "user.setOwnPassword",
+      summary: `“${user.username}” (${user.displayName}) set their own password from a one-time link`,
+      entityType: "User",
+      entityId: user.id,
+    }
+  );
 
   const [denAssignments, parentContacts] = await Promise.all([
     prisma.denAssignment.findMany({ where: { userId: user.id }, select: { denId: true } }),

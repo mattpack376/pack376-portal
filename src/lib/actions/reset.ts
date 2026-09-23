@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertMasterAdmin } from "@/lib/authorize";
 import { resetConfirmationPhrase } from "@/lib/resetConfirmation";
+import { recordAudit } from "@/lib/audit";
 
 export type ResetState = { error?: string; deletedCount?: number; scoutingYear?: string };
 
@@ -51,6 +52,22 @@ export async function resetPackDataAction(_prevState: ResetState, formData: Form
       prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } })
     ),
   ]);
+
+  // The single most destructive action in the portal, so the entry keeps the
+  // count and the year even though the scouts themselves are unrecoverable.
+  await recordAudit(session, {
+    action: "reset.packData",
+    summary: `Reset the ${scoutingYear} season — deleted ${count} scout${
+      count === 1 ? "" : "s"
+    } with their advancement, attendance, dues and parent contacts`,
+    entityType: "Scout",
+    entityId: null,
+    details: [
+      { label: "Scouting year", from: scoutingYear, to: "—" },
+      { label: "Scouts deleted", from: String(count), to: "—" },
+      { label: "Parent logins revoked", from: String(linkedUserIds.length), to: "—" },
+    ],
+  });
 
   revalidatePath("/portal/admin", "layout");
   revalidatePath("/portal/den", "layout");
