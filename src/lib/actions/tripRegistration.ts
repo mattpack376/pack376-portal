@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { currentTripPriceCents } from "@/lib/tripPageData";
 import { formatPhoneNumber } from "@/lib/phone";
+import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import type { TripAffiliation } from "@/generated/prisma/enums";
 
 const ADMIN_PATH = "/portal/admin/camp-conron";
@@ -43,6 +44,11 @@ export type RegisterForTripState = { error?: string; success?: boolean };
  * same convention as loginAction) rather than throwing, so the client can
  * show a confirmation popup on success or an inline message on failure
  * instead of hitting Next's default error boundary.
+ *
+ * Not written to the AuditLog: there's no actor to attribute it to, and the
+ * TripRegistration row itself (with its createdAt) already is the record of a
+ * family signing up. The log covers what staff do to these rows afterwards —
+ * the edit, payment and delete actions below.
  */
 export async function registerForTripAction(
   _prevState: RegisterForTripState,
@@ -116,6 +122,20 @@ export async function updateTripRegistrationAction(formData: FormData) {
   if (payingCount + freeCount === 0) throw new Error("Enter at least one attendee.");
   if (amountOwedCents === null) throw new Error("A valid amount owed is required.");
 
+  const before = await prisma.tripRegistration.findUnique({
+    where: { id },
+    select: {
+      familyName: true,
+      contactEmail: true,
+      contactPhone: true,
+      guestOfName: true,
+      affiliation: true,
+      payingCount: true,
+      freeCount: true,
+      amountOwedCents: true,
+    },
+  });
+
   await prisma.tripRegistration.update({
     where: { id },
     data: {
@@ -128,6 +148,26 @@ export async function updateTripRegistrationAction(formData: FormData) {
       freeCount,
       amountOwedCents,
     },
+  });
+
+  await recordAudit(session, {
+    action: "tripRegistration.update",
+    summary: `Edited the trip registration for ${familyName}`,
+    entityType: "TripRegistration",
+    entityId: id,
+    details: changedFields({
+      "Family name": [before?.familyName, familyName],
+      Email: [before?.contactEmail, contactEmail],
+      Phone: [before?.contactPhone, contactPhone],
+      "Guest of": [before?.guestOfName, guestOfName],
+      Affiliation: [before?.affiliation, affiliationRaw],
+      "Paying attendees": [before?.payingCount, payingCount],
+      "Free attendees": [before?.freeCount, freeCount],
+      "Amount owed": [
+        before ? auditMoney(before.amountOwedCents) : null,
+        auditMoney(amountOwedCents),
+      ],
+    }),
   });
 
   revalidatePath(ADMIN_PATH);
@@ -151,8 +191,24 @@ export async function addTripPaymentAction(formData: FormData) {
   const paidOn = paidOnRaw ? new Date(paidOnRaw) : new Date();
   if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
 
-  await prisma.tripPayment.create({
+  const payment = await prisma.tripPayment.create({
     data: { tripRegistrationId, amountCents, paidOn, note, recordedByUserId: session.userId },
+  });
+
+  const registration = await prisma.tripRegistration.findUnique({
+    where: { id: tripRegistrationId },
+    select: { familyName: true },
+  });
+  await recordAudit(session, {
+    action: "tripPayment.add",
+    summary: `Recorded a ${auditMoney(amountCents)} trip payment from ${registration?.familyName ?? "a family"}`,
+    entityType: "TripPayment",
+    entityId: payment.id,
+    details: [
+      { label: "Amount", from: "—", to: auditMoney(amountCents) },
+      { label: "Paid on", from: "—", to: auditDate(paidOn) },
+      ...(note ? [{ label: "Note", from: "—", to: note }] : []),
+    ],
   });
 
   revalidatePath(ADMIN_PATH);
@@ -166,7 +222,29 @@ export async function deleteTripPaymentAction(formData: FormData) {
   const paymentId = String(formData.get("paymentId") || "");
   if (!paymentId) throw new Error("Missing payment id.");
 
+  // Read before deleting — the amount is only recoverable from this entry after.
+  const payment = await prisma.tripPayment.findUnique({
+    where: { id: paymentId },
+    select: { amountCents: true, paidOn: true, note: true, tripRegistration: { select: { familyName: true } } },
+  });
+
   await prisma.tripPayment.delete({ where: { id: paymentId } });
+
+  await recordAudit(session, {
+    action: "tripPayment.delete",
+    summary: payment
+      ? `Deleted a ${auditMoney(payment.amountCents)} trip payment from ${payment.tripRegistration.familyName}`
+      : "Deleted a trip payment",
+    entityType: "TripPayment",
+    entityId: paymentId,
+    details: payment
+      ? [
+          { label: "Amount", from: auditMoney(payment.amountCents), to: "—" },
+          { label: "Paid on", from: auditDate(payment.paidOn), to: "—" },
+          ...(payment.note ? [{ label: "Note", from: payment.note, to: "—" }] : []),
+        ]
+      : null,
+  });
 
   revalidatePath(ADMIN_PATH);
 }
@@ -179,7 +257,38 @@ export async function deleteTripRegistrationAction(formData: FormData) {
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing registration id.");
 
+  const registration = await prisma.tripRegistration.findUnique({
+    where: { id },
+    select: {
+      familyName: true,
+      contactEmail: true,
+      payingCount: true,
+      freeCount: true,
+      amountOwedCents: true,
+      _count: { select: { payments: true } },
+    },
+  });
+
   await prisma.tripRegistration.delete({ where: { id } });
+
+  await recordAudit(session, {
+    action: "tripRegistration.delete",
+    summary: `Deleted the trip registration for ${registration?.familyName ?? id}${
+      registration && registration._count.payments > 0
+        ? ` — along with ${registration._count.payments} recorded payment(s)`
+        : ""
+    }`,
+    entityType: "TripRegistration",
+    entityId: id,
+    details: registration
+      ? [
+          { label: "Family name", from: registration.familyName, to: "—" },
+          { label: "Email", from: registration.contactEmail, to: "—" },
+          { label: "Attendees", from: `${registration.payingCount} paying, ${registration.freeCount} free`, to: "—" },
+          { label: "Amount owed", from: auditMoney(registration.amountOwedCents), to: "—" },
+        ]
+      : null,
+  });
 
   revalidatePath(ADMIN_PATH);
 }

@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin, assertEventPaymentDenAccess, assertGuestGroupAccess } from "@/lib/authorize";
 import { RANK_ORDER } from "@/lib/rankConfig";
+import { DEADLINE_CATEGORY_LABELS } from "@/lib/deadlineCategories";
+import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 
 function dollarsToCents(raw: string): number | null {
@@ -25,6 +27,32 @@ const ALLOWED_FLYER_TYPES: Record<string, string> = {
   "image/gif": "gif",
   "application/pdf": "pdf",
 };
+
+/** An event's title for audit text, falling back to the raw id. */
+async function eventTitle(eventId: string) {
+  if (!eventId) return "an event";
+  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { title: true } });
+  return event?.title ?? eventId;
+}
+
+/** A registration's scout name + den + event title, for audit text on registration/payment changes. */
+async function registrationContext(registrationId: string) {
+  const registration = await prisma.eventRegistration.findUnique({
+    where: { id: registrationId },
+    select: {
+      eventId: true,
+      event: { select: { title: true } },
+      scout: { select: { firstName: true, lastName: true, denId: true } },
+    },
+  });
+  if (!registration) return { scoutName: registrationId, eventTitle: "an event", denId: null, eventId: null };
+  return {
+    scoutName: `${registration.scout.firstName} ${registration.scout.lastName}`,
+    eventTitle: registration.event.title,
+    denId: registration.scout.denId,
+    eventId: registration.eventId,
+  };
+}
 
 async function uploadFlyer(file: File): Promise<string> {
   const extension = ALLOWED_FLYER_TYPES[file.type];
@@ -74,6 +102,24 @@ export async function createEventAction(formData: FormData) {
     data: { title, category, eventDate, description: description || null, feeCents, adultFeeCents, guestChildFeeCents, flyerUrl },
   });
 
+  await recordAudit(session, {
+    action: "event.create",
+    summary: `Created the event “${title}” on ${auditDate(eventDate)}`,
+    entityType: "Event",
+    entityId: event.id,
+    details: [
+      { label: "Title", from: "—", to: title },
+      { label: "Category", from: "—", to: DEADLINE_CATEGORY_LABELS[category] ?? category },
+      { label: "Event date", from: "—", to: auditDate(eventDate) },
+      ...(feeCents !== null ? [{ label: "Scout fee", from: "—", to: auditMoney(feeCents) }] : []),
+      ...(adultFeeCents !== null ? [{ label: "Adult fee", from: "—", to: auditMoney(adultFeeCents) }] : []),
+      ...(guestChildFeeCents !== null
+        ? [{ label: "Guest child fee", from: "—", to: auditMoney(guestChildFeeCents) }]
+        : []),
+      ...(flyerUrl ? [{ label: "Flyer", from: "—", to: "Uploaded" }] : []),
+    ],
+  });
+
   revalidatePath("/portal/admin/events");
   revalidatePath("/portal/parent");
   revalidatePath("/portal/roster/family-view");
@@ -117,6 +163,19 @@ export async function updateEventAction(formData: FormData) {
     flyerUrl = null;
   }
 
+  const before = await prisma.event.findUnique({
+    where: { id },
+    select: {
+      title: true,
+      category: true,
+      eventDate: true,
+      description: true,
+      feeCents: true,
+      adultFeeCents: true,
+      guestChildFeeCents: true,
+    },
+  });
+
   await prisma.event.update({
     where: { id },
     data: {
@@ -129,6 +188,43 @@ export async function updateEventAction(formData: FormData) {
       guestChildFeeCents,
       ...(flyerUrl !== undefined ? { flyerUrl } : {}),
     },
+  });
+
+  await recordAudit(session, {
+    action: "event.update",
+    summary: `Edited the event “${title}”`,
+    entityType: "Event",
+    entityId: id,
+    details: [
+      ...changedFields({
+        Title: [before?.title, title],
+        Category: [
+          before ? DEADLINE_CATEGORY_LABELS[before.category] ?? before.category : null,
+          DEADLINE_CATEGORY_LABELS[category] ?? category,
+        ],
+        "Event date": [before?.eventDate, eventDate],
+        Description: [before?.description, description || null],
+        "Scout fee": [
+          before?.feeCents === null || before?.feeCents === undefined ? null : auditMoney(before.feeCents),
+          feeCents === null ? null : auditMoney(feeCents),
+        ],
+        "Adult fee": [
+          before?.adultFeeCents === null || before?.adultFeeCents === undefined
+            ? null
+            : auditMoney(before.adultFeeCents),
+          adultFeeCents === null ? null : auditMoney(adultFeeCents),
+        ],
+        "Guest child fee": [
+          before?.guestChildFeeCents === null || before?.guestChildFeeCents === undefined
+            ? null
+            : auditMoney(before.guestChildFeeCents),
+          guestChildFeeCents === null ? null : auditMoney(guestChildFeeCents),
+        ],
+      }),
+      ...(flyerUrl === undefined
+        ? []
+        : [{ label: "Flyer", from: "Previous", to: flyerUrl === null ? "—" : "Replaced" }]),
+    ],
   });
 
   revalidatePath(`/portal/admin/events/${id}`);
@@ -146,7 +242,17 @@ export async function toggleEventVisibilityAction(formData: FormData) {
   const visible = String(formData.get("visible") || "") === "true";
   if (!id) throw new Error("Missing event id.");
 
-  await prisma.event.update({ where: { id }, data: { visible: !visible } });
+  const event = await prisma.event.update({ where: { id }, data: { visible: !visible } });
+
+  await recordAudit(session, {
+    action: "event.toggleVisibility",
+    summary: `${event.visible ? "Opened" : "Hid"} the event “${event.title}” ${
+      event.visible ? "for" : "from"
+    } family self-registration`,
+    entityType: "Event",
+    entityId: id,
+    details: [{ label: "Visible", from: visible ? "Yes" : "No", to: event.visible ? "Yes" : "No" }],
+  });
 
   revalidatePath(`/portal/admin/events/${id}`);
   revalidatePath("/portal/admin/events");
@@ -162,7 +268,35 @@ export async function deleteEventAction(formData: FormData) {
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing event id.");
 
+  const event = await prisma.event.findUnique({
+    where: { id },
+    select: {
+      title: true,
+      eventDate: true,
+      _count: { select: { registrations: true, guestGroups: true } },
+    },
+  });
+
   await prisma.event.delete({ where: { id } });
+
+  await recordAudit(session, {
+    action: "event.delete",
+    summary: `Deleted the event “${event?.title ?? id}”${
+      event && event._count.registrations + event._count.guestGroups > 0
+        ? ` — along with ${event._count.registrations} scout registration(s), ${event._count.guestGroups} guest group(s) and their payments`
+        : ""
+    }`,
+    entityType: "Event",
+    entityId: id,
+    details: event
+      ? [
+          { label: "Title", from: event.title, to: "—" },
+          { label: "Event date", from: auditDate(event.eventDate), to: "—" },
+          { label: "Scout registrations", from: String(event._count.registrations), to: "—" },
+          { label: "Guest groups", from: String(event._count.guestGroups), to: "—" },
+        ]
+      : null,
+  });
 
   revalidatePath("/portal/admin/events");
   redirect("/portal/admin/events");
@@ -192,6 +326,26 @@ export async function registerScoutForEventAction(formData: FormData) {
     data: newScoutIds.map((scoutId) => ({ eventId, scoutId, amountOwedCents })),
   });
 
+  const scouts = await prisma.scout.findMany({
+    where: { id: { in: newScoutIds } },
+    select: { firstName: true, lastName: true, denId: true },
+  });
+  const names = scouts.map((sc) => `${sc.firstName} ${sc.lastName}`).sort();
+  await recordAudit(session, {
+    action: "eventRegistration.create",
+    summary: `Registered ${names.join(", ") || `${newScoutIds.length} scout(s)`} for “${await eventTitle(
+      eventId,
+    )}” at ${auditMoney(amountOwedCents)} each`,
+    entityType: "Event",
+    entityId: eventId,
+    // Only tagged with a den when every scout came from the same one.
+    denId: new Set(scouts.map((sc) => sc.denId)).size === 1 ? scouts[0].denId : null,
+    details: [
+      { label: "Scouts registered", from: "—", to: names.join(", ") },
+      { label: "Amount owed each", from: "—", to: auditMoney(amountOwedCents) },
+    ],
+  });
+
   revalidatePath(`/portal/admin/events/${eventId}`);
 }
 
@@ -213,9 +367,29 @@ export async function updateRegistrationAmountAction(formData: FormData) {
   if (!registration) throw new Error("Registration not found.");
   assertEventPaymentDenAccess(session, registration.scout.denId);
 
+  const before = await prisma.eventRegistration.findUnique({
+    where: { id: registrationId },
+    select: { amountOwedCents: true },
+  });
+
   await prisma.eventRegistration.update({
     where: { id: registrationId },
     data: { amountOwedCents },
+  });
+
+  const context = await registrationContext(registrationId);
+  await recordAudit(session, {
+    action: "eventRegistration.updateAmount",
+    summary: `Changed what ${context.scoutName} owes for “${context.eventTitle}” to ${auditMoney(amountOwedCents)}`,
+    entityType: "EventRegistration",
+    entityId: registrationId,
+    denId: context.denId,
+    details: changedFields({
+      "Amount owed": [
+        before ? auditMoney(before.amountOwedCents) : null,
+        auditMoney(amountOwedCents),
+      ],
+    }),
   });
 
   revalidatePath(`/portal/admin/events/${eventId}/${registrationId}`);
@@ -232,7 +406,32 @@ export async function removeRegistrationAction(formData: FormData) {
   const eventId = String(formData.get("eventId") || "");
   if (!registrationId) throw new Error("Missing registration id.");
 
+  // Read the context before deleting; the cascade takes the payments with it.
+  const context = await registrationContext(registrationId);
+  const registration = await prisma.eventRegistration.findUnique({
+    where: { id: registrationId },
+    select: { amountOwedCents: true, _count: { select: { payments: true } } },
+  });
+
   await prisma.eventRegistration.delete({ where: { id: registrationId } });
+
+  await recordAudit(session, {
+    action: "eventRegistration.delete",
+    summary: `Removed ${context.scoutName} from “${context.eventTitle}”${
+      registration && registration._count.payments > 0
+        ? ` — along with ${registration._count.payments} recorded payment(s)`
+        : ""
+    }`,
+    entityType: "EventRegistration",
+    entityId: registrationId,
+    denId: context.denId,
+    details: registration
+      ? [
+          { label: "Amount owed", from: auditMoney(registration.amountOwedCents), to: "—" },
+          { label: "Payments removed", from: String(registration._count.payments), to: "—" },
+        ]
+      : null,
+  });
 
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
@@ -261,8 +460,22 @@ export async function addEventPaymentAction(formData: FormData) {
   const paidOn = paidOnRaw ? new Date(paidOnRaw) : new Date();
   if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
 
-  await prisma.eventPayment.create({
+  const payment = await prisma.eventPayment.create({
     data: { eventRegistrationId: registrationId, amountCents, paidOn, note, recordedByUserId: session.userId },
+  });
+
+  const context = await registrationContext(registrationId);
+  await recordAudit(session, {
+    action: "eventPayment.add",
+    summary: `Recorded a ${auditMoney(amountCents)} payment for ${context.scoutName} on “${context.eventTitle}”`,
+    entityType: "EventPayment",
+    entityId: payment.id,
+    denId: context.denId,
+    details: [
+      { label: "Amount", from: "—", to: auditMoney(amountCents) },
+      { label: "Paid on", from: "—", to: auditDate(paidOn) },
+      ...(note ? [{ label: "Note", from: "—", to: note }] : []),
+    ],
   });
 
   revalidatePath(`/portal/admin/events/${eventId}/${registrationId}`);
@@ -297,6 +510,21 @@ export async function registerMyScoutsForEventAction(formData: FormData) {
 
   await prisma.eventRegistration.createMany({
     data: newScoutIds.map((scoutId) => ({ eventId, scoutId, amountOwedCents: event.feeCents! })),
+  });
+
+  const scouts = await prisma.scout.findMany({
+    where: { id: { in: newScoutIds } },
+    select: { firstName: true, lastName: true, denId: true },
+  });
+  const names = scouts.map((sc) => `${sc.firstName} ${sc.lastName}`).sort();
+  await recordAudit(session, {
+    action: "eventRegistration.selfRegister",
+    summary: `Signed ${names.join(", ") || "their scout(s)"} up for “${await eventTitle(eventId)}” at ${auditMoney(
+      event.feeCents,
+    )} each`,
+    entityType: "Event",
+    entityId: eventId,
+    denId: new Set(scouts.map((sc) => sc.denId)).size === 1 ? scouts[0].denId : null,
   });
 
   revalidatePath("/portal/parent");
@@ -364,7 +592,7 @@ export async function registerMyGuestGroupForEventAction(formData: FormData) {
   // leader/admin with no linked scout still falls back to guestOfUserId.
   const guestOfScoutId = session.role === "PARENT" ? await oldestScoutId(session.scoutIds) : null;
 
-  await prisma.eventGuestGroup.create({
+  const group = await prisma.eventGuestGroup.create({
     data: {
       eventId,
       familyName,
@@ -375,6 +603,21 @@ export async function registerMyGuestGroupForEventAction(formData: FormData) {
       guestOfScoutId,
       guestOfUserId: guestOfScoutId ? null : session.userId,
     },
+  });
+
+  await recordAudit(session, {
+    action: "guestGroup.selfRegister",
+    summary: `Signed up the guest group “${familyName}” (${adultCount} adult(s), ${childCount} child(ren)) for “${await eventTitle(
+      eventId,
+    )}” — ${auditMoney(amountOwedCents)} owed`,
+    entityType: "EventGuestGroup",
+    entityId: group.id,
+    details: [
+      { label: "Guest group", from: "—", to: familyName },
+      { label: "Adults", from: "—", to: String(adultCount) },
+      { label: "Children", from: "—", to: String(childCount) },
+      { label: "Amount owed", from: "—", to: auditMoney(amountOwedCents) },
+    ],
   });
 
   revalidatePath("/portal/parent");
@@ -402,7 +645,18 @@ export async function removeMyGuestGroupAction(formData: FormData) {
     throw new Error("This guest group has payments recorded — ask a den leader or admin to remove it.");
   }
 
-  await prisma.eventGuestGroup.delete({ where: { id: guestGroupId } });
+  const removed = await prisma.eventGuestGroup.delete({ where: { id: guestGroupId } });
+
+  await recordAudit(session, {
+    action: "guestGroup.selfRemove",
+    summary: `Withdrew their guest group “${removed.familyName}” from “${await eventTitle(removed.eventId)}”`,
+    entityType: "EventGuestGroup",
+    entityId: guestGroupId,
+    details: [
+      { label: "Guest group", from: removed.familyName, to: "—" },
+      { label: "Amount owed", from: auditMoney(removed.amountOwedCents), to: "—" },
+    ],
+  });
 
   revalidatePath("/portal/parent");
   revalidatePath("/portal/roster/family-view");
@@ -427,7 +681,31 @@ export async function deleteEventPaymentAction(formData: FormData) {
   if (!payment || payment.eventRegistration.id !== registrationId) throw new Error("Payment not found.");
   assertEventPaymentDenAccess(session, payment.eventRegistration.scout.denId);
 
+  // Read the amount before deleting — afterwards this entry is the only record.
+  const deleted = await prisma.eventPayment.findUnique({
+    where: { id: paymentId },
+    select: { amountCents: true, paidOn: true, note: true },
+  });
+  const context = await registrationContext(registrationId);
+
   await prisma.eventPayment.delete({ where: { id: paymentId } });
+
+  await recordAudit(session, {
+    action: "eventPayment.delete",
+    summary: deleted
+      ? `Deleted a ${auditMoney(deleted.amountCents)} payment for ${context.scoutName} on “${context.eventTitle}”`
+      : `Deleted a payment for ${context.scoutName}`,
+    entityType: "EventPayment",
+    entityId: paymentId,
+    denId: context.denId,
+    details: deleted
+      ? [
+          { label: "Amount", from: auditMoney(deleted.amountCents), to: "—" },
+          { label: "Paid on", from: auditDate(deleted.paidOn), to: "—" },
+          ...(deleted.note ? [{ label: "Note", from: deleted.note, to: "—" }] : []),
+        ]
+      : null,
+  });
 
   revalidatePath(`/portal/admin/events/${eventId}/${registrationId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
@@ -465,8 +743,23 @@ export async function addGuestGroupAction(formData: FormData) {
   }
   if (adultCount + childCount === 0) throw new Error("Enter at least one adult or child.");
 
-  await prisma.eventGuestGroup.create({
+  const group = await prisma.eventGuestGroup.create({
     data: { eventId, familyName, adultCount, childCount, amountOwedCents, guestOfScoutId, guestOfUserId },
+  });
+
+  await recordAudit(session, {
+    action: "guestGroup.create",
+    summary: `Added the guest group “${familyName}” (${adultCount} adult(s), ${childCount} child(ren)) to “${await eventTitle(
+      eventId,
+    )}” — ${auditMoney(amountOwedCents)} owed`,
+    entityType: "EventGuestGroup",
+    entityId: group.id,
+    details: [
+      { label: "Guest group", from: "—", to: familyName },
+      { label: "Adults", from: "—", to: String(adultCount) },
+      { label: "Children", from: "—", to: String(childCount) },
+      { label: "Amount owed", from: "—", to: auditMoney(amountOwedCents) },
+    ],
   });
 
   revalidatePath(`/portal/admin/events/${eventId}`);
@@ -491,7 +784,14 @@ export async function updateGuestGroupAction(formData: FormData) {
 
   const existing = await prisma.eventGuestGroup.findUnique({
     where: { id: guestGroupId },
-    select: { addedByUserId: true },
+    select: {
+      addedByUserId: true,
+      familyName: true,
+      adultCount: true,
+      childCount: true,
+      amountOwedCents: true,
+      eventId: true,
+    },
   });
   if (!existing) throw new Error("Guest group not found.");
   assertGuestGroupAccess(session, existing.addedByUserId);
@@ -499,6 +799,19 @@ export async function updateGuestGroupAction(formData: FormData) {
   await prisma.eventGuestGroup.update({
     where: { id: guestGroupId },
     data: { familyName, adultCount, childCount, amountOwedCents, guestOfScoutId, guestOfUserId },
+  });
+
+  await recordAudit(session, {
+    action: "guestGroup.update",
+    summary: `Edited the guest group “${familyName}” on “${await eventTitle(existing.eventId)}”`,
+    entityType: "EventGuestGroup",
+    entityId: guestGroupId,
+    details: changedFields({
+      "Guest group": [existing.familyName, familyName],
+      Adults: [existing.adultCount, adultCount],
+      Children: [existing.childCount, childCount],
+      "Amount owed": [auditMoney(existing.amountOwedCents), auditMoney(amountOwedCents)],
+    }),
   });
 
   revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
@@ -516,7 +829,28 @@ export async function removeGuestGroupAction(formData: FormData) {
   const eventId = String(formData.get("eventId") || "");
   if (!guestGroupId) throw new Error("Missing guest group id.");
 
+  const group = await prisma.eventGuestGroup.findUnique({
+    where: { id: guestGroupId },
+    select: { familyName: true, amountOwedCents: true, eventId: true, _count: { select: { payments: true } } },
+  });
+
   await prisma.eventGuestGroup.delete({ where: { id: guestGroupId } });
+
+  await recordAudit(session, {
+    action: "guestGroup.delete",
+    summary: `Removed the guest group “${group?.familyName ?? guestGroupId}” from “${await eventTitle(
+      group?.eventId ?? eventId,
+    )}”${group && group._count.payments > 0 ? ` — along with ${group._count.payments} recorded payment(s)` : ""}`,
+    entityType: "EventGuestGroup",
+    entityId: guestGroupId,
+    details: group
+      ? [
+          { label: "Guest group", from: group.familyName, to: "—" },
+          { label: "Amount owed", from: auditMoney(group.amountOwedCents), to: "—" },
+          { label: "Payments removed", from: String(group._count.payments), to: "—" },
+        ]
+      : null,
+  });
 
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
@@ -545,8 +879,26 @@ export async function addGuestGroupPaymentAction(formData: FormData) {
   const paidOn = paidOnRaw ? new Date(paidOnRaw) : new Date();
   if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
 
-  await prisma.eventGuestGroupPayment.create({
+  const payment = await prisma.eventGuestGroupPayment.create({
     data: { eventGuestGroupId: guestGroupId, amountCents, paidOn, note, recordedByUserId: session.userId },
+  });
+
+  const group = await prisma.eventGuestGroup.findUnique({
+    where: { id: guestGroupId },
+    select: { familyName: true, eventId: true },
+  });
+  await recordAudit(session, {
+    action: "guestGroupPayment.add",
+    summary: `Recorded a ${auditMoney(amountCents)} payment from the guest group “${
+      group?.familyName ?? guestGroupId
+    }” on “${await eventTitle(group?.eventId ?? eventId)}”`,
+    entityType: "EventGuestGroupPayment",
+    entityId: payment.id,
+    details: [
+      { label: "Amount", from: "—", to: auditMoney(amountCents) },
+      { label: "Paid on", from: "—", to: auditDate(paidOn) },
+      ...(note ? [{ label: "Note", from: "—", to: note }] : []),
+    ],
   });
 
   revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
@@ -573,7 +925,31 @@ export async function deleteGuestGroupPaymentAction(formData: FormData) {
   if (!payment || payment.eventGuestGroupId !== guestGroupId) throw new Error("Payment not found.");
   assertGuestGroupAccess(session, payment.eventGuestGroup.addedByUserId);
 
+  // Read the amount before deleting — afterwards this entry is the only record.
+  const deleted = await prisma.eventGuestGroupPayment.findUnique({
+    where: { id: paymentId },
+    select: { amountCents: true, paidOn: true, note: true, eventGuestGroup: { select: { familyName: true } } },
+  });
+
   await prisma.eventGuestGroupPayment.delete({ where: { id: paymentId } });
+
+  await recordAudit(session, {
+    action: "guestGroupPayment.delete",
+    summary: deleted
+      ? `Deleted a ${auditMoney(deleted.amountCents)} payment from the guest group “${
+          deleted.eventGuestGroup.familyName
+        }”`
+      : "Deleted a guest group payment",
+    entityType: "EventGuestGroupPayment",
+    entityId: paymentId,
+    details: deleted
+      ? [
+          { label: "Amount", from: auditMoney(deleted.amountCents), to: "—" },
+          { label: "Paid on", from: auditDate(deleted.paidOn), to: "—" },
+          ...(deleted.note ? [{ label: "Note", from: deleted.note, to: "—" }] : []),
+        ]
+      : null,
+  });
 
   revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);

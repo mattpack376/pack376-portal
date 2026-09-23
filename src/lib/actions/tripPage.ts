@@ -5,6 +5,7 @@ import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertTripPageAccess } from "@/lib/authorize";
+import { recordAudit, changedFields, auditMoney } from "@/lib/audit";
 import type { TripDay } from "@/generated/prisma/enums";
 
 const ADMIN_PATH = "/portal/admin/camp-conron";
@@ -13,6 +14,12 @@ const PUBLIC_PATH = "/camp-conron";
 function revalidateTrip() {
   revalidatePath(ADMIN_PATH);
   revalidatePath(PUBLIC_PATH);
+}
+
+/** "SATURDAY" -> "Saturday", "HOT_BREAKFAST" -> "Hot breakfast" — enums in audit text. */
+function titleCase(value: string): string {
+  const words = value.toLowerCase().replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function dollarsToCents(raw: string): number | null {
@@ -70,6 +77,11 @@ export async function updateTripDetailsAction(formData: FormData) {
     flyerUrl = null;
   }
 
+  const before = await prisma.tripPage.findUnique({
+    where: { id },
+    select: { title: true, location: true, startDate: true, endDate: true, detailsHtml: true },
+  });
+
   await prisma.tripPage.update({
     where: { id },
     data: {
@@ -80,6 +92,25 @@ export async function updateTripDetailsAction(formData: FormData) {
       detailsHtml: detailsHtml || null,
       ...(flyerUrl !== undefined ? { flyerUrl } : {}),
     },
+  });
+
+  await recordAudit(session, {
+    action: "trip.updateDetails",
+    summary: `Edited the trip details for “${title}”`,
+    entityType: "TripPage",
+    entityId: id,
+    details: [
+      ...changedFields({
+        Title: [before?.title, title],
+        Location: [before?.location, location || null],
+        "Start date": [before?.startDate, startDate],
+        "End date": [before?.endDate, endDate],
+        Details: [before?.detailsHtml, detailsHtml || null],
+      }),
+      ...(flyerUrl === undefined
+        ? []
+        : [{ label: "Flyer", from: "Previous", to: flyerUrl === null ? "—" : "Replaced" }]),
+    ],
   });
 
   revalidateTrip();
@@ -94,7 +125,15 @@ export async function toggleTripPublishedAction(formData: FormData) {
   const published = String(formData.get("published") || "") === "true";
   if (!id) throw new Error("Missing trip page id.");
 
-  await prisma.tripPage.update({ where: { id }, data: { published: !published } });
+  const trip = await prisma.tripPage.update({ where: { id }, data: { published: !published } });
+
+  await recordAudit(session, {
+    action: "trip.togglePublished",
+    summary: `${trip.published ? "Published" : "Unpublished"} the public trip page for “${trip.title}”`,
+    entityType: "TripPage",
+    entityId: id,
+    details: [{ label: "Published", from: published ? "Yes" : "No", to: trip.published ? "Yes" : "No" }],
+  });
 
   revalidateTrip();
 }
@@ -128,9 +167,43 @@ export async function updateTripPricingAction(formData: FormData) {
     freeAgeAndUnder = parsed;
   }
 
+  const before = await prisma.tripPage.findUnique({
+    where: { id },
+    select: {
+      title: true,
+      regularPriceCents: true,
+      earlyBirdPriceCents: true,
+      earlyBirdDeadline: true,
+      rsvpDeadline: true,
+      freeAgeAndUnder: true,
+    },
+  });
+
   await prisma.tripPage.update({
     where: { id },
     data: { regularPriceCents, earlyBirdPriceCents, earlyBirdDeadline, rsvpDeadline, freeAgeAndUnder },
+  });
+
+  await recordAudit(session, {
+    action: "trip.updatePricing",
+    summary: `Changed the pricing for “${before?.title ?? "the trip"}” — regular ${auditMoney(regularPriceCents)}`,
+    entityType: "TripPage",
+    entityId: id,
+    details: changedFields({
+      "Regular price": [
+        before ? auditMoney(before.regularPriceCents) : null,
+        auditMoney(regularPriceCents),
+      ],
+      "Early-bird price": [
+        before?.earlyBirdPriceCents === null || before?.earlyBirdPriceCents === undefined
+          ? null
+          : auditMoney(before.earlyBirdPriceCents),
+        earlyBirdPriceCents === null ? null : auditMoney(earlyBirdPriceCents),
+      ],
+      "Early-bird deadline": [before?.earlyBirdDeadline, earlyBirdDeadline],
+      "RSVP deadline": [before?.rsvpDeadline, rsvpDeadline],
+      "Free age and under": [before?.freeAgeAndUnder, freeAgeAndUnder],
+    }),
   });
 
   revalidateTrip();
@@ -146,12 +219,28 @@ export async function updateTripPaymentInstructionsAction(formData: FormData) {
   const troopPaymentInstructions = String(formData.get("troopPaymentInstructions") || "").trim();
   if (!id) throw new Error("Missing trip page id.");
 
+  const before = await prisma.tripPage.findUnique({
+    where: { id },
+    select: { title: true, packPaymentInstructions: true, troopPaymentInstructions: true },
+  });
+
   await prisma.tripPage.update({
     where: { id },
     data: {
       packPaymentInstructions: packPaymentInstructions || null,
       troopPaymentInstructions: troopPaymentInstructions || null,
     },
+  });
+
+  await recordAudit(session, {
+    action: "trip.updatePaymentInstructions",
+    summary: `Edited the payment instructions for “${before?.title ?? "the trip"}”`,
+    entityType: "TripPage",
+    entityId: id,
+    details: changedFields({
+      "Pack instructions": [before?.packPaymentInstructions, packPaymentInstructions || null],
+      "Troop instructions": [before?.troopPaymentInstructions, troopPaymentInstructions || null],
+    }),
   });
 
   revalidateTrip();
@@ -165,12 +254,39 @@ export async function updateTripMealsAction(formData: FormData) {
   const mealIds = formData.getAll("mealId").map(String);
   if (mealIds.length === 0) throw new Error("No meals to update.");
 
+  // Saved as one form, so read every meal's old menu up front and log the one
+  // entry covering whichever of them actually changed.
+  const before = await prisma.tripMeal.findMany({
+    where: { id: { in: mealIds } },
+    select: { id: true, day: true, mealType: true, menuText: true },
+  });
+  const beforeById = new Map(before.map((m) => [m.id, m]));
+
   await Promise.all(
     mealIds.map((mealId) => {
       const menuText = String(formData.get(`menuText-${mealId}`) || "").trim();
       return prisma.tripMeal.update({ where: { id: mealId }, data: { menuText: menuText || null } });
     }),
   );
+
+  const details = mealIds.flatMap((mealId) => {
+    const prior = beforeById.get(mealId);
+    if (!prior) return [];
+    const menuText = String(formData.get(`menuText-${mealId}`) || "").trim();
+    return changedFields({
+      [`${titleCase(prior.day)} ${titleCase(prior.mealType)}`]: [prior.menuText, menuText || null],
+    });
+  });
+
+  if (details.length > 0) {
+    await recordAudit(session, {
+      action: "trip.updateMeals",
+      summary: `Updated ${details.length} trip meal menu${details.length === 1 ? "" : "s"}`,
+      entityType: "TripMeal",
+      entityId: null,
+      details,
+    });
+  }
 
   revalidateTrip();
 }
@@ -188,7 +304,7 @@ export async function createDutySlotAction(formData: FormData) {
   const notes = String(formData.get("notes") || "").trim();
   if (!tripPageId || !label) throw new Error("A label is required.");
 
-  await prisma.tripDutySlot.create({
+  const slot = await prisma.tripDutySlot.create({
     data: {
       tripPageId,
       tripMealId,
@@ -197,6 +313,19 @@ export async function createDutySlotAction(formData: FormData) {
       arriveTime: arriveTime || null,
       notes: notes || null,
     },
+  });
+
+  await recordAudit(session, {
+    action: "trip.dutySlot.create",
+    summary: `Added the trip duty “${label}”${assignedName ? ` — assigned to ${assignedName}` : " (unassigned)"}`,
+    entityType: "TripDutySlot",
+    entityId: slot.id,
+    details: [
+      { label: "Duty", from: "—", to: label },
+      ...(assignedName ? [{ label: "Assigned to", from: "—", to: assignedName }] : []),
+      ...(arriveTime ? [{ label: "Arrive time", from: "—", to: arriveTime }] : []),
+      ...(notes ? [{ label: "Notes", from: "—", to: notes }] : []),
+    ],
   });
 
   revalidateTrip();
@@ -215,9 +344,27 @@ export async function updateDutySlotAction(formData: FormData) {
   const notes = String(formData.get("notes") || "").trim();
   if (!id || !label) throw new Error("A label is required.");
 
+  const before = await prisma.tripDutySlot.findUnique({
+    where: { id },
+    select: { label: true, assignedName: true, arriveTime: true, notes: true },
+  });
+
   await prisma.tripDutySlot.update({
     where: { id },
     data: { tripMealId, label, assignedName: assignedName || null, arriveTime: arriveTime || null, notes: notes || null },
+  });
+
+  await recordAudit(session, {
+    action: "trip.dutySlot.update",
+    summary: `Edited the trip duty “${label}”`,
+    entityType: "TripDutySlot",
+    entityId: id,
+    details: changedFields({
+      Duty: [before?.label, label],
+      "Assigned to": [before?.assignedName, assignedName || null],
+      "Arrive time": [before?.arriveTime, arriveTime || null],
+      Notes: [before?.notes, notes || null],
+    }),
   });
 
   revalidateTrip();
@@ -231,7 +378,18 @@ export async function deleteDutySlotAction(formData: FormData) {
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing duty slot id.");
 
-  await prisma.tripDutySlot.delete({ where: { id } });
+  const slot = await prisma.tripDutySlot.delete({ where: { id } });
+
+  await recordAudit(session, {
+    action: "trip.dutySlot.delete",
+    summary: `Deleted the trip duty “${slot.label}”${slot.assignedName ? ` (was assigned to ${slot.assignedName})` : ""}`,
+    entityType: "TripDutySlot",
+    entityId: id,
+    details: [
+      { label: "Duty", from: slot.label, to: "—" },
+      ...(slot.assignedName ? [{ label: "Assigned to", from: slot.assignedName, to: "—" }] : []),
+    ],
+  });
 
   revalidateTrip();
 }
@@ -251,8 +409,21 @@ export async function createActivityAction(formData: FormData) {
     throw new Error("Choose a valid day.");
   }
 
-  await prisma.tripActivity.create({
+  const activity = await prisma.tripActivity.create({
     data: { tripPageId, day: day as TripDay, time: time || null, title, description: description || null },
+  });
+
+  await recordAudit(session, {
+    action: "trip.activity.create",
+    summary: `Added the trip activity “${title}” on ${titleCase(day)}${time ? ` at ${time}` : ""}`,
+    entityType: "TripActivity",
+    entityId: activity.id,
+    details: [
+      { label: "Activity", from: "—", to: title },
+      { label: "Day", from: "—", to: titleCase(day) },
+      ...(time ? [{ label: "Time", from: "—", to: time }] : []),
+      ...(description ? [{ label: "Description", from: "—", to: description }] : []),
+    ],
   });
 
   revalidateTrip();
@@ -273,9 +444,27 @@ export async function updateActivityAction(formData: FormData) {
     throw new Error("Choose a valid day.");
   }
 
+  const before = await prisma.tripActivity.findUnique({
+    where: { id },
+    select: { day: true, time: true, title: true, description: true },
+  });
+
   await prisma.tripActivity.update({
     where: { id },
     data: { day: day as TripDay, time: time || null, title, description: description || null },
+  });
+
+  await recordAudit(session, {
+    action: "trip.activity.update",
+    summary: `Edited the trip activity “${title}”`,
+    entityType: "TripActivity",
+    entityId: id,
+    details: changedFields({
+      Activity: [before?.title, title],
+      Day: [before ? titleCase(before.day) : null, titleCase(day)],
+      Time: [before?.time, time || null],
+      Description: [before?.description, description || null],
+    }),
   });
 
   revalidateTrip();
@@ -289,7 +478,15 @@ export async function deleteActivityAction(formData: FormData) {
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing activity id.");
 
-  await prisma.tripActivity.delete({ where: { id } });
+  const activity = await prisma.tripActivity.delete({ where: { id } });
+
+  await recordAudit(session, {
+    action: "trip.activity.delete",
+    summary: `Deleted the trip activity “${activity.title}” on ${titleCase(activity.day)}`,
+    entityType: "TripActivity",
+    entityId: id,
+    details: [{ label: "Activity", from: activity.title, to: "—" }],
+  });
 
   revalidateTrip();
 }
