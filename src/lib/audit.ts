@@ -1,4 +1,5 @@
 import "server-only";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/auth";
 import type { Role } from "@/generated/prisma/enums";
@@ -24,7 +25,11 @@ export type AuditEntry = {
   /** Set when the change belongs to a single den, so den-leader entries read in context. */
   denId?: string | null;
   details?: AuditDetail[] | null;
-  /** Only the sign-in path sets this — see clientIpFromHeaders below. */
+  /**
+   * Left unset by nearly every caller: recordAuditAs reads the address off the
+   * current request itself. Set it explicitly only to override that — the
+   * sign-in path does, because it already has the header list in hand.
+   */
   ipAddress?: string | null;
 };
 
@@ -106,7 +111,9 @@ export async function recordAuditAs(actor: AuditActor, entry: AuditEntry) {
         entityId: entry.entityId ?? null,
         denId: entry.denId ?? null,
         details: entry.details && entry.details.length > 0 ? entry.details : undefined,
-        ipAddress: entry.ipAddress ?? null,
+        // `undefined` means the caller didn't decide, so fall back to the
+        // request. An explicit null is a decision and is left alone.
+        ipAddress: entry.ipAddress !== undefined ? entry.ipAddress : await currentRequestIp(),
       },
     });
   } catch (error) {
@@ -161,6 +168,22 @@ export function clientIpFromHeaders(headerList: { get(name: string): string | nu
   if (forwarded) return normalizeIp(forwarded.split(",")[0]);
 
   return null;
+}
+
+/**
+ * The address behind the request currently being handled.
+ *
+ * Every writer is a Server Action (see the callers of recordAudit), so the
+ * request context is always there in practice. It's still guarded: headers()
+ * throws outside a request, and a future caller from a script or a background
+ * job should get an entry with no address rather than no entry at all.
+ */
+async function currentRequestIp(): Promise<string | null> {
+  try {
+    return clientIpFromHeaders(await headers());
+  } catch {
+    return null;
+  }
 }
 
 /** Trims and length-bounds a header value, so a hostile header can't store an essay. */

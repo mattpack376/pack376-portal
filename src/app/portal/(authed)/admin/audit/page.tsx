@@ -236,9 +236,9 @@ export default async function AuditLogPage({
                       >
                         {entry.actorRole ? ROLE_LABELS[entry.actorRole] ?? entry.actorRole : "No account"}
                       </span>
-                      {/* Only sign-in entries carry one. Clicking it answers the
-                          question a run of failures actually raises: was this
-                          all one place, or several? */}
+                      {/* Clicking it pivots to everything from that address —
+                          the question a run of failed sign-ins raises, and the
+                          one worth asking of an unexpected change too. */}
                       {entry.ipAddress && (
                         <Link
                           className="form-note"

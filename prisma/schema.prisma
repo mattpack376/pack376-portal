@@ -728,11 +728,13 @@ model AuditLog {
   details Json?
 
   /**
-   * Where the request came from. Only populated for sign-in events, which are
-   * the ones where "was this the same person?" is the question being asked —
-   * every other entry already has an authenticated account behind it. Null
-   * when the host didn't give a trustworthy client address (local dev), and
-   * null on the other ~95% of rows by design.
+   * Where the request came from, on every entry — read off the current request
+   * by recordAuditAs, so no call site has to remember to pass it. Null when the
+   * host offered no trustworthy client address (local dev, or a caller outside
+   * a request context), and on entries written before this column existed.
+   *
+   * This is personal data. It is readable only by the master admins, and the
+   * retention sweep drops it along with the rest of the entry.
    */
   ipAddress String?
 
