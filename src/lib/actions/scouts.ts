@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { deleteScoutCascade } from "@/lib/scoutDeletion";
+import { denDisplayName } from "@/lib/rankConfig";
+import { recordAudit, changedFields } from "@/lib/audit";
 
 /**
  * Full scout edit from the admin Users → Scouts screen — name, den, and the
@@ -31,7 +33,17 @@ export async function updateScoutAction(formData: FormData) {
     ? new Date(`${registrationExpiresOnRaw}T00:00:00.000Z`)
     : null;
 
-  const previous = await prisma.scout.findUnique({ where: { id: scoutId }, select: { denId: true } });
+  const previous = await prisma.scout.findUnique({
+    where: { id: scoutId },
+    select: {
+      denId: true,
+      firstName: true,
+      lastName: true,
+      scouterId: true,
+      registrationExpiresOn: true,
+      den: { select: { rank: true, scoutingYear: true, label: true } },
+    },
+  });
   if (!previous) throw new Error("Scout not found.");
 
   await prisma.scout.update({
@@ -43,6 +55,30 @@ export async function updateScoutAction(formData: FormData) {
       scouterId: scouterId || null,
       registrationExpiresOn,
     },
+  });
+
+  // Resolved to a den name only when the den actually changed, so the common
+  // rename case doesn't pay for the extra lookup.
+  const nextDen =
+    previous.denId === denId
+      ? previous.den
+      : await prisma.den.findUnique({ where: { id: denId }, select: { rank: true, scoutingYear: true, label: true } });
+  await recordAudit(session, {
+    action: "scout.update",
+    summary: `Edited scout ${firstName} ${lastName}`,
+    entityType: "Scout",
+    entityId: scoutId,
+    denId,
+    details: changedFields({
+      "First name": [previous.firstName, firstName],
+      "Last name": [previous.lastName, lastName],
+      Den: [
+        denDisplayName(previous.den.rank, previous.den.scoutingYear, previous.den.label),
+        nextDen ? denDisplayName(nextDen.rank, nextDen.scoutingYear, nextDen.label) : denId,
+      ],
+      "Scouter ID#": [previous.scouterId, scouterId || null],
+      "Registration expires": [previous.registrationExpiresOn, registrationExpiresOn],
+    }),
   });
 
   revalidatePath("/portal/admin/users/scouts");
@@ -61,10 +97,21 @@ export async function deleteScoutAction(scoutId: string) {
     return { ok: false as const, error: "Not authorized." };
   }
 
-  const scout = await prisma.scout.findUnique({ where: { id: scoutId }, select: { denId: true } });
+  const scout = await prisma.scout.findUnique({
+    where: { id: scoutId },
+    select: { denId: true, firstName: true, lastName: true },
+  });
   if (!scout) return { ok: false as const, error: "Scout not found." };
 
   await deleteScoutCascade(scoutId);
+
+  await recordAudit(session, {
+    action: "scout.delete",
+    summary: `Deleted scout ${scout.firstName} ${scout.lastName} — with their advancement, attendance, dues and parent contacts`,
+    entityType: "Scout",
+    entityId: scoutId,
+    denId: scout.denId,
+  });
 
   revalidatePath(`/portal/admin/dens/${scout.denId}`);
   revalidatePath("/portal/admin/users/scouts");

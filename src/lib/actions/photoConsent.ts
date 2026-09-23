@@ -7,6 +7,7 @@ import { assertPhotoConsentDenAccess } from "@/lib/authorize";
 import { generatePhotoConsentToken } from "@/lib/photoConsentTokens";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import { sendPhotoConsentLinkEmail } from "@/lib/email";
+import { recordAudit } from "@/lib/audit";
 import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
 
 const RELATIONSHIPS: SignerRelationship[] = ["PARENT", "GUARDIAN", "GRANDPARENT", "AUNT_UNCLE", "ADULT_SIBLING"];
@@ -22,6 +23,11 @@ export type SubmitConsentState = { error?: string; saved?: boolean };
 /**
  * Public — no session. The token itself is what authorizes this request,
  * same model as the portal's password-reset links.
+ *
+ * Deliberately not written to the AuditLog: that log records what portal staff
+ * change, and this is a parent acting on their own child with no session at
+ * all. PhotoConsentHistory below is already the append-only record of every
+ * submission, including who signed it and when.
  */
 export async function submitPhotoConsentAction(
   _prevState: SubmitConsentState,
@@ -81,7 +87,10 @@ export async function generatePhotoConsentLinkAction(formData: FormData) {
   const scoutId = String(formData.get("scoutId") || "");
   if (!scoutId) throw new Error("Missing scout id.");
 
-  const scout = await prisma.scout.findUnique({ where: { id: scoutId }, select: { denId: true } });
+  const scout = await prisma.scout.findUnique({
+    where: { id: scoutId },
+    select: { denId: true, firstName: true, lastName: true, photoConsent: { select: { id: true } } },
+  });
   if (!scout) throw new Error("Scout not found.");
   assertPhotoConsentDenAccess(session, scout.denId);
 
@@ -90,6 +99,18 @@ export async function generatePhotoConsentLinkAction(formData: FormData) {
     create: { scoutId, token: generatePhotoConsentToken() },
     update: {},
   });
+
+  // The upsert is a no-op when a record already exists, so only log the case
+  // where a link was actually created.
+  if (!scout.photoConsent) {
+    await recordAudit(session, {
+      action: "photoConsent.generateLink",
+      summary: `Generated a photo consent link for ${scout.firstName} ${scout.lastName}`,
+      entityType: "PhotoConsent",
+      entityId: scoutId,
+      denId: scout.denId,
+    });
+  }
 
   revalidatePath(ADMIN_PAGE_PATH);
 }
@@ -100,13 +121,24 @@ export async function regeneratePhotoConsentTokenAction(scoutId: string) {
   if (!session) throw new Error("Not authorized.");
   if (!scoutId) throw new Error("Missing scout id.");
 
-  const scout = await prisma.scout.findUnique({ where: { id: scoutId }, select: { denId: true } });
+  const scout = await prisma.scout.findUnique({
+    where: { id: scoutId },
+    select: { denId: true, firstName: true, lastName: true },
+  });
   if (!scout) throw new Error("Scout not found.");
   assertPhotoConsentDenAccess(session, scout.denId);
 
   await prisma.photoConsent.update({
     where: { scoutId },
     data: { token: generatePhotoConsentToken() },
+  });
+
+  await recordAudit(session, {
+    action: "photoConsent.regenerateLink",
+    summary: `Issued a fresh photo consent link for ${scout.firstName} ${scout.lastName} — the previous link no longer works`,
+    entityType: "PhotoConsent",
+    entityId: scoutId,
+    denId: scout.denId,
   });
 
   revalidatePath(ADMIN_PAGE_PATH);
@@ -142,6 +174,16 @@ export async function sendPhotoConsentLinkEmailAction(
     scoutFirstName: scout.firstName,
     url: consentLinkUrl(scout.photoConsent.token),
   });
+
+  if (sent) {
+    await recordAudit(session, {
+      action: "photoConsent.emailLink",
+      summary: `Emailed ${scout.firstName}'s photo consent link to ${parentEmail}`,
+      entityType: "PhotoConsent",
+      entityId: scoutId,
+      denId: scout.denId,
+    });
+  }
 
   return { sent, configured };
 }

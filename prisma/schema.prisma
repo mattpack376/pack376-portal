@@ -92,6 +92,9 @@ model User {
   guestGroupsGuestOf       EventGuestGroup[]        @relation("GuestGroupGuestOf")
   guestGroupPaymentsLogged EventGuestGroupPayment[]
   tripPaymentsLogged       TripPayment[]
+  // Audit entries this account produced. onDelete: SetNull on the other side,
+  // so deleting a login leaves its history intact (see model AuditLog).
+  auditEntries             AuditLog[]
   householdId              String?
   household                Household?               @relation(fields: [householdId], references: [id], onDelete: SetNull)
 
@@ -668,4 +671,55 @@ model TripActivity {
   description String?
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
+}
+
+/**
+ * Append-only record of every change made through the portal — who did it,
+ * what they changed, and the before/after values. Written by recordAudit()
+ * in src/lib/audit.ts, which every mutating Server Action calls after its
+ * write succeeds. Nothing in the app ever updates or deletes a row here, and
+ * only the master admins (src/lib/masterAdmins.ts) can read them, via
+ * /portal/admin/audit.
+ *
+ * The actor's username, display name, and role are denormalized onto each
+ * row rather than only joined through actorUser: deleting a login must not
+ * erase the record of what it did, and a later rename shouldn't silently
+ * rewrite history. actorUser stays as a nullable relation (SetNull) purely
+ * so the viewer can still link to an account that does still exist.
+ */
+model AuditLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  actorUserId      String?
+  actorUser        User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorUsername    String
+  actorDisplayName String
+  actorRole        Role
+
+  /** Machine key, dot-namespaced: "dues.payment.add", "scout.update". */
+  action String
+  /** First segment of `action` — filled in by recordAudit, drives the page's category filter. */
+  category String
+  /** One human sentence, already resolved to names: "Recorded a $75.00 dues payment for Tommy Smith". */
+  summary String
+
+  /** Prisma model name + id of the row that changed, when it's a single row. */
+  entityType String?
+  entityId   String?
+  /**
+   * Set when the change belongs to one den, so a den leader's entries can be
+   * read in den context. Not a relation — the den may later be deleted and
+   * the entry should survive it.
+   */
+  denId String?
+
+  /** Field-level before/after pairs; see AuditDetail in src/lib/audit.ts. */
+  details Json?
+
+  @@index([createdAt])
+  @@index([actorRole, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([category, createdAt])
+  @@index([entityType, entityId])
 }

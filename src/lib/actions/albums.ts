@@ -6,6 +6,7 @@ import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin, assertAlbumEditAccess } from "@/lib/authorize";
+import { recordAudit, changedFields, auditDate } from "@/lib/audit";
 
 export type AlbumActionState = { error?: string };
 
@@ -94,7 +95,7 @@ export async function createAlbumAction(
     coverImageUrl = uploaded.url ?? null;
   }
 
-  await prisma.photoAlbum.create({
+  const album = await prisma.photoAlbum.create({
     data: {
       title,
       eventDate,
@@ -102,6 +103,19 @@ export async function createAlbumAction(
       coverImageUrl,
       photoAlbumUrl,
     },
+  });
+
+  await recordAudit(session, {
+    action: "album.create",
+    summary: `Created the photo album “${title}”`,
+    entityType: "PhotoAlbum",
+    entityId: album.id,
+    details: [
+      { label: "Title", from: "—", to: title },
+      { label: "Event date", from: "—", to: auditDate(eventDate) },
+      { label: "Album link", from: "—", to: photoAlbumUrl },
+      ...(coverImageUrl ? [{ label: "Cover image", from: "—", to: "Uploaded" }] : []),
+    ],
   });
 
   revalidatePath("/portal/admin/albums");
@@ -145,6 +159,11 @@ export async function updateAlbumAction(
     coverImageUrl = uploaded.url;
   }
 
+  const before = await prisma.photoAlbum.findUnique({
+    where: { id: albumId },
+    select: { title: true, eventDate: true, description: true, photoAlbumUrl: true },
+  });
+
   await prisma.photoAlbum.update({
     where: { id: albumId },
     data: {
@@ -154,6 +173,23 @@ export async function updateAlbumAction(
       ...(coverImageUrl !== undefined ? { coverImageUrl } : {}),
       photoAlbumUrl,
     },
+  });
+
+  await recordAudit(session, {
+    action: "album.update",
+    summary: `Edited the photo album “${title}”`,
+    entityType: "PhotoAlbum",
+    entityId: albumId,
+    details: [
+      ...changedFields({
+        Title: [before?.title, title],
+        "Event date": [before?.eventDate, eventDate],
+        Description: [before?.description, description || null],
+        "Album link": [before?.photoAlbumUrl, photoAlbumUrl],
+      }),
+      // The old blob URL isn't worth keeping; that a new file replaced it is.
+      ...(coverImageUrl !== undefined ? [{ label: "Cover image", from: "Previous", to: "Replaced" }] : []),
+    ],
   });
 
   revalidatePath("/portal/admin/albums");
@@ -170,7 +206,15 @@ export async function toggleAlbumVisibilityAction(albumId: string, isVisible: bo
     return { ok: false as const };
   }
 
-  await prisma.photoAlbum.update({ where: { id: albumId }, data: { isVisible } });
+  const album = await prisma.photoAlbum.update({ where: { id: albumId }, data: { isVisible } });
+
+  await recordAudit(session, {
+    action: "album.toggle",
+    summary: `${isVisible ? "Published" : "Hid"} the photo album “${album.title}” ${isVisible ? "to" : "from"} the public gallery`,
+    entityType: "PhotoAlbum",
+    entityId: albumId,
+    details: [{ label: "Visible", from: isVisible ? "No" : "Yes", to: isVisible ? "Yes" : "No" }],
+  });
 
   revalidatePath("/portal/admin/albums");
   revalidatePath("/gallery");
@@ -185,7 +229,18 @@ export async function deleteAlbumAction(formData: FormData) {
   const albumId = String(formData.get("albumId") || "");
   if (!albumId) throw new Error("Missing album id.");
 
-  await prisma.photoAlbum.delete({ where: { id: albumId } });
+  const album = await prisma.photoAlbum.delete({ where: { id: albumId } });
+
+  await recordAudit(session, {
+    action: "album.delete",
+    summary: `Deleted the photo album “${album.title}”`,
+    entityType: "PhotoAlbum",
+    entityId: albumId,
+    details: [
+      { label: "Title", from: album.title, to: "—" },
+      { label: "Album link", from: album.photoAlbumUrl, to: "—" },
+    ],
+  });
 
   revalidatePath("/portal/admin/albums");
   revalidatePath("/gallery");
