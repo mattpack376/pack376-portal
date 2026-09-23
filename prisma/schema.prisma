@@ -727,9 +727,20 @@ model AuditLog {
   /** Field-level before/after pairs; see AuditDetail in src/lib/audit.ts. */
   details Json?
 
+  /**
+   * Where the request came from. Only populated for sign-in events, which are
+   * the ones where "was this the same person?" is the question being asked —
+   * every other entry already has an authenticated account behind it. Null
+   * when the host didn't give a trustworthy client address (local dev), and
+   * null on the other ~95% of rows by design.
+   */
+  ipAddress String?
+
   @@index([createdAt])
   @@index([actorRole, createdAt])
   @@index([actorUserId, createdAt])
   @@index([category, createdAt])
   @@index([entityType, entityId])
+  // "Show me everything from this address" is the whole reason to store it.
+  @@index([ipAddress, createdAt])
 }

@@ -90,6 +90,8 @@ export type AuditFilters = {
   actorUserId?: string;
   category?: string;
   denId?: string;
+  /** Exact client address — reached by clicking one in the table, not a dropdown. */
+  ipAddress?: string;
   page: number;
 };
 
@@ -107,6 +109,7 @@ export async function getAuditLogPage(filters: AuditFilters) {
     ...(filters.actorUserId ? { actorUserId: filters.actorUserId } : {}),
     ...(filters.category ? { category: filters.category } : {}),
     ...(filters.denId ? { denId: filters.denId } : {}),
+    ...(filters.ipAddress ? { ipAddress: filters.ipAddress } : {}),
   };
 
   const [total, entries] = await Promise.all([

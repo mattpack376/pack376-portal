@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { checkRateLimit } from "@vercel/firewall";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionCookie, isLockedOut, lockedUntilForCount } from "@/lib/auth";
-import { recordAuditAs, UNKNOWN_ACCOUNT_ACTOR, type AuditActor } from "@/lib/audit";
+import { recordAuditAs, clientIpFromHeaders, UNKNOWN_ACCOUNT_ACTOR, type AuditActor } from "@/lib/audit";
 
 export type LoginState = { error?: string };
 
@@ -22,7 +22,8 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   // timing fix above otherwise leaves open. Enforced by a matching "portal-login"
   // rate limit rule in the Vercel Firewall dashboard; fails open (no-op) if that
   // rule isn't configured, so this alone doesn't throttle anything by itself.
-  const { rateLimited } = await checkRateLimit("portal-login", { headers: await headers() });
+  const headerList = await headers();
+  const { rateLimited } = await checkRateLimit("portal-login", { headers: headerList });
   if (rateLimited) {
     // Deliberately not audited. This branch exists to stop doing work for a
     // flood of requests, and writing a row per blocked attempt would hand that
@@ -30,6 +31,10 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     // is there to prevent. The rate limiter's own metrics cover this case.
     return { error: "Too many login attempts. Try again in a few minutes." };
   }
+
+  // Captured once and attached to every sign-in outcome below, so a run of
+  // failures can be read as "all from one address" or "from several".
+  const ipAddress = clientIpFromHeaders(headerList);
 
   const username = String(formData.get("username") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
@@ -45,6 +50,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     await recordAuditAs(UNKNOWN_ACCOUNT_ACTOR, {
       action: "auth.failed",
       summary: "Failed sign-in for a username that doesn't match any account",
+      ipAddress,
     });
     return { error: "Invalid username or password." };
   }
@@ -66,6 +72,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       summary: `Sign-in attempt for “${user.username}” while the account was locked out`,
       entityType: "User",
       entityId: user.id,
+      ipAddress,
     });
     return { error: "Too many failed attempts. Try again in about 15 minutes." };
   }
@@ -105,6 +112,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
         : `Wrong password for “${user.username}” (${failedLoginCount} failed attempt${failedLoginCount === 1 ? "" : "s"} in a row)`,
       entityType: "User",
       entityId: user.id,
+      ipAddress,
       details: [{ label: "Consecutive failures", from: String(failedLoginCount - 1), to: String(failedLoginCount) }],
     });
     return lockedUntil
@@ -135,6 +143,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     summary: `Signed in as “${user.username}” (${user.displayName})`,
     entityType: "User",
     entityId: user.id,
+    ipAddress,
     // Worth surfacing: a success straight after failures is the ordinary
     // "mistyped it twice" story, and its absence is what makes a run of
     // failures with no success interesting.

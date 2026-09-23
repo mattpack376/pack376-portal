@@ -27,7 +27,14 @@ import { AUDIT_RETENTION_MONTHS } from "@/lib/audit";
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; actor?: string; category?: string; denId?: string; page?: string }>;
+  searchParams: Promise<{
+    view?: string;
+    actor?: string;
+    category?: string;
+    denId?: string;
+    ip?: string;
+    page?: string;
+  }>;
 }) {
   await requireMasterAdminSession();
   const params = await searchParams;
@@ -41,6 +48,7 @@ export default async function AuditLogPage({
     actorUserId: params.actor || undefined,
     category: params.category || undefined,
     denId: params.denId || undefined,
+    ipAddress: params.ip || undefined,
     page: requestedPage,
   });
 
@@ -57,13 +65,23 @@ export default async function AuditLogPage({
     if (params.actor) query.set("actor", params.actor);
     if (params.category) query.set("category", params.category);
     if (params.denId) query.set("denId", params.denId);
+    if (params.ip) query.set("ip", params.ip);
     if (targetPage > 1) query.set("page", String(targetPage));
     return `/portal/admin/audit?${query.toString()}`;
   };
 
   const firstOnPage = total === 0 ? 0 : (page - 1) * AUDIT_PAGE_SIZE + 1;
   const lastOnPage = Math.min(page * AUDIT_PAGE_SIZE, total);
-  const hasFilters = !!(params.actor || params.category || params.denId);
+  const hasFilters = !!(params.actor || params.category || params.denId || params.ip);
+
+  /** Filtering by address is reached by clicking one in the table, so the GET
+   *  form has to carry it forward as a hidden field or Apply would drop it. */
+  const ipFilterHref = (ip: string) => {
+    const query = new URLSearchParams({ view, ip });
+    if (params.actor) query.set("actor", params.actor);
+    if (params.category) query.set("category", params.category);
+    return `/portal/admin/audit?${query.toString()}`;
+  };
 
   return (
     <>
@@ -94,6 +112,7 @@ export default async function AuditLogPage({
       */}
       <form method="get" className="info-card no-print" style={{ marginBottom: 24, padding: 20 }}>
         <input type="hidden" name="view" value={view} />
+        {params.ip && <input type="hidden" name="ip" value={params.ip} />}
         <div className="form-row" style={{ marginBottom: 12, alignItems: "flex-end" }}>
           <div className="form-field">
             <label htmlFor="audit-actor">Who</label>
@@ -143,6 +162,11 @@ export default async function AuditLogPage({
             </div>
           )}
         </div>
+        {params.ip && (
+          <p className="form-note" style={{ marginTop: 0, marginBottom: 8 }}>
+            Showing only activity from <strong style={{ fontWeight: 700 }}>{params.ip}</strong>.
+          </p>
+        )}
         <p className="form-note" style={{ marginTop: 0 }}>
           {total === 0
             ? "No entries match."
@@ -212,6 +236,19 @@ export default async function AuditLogPage({
                       >
                         {entry.actorRole ? ROLE_LABELS[entry.actorRole] ?? entry.actorRole : "No account"}
                       </span>
+                      {/* Only sign-in entries carry one. Clicking it answers the
+                          question a run of failures actually raises: was this
+                          all one place, or several? */}
+                      {entry.ipAddress && (
+                        <Link
+                          className="form-note"
+                          style={{ marginTop: 0, fontVariantNumeric: "tabular-nums" }}
+                          href={ipFilterHref(entry.ipAddress)}
+                          title={`Show everything from ${entry.ipAddress}`}
+                        >
+                          {entry.ipAddress}
+                        </Link>
+                      )}
                     </div>
                   </td>
                   <td>

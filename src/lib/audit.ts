@@ -24,6 +24,8 @@ export type AuditEntry = {
   /** Set when the change belongs to a single den, so den-leader entries read in context. */
   denId?: string | null;
   details?: AuditDetail[] | null;
+  /** Only the sign-in path sets this — see clientIpFromHeaders below. */
+  ipAddress?: string | null;
 };
 
 /** Placeholder for "no value" in a before/after pair. */
@@ -104,6 +106,7 @@ export async function recordAuditAs(actor: AuditActor, entry: AuditEntry) {
         entityId: entry.entityId ?? null,
         denId: entry.denId ?? null,
         details: entry.details && entry.details.length > 0 ? entry.details : undefined,
+        ipAddress: entry.ipAddress ?? null,
       },
     });
   } catch (error) {
@@ -132,6 +135,40 @@ export const UNKNOWN_ACCOUNT_ACTOR: AuditActor = {
   displayName: "Not a real account",
   role: null,
 };
+
+/** Longest possible IPv6 address, used as a sanity bound on a header value. */
+const MAX_IP_LENGTH = 45;
+
+/**
+ * The client address for a request, or null if nothing trustworthy is on offer.
+ *
+ * Order matters, because a wrong address in a security log is worse than no
+ * address: it points an investigation at an innocent party. Vercel sets
+ * x-vercel-forwarded-for and x-real-ip itself on every request and a client
+ * can't forge them, so they come first. Plain x-forwarded-for is the fallback
+ * for local dev and any other host — it is only as trustworthy as whatever
+ * proxy set it, and a client talking to an unproxied server can put anything
+ * there, so it is used last. Its leftmost entry is the originating client.
+ *
+ * Takes the header list rather than calling headers() so the caller can pass
+ * the one it already awaited.
+ */
+export function clientIpFromHeaders(headerList: { get(name: string): string | null }): string | null {
+  const trusted = headerList.get("x-vercel-forwarded-for") ?? headerList.get("x-real-ip");
+  if (trusted) return normalizeIp(trusted);
+
+  const forwarded = headerList.get("x-forwarded-for");
+  if (forwarded) return normalizeIp(forwarded.split(",")[0]);
+
+  return null;
+}
+
+/** Trims and length-bounds a header value, so a hostile header can't store an essay. */
+function normalizeIp(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.length > MAX_IP_LENGTH ? trimmed.slice(0, MAX_IP_LENGTH) : trimmed;
+}
 
 /** The oldest timestamp still inside the retention window. */
 export function auditRetentionCutoff(now = new Date()): Date {
