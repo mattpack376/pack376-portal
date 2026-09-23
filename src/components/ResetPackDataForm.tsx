@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { resetPackDataAction, type ResetState } from "@/lib/actions/reset";
 import { resetConfirmationPhrase } from "@/lib/resetConfirmation";
 
@@ -9,6 +9,28 @@ const initialState: ResetState = {};
 export default function ResetPackDataForm({ scoutingYears }: { scoutingYears: string[] }) {
   const [state, formAction, pending] = useActionState(resetPackDataAction, initialState);
   const [scoutingYear, setScoutingYear] = useState(scoutingYears[0] ?? "");
+  const selectRef = useRef<HTMLSelectElement>(null);
+
+  /*
+   * Keeps the dropdown showing the year this form is actually about.
+   *
+   * React resets a form on every submit through an action, and a reset
+   * restores each <select> from its options' `selected` attributes. For a
+   * *controlled* select React only ever sets the property, so there is no
+   * attribute to restore — unless the node came from server-rendered HTML.
+   * The admin dashboard links here with <Link>, so it usually doesn't: after
+   * a rejected confirmation the box silently dropped back to the first year
+   * in the list while the phrase to type and the red button underneath still
+   * named the year that was picked. Re-asserting the value after each render
+   * keeps the box, the confirmation phrase and the year that actually gets
+   * submitted talking about the same season, which on the one irreversible
+   * form in the portal is worth an effect.
+   */
+  useEffect(() => {
+    if (selectRef.current && selectRef.current.value !== scoutingYear) {
+      selectRef.current.value = scoutingYear;
+    }
+  });
 
   if (state?.deletedCount !== undefined) {
     return (
@@ -30,6 +52,7 @@ export default function ResetPackDataForm({ scoutingYears }: { scoutingYears: st
         <select
           id="scoutingYear"
           name="scoutingYear"
+          ref={selectRef}
           value={scoutingYear}
           onChange={(e) => setScoutingYear(e.target.value)}
         >
