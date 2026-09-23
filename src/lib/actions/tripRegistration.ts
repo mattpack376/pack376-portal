@@ -52,7 +52,20 @@ function parseCount(raw: FormDataEntryValue | null): number | null {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export type RegisterForTripState = { error?: string; success?: boolean };
+export type RegisterForTripState = {
+  error?: string;
+  success?: boolean;
+  /**
+   * Identifies the submission a success belongs to: a fresh id each time one
+   * goes through, and the previous one carried over unchanged when one
+   * doesn't. Two successes in a row are otherwise indistinguishable
+   * ({ success: true } both times) and the form has to tell them apart — it
+   * clears itself by keying its fields off this value
+   * (TripRegistrationForm.tsx), so every success has to read as new while a
+   * failure that follows one must not.
+   */
+  submissionId?: string;
+};
 
 /**
  * Public, unauthenticated registration for conron.pack376nyc.org — anyone
@@ -73,9 +86,21 @@ export type RegisterForTripState = { error?: string; success?: boolean };
  * the edit, payment and delete actions below.
  */
 export async function registerForTripAction(
-  _prevState: RegisterForTripState,
+  prevState: RegisterForTripState,
   formData: FormData,
 ): Promise<RegisterForTripState> {
+  const result = await submitTripRegistration(formData);
+  // Only a submission that actually went through mints a new submissionId.
+  // Everything else — a validation error, a rate limit, the honeypot —
+  // hands back the one already in state, so a failed attempt after a
+  // successful one doesn't read as a second success to the form.
+  return result.success
+    ? { ...result, submissionId: crypto.randomUUID() }
+    : { ...result, submissionId: prevState.submissionId };
+}
+
+/** The work itself; registerForTripAction above owns the returned state's submissionId. */
+async function submitTripRegistration(formData: FormData): Promise<RegisterForTripState> {
   if (String(formData.get("website") || "").trim() !== "") return {};
 
   // Before any database work, the same way loginAction does it. Enforced by a
