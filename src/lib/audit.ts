@@ -5,10 +5,13 @@ import type { SessionPayload } from "@/lib/auth";
 /**
  * One field that changed, already formatted for display. `from` and `to` are
  * strings (not the raw values) because the entry is written once and read
- * forever: a cents integer or a Date read back years later shouldn't depend
- * on today's formatting code to still make sense.
+ * unchanged for as long as it's kept: a cents integer or a Date read back a
+ * year later shouldn't depend on today's formatting code to still make sense.
  */
 export type AuditDetail = { label: string; from: string; to: string };
+
+/** How long entries are kept before the sweep below drops them. */
+export const AUDIT_RETENTION_MONTHS = 12;
 
 export type AuditEntry = {
   /** Dot-namespaced machine key, e.g. "dues.payment.add". First segment becomes `category`. */
@@ -67,6 +70,72 @@ export async function recordAudit(session: SessionPayload, entry: AuditEntry) {
     });
   } catch (error) {
     console.error("[audit] failed to record entry", entry.action, error);
+  }
+
+  // Separate from the try above so a failed sweep is never mistaken for a
+  // dropped entry — the entry is already safely written by this point.
+  await sweepExpiredAuditEntries();
+}
+
+/** The oldest timestamp still inside the retention window. */
+export function auditRetentionCutoff(now = new Date()): Date {
+  const cutoff = new Date(now);
+  cutoff.setUTCMonth(cutoff.getUTCMonth() - AUDIT_RETENTION_MONTHS);
+  return cutoff;
+}
+
+/*
+ * Retention is enforced here, piggybacked on writes, rather than by a Vercel
+ * Cron job: a cron would need vercel.json, its own authenticated route, and a
+ * CRON_SECRET configured in the dashboard — three things that can be silently
+ * missing, on a schedule nobody watches. This runs wherever the app already
+ * runs, with no configuration at all.
+ *
+ * The trade-off is that a completely idle portal can hold entries slightly
+ * past 12 months, since nothing triggers a sweep until the next change. That's
+ * the harmless direction to err, and no entries are accumulating meanwhile.
+ */
+const SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const SWEEP_BATCH_SIZE = 500;
+
+/**
+ * Module-level, so each warm serverless instance sweeps at most once per
+ * interval. Instances don't share this, so a few redundant sweeps happen
+ * across a fleet — which costs almost nothing, because a sweep with nothing
+ * to delete is one indexed range scan over AuditLog_createdAt_idx that
+ * returns no rows.
+ */
+let lastSweepAt = 0;
+
+/**
+ * Deletes entries past the retention window, in one bounded batch so a long
+ * backlog can't turn somebody's save into a multi-second wait. Whatever is
+ * left over is picked up by the next sweep; at this pack's volume a single
+ * batch is far more than one interval's worth of expiring entries.
+ */
+async function sweepExpiredAuditEntries() {
+  const now = Date.now();
+  if (now - lastSweepAt < SWEEP_INTERVAL_MS) return;
+  // Set before awaiting, so concurrent requests on this instance don't all
+  // start their own sweep while the first one is still running.
+  lastSweepAt = now;
+
+  try {
+    const expired = await prisma.auditLog.findMany({
+      where: { createdAt: { lt: auditRetentionCutoff() } },
+      select: { id: true },
+      take: SWEEP_BATCH_SIZE,
+    });
+    if (expired.length === 0) return;
+
+    const { count } = await prisma.auditLog.deleteMany({
+      where: { id: { in: expired.map((entry) => entry.id) } },
+    });
+    console.log(`[audit] removed ${count} entries older than ${AUDIT_RETENTION_MONTHS} months`);
+  } catch (error) {
+    // Retry on the next interval rather than the next write, so a database
+    // problem can't turn every mutation into an extra failing query.
+    console.error("[audit] retention sweep failed", error);
   }
 }
 

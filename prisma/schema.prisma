@@ -677,9 +677,13 @@ model TripActivity {
  * Append-only record of every change made through the portal — who did it,
  * what they changed, and the before/after values. Written by recordAudit()
  * in src/lib/audit.ts, which every mutating Server Action calls after its
- * write succeeds. Nothing in the app ever updates or deletes a row here, and
- * only the master admins (src/lib/masterAdmins.ts) can read them, via
- * /portal/admin/audit.
+ * write succeeds. Only the master admins (src/lib/masterAdmins.ts) can read
+ * them, via /portal/admin/audit.
+ *
+ * Append-only in the sense that nothing ever edits a row: the only delete is
+ * the age-based retention sweep in src/lib/audit.ts, which drops entries past
+ * AUDIT_RETENTION_MONTHS. There is no UI anywhere that edits or deletes an
+ * entry, and no way to delete a specific one.
  *
  * The actor's username, display name, and role are denormalized onto each
  * row rather than only joined through actorUser: deleting a login must not

@@ -11,6 +11,7 @@ import {
   type AuditView,
 } from "@/lib/auditLogData";
 import SegmentedNav from "@/components/SegmentedNav";
+import { AUDIT_RETENTION_MONTHS } from "@/lib/audit";
 
 /**
  * The full history of changes made through the portal — one tab for admin
@@ -20,7 +21,8 @@ import SegmentedNav from "@/components/SegmentedNav";
  * reset page: a log that the people it records can edit their own way out of
  * isn't worth much, and regular admins are themselves subjects of it.
  * Deliberately read-only — there is no UI anywhere that edits or deletes an
- * AuditLog row.
+ * AuditLog row. The only deletion is the age-based retention sweep in
+ * src/lib/audit.ts, which nobody can aim at a particular entry.
  */
 export default async function AuditLogPage({
   searchParams,
@@ -70,7 +72,8 @@ export default async function AuditLogPage({
         <h2>Audit Log</h2>
         <p>
           Every change made through the portal, newest first — who made it, what it was, and the values before and
-          after. Entries are never edited or deleted, and only the master admin accounts can read this page.
+          after. Entries are never edited, and no one can delete a particular one; they age out on their own after{" "}
+          {AUDIT_RETENTION_MONTHS} months. Only the master admin accounts can read this page.
         </p>
       </div>
 
@@ -162,7 +165,7 @@ export default async function AuditLogPage({
                 <td colSpan={4}>
                   {hasFilters
                     ? "No entries match these filters."
-                    : "Nothing recorded yet. Entries appear here as soon as someone changes something in the portal."}
+                    : `Nothing recorded yet. Entries appear here as soon as someone changes something in the portal, and are kept for ${AUDIT_RETENTION_MONTHS} months.`}
                 </td>
               </tr>
             )}
