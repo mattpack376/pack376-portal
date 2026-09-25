@@ -51,21 +51,21 @@ export default async function AdminUsersPage() {
           {users.map((user) => (
             <tr key={user.id}>
               <td>{user.username}</td>
-              <td>
+              <td data-label="Role">
                 <span className={`badge-pill ${ROLE_BADGE_CLASSES[user.role]}`}>
                   {ROLE_LABELS[user.role]}
                 </span>
               </td>
-              <td>{user.displayName}</td>
-              <td>{user.phone ? formatPhoneNumber(user.phone) : "—"}</td>
-              <td>
+              <td data-label="Display Name">{user.displayName}</td>
+              <td data-label="Phone">{user.phone ? formatPhoneNumber(user.phone) : "—"}</td>
+              <td data-label="Den">
                 {user.denAssignments.length > 0
                   ? user.denAssignments
                       .map((a) => denDisplayName(a.den.rank, a.den.scoutingYear, a.den.label))
                       .join(", ")
                   : "—"}
               </td>
-              <td>
+              <td data-label="Status">
                 {user.lockedUntil && user.lockedUntil.getTime() > now ? "🔒 Locked" : "Active"}
               </td>
               <td className="actions">

@@ -50,16 +50,16 @@ export default async function AdminEventsPage() {
                   </span>
                   {event.title}
                 </td>
-                <td>{formatDueDate(event.eventDate)}</td>
-                <td>
+                <td data-label="Date">{formatDueDate(event.eventDate)}</td>
+                <td data-label="Registered">
                   {event.registrationCount} scout{event.registrationCount === 1 ? "" : "s"}
                   {(event.guestAdultCount > 0 || event.guestChildCount > 0) &&
                     ` · ${event.guestAdultCount} adult guest${event.guestAdultCount === 1 ? "" : "s"}, ${event.guestChildCount} kid guest${event.guestChildCount === 1 ? "" : "s"}`}
                 </td>
-                <td>
+                <td data-label="Collected">
                   {formatCents(event.totalPaidCents)} / {formatCents(event.totalOwedCents)}
                 </td>
-                <td>
+                <td data-label="Status">
                   <span className={`badge-pill ${event.visible ? "badge-attendance" : "badge-pending"}`}>
                     {event.visible ? "Visible" : "Hidden"}
                   </span>

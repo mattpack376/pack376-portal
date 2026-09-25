@@ -131,7 +131,7 @@ export default async function AdminDenDetailPage({
                       `${scout.firstName} ${scout.lastName}`
                     )}
                   </td>
-                  <td>
+                  <td data-label="Progress">
                     {scout.requiredDone}/{scout.requiredTotal} required · {scout.electivesDone}/
                     {scout.electivesRequired}+ electives
                   </td>

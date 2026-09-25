@@ -222,7 +222,7 @@ export default async function AuditLogPage({
                       })}
                     </div>
                   </td>
-                  <td>
+                  <td data-label="Who">
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
                       <span style={{ fontWeight: 700 }}>{entry.actorDisplayName}</span>
                       <span className="form-note" style={{ marginTop: 0 }}>
@@ -252,7 +252,7 @@ export default async function AuditLogPage({
                       )}
                     </div>
                   </td>
-                  <td>
+                  <td data-label="What changed" className="cell-block">
                     <div>{entry.summary}</div>
                     {details.length > 0 && (
                       <ul
@@ -268,7 +268,7 @@ export default async function AuditLogPage({
                       </ul>
                     )}
                   </td>
-                  <td style={{ whiteSpace: "nowrap" }}>{auditCategoryLabel(entry.category)}</td>
+                  <td data-label="Area" style={{ whiteSpace: "nowrap" }}>{auditCategoryLabel(entry.category)}</td>
                 </tr>
               );
             })}

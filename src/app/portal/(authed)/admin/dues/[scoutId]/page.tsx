@@ -117,8 +117,8 @@ export default async function AdminScoutDuesPage({
                 >
                   {payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}
                 </td>
-                <td>{formatCents(payment.amountCents)}</td>
-                <td>{payment.note || "—"}</td>
+                <td data-label="Amount">{formatCents(payment.amountCents)}</td>
+                <td data-label="Note">{payment.note || "—"}</td>
                 {canEdit && (
                 <td className="actions">
                   <form action={deleteDuesPaymentAction}>

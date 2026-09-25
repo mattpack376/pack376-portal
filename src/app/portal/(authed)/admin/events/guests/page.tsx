@@ -167,12 +167,12 @@ function FamilyGrouping({ groups, canEdit }: { groups: Group[]; canEdit: boolean
                   return (
                     <tr key={g.id} className={paymentRowClass(g.remainingCents, g.paidCents)}>
                       <td>{g.event.title} ({formatDueDate(g.event.eventDate)})</td>
-                      <td>{g.guestOfLabel ?? "—"}</td>
-                      <td>{g.adultCount}</td>
-                      <td>{g.childCount}</td>
-                      <td>{formatCents(g.paidCents)}</td>
-                      <td>{formatCents(g.remainingCents)}</td>
-                      <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                      <td data-label="Guest Of">{g.guestOfLabel ?? "—"}</td>
+                      <td data-label="Adults">{g.adultCount}</td>
+                      <td data-label="Kids">{g.childCount}</td>
+                      <td data-label="Paid">{formatCents(g.paidCents)}</td>
+                      <td data-label="Remaining">{formatCents(g.remainingCents)}</td>
+                      <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                       <td className="actions">
                         <Link
                           className="btn btn-quiet btn-small"
@@ -217,11 +217,11 @@ function FamilySubTable({ rows, canEdit }: { rows: Group[]; canEdit: boolean }) 
             return (
               <tr key={g.id} className={paymentRowClass(g.remainingCents, g.paidCents)}>
                 <td>{g.event.title} ({formatDueDate(g.event.eventDate)})</td>
-                <td>{g.adultCount}</td>
-                <td>{g.childCount}</td>
-                <td>{formatCents(g.paidCents)}</td>
-                <td>{formatCents(g.remainingCents)}</td>
-                <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                <td data-label="Adults">{g.adultCount}</td>
+                <td data-label="Kids">{g.childCount}</td>
+                <td data-label="Paid">{formatCents(g.paidCents)}</td>
+                <td data-label="Remaining">{formatCents(g.remainingCents)}</td>
+                <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                 <td className="actions">
                   <Link
                     className="btn btn-quiet btn-small"

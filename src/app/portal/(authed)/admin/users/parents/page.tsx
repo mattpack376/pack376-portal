@@ -73,9 +73,9 @@ export default async function AdminParentAccountsPage() {
           {parents.map((user) => (
             <tr key={user.id}>
               <td>{user.username}</td>
-              <td>{user.displayName}</td>
-              <td>{user.phone ? formatPhoneNumber(user.phone) : "—"}</td>
-              <td>
+              <td data-label="Display Name">{user.displayName}</td>
+              <td data-label="Phone">{user.phone ? formatPhoneNumber(user.phone) : "—"}</td>
+              <td data-label="Kids Attached">
                 {user.parentContacts.length > 0 ? (
                   user.parentContacts
                     .map(
@@ -93,7 +93,7 @@ export default async function AdminParentAccountsPage() {
                   </span>
                 )}
               </td>
-              <td>{user.lockedUntil && user.lockedUntil.getTime() > now ? "🔒 Locked" : "Active"}</td>
+              <td data-label="Status">{user.lockedUntil && user.lockedUntil.getTime() > now ? "🔒 Locked" : "Active"}</td>
               <td className="actions">
                 <ResetPasswordButton userId={user.id} />
                 <Link

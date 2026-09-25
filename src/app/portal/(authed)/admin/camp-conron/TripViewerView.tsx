@@ -175,7 +175,7 @@ export default function TripViewerView({
                   <td>
                     {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
                   </td>
-                  <td>{meal.menuText ? <Linkify text={meal.menuText} /> : "Menu TBD"}</td>
+                  <td data-label="Menu">{meal.menuText ? <Linkify text={meal.menuText} /> : "Menu TBD"}</td>
                 </tr>
               ))}
             </tbody>
@@ -377,8 +377,8 @@ function FamilyDetailSection({ name, registrations }: { name: string; registrati
                               <td className="audit-hover" data-audit={formatAuditTooltip("Recorded", p.createdAt, null)}>
                                 {p.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}
                               </td>
-                              <td>{formatCents(p.amountCents)}</td>
-                              <td>{p.note || "—"}</td>
+                              <td data-label="Amount">{formatCents(p.amountCents)}</td>
+                              <td data-label="Note">{p.note || "—"}</td>
                             </tr>
                           ))}
                         </tbody>

@@ -25,7 +25,7 @@ export default async function AdminAlbumsPage() {
             </span>
           )}
         </td>
-        <td>{formatLongDate(album.eventDate)}</td>
+        <td data-label="Date">{formatLongDate(album.eventDate)}</td>
         <td className="actions">
           <AlbumVisibilityToggle albumId={album.id} isVisible={album.isVisible} />
           <Link

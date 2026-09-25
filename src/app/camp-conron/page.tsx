@@ -167,7 +167,7 @@ export default async function CampConronPage() {
                         <td>
                           {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
                         </td>
-                        <td>{meal.menuText ? <Linkify text={meal.menuText} /> : "Menu TBD"}</td>
+                        <td data-label="Menu">{meal.menuText ? <Linkify text={meal.menuText} /> : "Menu TBD"}</td>
                       </tr>
                     ))}
                   </tbody>

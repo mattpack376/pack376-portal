@@ -384,9 +384,9 @@ export default async function FamilyViewPage({
                         return (
                           <tr key={reg.id} className={paymentRowClass(reg.remainingCents, reg.paidCents)}>
                             <td>{reg.scoutFirstName}</td>
-                            <td>{formatCents(reg.paidCents)}</td>
-                            <td>{formatCents(reg.remainingCents)}</td>
-                            <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                            <td data-label="Paid">{formatCents(reg.paidCents)}</td>
+                            <td data-label="Remaining">{formatCents(reg.remainingCents)}</td>
+                            <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                             {canRecordPayments && (
                               <td className="actions">
                                 <Link
@@ -429,12 +429,12 @@ export default async function FamilyViewPage({
                         return (
                           <tr key={group.id} className={paymentRowClass(group.remainingCents, group.paidCents)}>
                             <td>{group.familyName}</td>
-                            <td>{group.guestOfLabel ?? "—"}</td>
-                            <td>{group.adultCount}</td>
-                            <td>{group.childCount}</td>
-                            <td>{formatCents(group.paidCents)}</td>
-                            <td>{formatCents(group.remainingCents)}</td>
-                            <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                            <td data-label="Guest Of">{group.guestOfLabel ?? "—"}</td>
+                            <td data-label="Adults">{group.adultCount}</td>
+                            <td data-label="Kids">{group.childCount}</td>
+                            <td data-label="Paid">{formatCents(group.paidCents)}</td>
+                            <td data-label="Remaining">{formatCents(group.remainingCents)}</td>
+                            <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                             {canRecordPayments && (
                               <td className="actions">
                                 <Link

@@ -96,7 +96,7 @@ export default async function AdminEventDetailPage({
           </span>
         </div>
         {canEdit && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           {(event.registrations.length > 0 || event.guestGroups.length > 0) && (
             <a
               className="btn btn-quiet btn-small"
@@ -238,9 +238,9 @@ export default async function AdminEventDetailPage({
                     return (
                       <tr key={reg.id} className={paymentRowClass(reg.remainingCents, reg.paidCents)}>
                         <td>{reg.scout.firstName} {reg.scout.lastName}</td>
-                        <td>{formatCents(reg.paidCents)}</td>
-                        <td>{formatCents(reg.remainingCents)}</td>
-                        <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                        <td data-label="Paid">{formatCents(reg.paidCents)}</td>
+                        <td data-label="Remaining">{formatCents(reg.remainingCents)}</td>
+                        <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                         <td className="actions">
                           <Link
                             className="btn btn-quiet btn-small"
@@ -349,12 +349,12 @@ export default async function AdminEventDetailPage({
               return (
                 <tr key={group.id}>
                   <td>{group.familyName}</td>
-                  <td>{group.guestOfLabel ?? "—"}</td>
-                  <td>{group.adultCount}</td>
-                  <td>{group.childCount}</td>
-                  <td>{formatCents(group.paidCents)}</td>
-                  <td>{formatCents(group.remainingCents)}</td>
-                  <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                  <td data-label="Guest Of">{group.guestOfLabel ?? "—"}</td>
+                  <td data-label="Adults">{group.adultCount}</td>
+                  <td data-label="Kids">{group.childCount}</td>
+                  <td data-label="Paid">{formatCents(group.paidCents)}</td>
+                  <td data-label="Remaining">{formatCents(group.remainingCents)}</td>
+                  <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                   <td className="actions">
                     <Link
                       className="btn btn-quiet btn-small"

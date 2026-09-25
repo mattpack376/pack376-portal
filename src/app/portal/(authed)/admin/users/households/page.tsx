@@ -71,14 +71,14 @@ export default async function AdminHouseholdsPage() {
               {households.map((h) => (
                 <tr key={h.id}>
                   <td>{h.name || <span style={{ color: "var(--ink-soft)" }}>Unnamed</span>}</td>
-                  <td>
+                  <td data-label="Scouts">
                     {h.scouts.length === 0
                       ? "—"
                       : h.scouts
                           .map((s) => `${s.firstName} ${s.lastName} (${denDisplayName(s.den.rank, s.den.scoutingYear, s.den.label)})`)
                           .join(", ")}
                   </td>
-                  <td>{h.users.length === 0 ? "—" : h.users.map((u) => u.displayName).join(", ")}</td>
+                  <td data-label="Logins">{h.users.length === 0 ? "—" : h.users.map((u) => u.displayName).join(", ")}</td>
                   <td className="actions">
                     <Link
                       className="btn btn-quiet btn-small"
@@ -110,7 +110,7 @@ export default async function AdminHouseholdsPage() {
               {ungroupedScouts.map((s) => (
                 <tr key={s.id}>
                   <td>{s.firstName} {s.lastName}</td>
-                  <td>{denDisplayName(s.den.rank, s.den.scoutingYear, s.den.label)}</td>
+                  <td data-label="Den">{denDisplayName(s.den.rank, s.den.scoutingYear, s.den.label)}</td>
                 </tr>
               ))}
             </tbody>

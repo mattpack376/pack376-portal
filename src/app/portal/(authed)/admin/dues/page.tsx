@@ -133,7 +133,7 @@ export default async function AdminDuesPage({
                   return (
                     <tr key={scout.id} className={paymentRowClass(scout.remainingCents, scout.paidCents)}>
                       <td>{scout.firstName} {scout.lastName}</td>
-                      <td>
+                      <td data-label="Due">
                         {scout.dueCents === null ? "—" : formatCents(scout.dueCents)}
                         {scout.isOverridden && (
                           <span className="badge-pill badge-junior" style={{ marginLeft: 6, fontSize: 11 }}>
@@ -141,9 +141,9 @@ export default async function AdminDuesPage({
                           </span>
                         )}
                       </td>
-                      <td>{formatCents(scout.paidCents)}</td>
-                      <td>{scout.remainingCents === null ? "—" : formatCents(scout.remainingCents)}</td>
-                      <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                      <td data-label="Paid">{formatCents(scout.paidCents)}</td>
+                      <td data-label="Remaining">{scout.remainingCents === null ? "—" : formatCents(scout.remainingCents)}</td>
+                      <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                       <td className="actions">
                         <Link
                           className="btn btn-quiet btn-small"

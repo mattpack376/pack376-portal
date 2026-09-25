@@ -699,8 +699,8 @@ export default async function AdminCampConronPage({
                               >
                                 {p.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}
                               </td>
-                              <td>{formatCents(p.amountCents)}</td>
-                              <td>{p.note || "—"}</td>
+                              <td data-label="Amount">{formatCents(p.amountCents)}</td>
+                              <td data-label="Note">{p.note || "—"}</td>
                               {isAdmin && (
                                 <td className="actions">
                                   <form action={deleteTripPaymentAction}>

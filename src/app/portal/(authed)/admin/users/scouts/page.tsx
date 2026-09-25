@@ -53,14 +53,14 @@ export default async function AdminScoutsPage() {
               return (
                 <tr key={scout.id}>
                   <td>{scout.firstName} {scout.lastName}</td>
-                  <td>{denDisplayName(scout.den.rank, scout.den.scoutingYear, scout.den.label)}</td>
-                  <td>
+                  <td data-label="Den">{denDisplayName(scout.den.rank, scout.den.scoutingYear, scout.den.label)}</td>
+                  <td data-label="Registration Expires">
                     {scout.registrationExpiresOn
                       ? scout.registrationExpiresOn.toLocaleDateString("en-US", { timeZone: "UTC" })
                       : "—"}
                   </td>
-                  <td>{scout.scouterId || "—"}</td>
-                  <td><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                  <td data-label="Scouter ID#">{scout.scouterId || "—"}</td>
+                  <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                   <td className="actions">
                     <Link
                       className="btn btn-quiet btn-small"

@@ -977,6 +977,9 @@ section { padding: 64px 0; }
 .form-field select {
   height: var(--control-height);
 }
+/* A select centers its own text in the height above; the text-field padding
+   left it a 20px box for a taller line, pushing the text low and clipping it. */
+.form-field select { padding-top: 0; padding-bottom: 0; }
 /* iPhone Safari centers a date's value and draws its own rounded control
    over the border and background above; give it the plain text-field look. */
 .form-field input::-webkit-date-and-time-value { text-align: left; }
@@ -1598,16 +1601,116 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   }
   /* Row actions: closer to a thumb-sized target than 31px. */
   .portal-shell .btn-small { min-height: 40px; }
+}
+
+/* ---------- Tables as cards on phones ---------- */
+/*
+ * Below 640px every .data-table row becomes its own card instead of a strip
+ * of a table scrolled sideways. The first cell is the card's title (a name,
+ * an event, a payment date), each later cell is a line with its column name
+ * beside it — taken from the cell's data-label, since the header row is
+ * hidden — and the row's .actions cell becomes a button row along the
+ * bottom. A cell with no data-label past the first just shows its content.
+ *
+ * Screen only, so a phone-width print of a roster still prints as a table.
+ */
+@media screen and (max-width: 640px) {
+  /* Nothing is wider than the screen any more, and the card shadows would
+     be clipped by an overflow box. */
+  .table-scroll { overflow: visible; }
+
+  .data-table,
+  .data-table tbody,
+  .data-table tr,
+  .data-table td { display: block; width: 100%; }
+  .data-table { background: none; box-shadow: none; border-radius: 0; overflow: visible; }
+  .data-table thead { display: none; }
+
+  .data-table tbody tr {
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+    padding: 12px 16px 14px;
+    margin-bottom: 12px;
+  }
+  .data-table tbody tr:last-child { margin-bottom: 0; }
+  /* Inside a white card a second shadow reads as smudge; outline it instead. */
+  .info-card .data-table tbody tr { box-shadow: none; border: 1.5px solid var(--cream-dark); }
+  /* Owing / paid-up rows keep their red or green text and gain an edge, so a
+     list of cards still scans at a glance. */
+  .data-table tbody tr.status-owing { border-left: 4px solid var(--carnival-red-dark); }
+  .data-table tbody tr.status-paid { border-left: 4px solid var(--money-green); }
+
+  .data-table td {
+    padding: 5px 0;
+    border-bottom: none;
+    overflow-wrap: anywhere;
+  }
+  /* tbody/tr/td-deep, to outrank `.data-table tr:last-child td`. */
+  .data-table tbody tr > td:first-child {
+    font-weight: 700;
+    font-size: 16px;
+    padding: 0 0 8px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--cream-dark);
+  }
+  /* A "Nothing here yet" row spanning the table is a message, not a title. */
+  .data-table tbody tr > td[colspan] { font-weight: 400; font-size: 14.5px; padding: 0; margin: 0; border: none; }
+
+  .data-table td[data-label] { display: flex; align-items: baseline; gap: 12px; }
+  .data-table td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  /* Long, multi-part content (the audit log's "What changed"): label on its
+     own line above, content at full card width. */
+  .data-table td.cell-block { display: block; }
+  .data-table td.cell-block::before { display: block; margin-bottom: 4px; }
+
+  .data-table td.actions { flex-wrap: wrap; gap: 8px; padding-top: 10px; }
 
   /*
-   * Tables already scroll sideways inside .table-scroll. Wrapping a header
-   * or a row's buttons onto extra lines only makes every row two or three
-   * times taller without saving the scroll, so keep them on one line and
-   * trim the cell padding instead.
+   * Click-to-sort column headers (SortableColumnHeader) are the one part of
+   * a header row that does something, so they stay: shown as a row of sort
+   * buttons above the cards, with the current sort highlighted.
    */
-  .data-table th, .data-table td { padding: 10px 12px; }
-  .data-table th { white-space: nowrap; }
-  .data-table td.actions { flex-wrap: nowrap; }
+  .data-table thead:has(th.sortable) { display: block; margin-bottom: 12px; }
+  .data-table thead:has(th.sortable) tr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .data-table thead:has(th.sortable) tr::before {
+    content: "Sort by";
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .data-table thead th { display: none; }
+  .data-table thead th.sortable { display: block; width: auto; padding: 0; border: none; background: none; }
+  .data-table th.sortable a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 7px 14px;
+    border: 1.5px solid #c9d4e4;
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--scout-blue);
+    font-size: 13px;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  .data-table th.sortable a.active {
+    background: var(--scout-gold);
+    border-color: var(--scout-gold);
+    color: var(--scout-blue-dark);
+  }
 }
 
 /* ---------- Responsive ---------- */
