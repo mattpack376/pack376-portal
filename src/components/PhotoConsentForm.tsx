@@ -3,17 +3,10 @@
 import { useActionState, useState } from "react";
 import { submitPhotoConsentAction, type SubmitConsentState } from "@/lib/actions/photoConsent";
 import { formatLongDate } from "@/lib/dateOnly";
+import { RELATIONSHIP_LABELS } from "@/lib/photoConsentLabels";
 import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
 
 const initialState: SubmitConsentState = {};
-
-const RELATIONSHIP_OPTIONS: { value: SignerRelationship; label: string }[] = [
-  { value: "PARENT", label: "Parent" },
-  { value: "GUARDIAN", label: "Guardian" },
-  { value: "GRANDPARENT", label: "Grandparent" },
-  { value: "AUNT_UNCLE", label: "Aunt/Uncle" },
-  { value: "ADULT_SIBLING", label: "Adult Sibling (18+)" },
-];
 
 /** signedDate comes in as YYYY-MM-DD (what <input type="date"> needs); parsed as UTC so the preview never drifts a day off. */
 function formatSignedDate(iso: string) {
@@ -124,9 +117,9 @@ export default function PhotoConsentForm({
             <option value="" disabled>
               Relationship
             </option>
-            {RELATIONSHIP_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+            {Object.entries(RELATIONSHIP_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
               </option>
             ))}
           </select>
