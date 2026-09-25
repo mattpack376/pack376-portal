@@ -2,14 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
+import { toDateOnlyString } from "@/lib/dateOnly";
 import { requireAdminSession } from "@/lib/authorize";
 import { updateScoutAction } from "@/lib/actions/scouts";
 import type { Rank } from "@/generated/prisma/enums";
 import DeleteScoutButton from "@/components/DeleteScoutButton";
-
-function toDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
 
 export default async function ManageScoutPage({
   params,
@@ -76,7 +73,7 @@ export default async function ManageScoutPage({
                 id="registrationExpiresOn"
                 name="registrationExpiresOn"
                 type="date"
-                defaultValue={scout.registrationExpiresOn ? toDateInputValue(scout.registrationExpiresOn) : ""}
+                defaultValue={toDateOnlyString(scout.registrationExpiresOn) ?? ""}
               />
             </div>
             <div className="form-field">

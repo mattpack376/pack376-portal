@@ -6,6 +6,7 @@ import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import {
   DAY_LABELS,
   MEAL_TYPE_LABELS,
+  formatTripDate,
   type getOrCreateTripPage,
   type getTripMeals,
   type getTripDutySlots,
@@ -14,13 +15,6 @@ import {
 } from "@/lib/tripPageData";
 
 const CARD_WIDTH = 480;
-
-function formatDate(date: Date | null) {
-  if (!date) return null;
-  return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(
-    date,
-  );
-}
 
 /**
  * Read-only rendering of the trip page — no forms, no buttons, nothing
@@ -129,7 +123,7 @@ export default function TripViewerView({
         </p>
         {trip.startDate && trip.endDate && (
           <p>
-            {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
+            {formatTripDate(trip.startDate)} – {formatTripDate(trip.endDate)}
           </p>
         )}
         {trip.detailsHtml && <p>{trip.detailsHtml}</p>}
@@ -150,7 +144,7 @@ export default function TripViewerView({
         {trip.earlyBirdPriceCents !== null && (
           <p>
             <strong>Early-Bird:</strong> {formatCents(trip.earlyBirdPriceCents)}/person
-            {trip.earlyBirdDeadline && ` if paid in full by ${formatDate(trip.earlyBirdDeadline)}`}
+            {trip.earlyBirdDeadline && ` if paid in full by ${formatTripDate(trip.earlyBirdDeadline)}`}
           </p>
         )}
         {trip.freeAgeAndUnder !== null && (
@@ -158,7 +152,7 @@ export default function TripViewerView({
             Age {trip.freeAgeAndUnder} and under: <strong>free</strong>
           </p>
         )}
-        {trip.rsvpDeadline && <p style={{ marginBottom: 0 }}>RSVP &amp; payment due by {formatDate(trip.rsvpDeadline)}.</p>}
+        {trip.rsvpDeadline && <p style={{ marginBottom: 0 }}>RSVP &amp; payment due by {formatTripDate(trip.rsvpDeadline)}.</p>}
       </div>
       </div>
 

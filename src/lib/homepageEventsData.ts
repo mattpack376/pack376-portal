@@ -1,10 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-
-function todayUtc() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
+import { todayUtc } from "@/lib/dateOnly";
 
 /** Homepage "Upcoming Attractions" ticket list — past events drop off on their own, hidden events are excluded. */
 export async function getUpcomingHomepageEvents() {

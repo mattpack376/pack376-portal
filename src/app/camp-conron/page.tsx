@@ -14,6 +14,7 @@ import {
   CAMP_CONRON_SLUG,
   DAY_LABELS,
   MEAL_TYPE_LABELS,
+  formatTripDate,
 } from "@/lib/tripPageData";
 import { formatCents } from "@/lib/duesData";
 
@@ -28,13 +29,6 @@ export const metadata: Metadata = {
 // getOrCreateTripPage can write on first load — none of that belongs
 // happening once at build time the way a static public page normally would.
 export const dynamic = "force-dynamic";
-
-function formatDate(date: Date | null) {
-  if (!date) return null;
-  return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(
-    date,
-  );
-}
 
 export default async function CampConronPage() {
   const trip = await getOrCreateTripPage(CAMP_CONRON_SLUG);
@@ -100,7 +94,7 @@ export default async function CampConronPage() {
         <h1>{trip.title}</h1>
         <p>
           {trip.location}
-          {trip.startDate && trip.endDate && ` · ${formatDate(trip.startDate)} – ${formatDate(trip.endDate)}`}
+          {trip.startDate && trip.endDate && ` · ${formatTripDate(trip.startDate)} – ${formatTripDate(trip.endDate)}`}
         </p>
       </section>
       <div className="wave-divider" style={{ marginTop: -1 }}>
@@ -134,7 +128,7 @@ export default async function CampConronPage() {
             <div className="info-card" style={{ flex: "1 1 200px" }}>
               <h3 style={{ marginTop: 0 }}>Event Details</h3>
               {trip.detailsHtml && <p>{trip.detailsHtml}</p>}
-              {trip.rsvpDeadline && <p style={{ fontWeight: 700, marginBottom: 0 }}>RSVP &amp; payment due by {formatDate(trip.rsvpDeadline)}.</p>}
+              {trip.rsvpDeadline && <p style={{ fontWeight: 700, marginBottom: 0 }}>RSVP &amp; payment due by {formatTripDate(trip.rsvpDeadline)}.</p>}
             </div>
 
             <div className="info-card" style={{ flex: "1 1 200px" }}>
@@ -145,8 +139,8 @@ export default async function CampConronPage() {
               {trip.earlyBirdPriceCents !== null && trip.earlyBirdDeadline && (
                 <p style={{ margin: "0 0 8px", fontWeight: 700, color: isEarlyBird ? "var(--carnival-red)" : "var(--ink-soft)" }}>
                   {isEarlyBird
-                    ? `Early-Bird Special: ${formatCents(trip.earlyBirdPriceCents)}/person if paid in full by ${formatDate(trip.earlyBirdDeadline)}.`
-                    : `Early-bird pricing (${formatCents(trip.earlyBirdPriceCents)}/person) ended ${formatDate(trip.earlyBirdDeadline)}.`}
+                    ? `Early-Bird Special: ${formatCents(trip.earlyBirdPriceCents)}/person if paid in full by ${formatTripDate(trip.earlyBirdDeadline)}.`
+                    : `Early-bird pricing (${formatCents(trip.earlyBirdPriceCents)}/person) ended ${formatTripDate(trip.earlyBirdDeadline)}.`}
                 </p>
               )}
               {trip.freeAgeAndUnder !== null && (
@@ -271,7 +265,7 @@ export default async function CampConronPage() {
             {registrationClosed(trip) ? (
               <>
                 <p>
-                  Registration closed{trip.rsvpDeadline ? ` on ${formatDate(trip.rsvpDeadline)}` : ""}.
+                  Registration closed{trip.rsvpDeadline ? ` on ${formatTripDate(trip.rsvpDeadline)}` : ""}.
                 </p>
                 <p style={{ marginBottom: 0 }}>
                   Still hoping to come? Get in touch and we&apos;ll see what we can do —{" "}
@@ -287,7 +281,7 @@ export default async function CampConronPage() {
                 currentPriceCents={priceCents}
                 packPaymentInstructions={trip.packPaymentInstructions}
                 troopPaymentInstructions={trip.troopPaymentInstructions}
-                rsvpDeadlineLabel={trip.rsvpDeadline ? formatDate(trip.rsvpDeadline) : null}
+                rsvpDeadlineLabel={trip.rsvpDeadline ? formatTripDate(trip.rsvpDeadline) : null}
               />
             )}
           </div>

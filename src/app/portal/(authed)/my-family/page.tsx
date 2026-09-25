@@ -23,7 +23,7 @@ export default async function MyFamilyPage() {
     return (
       <div className="info-card">
         <h3>No child linked to your account</h3>
-        <p style={{ marginBottom: 0 }}>
+        <p>
           An admin can link your scout from Users &rarr; your account &rarr; Linked Children. If one was just
           linked, sign out and back in — the link is read at sign-in.{" "}
           <Link href={homeForRole(session.role)}>Back to the portal</Link>

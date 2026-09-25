@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { todayUtc } from "@/lib/dateOnly";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import { ROLE_LABELS } from "@/lib/roleLabels";
 import type { Rank } from "@/generated/prisma/enums";
@@ -229,11 +230,8 @@ export async function getGuestGroupBalances(userId: string) {
  * below which only surfaces events someone can actually sign up for.
  */
 export async function getUpcomingVisibleEvents() {
-  const today = new Date();
-  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-
   const events = await prisma.event.findMany({
-    where: { eventDate: { gte: todayUtc }, visible: true },
+    where: { eventDate: { gte: todayUtc() }, visible: true },
     orderBy: { eventDate: "asc" },
   });
 
@@ -258,12 +256,9 @@ export async function getUpcomingVisibleEvents() {
  * custom amount.
  */
 export async function getOpenEventsForSelfRegistration(scoutIds: string[], userId: string) {
-  const today = new Date();
-  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-
   const events = await prisma.event.findMany({
     where: {
-      eventDate: { gte: todayUtc },
+      eventDate: { gte: todayUtc() },
       visible: true,
       OR: [{ feeCents: { not: null } }, { adultFeeCents: { not: null } }, { guestChildFeeCents: { not: null } }],
     },

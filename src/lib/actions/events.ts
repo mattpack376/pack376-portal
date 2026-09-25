@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
@@ -10,24 +9,9 @@ import { RANK_ORDER } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS } from "@/lib/deadlineCategories";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
+import { uploadFlyer } from "@/lib/flyerUpload";
+import { dollarsToCents, parseCount } from "@/lib/formValues";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
-
-function dollarsToCents(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const value = Number(trimmed);
-  if (!Number.isFinite(value) || value < 0) return null;
-  return Math.round(value * 100);
-}
-
-const MAX_FLYER_BYTES = 8 * 1024 * 1024;
-const ALLOWED_FLYER_TYPES: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-  "application/pdf": "pdf",
-};
 
 /** An event's title for audit text, falling back to the raw id. */
 async function eventTitle(eventId: string) {
@@ -53,18 +37,6 @@ async function registrationContext(registrationId: string) {
     denId: registration.scout.denId,
     eventId: registration.eventId,
   };
-}
-
-async function uploadFlyer(file: File): Promise<string> {
-  const extension = ALLOWED_FLYER_TYPES[file.type];
-  if (!extension) throw new Error("Flyer must be a JPEG, PNG, WEBP, GIF, or PDF.");
-  if (file.size > MAX_FLYER_BYTES) throw new Error("Flyer must be 8MB or smaller.");
-
-  const blob = await put(`event-flyers/${crypto.randomUUID()}.${extension}`, file, {
-    access: "public",
-    contentType: file.type,
-  });
-  return blob.url;
 }
 
 export async function createEventAction(formData: FormData) {
@@ -96,7 +68,7 @@ export async function createEventAction(formData: FormData) {
   let flyerUrl: string | null = null;
   const flyer = formData.get("flyer");
   if (flyer instanceof File && flyer.size > 0) {
-    flyerUrl = await uploadFlyer(flyer);
+    flyerUrl = await uploadFlyer(flyer, "event-flyers");
   }
 
   const event = await prisma.event.create({
@@ -159,7 +131,7 @@ export async function updateEventAction(formData: FormData) {
   let flyerUrl: string | null | undefined;
   const flyer = formData.get("flyer");
   if (flyer instanceof File && flyer.size > 0) {
-    flyerUrl = await uploadFlyer(flyer);
+    flyerUrl = await uploadFlyer(flyer, "event-flyers");
   } else if (String(formData.get("removeFlyer") || "") === "true") {
     flyerUrl = null;
   }
@@ -542,14 +514,6 @@ export async function registerMyScoutsForEventAction(formData: FormData) {
   });
 
   revalidatePath("/portal/parent");
-}
-
-function parseCount(raw: FormDataEntryValue | null): number | null {
-  const trimmed = String(raw || "").trim();
-  if (!trimmed) return 0;
-  const value = Number(trimmed);
-  if (!Number.isInteger(value) || value < 0) return null;
-  return value;
 }
 
 /**

@@ -43,10 +43,10 @@ const ALLOWED_COVER_IMAGE_TYPES: Record<string, string> = {
 };
 
 /**
- * Cover photos used to be a pasted PhotoPrism thumbnail link, which broke
- * every time PhotoPrism's preview token rotated (on restart/redeploy). We
- * now upload the file to Vercel Blob at save time so the gallery page never
- * depends on PhotoPrism staying up or a token staying stable.
+ * Cover photos are uploaded to Vercel Blob at save time rather than linked
+ * from PhotoPrism, whose thumbnail links break whenever its preview token
+ * rotates (on restart/redeploy). The gallery never depends on PhotoPrism
+ * staying up or a token staying stable.
  */
 async function uploadCoverImage(file: File): Promise<{ url?: string; error?: string }> {
   const extension = ALLOWED_COVER_IMAGE_TYPES[file.type];

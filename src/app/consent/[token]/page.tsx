@@ -1,11 +1,7 @@
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import PhotoConsentForm from "@/components/PhotoConsentForm";
-
-/** Pack is based in Brooklyn, NY — "today" for a paper-style signature date should follow local time, not UTC. */
-function todayInPackTimeZone() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
-}
+import { toDateOnlyString, todayDateOnlyString } from "@/lib/dateOnly";
 
 export default async function PhotoConsentPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -13,7 +9,7 @@ export default async function PhotoConsentPage({ params }: { params: Promise<{ t
     where: { token },
     include: { scout: { select: { firstName: true } } },
   });
-  const signedDate = record?.signedDate ? record.signedDate.toISOString().slice(0, 10) : todayInPackTimeZone();
+  const signedDate = toDateOnlyString(record?.signedDate) ?? todayDateOnlyString();
 
   return (
     <div className="login-wrap">

@@ -2,11 +2,9 @@
  * Paid / partial / unpaid status for anything families owe money on — dues,
  * event registrations, guest groups, trip registrations.
  *
- * This lived as a copy-pasted ternary in nine pages and three CSV routes,
- * each reaching for a role badge to color it (Partial as .badge-junior,
- * Unpaid as .badge-photographer). Restyling the Junior Admin or Photographer
- * badge would have silently restyled every unpaid amount in the portal, so
- * the status colors are now their own classes — see globals.css.
+ * The status colors are their own classes (see globals.css) rather than
+ * borrowed role badges, so restyling a role badge can't recolor every unpaid
+ * amount in the portal.
  *
  * `remainingCents` is null when no fee has been set (see duesData.ts, where
  * it is null exactly when dueCents is), which is a different thing from

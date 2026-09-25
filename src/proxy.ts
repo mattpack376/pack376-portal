@@ -1,53 +1,26 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
 import type { Role } from "@/generated/prisma/enums";
-
-const SESSION_COOKIE = "pack376_session";
+import { SESSION_COOKIE, homeForRole, verifySessionToken } from "@/lib/session";
 
 const PORTAL_HOSTS = ["portal.pack376nyc.org", "portal.localhost:3000"];
 // Standalone public micro-site for the Camp Conron trip — no login involved,
 // masked onto /camp-conron the same way PORTAL_HOSTS masks /portal below.
 const CONRON_HOSTS = ["conron.pack376nyc.org", "conron.localhost:3000"];
 
-function secretKey() {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error("AUTH_SECRET is not set");
-  return new TextEncoder().encode(secret);
-}
-
-type ProxyRole = Role;
-
+/** Signature and expiry only — revocation needs the database, which the pages check. */
 async function readSession(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, secretKey(), { algorithms: ["HS256"] });
-    return payload as { userId: string; role: ProxyRole; denId: string | null };
-  } catch {
-    return null;
-  }
-}
-
-/** Mirrors src/lib/authorize.ts homeForRole — kept in sync manually since
- * proxy runs in a separate bundle from the rest of the app. */
-function homeForRole(role: ProxyRole) {
-  if (role === "ADMIN") return "/portal/admin";
-  if (role === "JUNIOR_ADMIN") return "/portal/admin";
-  if (role === "COMMITTEE") return "/portal/admin";
-  if (role === "ATTENDANCE_ADMIN") return "/portal/admin/attendance";
-  if (role === "PHOTOGRAPHER") return "/portal/admin/albums";
-  if (role === "PARENT") return "/portal/parent";
-  if (role === "TRIP_VIEWER") return "/portal/admin/camp-conron";
-  return "/portal/den";
+  return token ? verifySessionToken(token) : null;
 }
 
 /**
  * Coarse route -> allowed-roles rules, checked in order (most specific
  * first). Mirrors the requireXSession() guards in src/lib/authorize.ts —
- * kept in sync manually since proxy runs in a separate bundle.
+ * kept in sync by hand, since those guards also check the database and this
+ * layer only reads the cookie.
  */
-const ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[] = [
+const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
   // Pack-wide roster (every den, leader, and scout name) — every staff role
   // but never a PARENT account. Mirrors requireRosterSession() in authorize.ts.
   // Parent contacts and Family View under it are narrowed further by

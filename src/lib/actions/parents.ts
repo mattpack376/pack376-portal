@@ -384,12 +384,12 @@ export async function revokeParentPortalAction(parentId: string) {
 
   /*
    * This button deletes a whole User row, so it has to hold the same line
-   * deleteUserAction does in actions/users.ts — it used to hold none of it.
+   * deleteUserAction does in actions/users.ts.
    *
    * attachParentToScoutAction above deliberately links staff accounts too (a
-   * den leader who is also a parent in the pack), which meant any admin could
-   * link a protected master admin to a scout and then "revoke" it here,
-   * deleting the protected login. Master status is decided by username, so
+   * den leader who is also a parent in the pack). Without the check below,
+   * any admin could link a protected master admin to a scout and then
+   * "revoke" it here, deleting the protected login. Master status is decided by username, so
    * the freed name could then be recreated as a plain ADMIN — a clean path
    * from ordinary admin to master admin.
    *

@@ -3,6 +3,7 @@ import { getAllHomepageEvents } from "@/lib/homepageEventsData";
 import { getAllSiteBanners, getActiveSiteBanner } from "@/lib/siteBannerData";
 import { groupEventsByMonth } from "@/lib/groupEventsByMonth";
 import { toPackDateTimeLocalValue, formatPackDateTime } from "@/lib/bannerSchedule";
+import { toDateOnlyString } from "@/lib/dateOnly";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import {
   createHomepageEventAction,
@@ -16,10 +17,6 @@ import {
   toggleSiteBannerAction,
   deleteSiteBannerAction,
 } from "@/lib/actions/siteBanner";
-
-function toDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
 
 function bannerStatus(
   banner: { active: boolean; startAt: Date | null; endAt: Date | null },
@@ -245,7 +242,7 @@ export default async function HomepageEventsAdminPage() {
                           name="sortDate"
                           type="date"
                           required
-                          defaultValue={toDateInputValue(event.sortDate)}
+                          defaultValue={toDateOnlyString(event.sortDate)}
                         />
                       </div>
                     </div>

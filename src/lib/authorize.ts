@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { getSessionState, type SessionPayload } from "@/lib/auth";
+import { getSessionState } from "@/lib/auth";
+import { homeForRole, type SessionPayload } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
 
@@ -30,17 +31,8 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
 
 type Session = SessionPayload;
 
-/** Where a role lands after login / when bounced from a route it can't access. */
-export function homeForRole(role: SessionPayload["role"]) {
-  if (role === "ADMIN") return "/portal/admin";
-  if (role === "JUNIOR_ADMIN") return "/portal/admin";
-  if (role === "COMMITTEE") return "/portal/admin";
-  if (role === "ATTENDANCE_ADMIN") return "/portal/admin/attendance";
-  if (role === "PHOTOGRAPHER") return "/portal/admin/albums";
-  if (role === "PARENT") return "/portal/parent";
-  if (role === "TRIP_VIEWER") return "/portal/admin/camp-conron";
-  return "/portal/den";
-}
+// Re-exported so pages that guard with requireSession() can redirect from one import.
+export { homeForRole };
 
 /**
  * Den Leaders and Committee Members get a den's leader view through their
@@ -402,11 +394,10 @@ export async function assertMasterAdmin(session: SessionPayload) {
  * a regular Admin could reset the master's password and sign in as them.
  * Other Admin accounts, protected or not, are editable by any Admin.
  *
- * This exists because the check used to be copied inline into each action in
- * src/lib/actions/users.ts, so any *other* path to a User row — the parent
- * contact editor and the Parent Portal revoke button in actions/parents.ts,
- * both of which write through a linked Parent row — simply didn't have it.
- * Route every such write through here instead of re-deriving the rule.
+ * That includes the paths outside src/lib/actions/users.ts: the parent
+ * contact editor and the Parent Portal revoke button in actions/parents.ts
+ * both write through a linked Parent row. Route every such write through
+ * here instead of re-deriving the rule.
  */
 export async function assertCanMutateUser(session: SessionPayload, target: { username: string }) {
   if (!isMasterAdminUsername(target.username)) return;

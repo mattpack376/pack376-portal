@@ -12,6 +12,7 @@ import {
   TRIP_DAY_ORDER,
 } from "@/lib/tripPageData";
 import { formatCents } from "@/lib/duesData";
+import { toDateOnlyString } from "@/lib/dateOnly";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import {
@@ -38,10 +39,6 @@ import TripRegistrationCountFields from "@/components/TripRegistrationCountField
 import TripViewerView from "./TripViewerView";
 import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import SegmentedNav from "@/components/SegmentedNav";
-
-function toDateInputValue(date: Date | null) {
-  return date ? date.toISOString().slice(0, 10) : "";
-}
 
 const CARD_WIDTH = 480;
 
@@ -171,11 +168,11 @@ export default async function AdminCampConronPage({
           <div className="form-row">
             <div className="form-field">
               <label htmlFor="startDate">Start Date</label>
-              <input id="startDate" name="startDate" type="date" defaultValue={toDateInputValue(trip.startDate)} />
+              <input id="startDate" name="startDate" type="date" defaultValue={toDateOnlyString(trip.startDate) ?? ""} />
             </div>
             <div className="form-field">
               <label htmlFor="endDate">End Date</label>
-              <input id="endDate" name="endDate" type="date" defaultValue={toDateInputValue(trip.endDate)} />
+              <input id="endDate" name="endDate" type="date" defaultValue={toDateOnlyString(trip.endDate) ?? ""} />
             </div>
           </div>
           <div className="form-field">
@@ -240,11 +237,11 @@ export default async function AdminCampConronPage({
           <div className="form-row">
             <div className="form-field">
               <label htmlFor="earlyBirdDeadline">Early-Bird Deadline (paid in full by)</label>
-              <input id="earlyBirdDeadline" name="earlyBirdDeadline" type="date" defaultValue={toDateInputValue(trip.earlyBirdDeadline)} />
+              <input id="earlyBirdDeadline" name="earlyBirdDeadline" type="date" defaultValue={toDateOnlyString(trip.earlyBirdDeadline) ?? ""} />
             </div>
             <div className="form-field">
               <label htmlFor="rsvpDeadline">RSVP &amp; Payment Deadline</label>
-              <input id="rsvpDeadline" name="rsvpDeadline" type="date" defaultValue={toDateInputValue(trip.rsvpDeadline)} />
+              <input id="rsvpDeadline" name="rsvpDeadline" type="date" defaultValue={toDateOnlyString(trip.rsvpDeadline) ?? ""} />
             </div>
           </div>
           <div className="form-field" style={{ maxWidth: 220 }}>

@@ -612,50 +612,6 @@ section { padding: 64px 0; }
   .instagram-home-button { justify-content: center; }
 }
 
-/* ---------- Leadership ---------- */
-.leader-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 22px;
-}
-.leader-card {
-  background: var(--white);
-  border-radius: var(--radius);
-  padding: 26px;
-  text-align: center;
-  box-shadow: var(--shadow-card);
-}
-.leader-avatar {
-  width: 72px; height: 72px;
-  border-radius: 50%;
-  margin: 0 auto 14px;
-  background: var(--scout-blue);
-  color: var(--scout-gold);
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 22px;
-  border: 3px solid var(--scout-gold);
-}
-.leader-card h3 { font-size: 18px; margin-bottom: 2px; }
-.leader-role { color: var(--carnival-red); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
-.leader-contact { font-size: 14px; color: var(--ink-soft); }
-.leader-contact a { color: var(--scout-blue); font-weight: 600; }
-
-/* ---------- Construction notice ---------- */
-.construction-notice {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: var(--cream-dark);
-  border: 2px dashed var(--scout-gold-dark);
-  border-radius: var(--radius);
-  padding: 18px 22px;
-  margin: 0 0 36px;
-}
-.construction-notice .icon-badge { flex-shrink: 0; }
-.construction-notice p { margin: 0; color: var(--ink-soft); font-weight: 600; }
-
 /* ---------- Den Leaders' Corner ---------- */
 .exec-grid {
   display: grid;
@@ -703,7 +659,6 @@ section { padding: 64px 0; }
 .corner-role { color: var(--carnival-red); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
 .corner-bio { font-size: 14px; margin-bottom: 12px; }
 .corner-note { font-size: 12.5px; color: var(--ink-soft); font-style: italic; margin: -6px 0 12px; }
-.corner-email { font-size: 13.5px; color: var(--ink-soft); font-style: italic; }
 .stripe-exec { background: var(--scout-gold-dark); }
 
 /* ---------- CTA banner ---------- */
@@ -1176,28 +1131,10 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .portal-container { max-width: 960px; margin: 0 auto; }
 
 /*
- * "Nothing here yet" placeholder. The dashed border distinguishes a
- * section waiting to fill up from a card that holds content — a useful
- * difference on a portal where most sections are empty in July and full
- * in October. Replaces the mix of .info-card, bare <p>, and <td colSpan>
- * currently used for the same message.
- */
-.empty-state {
-  background: var(--white);
-  border: 1.5px dashed var(--cream-dark);
-  border-radius: var(--radius);
-  padding: 28px;
-  text-align: center;
-  color: var(--ink-soft);
-  font-size: 14.5px;
-}
-.empty-state p:last-child { margin-bottom: 0; }
-
-/*
  * Card padding shouldn't need undoing at every call site. The base h3/p
- * margins are tuned for flowing prose and fight .info-card's padding, so
- * pages hand-write `style={{ marginTop: 0 }}` on the first child and
- * `{{ marginBottom: 0 }}` on the last — 106 times between them.
+ * margins are tuned for flowing prose and fight .info-card's padding, so a
+ * portal card's first and last child drop them here, instead of each page
+ * hand-writing `style={{ marginTop: 0 }}` / `{{ marginBottom: 0 }}`.
  *
  * Scoped to .portal-shell deliberately: .info-card is also used on seven
  * public pages (contact, volunteer, activities, rank-requirements, and
@@ -1556,7 +1493,6 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   .hero-art { order: -1; max-width: 340px; margin: 0 auto; }
   .card-grid { grid-template-columns: 1fr; }
   .rank-ladder { grid-template-columns: repeat(3, 1fr); }
-  .leader-grid { grid-template-columns: 1fr; }
   .exec-grid { grid-template-columns: repeat(2, 1fr); }
   .corner-grid { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr; }

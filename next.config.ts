@@ -29,8 +29,8 @@ const isDev = process.env.NODE_ENV === "development";
 const BLOB_HOSTNAME = "jyclzu7uphezevn7.public.blob.vercel-storage.com";
 /**
  * The three prefixes anything is ever uploaded under — album covers
- * (src/lib/actions/albums.ts), event flyers (events.ts) and trip flyers
- * (tripPage.ts). Nothing else in the store is meant to be rendered through
+ * (src/lib/actions/albums.ts), and event and trip flyers
+ * (src/lib/flyerUpload.ts). Nothing else in the store is meant to be rendered through
  * next/image, so nothing else is allowed through the optimizer.
  */
 const BLOB_PATHNAMES = ["/album-covers/**", "/event-flyers/**", "/trip-flyers/**"];

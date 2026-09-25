@@ -12,7 +12,6 @@ export default function AttendanceControl({
   initialPresent,
   updatedAt,
   updatedByUsername,
-  disabled,
 }: {
   scoutId: string;
   meetingDateId: string;
@@ -21,13 +20,11 @@ export default function AttendanceControl({
   initialPresent: boolean | null;
   updatedAt?: Date | null;
   updatedByUsername?: string | null;
-  disabled?: boolean;
 }) {
   const [present, setPresent] = useState<boolean | null>(initialPresent);
   const [isPending, startTransition] = useTransition();
 
   function handleSet(value: boolean) {
-    if (disabled) return;
     const prev = present;
     setPresent(value);
     startTransition(async () => {
@@ -54,7 +51,7 @@ export default function AttendanceControl({
           type="button"
           className={`att-btn att-present${present === true ? " active" : ""}`}
           onClick={() => handleSet(true)}
-          disabled={disabled || isPending}
+          disabled={isPending}
         >
           Present
         </button>
@@ -62,7 +59,7 @@ export default function AttendanceControl({
           type="button"
           className={`att-btn att-absent${present === false ? " active" : ""}`}
           onClick={() => handleSet(false)}
-          disabled={disabled || isPending}
+          disabled={isPending}
         >
           Absent
         </button>

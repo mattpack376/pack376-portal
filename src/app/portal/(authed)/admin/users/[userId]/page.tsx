@@ -153,7 +153,7 @@ export default async function ManageUserPage({
       ) : (
         <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
           <h3>Contact</h3>
-          <p style={{ marginBottom: 0 }}>
+          <p>
             {user.email ?? "No email on file"} · {user.phone ?? "No phone on file"}
           </p>
         </div>

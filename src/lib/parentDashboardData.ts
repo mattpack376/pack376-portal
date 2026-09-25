@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { todayUtc } from "@/lib/dateOnly";
 import { scoutingYearForDate, ensureMeetingDates, formatMeetingDate } from "@/lib/attendanceSchedule";
 import { getScoutDuesDetail } from "@/lib/duesData";
 import {
@@ -8,11 +9,6 @@ import {
   getOpenEventsForSelfRegistration,
   getUpcomingVisibleEvents,
 } from "@/lib/eventsData";
-
-function todayUtc() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
 
 export async function getParentDashboardData(scoutIds: string[], userId: string) {
   const today = todayUtc();

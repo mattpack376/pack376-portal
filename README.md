@@ -1,36 +1,24 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pack 376
 
-## Getting Started
+The Pack 376 website and its login-gated portal, in one Next.js app:
 
-First, run the development server:
+- **Public site**: home, activities, gallery, rank requirements, parent resources, and more, at www.pack376nyc.org.
+- **Portal** (`src/app/portal`): advancement, attendance, rosters, dues, events, photo consent and the admin tools. It is served at portal.pack376nyc.org.
+- **Camp Conron trip page** (`src/app/camp-conron`): served at conron.pack376nyc.org.
+
+`src/proxy.ts` maps both subdomains onto their route prefixes. It also does a first, cookie-only check on portal routes by role. The real permission checks are in `src/lib/authorize.ts`.
+
+Data is in Postgres (Neon in production) through Prisma (`prisma/schema.prisma`). Uploaded images and flyers go to Vercel Blob.
+
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npx prisma dev        # local Postgres; leave it running
+npm run dev           # http://localhost:3000, portal at /portal
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Settings come from `.env` and `.env.local`. To make a local login, run `prisma/createDevAdmin.ts`; the header comment in that file explains how. To load the adventure list, run `npm run db:seed`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploying
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Pushing to `main` deploys to production on Vercel. The build (`npm run build`) runs `prisma migrate deploy` first, so new migrations in `prisma/migrations` apply to the live database automatically.

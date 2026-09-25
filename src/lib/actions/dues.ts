@@ -4,15 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
+import { dollarsToCents } from "@/lib/formValues";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
-
-function dollarsToCents(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const value = Number(trimmed);
-  if (!Number.isFinite(value) || value < 0) return null;
-  return Math.round(value * 100);
-}
 
 /** "Tommy Smith" for audit summaries, or the raw id if the scout is already gone. */
 async function scoutName(scoutId: string) {

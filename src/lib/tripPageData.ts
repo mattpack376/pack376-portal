@@ -32,6 +32,14 @@ export const MEAL_TYPE_LABELS: Record<TripMealType, string> = {
   DINNER: "Dinner",
 };
 
+/** A trip date as "Fri, Oct 9, 2026", or null when the date isn't set. */
+export function formatTripDate(date: Date | null) {
+  if (!date) return null;
+  return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(
+    date,
+  );
+}
+
 /**
  * Fetches the singleton TripPage row for `slug`, creating it — seeded with
  * the Camp Conron Halloween Weekend flyer's details and the 8 fixed meal

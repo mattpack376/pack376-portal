@@ -1,7 +1,7 @@
 import "server-only";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import type { SessionPayload } from "@/lib/auth";
+import type { SessionPayload } from "@/lib/session";
 import type { Role } from "@/generated/prisma/enums";
 
 /**

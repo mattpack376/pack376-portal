@@ -8,6 +8,7 @@ import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { currentTripPriceCents, registrationClosed } from "@/lib/tripPageData";
 import { formatPhoneNumber } from "@/lib/phone";
+import { dollarsToCents, parseCount } from "@/lib/formValues";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import type { TripAffiliation } from "@/generated/prisma/enums";
 
@@ -33,22 +34,6 @@ const MAX_ATTENDEES = 50;
  * write, so it holds regardless.
  */
 const MAX_REGISTRATIONS_PER_EMAIL = 10;
-
-function dollarsToCents(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const value = Number(trimmed);
-  if (!Number.isFinite(value) || value < 0) return null;
-  return Math.round(value * 100);
-}
-
-function parseCount(raw: FormDataEntryValue | null): number | null {
-  const trimmed = String(raw || "").trim();
-  if (!trimmed) return 0;
-  const value = Number(trimmed);
-  if (!Number.isInteger(value) || value < 0) return null;
-  return value;
-}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -143,10 +128,10 @@ async function submitTripRegistration(formData: FormData): Promise<RegisterForTr
   const trip = await prisma.tripPage.findUnique({ where: { id: tripPageId } });
   // Three separate reasons, one answer: an id that doesn't exist, a trip
   // that isn't published, and a trip past its RSVP deadline all get the same
-  // message. Registration used to accept any of them — the id came straight
-  // from the form, so neither the unpublished draft nor the closed trip was
-  // actually out of reach. An admin can still add a late family by hand from
-  // the Camp Conron admin page (addTripRegistrationAction below).
+  // message. The id comes straight from the form, so this check is what keeps
+  // an unpublished draft or a closed trip out of reach. An admin can still add
+  // a late family by hand from the Camp Conron admin page
+  // (addTripRegistrationAction below).
   if (!trip || !trip.published || registrationClosed(trip)) {
     return { error: "Registration for this trip is closed. Please contact us and we'll help you out." };
   }

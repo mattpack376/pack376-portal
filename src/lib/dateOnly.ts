@@ -9,6 +9,8 @@
 const PACK_TIME_ZONE = "America/New_York";
 
 /** A stored date-only value as YYYY-MM-DD, ready for <input type="date">. */
+export function toDateOnlyString(date: Date): string;
+export function toDateOnlyString(date: Date | null | undefined): string | null;
 export function toDateOnlyString(date: Date | null | undefined): string | null {
   if (!date) return null;
   return date.toISOString().slice(0, 10);
@@ -36,6 +38,15 @@ export function formatDateOnly(iso: string): string {
     year: "numeric",
     timeZone: "UTC",
   });
+}
+
+/**
+ * Today's UTC calendar date at UTC midnight — the cutoff for "upcoming" when
+ * filtering a date-only column, so anything dated before today drops off.
+ */
+export function todayUtc(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
 /** Today in the pack's time zone as YYYY-MM-DD — the default date a leader almost always wants. */

@@ -1,6 +1,7 @@
 import { requireAdminSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
+import { toDateOnlyString } from "@/lib/dateOnly";
 import {
   createAnnouncementAction,
   updateAnnouncementAction,
@@ -13,10 +14,6 @@ import {
   toggleVolunteerNeedAction,
   deleteVolunteerNeedAction,
 } from "@/lib/actions/parentPortal";
-
-function toDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
 
 export default async function ParentPortalAdminPage() {
   await requireAdminSession();
@@ -159,7 +156,7 @@ export default async function ParentPortalAdminPage() {
                         </div>
                         <div className="form-field">
                           <label htmlFor={`dl-dueDate-${d.id}`}>Due Date</label>
-                          <input id={`dl-dueDate-${d.id}`} name="dueDate" type="date" defaultValue={toDateInputValue(d.dueDate)} required />
+                          <input id={`dl-dueDate-${d.id}`} name="dueDate" type="date" defaultValue={toDateOnlyString(d.dueDate)} required />
                         </div>
                       </div>
                       <div className="form-field">

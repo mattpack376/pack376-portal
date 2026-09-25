@@ -28,9 +28,9 @@ export default async function ParentContactsPage({
 }) {
   const session = await requireParentContactsSession();
   const { view } = await searchParams;
-  const isMasterAdmin = session.role === "ADMIN";
-  const printView = isMasterAdmin && view === "print";
-  const canEdit = isMasterAdmin && !printView;
+  const isAdmin = session.role === "ADMIN";
+  const printView = isAdmin && view === "print";
+  const canEdit = isAdmin && !printView;
 
   // Den Leaders, and Committee Members who lead a den, see only their den(s).
   const isDenScoped = isDenScopedRole(session.role);
@@ -76,7 +76,7 @@ export default async function ParentContactsPage({
         )}
         <p style={{ fontSize: 15, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           {printView && <PrintButton />}
-          {isMasterAdmin && !printView && (
+          {isAdmin && !printView && (
             <Link
               href="/portal/roster/parents?view=print"
               className="btn btn-quiet btn-small no-print"

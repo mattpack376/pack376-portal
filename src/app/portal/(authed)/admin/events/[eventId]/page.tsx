@@ -4,6 +4,7 @@ import { requireEventsViewSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { getEventDetail, getGuestOfOptions } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
+import { toDateOnlyString } from "@/lib/dateOnly";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
 import {
@@ -22,10 +23,6 @@ import GuestGroupCountFields from "@/components/GuestGroupCountFields";
 import SortableColumnHeader from "@/components/SortableColumnHeader";
 import { sortGuestGroups } from "@/lib/guestSort";
 import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
-
-function toDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
 
 export default async function AdminEventDetailPage({
   params,
@@ -143,7 +140,7 @@ export default async function AdminEventDetailPage({
             </div>
             <div className="form-field">
               <label htmlFor="edit-eventDate">Date</label>
-              <input id="edit-eventDate" name="eventDate" type="date" required defaultValue={toDateInputValue(event.eventDate)} />
+              <input id="edit-eventDate" name="eventDate" type="date" required defaultValue={toDateOnlyString(event.eventDate)} />
             </div>
           </div>
           <div className="form-row">

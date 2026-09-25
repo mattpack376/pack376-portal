@@ -2,12 +2,9 @@
 
 import { useActionState } from "react";
 import { updateAlbumAction, type AlbumActionState } from "@/lib/actions/albums";
+import { toDateOnlyString } from "@/lib/dateOnly";
 
 const initialState: AlbumActionState = {};
-
-function toDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
 
 export default function EditAlbumForm({
   album,
@@ -33,7 +30,7 @@ export default function EditAlbumForm({
         </div>
         <div className="form-field">
           <label htmlFor="eventDate">Event Date</label>
-          <input id="eventDate" name="eventDate" type="date" defaultValue={toDateInputValue(album.eventDate)} required />
+          <input id="eventDate" name="eventDate" type="date" defaultValue={toDateOnlyString(album.eventDate)} required />
         </div>
         <div className="form-field">
           <label htmlFor="description">Description (optional)</label>

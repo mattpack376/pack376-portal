@@ -22,9 +22,6 @@ export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
  */
 export const DEN_ASSIGNABLE_ROLES = ["ADMIN", "JUNIOR_ADMIN", "DEN", "COMMITTEE"] as const;
 
-/** Roles whose den assignments grant access rather than just a leader listing. */
-export const DEN_SCOPED_ROLES = ["DEN", "COMMITTEE"] as const;
-
 export const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
   JUNIOR_ADMIN: "Junior Admin",

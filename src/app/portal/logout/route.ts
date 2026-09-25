@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { SESSION_COOKIE } from "@/lib/auth";
+import { SESSION_COOKIE } from "@/lib/session";
 
 /**
  * Clears the session cookie and sends the user to the login page. This exists
@@ -11,7 +11,7 @@ import { SESSION_COOKIE } from "@/lib/auth";
  */
 export async function GET(request: NextRequest) {
   const res = NextResponse.redirect(new URL("/portal/login", request.url));
-  // Host-only delete, matching how createSessionCookie now sets it (no domain).
+  // Host-only delete, matching how createSessionCookie sets it (no domain).
   res.cookies.delete({ name: SESSION_COOKIE, path: "/" });
   return res;
 }

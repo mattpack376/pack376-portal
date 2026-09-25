@@ -1,35 +1,17 @@
 import "server-only";
 import bcrypt from "bcryptjs";
-import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import type { Role } from "@/generated/prisma/enums";
+import {
+  SESSION_COOKIE,
+  SESSION_DURATION_SECONDS,
+  signSession,
+  verifySessionToken,
+  type SessionPayload,
+} from "@/lib/session";
 
-export const SESSION_COOKIE = "pack376_session";
-const SESSION_DURATION_SECONDS = 45 * 24 * 60 * 60; // 45 days
 const LOCKOUT_THRESHOLD = 5;
 const LOCKOUT_MINUTES = 15;
-
-function secretKey() {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error("AUTH_SECRET is not set");
-  return new TextEncoder().encode(secret);
-}
-
-export type SessionPayload = {
-  userId: string;
-  role: Role;
-  denIds: string[];
-  // The scout(s) this account is linked to via Parent.userId — a PARENT
-  // login's whole family, or a staff member's own child (/portal/my-family).
-  // Present for every role (rather than optional) so callers can read it
-  // unconditionally, same as denIds.
-  scoutIds: string[];
-  displayName: string;
-  // Snapshot of User.sessionVersion at sign-in. Compared against the DB on
-  // every protected request so password/role/den changes revoke old tokens.
-  sv: number;
-};
 
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 12);
@@ -37,23 +19,6 @@ export async function hashPassword(password: string) {
 
 export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
-}
-
-export async function signSession(payload: SessionPayload) {
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
-    .sign(secretKey());
-}
-
-export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, secretKey(), { algorithms: ["HS256"] });
-    return payload as unknown as SessionPayload;
-  } catch {
-    return null;
-  }
 }
 
 export async function createSessionCookie(payload: SessionPayload) {
@@ -75,7 +40,7 @@ export async function createSessionCookie(payload: SessionPayload) {
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
   // Must match the path the cookie was set with (createSessionCookie above).
-  // The cookie is now host-only (no domain), so we delete it host-only too —
+  // The cookie is host-only (no domain), so it's deleted host-only too —
   // passing a domain here would target a different cookie and leave the real
   // session cookie in place.
   cookieStore.delete({

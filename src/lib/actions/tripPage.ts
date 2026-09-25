@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { recordAudit, changedFields, auditMoney } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
+import { uploadFlyer } from "@/lib/flyerUpload";
+import { dollarsToCents } from "@/lib/formValues";
 import type { TripDay, TripMealType } from "@/generated/prisma/enums";
 
 const ADMIN_PATH = "/portal/admin/camp-conron";
@@ -21,35 +22,6 @@ function revalidateTrip() {
 function titleCase(value: string): string {
   const words = value.toLowerCase().replace(/_/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-function dollarsToCents(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const value = Number(trimmed);
-  if (!Number.isFinite(value) || value < 0) return null;
-  return Math.round(value * 100);
-}
-
-const MAX_FLYER_BYTES = 8 * 1024 * 1024;
-const ALLOWED_FLYER_TYPES: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-  "application/pdf": "pdf",
-};
-
-async function uploadFlyer(file: File): Promise<string> {
-  const extension = ALLOWED_FLYER_TYPES[file.type];
-  if (!extension) throw new Error("Flyer must be a JPEG, PNG, WEBP, GIF, or PDF.");
-  if (file.size > MAX_FLYER_BYTES) throw new Error("Flyer must be 8MB or smaller.");
-
-  const blob = await put(`trip-flyers/${crypto.randomUUID()}.${extension}`, file, {
-    access: "public",
-    contentType: file.type,
-  });
-  return blob.url;
 }
 
 export async function updateTripDetailsAction(formData: FormData) {
@@ -73,7 +45,7 @@ export async function updateTripDetailsAction(formData: FormData) {
   let flyerUrl: string | null | undefined;
   const flyer = formData.get("flyer");
   if (flyer instanceof File && flyer.size > 0) {
-    flyerUrl = await uploadFlyer(flyer);
+    flyerUrl = await uploadFlyer(flyer, "trip-flyers");
   } else if (String(formData.get("removeFlyer") || "") === "true") {
     flyerUrl = null;
   }
