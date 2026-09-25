@@ -1496,6 +1496,8 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 }
 .attendance-row:last-child { border-bottom: none; }
 .attendance-name { font-weight: 600; font-size: 15px; }
+/* Second line under a name — a leader's positions on the leader & committee tracker. */
+.attendance-detail { display: block; font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
 .attendance-buttons { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .att-btn {
   font-family: var(--font-display);

@@ -6,6 +6,7 @@ import { RANK_INFO } from "@/lib/rankConfig";
 import { getSession } from "@/lib/auth";
 import { canResetDenAttendance } from "@/lib/authorize";
 import AttendanceControl from "@/components/AttendanceControl";
+import AttendanceSubNav from "@/components/AttendanceSubNav";
 import MarkAllPresentButton from "@/components/MarkAllPresentButton";
 import MeetingStatusToggle from "@/components/MeetingStatusToggle";
 import ResetDenAttendanceButton from "@/components/ResetDenAttendanceButton";
@@ -35,6 +36,8 @@ export default async function AdminMeetingAttendancePage({
         </div>
         <MeetingStatusToggle meetingDateId={meeting.id} status={meeting.status} />
       </div>
+
+      <AttendanceSubNav active="scouts" meetingDateId={meeting.id} />
 
       {cancelled ? (
         <div className="info-card">This meeting was cancelled — no attendance to take.</div>

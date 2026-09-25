@@ -184,5 +184,8 @@ export async function setMeetingStatusAction(meetingDateId: string, status: "SCH
   revalidatePath(`/portal/den/attendance/${meetingDateId}`);
   revalidatePath("/portal/admin/attendance");
   revalidatePath(`/portal/admin/attendance/${meetingDateId}`);
+  // Leaders & committee share the same meeting calendar, so a cancellation lands there too.
+  revalidatePath("/portal/admin/attendance/leaders");
+  revalidatePath(`/portal/admin/attendance/leaders/${meetingDateId}`);
   return { ok: true as const };
 }

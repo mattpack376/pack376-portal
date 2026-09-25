@@ -57,6 +57,10 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[]
     test: (p) => p.startsWith("/portal/roster"),
     roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE", "DEN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER"],
   },
+  // Editing who's on the leader & committee attendance list — checked before
+  // the attendance rule below, which would otherwise let every attendance
+  // role in. Mirrors requireAdminSession() on the Manage List page.
+  { test: (p) => p.startsWith("/portal/admin/attendance/leaders/manage"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/attendance"), roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE", "ATTENDANCE_ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },

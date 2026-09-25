@@ -38,6 +38,7 @@ export const AUDIT_PAGE_SIZE = 50;
  * to the raw value, so adding a new action never leaves a blank filter option.
  */
 export const AUDIT_CATEGORY_LABELS: Record<string, string> = {
+  adultLeader: "Leader & Committee List",
   advancement: "Advancement",
   album: "Photo Albums",
   auth: "Sign-ins",
