@@ -61,6 +61,9 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[]
   // the attendance rule below, which would otherwise let every attendance
   // role in. Mirrors requireAdminSession() on the Manage List page.
   { test: (p) => p.startsWith("/portal/admin/attendance/leaders/manage"), roles: ["ADMIN"] },
+  // Leader & committee attendance leaves out Committee Members, who the
+  // broader attendance rule below lets in. Mirrors requireLeaderAttendanceSession().
+  { test: (p) => p.startsWith("/portal/admin/attendance/leaders"), roles: ["ADMIN", "JUNIOR_ADMIN", "ATTENDANCE_ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/attendance"), roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE", "ATTENDANCE_ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },

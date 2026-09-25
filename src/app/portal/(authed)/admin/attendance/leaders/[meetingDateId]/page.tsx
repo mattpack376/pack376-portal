@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getAdultLeaderMeetingDetail } from "@/lib/adultLeaderAttendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { getSession } from "@/lib/auth";
-import { canResetDenAttendance } from "@/lib/authorize";
+import { canResetLeaderAttendance } from "@/lib/authorize";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import LeaderAttendanceControl from "@/components/LeaderAttendanceControl";
 import MarkAllLeadersPresentButton from "@/components/MarkAllLeadersPresentButton";
@@ -18,7 +18,7 @@ export default async function AdminLeaderMeetingAttendancePage({
   const { meetingDateId } = await params;
   const [data, session] = await Promise.all([getAdultLeaderMeetingDetail(meetingDateId), getSession()]);
   if (!data) notFound();
-  const canReset = !!session && canResetDenAttendance(session);
+  const canReset = !!session && canResetLeaderAttendance(session);
 
   const { meeting, scoutingYear, sections } = data;
   const cancelled = meeting.status === "NO_MEETING";

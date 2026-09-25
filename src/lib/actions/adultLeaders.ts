@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin, assertAttendanceAccess, canResetDenAttendance } from "@/lib/authorize";
+import { assertAdmin, assertLeaderAttendanceAccess, canResetLeaderAttendance } from "@/lib/authorize";
 import { leadersListedForMeeting } from "@/lib/adultLeaderAttendanceData";
 import { ADULT_LEADER_SECTION_LABELS, formatPositions, isAdultLeaderSection } from "@/lib/adultLeaderSections";
 import { recordAudit, auditDate, changedFields, EMPTY } from "@/lib/audit";
@@ -35,7 +35,7 @@ export async function setAdultLeaderAttendanceAction(adultLeaderId: string, meet
   const session = await getSession();
   if (!session) return { ok: false as const };
   try {
-    assertAttendanceAccess(session);
+    assertLeaderAttendanceAccess(session);
   } catch {
     return { ok: false as const };
   }
@@ -94,7 +94,7 @@ export async function markAllAdultLeadersPresentAction(meetingDateId: string) {
   const session = await getSession();
   if (!session) return { ok: false as const };
   try {
-    assertAttendanceAccess(session);
+    assertLeaderAttendanceAccess(session);
   } catch {
     return { ok: false as const };
   }
@@ -129,11 +129,11 @@ export async function markAllAdultLeadersPresentAction(meetingDateId: string) {
   return { ok: true as const };
 }
 
-/** Same roles as the scout side's Reset Day — clears every leader & committee mark on one meeting date. */
+/** Admin or Junior Admin — clears every leader & committee mark on one meeting date. */
 export async function resetAdultLeaderAttendanceAction(meetingDateId: string) {
   const session = await getSession();
   if (!session) return { ok: false as const };
-  if (!canResetDenAttendance(session)) {
+  if (!canResetLeaderAttendance(session)) {
     return { ok: false as const };
   }
 
@@ -152,7 +152,7 @@ export async function resetAdultLeaderAttendanceAction(meetingDateId: string) {
 
 /*
  * Who's on the list is Admin-only: every roster action below asserts it. The
- * roles that take attendance mark people present; they don't decide who's on it.
+ * other leader-attendance roles mark people present; they don't decide who's on it.
  */
 
 /**
