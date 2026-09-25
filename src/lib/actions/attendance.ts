@@ -6,17 +6,7 @@ import { getSession } from "@/lib/auth";
 import { assertAttendanceAccess, assertAttendanceDenAccess, canResetDenAttendance } from "@/lib/authorize";
 import { denDisplayName } from "@/lib/rankConfig";
 import { recordAudit, auditDate, EMPTY } from "@/lib/audit";
-
-async function assertMeetingIsSchedulable(meetingDateId: string) {
-  const meeting = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { status: true } });
-  return !!meeting && meeting.status === "SCHEDULED";
-}
-
-/** The meeting's date as audit text; falls back to the id if the row vanished mid-request. */
-async function meetingLabel(meetingDateId: string) {
-  const meeting = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { date: true } });
-  return meeting ? auditDate(meeting.date) : meetingDateId;
-}
+import { meetingIsSchedulable, meetingLabel } from "@/lib/attendanceData";
 
 export async function setAttendanceAction(scoutId: string, meetingDateId: string, present: boolean) {
   const session = await getSession();
@@ -34,7 +24,7 @@ export async function setAttendanceAction(scoutId: string, meetingDateId: string
     return { ok: false as const };
   }
 
-  if (!(await assertMeetingIsSchedulable(meetingDateId))) {
+  if (!(await meetingIsSchedulable(meetingDateId))) {
     return { ok: false as const, error: "This meeting has been cancelled." };
   }
 
@@ -84,7 +74,7 @@ export async function markDenPresentAction(denId: string, meetingDateId: string)
     return { ok: false as const };
   }
 
-  if (!(await assertMeetingIsSchedulable(meetingDateId))) {
+  if (!(await meetingIsSchedulable(meetingDateId))) {
     return { ok: false as const, error: "This meeting has been cancelled." };
   }
 

@@ -5,8 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin, assertLeaderAttendanceAccess, canResetLeaderAttendance } from "@/lib/authorize";
 import { leadersListedForMeeting } from "@/lib/adultLeaderAttendanceData";
+import { meetingIsSchedulable, meetingLabel } from "@/lib/attendanceData";
 import { ADULT_LEADER_SECTION_LABELS, formatPositions, isAdultLeaderSection } from "@/lib/adultLeaderSections";
-import { recordAudit, auditDate, changedFields, EMPTY } from "@/lib/audit";
+import { recordAudit, changedFields, EMPTY } from "@/lib/audit";
 import type { AdultLeaderSection } from "@/generated/prisma/enums";
 
 const LEADERS_PATH = "/portal/admin/attendance/leaders";
@@ -14,17 +15,6 @@ const LEADERS_PATH = "/portal/admin/attendance/leaders";
 const MAX_NAME_LENGTH = 100;
 const MAX_POSITIONS = 10;
 const MAX_POSITION_LENGTH = 100;
-
-async function meetingIsSchedulable(meetingDateId: string) {
-  const meeting = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { status: true } });
-  return !!meeting && meeting.status === "SCHEDULED";
-}
-
-/** The meeting's date as audit text; falls back to the id if the row vanished mid-request. */
-async function meetingLabel(meetingDateId: string) {
-  const meeting = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { date: true } });
-  return meeting ? auditDate(meeting.date) : meetingDateId;
-}
 
 function revalidateMeeting(meetingDateId: string) {
   revalidatePath(LEADERS_PATH);

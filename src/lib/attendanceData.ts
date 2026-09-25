@@ -2,7 +2,20 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { ensureMeetingDates, fridaysForScoutingYear, scoutingYearForDate } from "@/lib/attendanceSchedule";
 import { RANK_ORDER } from "@/lib/rankConfig";
+import { auditDate } from "@/lib/audit";
 import type { Rank } from "@/generated/prisma/enums";
+
+/** Whether attendance can be marked for this meeting — false for a No Meeting day or an id that doesn't exist. */
+export async function meetingIsSchedulable(meetingDateId: string) {
+  const meeting = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { status: true } });
+  return !!meeting && meeting.status === "SCHEDULED";
+}
+
+/** The meeting's date as audit text; falls back to the id if the row vanished mid-request. */
+export async function meetingLabel(meetingDateId: string) {
+  const meeting = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { date: true } });
+  return meeting ? auditDate(meeting.date) : meetingDateId;
+}
 
 export type MeetingListItem = {
   id: string;
