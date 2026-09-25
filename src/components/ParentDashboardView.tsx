@@ -10,7 +10,8 @@ import CollapsibleGroup from "@/components/CollapsibleGroup";
 import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
 import EventFlyer from "@/components/EventFlyer";
 import ConsentStatusBadge from "@/components/ConsentStatusBadge";
-import { RELATIONSHIP_LABELS, formatSignedDate } from "@/lib/photoConsentLabels";
+import { RELATIONSHIP_LABELS } from "@/lib/photoConsentLabels";
+import { formatLongDate } from "@/lib/dateOnly";
 import {
   registerMyScoutsForEventAction,
   registerMyGuestGroupForEventAction,
@@ -311,7 +312,7 @@ export default async function ParentDashboardView({
                     Signed by <strong>{scout.photoConsent.signedByName}</strong>
                     {scout.photoConsent.signedRelationship &&
                       ` (${RELATIONSHIP_LABELS[scout.photoConsent.signedRelationship]})`}
-                    {scout.photoConsent.signedDate && ` on ${formatSignedDate(scout.photoConsent.signedDate)}`}
+                    {scout.photoConsent.signedDate && ` on ${formatLongDate(scout.photoConsent.signedDate)}`}
                     .
                   </p>
                 )}

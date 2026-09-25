@@ -49,6 +49,11 @@ export function todayUtc(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
+/** A stored date-only value as "August 12, 2026". */
+export function formatLongDate(date: Date): string {
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
 /** Today in the pack's time zone as YYYY-MM-DD — the default date a leader almost always wants. */
 export function todayDateOnlyString(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: PACK_TIME_ZONE }).format(new Date());

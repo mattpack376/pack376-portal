@@ -19,13 +19,3 @@ export const CONSENT_BADGE_CLASSES: Record<ConsentStatus, string> = {
   DECLINE: "badge-decline",
   PENDING: "badge-pending",
 };
-
-/** signedDate is a @db.Date — read it back in UTC so it doesn't shift a day west of Greenwich. */
-export function formatSignedDate(date: Date) {
-  return date.toLocaleDateString("en-US", {
-    timeZone: "UTC",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}

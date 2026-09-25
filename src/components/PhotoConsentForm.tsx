@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { submitPhotoConsentAction, type SubmitConsentState } from "@/lib/actions/photoConsent";
+import { formatLongDate } from "@/lib/dateOnly";
 import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
 
 const initialState: SubmitConsentState = {};
@@ -17,12 +18,7 @@ const RELATIONSHIP_OPTIONS: { value: SignerRelationship; label: string }[] = [
 /** signedDate comes in as YYYY-MM-DD (what <input type="date"> needs); parsed as UTC so the preview never drifts a day off. */
 function formatSignedDate(iso: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
-    timeZone: "UTC",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  return formatLongDate(new Date(`${iso}T00:00:00Z`));
 }
 
 const VENUES: { key: "facebook" | "website" | "fliers"; label: string; note: string }[] = [

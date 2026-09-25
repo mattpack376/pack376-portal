@@ -3,7 +3,8 @@ import { canManagePhotoConsentForDen, requirePhotoConsentSession } from "@/lib/a
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
-import { RELATIONSHIP_LABELS, formatSignedDate } from "@/lib/photoConsentLabels";
+import { RELATIONSHIP_LABELS } from "@/lib/photoConsentLabels";
+import { formatLongDate } from "@/lib/dateOnly";
 import ConsentStatusBadge from "@/components/ConsentStatusBadge";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import { generatePhotoConsentLinkAction } from "@/lib/actions/photoConsent";
@@ -102,7 +103,7 @@ export default async function PhotoConsentPage() {
                                 {scout.photoConsent.signedRelationship &&
                                   ` (${RELATIONSHIP_LABELS[scout.photoConsent.signedRelationship]})`}
                                 {scout.photoConsent.signedDate &&
-                                  ` on ${formatSignedDate(scout.photoConsent.signedDate)}`}
+                                  ` on ${formatLongDate(scout.photoConsent.signedDate)}`}
                               </p>
                             )}
                             {canManage && (

@@ -1,12 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { formatLongDate } from "@/lib/dateOnly";
 import { deleteAlbumAction } from "@/lib/actions/albums";
 import AlbumVisibilityToggle from "@/components/AlbumVisibilityToggle";
-
-function formatDate(date: Date) {
-  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
 
 export default async function AdminAlbumsPage() {
   const session = await getSession();
@@ -28,7 +25,7 @@ export default async function AdminAlbumsPage() {
             </span>
           )}
         </td>
-        <td>{formatDate(album.eventDate)}</td>
+        <td>{formatLongDate(album.eventDate)}</td>
         <td className="actions">
           <AlbumVisibilityToggle albumId={album.id} isVisible={album.isVisible} />
           <Link

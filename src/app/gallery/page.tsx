@@ -3,15 +3,12 @@ import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
+import { formatLongDate } from "@/lib/dateOnly";
 
 export const metadata: Metadata = {
   title: "Photo Albums — Pack 376",
   description: "Photos from Pack 376 pack nights, campouts, and events — past and upcoming.",
 };
-
-function formatDate(date: Date) {
-  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
 
 export default async function GalleryPage() {
   const albums = await prisma.photoAlbum.findMany({ where: { isVisible: true }, orderBy: { eventDate: "desc" } });
@@ -34,7 +31,7 @@ export default async function GalleryPage() {
             />
           </div>
           <div className="album-tile-body">
-            <div className="album-tile-date">{formatDate(album.eventDate)}</div>
+            <div className="album-tile-date">{formatLongDate(album.eventDate)}</div>
             <h3>{album.title}</h3>
             {album.description && <p>{album.description}</p>}
             <a className="link" href={album.photoAlbumUrl} target="_blank" rel="noopener noreferrer">
