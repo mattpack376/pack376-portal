@@ -228,6 +228,34 @@ export function canResetDenAttendance(session: Session) {
   return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "COMMITTEE";
 }
 
+/**
+ * Leader & committee attendance — Admin (master admins included), Junior
+ * Admin and Attendance Only. Narrower than scout attendance on purpose:
+ * Committee Members are on that list themselves, so they don't take it.
+ */
+export function canAccessLeaderAttendance(session: Session) {
+  return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "ATTENDANCE_ADMIN";
+}
+
+/** For Server Components / pages: the leader & committee tracker — see canAccessLeaderAttendance. */
+export async function requireLeaderAttendanceSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (!canAccessLeaderAttendance(session)) redirect(homeForRole(session.role));
+  return session;
+}
+
+/** For Server Actions and the CSV export — see canAccessLeaderAttendance. */
+export function assertLeaderAttendanceAccess(session: Session) {
+  if (!canAccessLeaderAttendance(session)) {
+    throw new Error("Not authorized: leader attendance access required.");
+  }
+}
+
+/** Clearing every leader & committee mark for one meeting — the leader roles minus Attendance Only, as on the scout side. */
+export function canResetLeaderAttendance(session: Session) {
+  return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN";
+}
+
 /** Admin, Junior Admin or Committee Member for any den's advancement; a den login only for its assigned den(s). */
 export function assertAdvancementDenAccess(session: SessionPayload, denId: string) {
   if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "COMMITTEE") return;

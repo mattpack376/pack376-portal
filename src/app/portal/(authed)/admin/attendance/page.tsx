@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getAdminScoutingYears, getAdminMeetingOverview } from "@/lib/attendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
+import { getSession } from "@/lib/auth";
+import { canAccessLeaderAttendance } from "@/lib/authorize";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 
 export default async function AdminAttendancePage({
@@ -8,15 +10,18 @@ export default async function AdminAttendancePage({
 }: {
   searchParams: Promise<{ year?: string }>;
 }) {
-  const years = await getAdminScoutingYears();
+  const [years, session] = await Promise.all([getAdminScoutingYears(), getSession()]);
   const { year: requestedYear } = await searchParams;
   const scoutingYear = requestedYear && years.includes(requestedYear) ? requestedYear : years[0];
+  // Committee Members take scout attendance but not leader attendance, so
+  // they get no tab to switch to.
+  const showLeaderTab = !!session && canAccessLeaderAttendance(session);
 
   if (!scoutingYear) {
     // Leader attendance doesn't need a den, so keep it reachable from here.
     return (
       <>
-        <AttendanceSubNav active="scouts" />
+        {showLeaderTab && <AttendanceSubNav active="scouts" />}
         <div className="info-card">No dens exist yet — create one from the Dashboard first.</div>
       </>
     );
@@ -46,7 +51,7 @@ export default async function AdminAttendancePage({
         </form>
       </div>
 
-      <AttendanceSubNav active="scouts" year={scoutingYear} />
+      {showLeaderTab && <AttendanceSubNav active="scouts" year={scoutingYear} />}
 
       <div style={{ marginBottom: 16 }}>
         <a className="btn btn-quiet" href={`/api/attendance/export/pack?scoutingYear=${encodeURIComponent(scoutingYear)}`}>
