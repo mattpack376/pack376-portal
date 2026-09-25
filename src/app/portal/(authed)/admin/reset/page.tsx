@@ -22,8 +22,9 @@ export default async function AdminResetPage() {
         <p>
           Permanently deletes every scout on every den&apos;s roster for one scouting year — along
           with their advancement checkmarks, attendance history, and dues payments. Dens, the
-          meeting calendar (including cancelled dates), the adventure list, dues settings, and every
-          login stay exactly as they are — and other scouting years aren&apos;t touched.
+          meeting calendar (including cancelled dates), the leader &amp; committee list and its
+          attendance, the adventure list, dues settings, and every login stay exactly as they are — and
+          other scouting years aren&apos;t touched.
         </p>
       </div>
 

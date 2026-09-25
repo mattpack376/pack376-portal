@@ -85,6 +85,7 @@ model User {
   updatedAt                DateTime                 @updatedAt
   advancementUpdates       AdvancementRecord[]
   attendanceUpdates        Attendance[]
+  leaderAttendanceUpdates  AdultLeaderAttendance[]
   duesPaymentsLogged       DuesPayment[]
   denAssignments           DenAssignment[]
   resetTokens              PasswordResetToken[]
@@ -246,10 +247,11 @@ model AdvancementRecord {
 }
 
 model MeetingDate {
-  id          String        @id @default(cuid())
-  date        DateTime      @unique @db.Date
-  status      MeetingStatus @default(SCHEDULED)
-  attendances Attendance[]
+  id                     String                  @id @default(cuid())
+  date                   DateTime                @unique @db.Date
+  status                 MeetingStatus           @default(SCHEDULED)
+  attendances            Attendance[]
+  adultLeaderAttendances AdultLeaderAttendance[]
 }
 
 model Attendance {
@@ -264,6 +266,56 @@ model Attendance {
   updatedByUser   User?       @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([scoutId, meetingDateId])
+}
+
+enum AdultLeaderSection {
+  COMMITTEE
+  LEADERS
+}
+
+/**
+ * A pack committee member or pack/den leader whose attendance is taken at the
+ * weekly meetings, separately from the scouts. Deliberately not tied to a User
+ * login: plenty of committee members never sign in to the portal, and a
+ * leader's portal account can come and go without touching their attendance.
+ * Same free-text-name convention as TripDutySlot.assignedName.
+ *
+ * Not scoped to a scouting year the way Den/Scout are — the list carries over
+ * from season to season and is edited in place. Removing someone clears
+ * `active` rather than deleting the row, so they keep showing on the meetings
+ * they were already marked for (see adultLeaderAttendanceData.ts); only an
+ * inactive row can be deleted outright.
+ */
+model AdultLeader {
+  id          String                  @id @default(cuid())
+  name        String
+  // Every position this person holds, in display order. One person can hold
+  // several (e.g. Cubmaster and Arrow of Light Den Leader), but attendance is
+  // taken once per person, not once per position.
+  positions   String[]
+  section     AdultLeaderSection
+  // Display order within the section. Not an admin input yet (same as
+  // TripActivity.sortOrder) — someone new goes to the end of their section.
+  sortOrder   Int                     @default(0)
+  active      Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  attendances AdultLeaderAttendance[]
+}
+
+/** Attendance's twin for AdultLeader, on the same shared MeetingDate calendar. */
+model AdultLeaderAttendance {
+  id              String      @id @default(cuid())
+  adultLeaderId   String
+  adultLeader     AdultLeader @relation(fields: [adultLeaderId], references: [id], onDelete: Cascade)
+  meetingDateId   String
+  meetingDate     MeetingDate @relation(fields: [meetingDateId], references: [id], onDelete: Cascade)
+  present         Boolean
+  updatedAt       DateTime    @updatedAt
+  updatedByUserId String?
+  updatedByUser   User?       @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([adultLeaderId, meetingDateId])
 }
 
 model DuesSettings {
