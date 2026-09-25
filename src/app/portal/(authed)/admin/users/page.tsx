@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName } from "@/lib/rankConfig";
 import { isMasterAdminSession, requireAdminSession } from "@/lib/authorize";
-import { isProtectedUsername } from "@/lib/masterAdmins";
+import { isMasterAdminUsername } from "@/lib/masterAdmins";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import { formatPhoneNumber } from "@/lib/phone";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
@@ -69,8 +69,8 @@ export default async function AdminUsersPage() {
                 {user.lockedUntil && user.lockedUntil.getTime() > now ? "🔒 Locked" : "Active"}
               </td>
               <td className="actions">
-                {/* A protected account's password is the master admin's to reset (or its own). */}
-                {(viewerIsMaster || !isProtectedUsername(user.username) || user.id === session.userId) && (
+                {/* A master admin's password is only a master admin's to reset. */}
+                {(viewerIsMaster || !isMasterAdminUsername(user.username)) && (
                   <ResetPasswordButton userId={user.id} />
                 )}
                 <Link
@@ -90,7 +90,7 @@ export default async function AdminUsersPage() {
         <h3>Add a Staff Account</h3>
         {!viewerIsMaster && (
           <p className="form-note" style={{ marginTop: 0 }}>
-            Only the master admin can create Admin accounts.
+            Only the master admin can create or delete Admin accounts.
           </p>
         )}
         <CreateAdminForm canCreateAdmins={viewerIsMaster} />

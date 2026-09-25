@@ -116,13 +116,13 @@ export async function resetPasswordAction(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { ok: false as const, error: "User not found." };
 
-  // Only a master admin can reset a protected account's password. Without
-  // this, a regular admin could reset a protected account's credentials and —
-  // if that account has no email — have the new link revealed to them on screen.
+  // Only a master admin can reset a master admin's password. Without this,
+  // a regular admin could reset the master's credentials and — if that
+  // account has no email — have the new link revealed to them on screen.
   try {
     await assertCanMutateUser(session, user);
   } catch {
-    return { ok: false as const, error: "Only the master admin can reset this protected account's password." };
+    return { ok: false as const, error: "Only a master admin can reset a master admin's password." };
   }
 
   // Immediately kill the current password and any live sessions — matching
@@ -174,7 +174,7 @@ export async function updateUserEmailAction(formData: FormData) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, username: true, displayName: true, email: true },
+    select: { username: true, displayName: true, email: true },
   });
   if (!user) throw new Error("User not found.");
   // A master admin's contact identity can only be changed by another master admin.
@@ -211,7 +211,7 @@ export async function updateUserPhoneAction(formData: FormData) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, username: true, displayName: true, phone: true },
+    select: { username: true, displayName: true, phone: true },
   });
   if (!user) throw new Error("User not found.");
   // A master admin's contact identity can only be changed by another master admin.
@@ -250,7 +250,7 @@ export async function updateUserDisplayNameAction(formData: FormData) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, username: true, displayName: true },
+    select: { username: true, displayName: true },
   });
   if (!user) throw new Error("User not found.");
   // A master admin's display identity can only be changed by another master admin.
@@ -310,15 +310,6 @@ export async function updateUserRoleAction(
   if (!user) return { error: "User not found." };
   if (isMasterAdminUsername(user.username)) {
     return { error: "Master admins can't be changed from the admin panel." };
-  }
-  // A protected Admin's role is the master admin's call — not another
-  // Admin's, and not their own.
-  if (isProtectedUsername(user.username)) {
-    try {
-      await assertMasterAdmin(session);
-    } catch {
-      return { error: "Only the master admin can change a protected account's permission level." };
-    }
   }
   try {
     await assertCanGrantRole(session, role, user.role);
@@ -422,6 +413,15 @@ export async function deleteUserAction(userId: string) {
   if (!user) return { ok: false as const, error: "User not found." };
   if (isProtectedUsername(user.username)) {
     return { ok: false as const, error: "This is a protected account and can't be deleted from the admin panel." };
+  }
+  // Admins can edit each other, but deleting an Admin account is the master
+  // admin's call — the counterpart of assertCanGrantRole on creation.
+  if (user.role === "ADMIN") {
+    try {
+      await assertMasterAdmin(session);
+    } catch {
+      return { ok: false as const, error: "Only the master admin can delete an Admin account." };
+    }
   }
   if (userId === session.userId) {
     return { ok: false as const, error: "You can't delete your own account while logged in." };

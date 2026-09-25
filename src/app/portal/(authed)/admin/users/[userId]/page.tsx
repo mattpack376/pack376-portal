@@ -41,10 +41,11 @@ export default async function ManageUserPage({
   const masterAccount = isMasterAdminUsername(user.username);
   const protectedAccount = isProtectedUsername(user.username);
   // Mirrors the guards in src/lib/actions/users.ts: a master admin's role is
-  // fixed in code; a protected Admin's role, password and details are the
-  // master admin's to change (their own details excepted).
-  const roleEditable = !masterAccount && (!protectedAccount || viewerIsMaster);
-  const detailsEditable = !protectedAccount || viewerIsMaster || user.id === session.userId;
+  // fixed in code and only a master admin edits that account; protected
+  // accounts can't be deleted; deleting any Admin is the master admin's call.
+  const roleEditable = !masterAccount;
+  const detailsEditable = !masterAccount || viewerIsMaster;
+  const deletable = !protectedAccount && (user.role !== "ADMIN" || viewerIsMaster);
   // Only the master admin can make someone an Admin; an existing Admin keeps
   // the option so the picker doesn't silently show a different role.
   const allowAdminRole = viewerIsMaster || user.role === "ADMIN";
@@ -98,10 +99,7 @@ export default async function ManageUserPage({
       ) : protectedAccount ? (
         <div className="info-card" style={{ marginBottom: 24 }}>
           <h3>🔒 Protected Account</h3>
-          <p>
-            This account can&apos;t be deleted from the admin panel, and only the master admin can change its
-            permission level, reset its password, or edit its details.
-          </p>
+          <p>This account can&apos;t be deleted from the admin panel — only by editing src/lib/masterAdmins.ts in code and deploying.</p>
         </div>
       ) : null}
 
@@ -261,7 +259,7 @@ export default async function ManageUserPage({
 
       <div className="info-card" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
         {detailsEditable && <ResetPasswordButton userId={user.id} />}
-        {!protectedAccount && <DeleteUserButton userId={user.id} username={user.username} />}
+        {deletable && <DeleteUserButton userId={user.id} username={user.username} />}
       </div>
     </>
   );

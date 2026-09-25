@@ -8,8 +8,9 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  * Permission levels, most to least access:
  *
  * - Master Admin (ADMIN + a username in masterAdmins.ts): everything.
- * - Admin: everything except the audit log, Start a Fresh Year, and making
- *   anyone an Admin (creating one or promoting to one).
+ * - Admin: everything except the audit log, Start a Fresh Year, and creating
+ *   or deleting Admin accounts (which includes promoting someone to Admin).
+ *   Admins can edit each other's accounts.
  * - Junior Admin: advancement and attendance for every den; can add scouts
  *   to a den but not rename or remove them; reads dues and event balances
  *   without recording payments; posts the top banner (no homepage events);
@@ -368,12 +369,10 @@ export async function assertMasterAdmin(session: SessionPayload) {
 
 /**
  * The single guard every mutation that reaches a User row must pass — not
- * just the ones in the Users panel. A protected account
- * (PROTECTED_USERNAMES in src/lib/masterAdmins.ts) can only be changed by a
- * master admin, or by itself — so a protected Admin can still update their
- * own name, email and phone, but no other Admin can reset their password or
- * edit them. Role changes and deletion have stricter rules on top of this in
- * src/lib/actions/users.ts.
+ * just the ones in the Users panel. A master admin account
+ * (src/lib/masterAdmins.ts) can only be changed by a master admin; otherwise
+ * a regular Admin could reset the master's password and sign in as them.
+ * Other Admin accounts, protected or not, are editable by any Admin.
  *
  * This exists because the check used to be copied inline into each action in
  * src/lib/actions/users.ts, so any *other* path to a User row — the parent
@@ -381,16 +380,15 @@ export async function assertMasterAdmin(session: SessionPayload) {
  * both of which write through a linked Parent row — simply didn't have it.
  * Route every such write through here instead of re-deriving the rule.
  */
-export async function assertCanMutateUser(session: SessionPayload, target: { id: string; username: string }) {
-  if (!isProtectedUsername(target.username)) return;
-  if (target.id === session.userId) return;
+export async function assertCanMutateUser(session: SessionPayload, target: { username: string }) {
+  if (!isMasterAdminUsername(target.username)) return;
   await assertMasterAdmin(session);
 }
 
 /**
  * Making someone an Admin — creating an ADMIN account, or changing an
- * existing account's role to ADMIN — is master-admin only. Leaving an
- * existing Admin as Admin isn't a grant.
+ * existing account's role to ADMIN — is master-admin only, like deleting one
+ * (deleteUserAction). Leaving an existing Admin as Admin isn't a grant.
  */
 export async function assertCanGrantRole(session: SessionPayload, role: string, currentRole?: string) {
   if (role !== "ADMIN" || currentRole === "ADMIN") return;
