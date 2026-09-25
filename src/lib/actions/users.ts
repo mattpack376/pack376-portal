@@ -4,11 +4,18 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession, hashPassword } from "@/lib/auth";
-import { assertAdmin, assertMasterAdmin, isDenScopedRole, isReservedUsername } from "@/lib/authorize";
+import {
+  assertAdmin,
+  assertCanGrantRole,
+  assertCanMutateUser,
+  assertMasterAdmin,
+  isDenScopedRole,
+  isReservedUsername,
+} from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
 import { issueInviteToken, issueResetToken } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
-import { isMasterAdminUsername } from "@/lib/masterAdmins";
+import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
 import { ASSIGNABLE_ROLES, DEN_ASSIGNABLE_ROLES, ROLE_LABELS, type AssignableRole } from "@/lib/roleLabels";
 import { sendAccountLinkEmail } from "@/lib/email";
 import { formatPhoneNumber } from "@/lib/phone";
@@ -34,18 +41,23 @@ export async function createAdminAction(
   if (!ASSIGNABLE_ROLES.includes(role)) {
     return { ok: false as const, error: "Invalid role." };
   }
+  try {
+    await assertCanGrantRole(session, role);
+  } catch {
+    return { ok: false as const, error: "Only the master admin can create Admin accounts." };
+  }
 
   const clean = username.trim().toLowerCase();
   const name = displayName.trim();
   const cleanEmail = email?.trim() || null;
   if (!clean || !name) return { ok: false as const, error: "Username and display name are required." };
 
-  // The master-admin names are reserved whether or not a row currently holds
+  // The protected names are reserved whether or not a row currently holds
   // them. Master status is decided by username (src/lib/masterAdmins.ts), so
   // if one of those names ever came free — by any route, including a bug —
   // creating it here would hand the creator master privileges, audit log and
-  // season reset included. Reserved is reserved; to reinstate a master admin,
-  // restore the row rather than recreate the name.
+  // season reset included. Reserved is reserved; to reinstate a protected
+  // account, restore the row rather than recreate the name.
   if (isReservedUsername(clean)) {
     return { ok: false as const, error: "That username is reserved and can't be created from the admin panel." };
   }
@@ -104,15 +116,13 @@ export async function resetPasswordAction(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { ok: false as const, error: "User not found." };
 
-  // Only a master admin can reset another master admin's password. Without this,
-  // a regular admin could reset a protected account's credentials and — if that
-  // account has no email — have the new password revealed to them on screen.
-  if (isMasterAdminUsername(user.username)) {
-    try {
-      await assertMasterAdmin(session);
-    } catch {
-      return { ok: false as const, error: "Only a master admin can reset a master admin's password." };
-    }
+  // Only a master admin can reset a protected account's password. Without
+  // this, a regular admin could reset a protected account's credentials and —
+  // if that account has no email — have the new link revealed to them on screen.
+  try {
+    await assertCanMutateUser(session, user);
+  } catch {
+    return { ok: false as const, error: "Only the master admin can reset this protected account's password." };
   }
 
   // Immediately kill the current password and any live sessions — matching
@@ -164,11 +174,11 @@ export async function updateUserEmailAction(formData: FormData) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { username: true, displayName: true, email: true },
+    select: { id: true, username: true, displayName: true, email: true },
   });
   if (!user) throw new Error("User not found.");
   // A master admin's contact identity can only be changed by another master admin.
-  if (isMasterAdminUsername(user.username)) await assertMasterAdmin(session);
+  await assertCanMutateUser(session, user);
 
   await prisma.$transaction([
     prisma.user.update({ where: { id: userId }, data: { email: email || null } }),
@@ -201,11 +211,11 @@ export async function updateUserPhoneAction(formData: FormData) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { username: true, displayName: true, phone: true },
+    select: { id: true, username: true, displayName: true, phone: true },
   });
   if (!user) throw new Error("User not found.");
   // A master admin's contact identity can only be changed by another master admin.
-  if (isMasterAdminUsername(user.username)) await assertMasterAdmin(session);
+  await assertCanMutateUser(session, user);
 
   await prisma.$transaction([
     prisma.user.update({ where: { id: userId }, data: { phone: phone || null } }),
@@ -240,11 +250,11 @@ export async function updateUserDisplayNameAction(formData: FormData) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { username: true, displayName: true },
+    select: { id: true, username: true, displayName: true },
   });
   if (!user) throw new Error("User not found.");
   // A master admin's display identity can only be changed by another master admin.
-  if (isMasterAdminUsername(user.username)) await assertMasterAdmin(session);
+  await assertCanMutateUser(session, user);
 
   await prisma.$transaction([
     prisma.user.update({ where: { id: userId }, data: { displayName } }),
@@ -300,6 +310,20 @@ export async function updateUserRoleAction(
   if (!user) return { error: "User not found." };
   if (isMasterAdminUsername(user.username)) {
     return { error: "Master admins can't be changed from the admin panel." };
+  }
+  // A protected Admin's role is the master admin's call — not another
+  // Admin's, and not their own.
+  if (isProtectedUsername(user.username)) {
+    try {
+      await assertMasterAdmin(session);
+    } catch {
+      return { error: "Only the master admin can change a protected account's permission level." };
+    }
+  }
+  try {
+    await assertCanGrantRole(session, role, user.role);
+  } catch {
+    return { error: "Only the master admin can make someone an Admin." };
   }
 
   // Revoke existing sessions so the old role in their JWT stops being honored.
@@ -396,8 +420,8 @@ export async function deleteUserAction(userId: string) {
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { ok: false as const, error: "User not found." };
-  if (isMasterAdminUsername(user.username)) {
-    return { ok: false as const, error: "This is a protected master admin account and can't be deleted from the admin panel." };
+  if (isProtectedUsername(user.username)) {
+    return { ok: false as const, error: "This is a protected account and can't be deleted from the admin panel." };
   }
   if (userId === session.userId) {
     return { ok: false as const, error: "You can't delete your own account while logged in." };

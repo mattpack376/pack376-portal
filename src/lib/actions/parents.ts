@@ -96,7 +96,7 @@ export async function updateParentAction(formData: FormData) {
   // a protected admin linked to a scout could have their name and contact
   // details rewritten from the roster screen instead.
   const linkedAccount = userId
-    ? await prisma.user.findUnique({ where: { id: userId }, select: { username: true } })
+    ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true, username: true } })
     : null;
   if (linkedAccount) await assertCanMutateUser(session, linkedAccount);
 
@@ -378,7 +378,7 @@ export async function revokeParentPortalAction(parentId: string) {
 
   const account = await prisma.user.findUnique({
     where: { id: parent.userId },
-    select: { username: true, displayName: true, role: true, _count: { select: { parentContacts: true } } },
+    select: { id: true, username: true, displayName: true, role: true, _count: { select: { parentContacts: true } } },
   });
   if (!account) return { ok: false as const, error: "That portal account no longer exists." };
 

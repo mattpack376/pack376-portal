@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName } from "@/lib/rankConfig";
-import { requireAdminSession } from "@/lib/authorize";
+import { isMasterAdminSession, requireAdminSession } from "@/lib/authorize";
+import { isProtectedUsername } from "@/lib/masterAdmins";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import { formatPhoneNumber } from "@/lib/phone";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
@@ -9,7 +10,8 @@ import CreateAdminForm from "@/components/CreateAdminForm";
 import UsersSubNav from "@/components/UsersSubNav";
 
 export default async function AdminUsersPage() {
-  await requireAdminSession();
+  const session = await requireAdminSession();
+  const viewerIsMaster = await isMasterAdminSession(session);
 
   const users = await prisma.user.findMany({
     // Parent Portal accounts are managed from Roster → Parents, not here —
@@ -67,7 +69,10 @@ export default async function AdminUsersPage() {
                 {user.lockedUntil && user.lockedUntil.getTime() > now ? "🔒 Locked" : "Active"}
               </td>
               <td className="actions">
-                <ResetPasswordButton userId={user.id} />
+                {/* A protected account's password is the master admin's to reset (or its own). */}
+                {(viewerIsMaster || !isProtectedUsername(user.username) || user.id === session.userId) && (
+                  <ResetPasswordButton userId={user.id} />
+                )}
                 <Link
                   className="btn btn-quiet btn-small"
                   href={`/portal/admin/users/${user.id}`}
@@ -82,8 +87,13 @@ export default async function AdminUsersPage() {
       </div>
 
       <div className="info-card" style={{ maxWidth: 420 }}>
-        <h3>Add an Admin, Junior Admin, Attendance Only, or Photographer Account</h3>
-        <CreateAdminForm />
+        <h3>Add a Staff Account</h3>
+        {!viewerIsMaster && (
+          <p className="form-note" style={{ marginTop: 0 }}>
+            Only the master admin can create Admin accounts.
+          </p>
+        )}
+        <CreateAdminForm canCreateAdmins={viewerIsMaster} />
       </div>
     </>
   );

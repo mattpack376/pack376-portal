@@ -1,15 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, RANK_INFO, denDisplayName } from "@/lib/rankConfig";
-import { requireAdvancementSession } from "@/lib/authorize";
-import { isMasterAdminUsername } from "@/lib/masterAdmins";
+import { isMasterAdminSession, requireAdvancementSession } from "@/lib/authorize";
 import EmailAllButton from "@/components/EmailAllButton";
 
 export default async function AdminDashboardPage() {
   const session = await requireAdvancementSession();
-  const sessionUser =
-    session.role === "ADMIN" ? await prisma.user.findUnique({ where: { id: session.userId }, select: { username: true } }) : null;
-  const isMasterAdmin = !!sessionUser && isMasterAdminUsername(sessionUser.username);
+  const isMasterAdmin = await isMasterAdminSession(session);
 
   const dens = await prisma.den.findMany({
     include: {

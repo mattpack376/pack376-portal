@@ -9,9 +9,12 @@ const initialState: UpdateUserRoleState = {};
 export default function ManageUserRoleForm({
   userId,
   role,
+  allowAdmin,
 }: {
   userId: string;
   role: AssignableRole;
+  /** Only the master admin can make someone an Admin (see assertCanGrantRole). */
+  allowAdmin: boolean;
 }) {
   const [state, formAction, pending] = useActionState(updateUserRoleAction, initialState);
 
@@ -24,7 +27,7 @@ export default function ManageUserRoleForm({
           {/* Every assignable role, including the account's current one —
               a missing option would leave the browser showing the first
               (Admin), and saving would silently promote the account. */}
-          {ASSIGNABLE_ROLES.map((r) => (
+          {ASSIGNABLE_ROLES.filter((r) => r !== "ADMIN" || allowAdmin).map((r) => (
             <option key={r} value={r}>
               {ROLE_LABELS[r]} — {ROLE_DESCRIPTIONS[r]}
             </option>

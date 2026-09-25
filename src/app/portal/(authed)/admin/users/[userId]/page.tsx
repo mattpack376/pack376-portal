@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
-import { requireAdminSession } from "@/lib/authorize";
-import { isMasterAdminUsername } from "@/lib/masterAdmins";
+import { isMasterAdminSession, requireAdminSession } from "@/lib/authorize";
+import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
 import {
   updateUserDensAction,
   updateUserEmailAction,
@@ -23,7 +23,8 @@ export default async function ManageUserPage({
 }: {
   params: Promise<{ userId: string }>;
 }) {
-  await requireAdminSession();
+  const session = await requireAdminSession();
+  const viewerIsMaster = await isMasterAdminSession(session);
 
   const { userId } = await params;
   const user = await prisma.user.findUnique({
@@ -37,8 +38,16 @@ export default async function ManageUserPage({
   // screen's role picker doesn't have a PARENT option.
   if (!user || user.role === "PARENT") notFound();
 
-  const protectedAccount = isMasterAdminUsername(user.username);
-  const roleEditable = !protectedAccount;
+  const masterAccount = isMasterAdminUsername(user.username);
+  const protectedAccount = isProtectedUsername(user.username);
+  // Mirrors the guards in src/lib/actions/users.ts: a master admin's role is
+  // fixed in code; a protected Admin's role, password and details are the
+  // master admin's to change (their own details excepted).
+  const roleEditable = !masterAccount && (!protectedAccount || viewerIsMaster);
+  const detailsEditable = !protectedAccount || viewerIsMaster || user.id === session.userId;
+  // Only the master admin can make someone an Admin; an existing Admin keeps
+  // the option so the picker doesn't silently show a different role.
+  const allowAdminRole = viewerIsMaster || user.role === "ADMIN";
   const assignedDenIds = new Set(user.denAssignments.map((a) => a.denId));
   const canAssignDens = DEN_ASSIGNABLE_ROLES.includes(user.role as (typeof DEN_ASSIGNABLE_ROLES)[number]);
 
@@ -78,7 +87,7 @@ export default async function ManageUserPage({
         </p>
       </div>
 
-      {protectedAccount && (
+      {masterAccount ? (
         <div className="info-card" style={{ marginBottom: 24 }}>
           <h3>🔒 Protected Master Admin</h3>
           <p>
@@ -86,14 +95,25 @@ export default async function ManageUserPage({
             panel — only by editing src/lib/masterAdmins.ts in code and deploying.
           </p>
         </div>
-      )}
+      ) : protectedAccount ? (
+        <div className="info-card" style={{ marginBottom: 24 }}>
+          <h3>🔒 Protected Account</h3>
+          <p>
+            This account can&apos;t be deleted from the admin panel, and only the master admin can change its
+            permission level, reset its password, or edit its details.
+          </p>
+        </div>
+      ) : null}
 
       {roleEditable && (
         <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
           <h3>Permission Level</h3>
-          <ManageUserRoleForm userId={user.id} role={user.role as AssignableRole} />
+          <ManageUserRoleForm userId={user.id} role={user.role as AssignableRole} allowAdmin={allowAdminRole} />
         </div>
       )}
+
+      {detailsEditable ? (
+      <>
 
       <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
         <h3>Display Name</h3>
@@ -131,6 +151,15 @@ export default async function ManageUserPage({
           <button type="submit" className="btn btn-primary">Save</button>
         </form>
       </div>
+      </>
+      ) : (
+        <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
+          <h3>Contact</h3>
+          <p style={{ marginBottom: 0 }}>
+            {user.email ?? "No email on file"} · {user.phone ?? "No phone on file"}
+          </p>
+        </div>
+      )}
 
       {canAssignDens && (
         <div className="info-card" style={{ marginBottom: 24 }}>
@@ -231,7 +260,7 @@ export default async function ManageUserPage({
       </div>
 
       <div className="info-card" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-        <ResetPasswordButton userId={user.id} />
+        {detailsEditable && <ResetPasswordButton userId={user.id} />}
         {!protectedAccount && <DeleteUserButton userId={user.id} username={user.username} />}
       </div>
     </>

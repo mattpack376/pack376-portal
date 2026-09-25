@@ -6,11 +6,13 @@ import { ASSIGNABLE_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, type AssignableRole }
 import CredentialReveal from "@/components/CredentialReveal";
 import type { CreatedInvite } from "@/lib/actions/dens";
 
-export default function CreateAdminForm() {
+export default function CreateAdminForm({ canCreateAdmins }: { canCreateAdmins: boolean }) {
+  // Only the master admin can create Admin accounts (see assertCanGrantRole).
+  const roles = ASSIGNABLE_ROLES.filter((r) => r !== "ADMIN" || canCreateAdmins);
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<AssignableRole>("ADMIN");
+  const [role, setRole] = useState<AssignableRole>(roles[0]);
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<{ invite?: CreatedInvite; emailedTo?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export default function CreateAdminForm() {
         setUsername("");
         setDisplayName("");
         setEmail("");
-        setRole("ADMIN");
+        setRole(roles[0]);
       } else {
         setError(outcome.error || "Something went wrong.");
       }
@@ -65,7 +67,7 @@ export default function CreateAdminForm() {
           value={role}
           onChange={(e) => setRole(e.target.value as AssignableRole)}
         >
-          {ASSIGNABLE_ROLES.map((r) => (
+          {roles.map((r) => (
             <option key={r} value={r}>
               {ROLE_LABELS[r]} — {ROLE_DESCRIPTIONS[r]}
             </option>

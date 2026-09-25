@@ -2,13 +2,14 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { getSessionState, type SessionPayload } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isMasterAdminUsername } from "@/lib/masterAdmins";
+import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
 
 /*
  * Permission levels, most to least access:
  *
  * - Master Admin (ADMIN + a username in masterAdmins.ts): everything.
- * - Admin: everything except the audit log and Start a Fresh Year.
+ * - Admin: everything except the audit log, Start a Fresh Year, and making
+ *   anyone an Admin (creating one or promoting to one).
  * - Junior Admin: advancement and attendance for every den; can add scouts
  *   to a den but not rename or remove them; reads dues and event balances
  *   without recording payments; posts the top banner (no homepage events);
@@ -334,9 +335,20 @@ export async function requireParentSession(): Promise<SessionPayload> {
 }
 
 /**
- * For Server Components / pages: only the three protected master admin
- * accounts (src/lib/masterAdmins.ts) can reach the page; every other role,
- * including regular and junior admins, gets bounced.
+ * Whether this session is a master admin (src/lib/masterAdmins.ts). Needs a
+ * username lookup, so pages that only branch on it (rather than gating on it)
+ * call this instead of requireMasterAdminSession.
+ */
+export async function isMasterAdminSession(session: SessionPayload) {
+  if (session.role !== "ADMIN") return false;
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { username: true } });
+  return !!user && isMasterAdminUsername(user.username);
+}
+
+/**
+ * For Server Components / pages: only master admin accounts
+ * (src/lib/masterAdmins.ts) can reach the page; every other role, including
+ * regular and junior admins, gets bounced.
  */
 export async function requireMasterAdminSession(): Promise<SessionPayload> {
   const session = await requireAdminSession();
@@ -345,7 +357,7 @@ export async function requireMasterAdminSession(): Promise<SessionPayload> {
   return session;
 }
 
-/** For Server Actions: throws unless the acting user is one of the three protected master admins. */
+/** For Server Actions: throws unless the acting user is a master admin. */
 export async function assertMasterAdmin(session: SessionPayload) {
   if (session.role !== "ADMIN") throw new Error("Not authorized: master admin only.");
   const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { username: true } });
@@ -356,8 +368,12 @@ export async function assertMasterAdmin(session: SessionPayload) {
 
 /**
  * The single guard every mutation that reaches a User row must pass — not
- * just the ones in the Users panel. A protected master admin
- * (src/lib/masterAdmins.ts) can only be changed by another master admin.
+ * just the ones in the Users panel. A protected account
+ * (PROTECTED_USERNAMES in src/lib/masterAdmins.ts) can only be changed by a
+ * master admin, or by itself — so a protected Admin can still update their
+ * own name, email and phone, but no other Admin can reset their password or
+ * edit them. Role changes and deletion have stricter rules on top of this in
+ * src/lib/actions/users.ts.
  *
  * This exists because the check used to be copied inline into each action in
  * src/lib/actions/users.ts, so any *other* path to a User row — the parent
@@ -365,18 +381,29 @@ export async function assertMasterAdmin(session: SessionPayload) {
  * both of which write through a linked Parent row — simply didn't have it.
  * Route every such write through here instead of re-deriving the rule.
  */
-export async function assertCanMutateUser(session: SessionPayload, target: { username: string }) {
-  if (!isMasterAdminUsername(target.username)) return;
+export async function assertCanMutateUser(session: SessionPayload, target: { id: string; username: string }) {
+  if (!isProtectedUsername(target.username)) return;
+  if (target.id === session.userId) return;
   await assertMasterAdmin(session);
 }
 
 /**
- * Master status is decided by username (src/lib/masterAdmins.ts), so a
- * protected username that ever becomes free is a way back in: recreate it as
- * an ordinary ADMIN and that account is a master admin. Account creation
- * reserves those names so the name alone can never be claimed, whatever
- * happened to the original row.
+ * Making someone an Admin — creating an ADMIN account, or changing an
+ * existing account's role to ADMIN — is master-admin only. Leaving an
+ * existing Admin as Admin isn't a grant.
+ */
+export async function assertCanGrantRole(session: SessionPayload, role: string, currentRole?: string) {
+  if (role !== "ADMIN" || currentRole === "ADMIN") return;
+  await assertMasterAdmin(session);
+}
+
+/**
+ * Master status and protection are decided by username
+ * (src/lib/masterAdmins.ts), so a protected username that ever becomes free
+ * is a way back in: recreate it and that account inherits master privileges
+ * or undeletability. Account creation reserves every protected name so the
+ * name alone can never be claimed, whatever happened to the original row.
  */
 export function isReservedUsername(username: string) {
-  return isMasterAdminUsername(username);
+  return isProtectedUsername(username);
 }
