@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { requireDuesViewSession } from "@/lib/authorize";
 import { getScoutDuesDetail, formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { denDisplayName } from "@/lib/rankConfig";
@@ -10,6 +11,10 @@ export default async function AdminScoutDuesPage({
 }: {
   params: Promise<{ scoutId: string }>;
 }) {
+  // Junior Admin and Committee Member see the balance and history; only
+  // Admin changes the rate or records and deletes payments.
+  const session = await requireDuesViewSession();
+  const canEdit = session.role === "ADMIN";
   const { scoutId } = await params;
   const data = await getScoutDuesDetail(scoutId);
   if (!data) notFound();
@@ -46,6 +51,7 @@ export default async function AdminScoutDuesPage({
           Standard fee is {standardAmountCents === null ? "not set" : formatCents(standardAmountCents)}.
           {overrideCents !== null && ` This scout is set to ${formatCents(overrideCents)} instead.`}
         </p>
+        {canEdit && (
         <form action={setScoutDuesOverrideAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <input type="hidden" name="scoutId" value={scout.id} />
           <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
@@ -62,8 +68,10 @@ export default async function AdminScoutDuesPage({
           </div>
           <button type="submit" className="btn btn-primary">Save</button>
         </form>
+        )}
       </div>
 
+      {canEdit && (
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
         <h3>Record a Payment</h3>
         <form action={addDuesPaymentAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -83,6 +91,7 @@ export default async function AdminScoutDuesPage({
           <button type="submit" className="btn btn-primary">Add Payment</button>
         </form>
       </div>
+      )}
 
       <h3 style={{ marginBottom: 10 }}>Payment History</h3>
       {payments.length === 0 ? (
@@ -95,7 +104,7 @@ export default async function AdminScoutDuesPage({
               <th>Date</th>
               <th>Amount</th>
               <th>Note</th>
-              <th></th>
+              {canEdit && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -109,6 +118,7 @@ export default async function AdminScoutDuesPage({
                 </td>
                 <td>{formatCents(payment.amountCents)}</td>
                 <td>{payment.note || "—"}</td>
+                {canEdit && (
                 <td className="actions">
                   <form action={deleteDuesPaymentAction}>
                     <input type="hidden" name="paymentId" value={payment.id} />
@@ -121,6 +131,7 @@ export default async function AdminScoutDuesPage({
                     </button>
                   </form>
                 </td>
+                )}
               </tr>
             ))}
           </tbody>

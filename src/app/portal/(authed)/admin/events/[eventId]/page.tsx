@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdminSession } from "@/lib/authorize";
+import { requireEventsViewSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { getEventDetail, getGuestOfOptions } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
@@ -34,7 +34,9 @@ export default async function AdminEventDetailPage({
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{ guestSort?: string }>;
 }) {
-  await requireAdminSession();
+  // Junior Admin sees the roster and every balance; the forms are Admin-only.
+  const session = await requireEventsViewSession();
+  const canEdit = session.role === "ADMIN";
   const { eventId } = await params;
   const { guestSort } = await searchParams;
 
@@ -96,6 +98,7 @@ export default async function AdminEventDetailPage({
             {event.visible ? "Visible to families" : "Hidden from families"}
           </span>
         </div>
+        {canEdit && (
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {(event.registrations.length > 0 || event.guestGroups.length > 0) && (
             <a
@@ -117,8 +120,10 @@ export default async function AdminEventDetailPage({
           </form>
           <DeleteEventButton eventId={event.id} title={event.title} />
         </div>
+        )}
       </div>
 
+      {canEdit && (
       <div className="info-card" style={{ maxWidth: 460, marginBottom: 24 }}>
         <h3>Edit Event Details</h3>
         <form action={updateEventAction}>
@@ -204,6 +209,7 @@ export default async function AdminEventDetailPage({
           <button type="submit" className="btn btn-primary">Save Changes</button>
         </form>
       </div>
+      )}
 
       <div className="section-head">
         <div className="eyebrow">Roster</div>
@@ -243,18 +249,20 @@ export default async function AdminEventDetailPage({
                             className="btn btn-quiet btn-small"
                             href={`/portal/admin/events/${event.id}/${reg.id}`}
                           >
-                            Manage Payments
+                            {canEdit ? "Manage Payments" : "View Payments"}
                           </Link>
-                          <form action={removeRegistrationAction}>
-                            <input type="hidden" name="registrationId" value={reg.id} />
-                            <input type="hidden" name="eventId" value={event.id} />
-                            <button
-                              type="submit"
-                              className="btn btn-danger btn-small"
-                            >
-                              Remove
-                            </button>
-                          </form>
+                          {canEdit && (
+                            <form action={removeRegistrationAction}>
+                              <input type="hidden" name="registrationId" value={reg.id} />
+                              <input type="hidden" name="eventId" value={event.id} />
+                              <button
+                                type="submit"
+                                className="btn btn-danger btn-small"
+                              >
+                                Remove
+                              </button>
+                            </form>
+                          )}
                         </td>
                       </tr>
                     );
@@ -267,6 +275,7 @@ export default async function AdminEventDetailPage({
         </div>
       )}
 
+      {canEdit && (
       <div className="info-card" style={{ maxWidth: 460, marginBottom: 32 }}>
         <h3>Register Scouts</h3>
         {availableDens.length === 0 ? (
@@ -307,6 +316,7 @@ export default async function AdminEventDetailPage({
           </form>
         )}
       </div>
+      )}
 
       <div className="section-head">
         <div className="eyebrow">Chaperones &amp; Guests</div>
@@ -353,18 +363,20 @@ export default async function AdminEventDetailPage({
                       className="btn btn-quiet btn-small"
                       href={`/portal/admin/events/${event.id}/guests/${group.id}`}
                     >
-                      Manage Payments
+                      {canEdit ? "Manage Payments" : "View Payments"}
                     </Link>
-                    <form action={removeGuestGroupAction}>
-                      <input type="hidden" name="guestGroupId" value={group.id} />
-                      <input type="hidden" name="eventId" value={event.id} />
-                      <button
-                        type="submit"
-                        className="btn btn-danger btn-small"
-                      >
-                        Remove
-                      </button>
-                    </form>
+                    {canEdit && (
+                      <form action={removeGuestGroupAction}>
+                        <input type="hidden" name="guestGroupId" value={group.id} />
+                        <input type="hidden" name="eventId" value={event.id} />
+                        <button
+                          type="submit"
+                          className="btn btn-danger btn-small"
+                        >
+                          Remove
+                        </button>
+                      </form>
+                    )}
                   </td>
                 </tr>
               );
@@ -374,6 +386,7 @@ export default async function AdminEventDetailPage({
         </div>
       )}
 
+      {canEdit && (
       <div className="info-card" style={{ maxWidth: 460 }}>
         <h3>Register a Guest Group</h3>
         <form action={addGuestGroupAction}>
@@ -394,6 +407,7 @@ export default async function AdminEventDetailPage({
           <button type="submit" className="btn btn-primary">Add</button>
         </form>
       </div>
+      )}
     </>
   );
 }

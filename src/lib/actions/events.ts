@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin, assertEventPaymentDenAccess, assertGuestGroupAccess } from "@/lib/authorize";
+import { assertAdmin } from "@/lib/authorize";
 import { RANK_ORDER } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS } from "@/lib/deadlineCategories";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
@@ -379,7 +379,7 @@ export async function updateRegistrationAmountAction(formData: FormData) {
     select: { scout: { select: { denId: true } } },
   });
   if (!registration) throw new Error("Registration not found.");
-  assertEventPaymentDenAccess(session, registration.scout.denId);
+  assertAdmin(session);
 
   const before = await prisma.eventRegistration.findUnique({
     where: { id: registrationId },
@@ -469,7 +469,7 @@ export async function addEventPaymentAction(formData: FormData) {
     select: { scout: { select: { denId: true } } },
   });
   if (!registration) throw new Error("Registration not found.");
-  assertEventPaymentDenAccess(session, registration.scout.denId);
+  assertAdmin(session);
 
   const paidOn = paidOnRaw ? new Date(paidOnRaw) : new Date();
   if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
@@ -573,8 +573,9 @@ async function oldestScoutId(scoutIds: string[]): Promise<string | null> {
 
 // Self-registration as a guest group (a family or a leader bringing guests)
 // is open to any signed-in role (parent, den leader, admin) — everyone signs
-// up the same way; ownership (addedByUserId) is what lets someone edit their
-// own entry later, not their role.
+// up the same way; ownership (addedByUserId) is what lets someone withdraw
+// their own entry later (removeMyGuestGroupAction). Editing it, or recording
+// money against it, is admin-only.
 export async function registerMyGuestGroupForEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
@@ -651,12 +652,11 @@ export async function removeMyGuestGroupAction(formData: FormData) {
   });
   if (!group || group.addedByUserId !== session.userId) throw new Error("Not authorized for this guest group.");
   // Deleting the group cascades to every payment recorded against it (see
-  // schema.prisma) — including ones a den leader/admin recorded, not just
-  // the registrant's own. Once staff have logged money against a group, only
-  // an admin/den leader can remove it (removeGuestGroupAction), so the
-  // financial record can't be unilaterally erased by whoever registered it.
+  // schema.prisma). Once an admin has logged money against a group, only an
+  // admin can remove it (removeGuestGroupAction), so the financial record
+  // can't be unilaterally erased by whoever registered it.
   if (group._count.payments > 0) {
-    throw new Error("This guest group has payments recorded — ask a den leader or admin to remove it.");
+    throw new Error("This guest group has payments recorded — ask an admin to remove it.");
   }
 
   const removed = await prisma.eventGuestGroup.delete({ where: { id: guestGroupId } });
@@ -693,7 +693,7 @@ export async function deleteEventPaymentAction(formData: FormData) {
     select: { eventRegistration: { select: { id: true, scout: { select: { denId: true } } } } },
   });
   if (!payment || payment.eventRegistration.id !== registrationId) throw new Error("Payment not found.");
-  assertEventPaymentDenAccess(session, payment.eventRegistration.scout.denId);
+  assertAdmin(session);
 
   // Read the amount before deleting — afterwards this entry is the only record.
   const deleted = await prisma.eventPayment.findUnique({
@@ -726,12 +726,10 @@ export async function deleteEventPaymentAction(formData: FormData) {
   revalidatePath("/portal/admin/events");
 }
 
-// Guest groups aren't tied to a den the way scouts are, so managing them —
-// unlike the scout registration/payment actions above — is admin-only for
-// creation; editing amounts/linkage and recording or removing payments are
-// scoped by ownership instead (assertGuestGroupAccess), same as
-// removeMyGuestGroupAction already used — a den login can only touch a guest
-// group it self-registered, not any other family's pack-wide.
+// Managing guest groups — creating, editing amounts/linkage, and recording or
+// removing payments — is admin-only, the same as every other money action.
+// Den leaders see no money; the only thing a registrant can do to their own
+// group is withdraw it (removeMyGuestGroupAction).
 
 /** Parses a "Guest Of" <select> value of the form "scout:<id>" | "user:<id>" | "" into the two mutually-exclusive FK fields. */
 function parseGuestOf(raw: FormDataEntryValue | null): { guestOfScoutId: string | null; guestOfUserId: string | null } {
@@ -808,7 +806,7 @@ export async function updateGuestGroupAction(formData: FormData) {
     },
   });
   if (!existing) throw new Error("Guest group not found.");
-  assertGuestGroupAccess(session, existing.addedByUserId);
+  assertAdmin(session);
 
   await prisma.eventGuestGroup.update({
     where: { id: guestGroupId },
@@ -888,7 +886,7 @@ export async function addGuestGroupPaymentAction(formData: FormData) {
     select: { addedByUserId: true },
   });
   if (!guestGroup) throw new Error("Guest group not found.");
-  assertGuestGroupAccess(session, guestGroup.addedByUserId);
+  assertAdmin(session);
 
   const paidOn = paidOnRaw ? new Date(paidOnRaw) : new Date();
   if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
@@ -937,7 +935,7 @@ export async function deleteGuestGroupPaymentAction(formData: FormData) {
     select: { eventGuestGroupId: true, eventGuestGroup: { select: { addedByUserId: true } } },
   });
   if (!payment || payment.eventGuestGroupId !== guestGroupId) throw new Error("Payment not found.");
-  assertGuestGroupAccess(session, payment.eventGuestGroup.addedByUserId);
+  assertAdmin(session);
 
   // Read the amount before deleting — afterwards this entry is the only record.
   const deleted = await prisma.eventGuestGroupPayment.findUnique({

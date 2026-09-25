@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertHomepageContentAccess, assertHomepageContentDeleteAccess } from "@/lib/authorize";
+import { assertAdmin } from "@/lib/authorize";
 import { recordAudit, changedFields } from "@/lib/audit";
 
 const HOMEPAGE_EVENTS_ADMIN_PATH = "/portal/admin/homepage-events";
@@ -12,7 +12,7 @@ const HOME_PATH = "/";
 export async function createHomepageEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageContentAccess(session);
+  assertAdmin(session);
 
   const dateLabel = String(formData.get("dateLabel") || "").trim();
   const title = String(formData.get("title") || "").trim();
@@ -48,7 +48,7 @@ export async function createHomepageEventAction(formData: FormData) {
 export async function updateHomepageEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageContentAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   const dateLabel = String(formData.get("dateLabel") || "").trim();
@@ -92,7 +92,7 @@ export async function updateHomepageEventAction(formData: FormData) {
 export async function toggleHomepageEventVisibilityAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageContentAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   const visible = String(formData.get("visible") || "") === "true";
@@ -115,7 +115,7 @@ export async function toggleHomepageEventVisibilityAction(formData: FormData) {
 export async function deleteHomepageEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageContentDeleteAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing event id.");

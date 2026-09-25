@@ -101,6 +101,7 @@ export default async function AuditLogPage({
       <p className="form-note" style={{ marginTop: -12, marginBottom: 20 }}>
         {view === "admins" && "Changes made by Admin and Junior Admin accounts."}
         {view === "dens" && "Changes made by Den Leader logins — mostly attendance and advancement for their own den."}
+        {view === "committee" && "Changes made by Committee Member logins — mostly attendance and advancement, across every den."}
         {view === "all" &&
           "Every account, including Attendance Only, Photographer, Trip Viewer and parent logins. Entries whose account has since been deleted appear here too, as do failed sign-ins for usernames that match no account — those belong to no role, so this is the only tab that shows them."}
       </p>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requirePhotoConsentSession } from "@/lib/authorize";
+import { canManagePhotoConsentForDen, requirePhotoConsentSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
@@ -12,7 +12,6 @@ import EmailConsentLinkButton from "@/components/EmailConsentLinkButton";
 
 export default async function PhotoConsentPage() {
   const session = await requirePhotoConsentSession();
-  const canManage = session.role !== "PHOTOGRAPHER";
 
   if (session.role === "DEN" && session.denIds.length === 0) {
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
@@ -33,6 +32,9 @@ export default async function PhotoConsentPage() {
   });
   const years = Array.from(new Set(dens.map((d) => d.scoutingYear)));
   const baseUrl = getPublicBaseUrl();
+  // Read-only viewers (Photographer, Committee Member outside their own den)
+  // see status only — the link itself is what lets a parent sign.
+  const canManageAny = dens.some((d) => canManagePhotoConsentForDen(session, d.id));
 
   return (
     <>
@@ -42,7 +44,7 @@ export default async function PhotoConsentPage() {
         </div>
         <h2>Photo Consent</h2>
         <p style={{ fontSize: 17 }}>
-          {canManage
+          {canManageAny
             ? "Generate a per-scout link for parents to consent (or decline) to photos on Instagram/Facebook, the pack website, and printed fliers — no portal account needed on their end."
             : "Consent status for photos on Instagram/Facebook, the pack website, and printed fliers, per scout."}
         </p>
@@ -55,7 +57,9 @@ export default async function PhotoConsentPage() {
           <h3 style={{ fontSize: 19, marginBottom: 14 }}>{year}</h3>
           {dens
             .filter((d) => d.scoutingYear === year)
-            .map((den) => (
+            .map((den) => {
+              const canManage = canManagePhotoConsentForDen(session, den.id);
+              return (
               <div className="info-card" key={den.id} style={{ marginBottom: 20 }}>
                 <h3 style={{ fontSize: 19 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
                 {den.scouts.length === 0 ? (
@@ -141,7 +145,8 @@ export default async function PhotoConsentPage() {
                   })
                 )}
               </div>
-            ))}
+              );
+            })}
         </div>
       ))}
     </>

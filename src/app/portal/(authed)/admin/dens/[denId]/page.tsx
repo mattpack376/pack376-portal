@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { canAddScoutsToDens } from "@/lib/authorize";
 import { getDenChecklist } from "@/lib/denData";
 import { denDisplayName, nextRank } from "@/lib/rankConfig";
 import { addScoutAction, removeScoutAction, updateScoutNameAction } from "@/lib/actions/dens";
@@ -18,6 +19,8 @@ export default async function AdminDenDetailPage({
 
   const session = await getSession();
   const isFullAdmin = session?.role === "ADMIN";
+  // Junior Admin can add a scout; renaming and removing stay Admin-only.
+  const canAddScouts = !!session && canAddScoutsToDens(session);
 
   const { den, scouts } = data;
   const assignments = await prisma.denAssignment.findMany({
@@ -41,9 +44,13 @@ export default async function AdminDenDetailPage({
                 {assignments.map((a, i) => (
                   <span key={a.user.id}>
                     {i > 0 && ", "}
-                    <Link href={`/portal/admin/users/${a.user.id}`}>
-                      {a.user.displayName} ({a.user.username})
-                    </Link>
+                    {isFullAdmin ? (
+                      <Link href={`/portal/admin/users/${a.user.id}`}>
+                        {a.user.displayName} ({a.user.username})
+                      </Link>
+                    ) : (
+                      a.user.displayName
+                    )}
                   </span>
                 ))}
               </>
@@ -146,7 +153,7 @@ export default async function AdminDenDetailPage({
           </div>
         )}
 
-        {isFullAdmin && (
+        {canAddScouts && (
           <form action={addScoutAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
             <input type="hidden" name="denId" value={den.id} />
             <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>

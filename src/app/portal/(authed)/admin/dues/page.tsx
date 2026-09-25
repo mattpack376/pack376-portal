@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireDuesViewSession } from "@/lib/authorize";
 import { getDuesScoutingYears, getDuesOverview, formatCents } from "@/lib/duesData";
 import { RANK_INFO } from "@/lib/rankConfig";
 import { setDuesAmountAction } from "@/lib/actions/dues";
@@ -9,6 +10,9 @@ export default async function AdminDuesPage({
 }: {
   searchParams: Promise<{ year?: string }>;
 }) {
+  // Junior Admin and Committee Member read this page; only Admin sets fees.
+  const session = await requireDuesViewSession();
+  const canEdit = session.role === "ADMIN";
   const years = await getDuesScoutingYears();
   const { year: requestedYear } = await searchParams;
   const scoutingYear = requestedYear && years.includes(requestedYear) ? requestedYear : years[0];
@@ -52,9 +56,12 @@ export default async function AdminDuesPage({
           <h3>Season Fee — {scoutingYear}</h3>
           <p>
             {amountCents === null
+              ? canEdit
               ? "Not set yet. Enter the amount once the pack decides on it."
+              : "Not set yet."
               : `Current fee: ${formatCents(amountCents)} per scout.`}
           </p>
+          {canEdit && (
           <form action={setDuesAmountAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
             <input type="hidden" name="scoutingYear" value={scoutingYear} />
             <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
@@ -71,6 +78,7 @@ export default async function AdminDuesPage({
             </div>
             <button type="submit" className="btn btn-primary">Save</button>
           </form>
+          )}
         </div>
 
         <div className="info-card" style={{ maxWidth: 260, marginBottom: 0 }}>
@@ -141,7 +149,7 @@ export default async function AdminDuesPage({
                           className="btn btn-quiet btn-small"
                           href={`/portal/admin/dues/${scout.id}`}
                         >
-                          Manage
+                          {canEdit ? "Manage" : "View"}
                         </Link>
                       </td>
                     </tr>

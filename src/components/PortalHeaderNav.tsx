@@ -4,17 +4,19 @@ import { useState } from "react";
 import PortalNav from "@/components/PortalNav";
 import LogoutButton from "@/components/LogoutButton";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
+import type { Role } from "@/generated/prisma/enums";
 
-type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT" | "TRIP_VIEWER";
 
 export default function PortalHeaderNav({
   role,
   displayName,
   hasLinkedScouts = false,
+  hasDens = false,
 }: {
   role: Role;
   displayName: string;
   hasLinkedScouts?: boolean;
+  hasDens?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -28,7 +30,7 @@ export default function PortalHeaderNav({
         &#9776;
       </button>
       <div className={`portal-collapsible${open ? " open" : ""}`}>
-        <PortalNav role={role} hasLinkedScouts={hasLinkedScouts} onNavigate={() => setOpen(false)} />
+        <PortalNav role={role} hasLinkedScouts={hasLinkedScouts} hasDens={hasDens} onNavigate={() => setOpen(false)} />
         <div className="portal-user">
           <span className={`badge-pill ${ROLE_BADGE_CLASSES[role]}`}>{ROLE_LABELS[role]}</span>
           <span>{displayName}</span>

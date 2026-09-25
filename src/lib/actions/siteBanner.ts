@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertHomepageContentAccess, assertHomepageContentDeleteAccess } from "@/lib/authorize";
+import { assertAdmin, assertSiteBannerAccess } from "@/lib/authorize";
 import { parsePackDateTimeLocal, formatPackDateTime } from "@/lib/bannerSchedule";
 import { recordAudit, changedFields } from "@/lib/audit";
 
@@ -22,7 +22,7 @@ function parseSchedule(formData: FormData) {
 export async function createSiteBannerAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageContentAccess(session);
+  assertSiteBannerAccess(session);
 
   const message = String(formData.get("message") || "").trim();
   if (!message) throw new Error("Message is required.");
@@ -49,7 +49,7 @@ export async function createSiteBannerAction(formData: FormData) {
 export async function updateSiteBannerAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageContentAccess(session);
+  assertSiteBannerAccess(session);
 
   const id = String(formData.get("id") || "");
   const message = String(formData.get("message") || "").trim();
@@ -86,7 +86,7 @@ export async function updateSiteBannerAction(formData: FormData) {
 export async function toggleSiteBannerAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageContentAccess(session);
+  assertSiteBannerAccess(session);
 
   const id = String(formData.get("id") || "");
   const active = String(formData.get("active") || "") === "true";
@@ -109,7 +109,7 @@ export async function toggleSiteBannerAction(formData: FormData) {
 export async function deleteSiteBannerAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertHomepageContentDeleteAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing banner id.");

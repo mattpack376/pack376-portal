@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireEventPaymentSession } from "@/lib/authorize";
+import { requireEventsViewSession } from "@/lib/authorize";
 import { getRegistrationDetail } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
@@ -13,21 +13,20 @@ export default async function AdminEventRegistrationPage({
 }: {
   params: Promise<{ eventId: string; registrationId: string }>;
 }) {
-  const session = await requireEventPaymentSession();
+  // Junior Admin reads the balance and payment history; only Admin changes
+  // the amount owed or records and deletes payments.
+  const session = await requireEventsViewSession();
+  const canEdit = session.role === "ADMIN";
   const { eventId, registrationId } = await params;
 
   const reg = await getRegistrationDetail(registrationId);
   if (!reg || reg.event.id !== eventId) notFound();
-  if (session.role === "DEN" && !session.denIds.includes(reg.scout.den.id)) notFound();
-
-  const backHref = session.role === "DEN" ? "/portal/roster/family-view" : `/portal/admin/events/${eventId}`;
-  const backLabel = session.role === "DEN" ? "← Family View" : `← ${reg.event.title}`;
 
   return (
     <>
       <div className="section-head">
         <div className="eyebrow">
-          <Link href={backHref}>{backLabel}</Link>
+          <Link href={`/portal/admin/events/${eventId}`}>← {reg.event.title}</Link>
         </div>
         <h2>{reg.scout.firstName} {reg.scout.lastName}</h2>
         <p>
@@ -43,6 +42,7 @@ export default async function AdminEventRegistrationPage({
           {reg.remainingCents === 0 && " — paid in full"}
           {reg.remainingCents < 0 && ` — overpaid by ${formatCents(-reg.remainingCents)}`}
         </p>
+        {canEdit && (
         <form action={updateRegistrationAmountAction} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
           <input type="hidden" name="registrationId" value={reg.id} />
           <input type="hidden" name="eventId" value={eventId} />
@@ -62,8 +62,10 @@ export default async function AdminEventRegistrationPage({
             Update Amount Owed
           </button>
         </form>
+        )}
       </div>
 
+      {canEdit && (
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
         <h3>Record a Payment</h3>
         <form action={addEventPaymentAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -84,6 +86,7 @@ export default async function AdminEventRegistrationPage({
           <button type="submit" className="btn btn-primary">Add Payment</button>
         </form>
       </div>
+      )}
 
       <h3 style={{ marginBottom: 10 }}>Payment History</h3>
       {reg.payments.length === 0 ? (
@@ -96,7 +99,7 @@ export default async function AdminEventRegistrationPage({
               <th>Date</th>
               <th>Amount</th>
               <th>Note</th>
-              <th></th>
+              {canEdit && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -110,6 +113,7 @@ export default async function AdminEventRegistrationPage({
                 </td>
                 <td>{formatCents(payment.amountCents)}</td>
                 <td>{payment.note || "—"}</td>
+                {canEdit && (
                 <td className="actions">
                   <form action={deleteEventPaymentAction}>
                     <input type="hidden" name="paymentId" value={payment.id} />
@@ -123,6 +127,7 @@ export default async function AdminEventRegistrationPage({
                     </button>
                   </form>
                 </td>
+                )}
               </tr>
             ))}
           </tbody>

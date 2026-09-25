@@ -13,8 +13,8 @@ export default async function AdminUsersPage() {
 
   const users = await prisma.user.findMany({
     // Parent Portal accounts are managed from Roster → Parents, not here —
-    // they don't fit this screen's role picker (Admin/Junior Admin/Attendance
-    // Only/Photographer/Den Leader).
+    // they don't fit this screen's role picker (ASSIGNABLE_ROLES in
+    // src/lib/roleLabels.ts).
     where: { role: { not: "PARENT" } },
     include: { denAssignments: { include: { den: true } } },
     orderBy: [{ role: "asc" }, { username: "asc" }],

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertTripPageAccess } from "@/lib/authorize";
+import { assertAdmin } from "@/lib/authorize";
 import { recordAudit, changedFields, auditMoney } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import type { TripDay, TripMealType } from "@/generated/prisma/enums";
@@ -55,7 +55,7 @@ async function uploadFlyer(file: File): Promise<string> {
 export async function updateTripDetailsAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   const title = String(formData.get("title") || "").trim();
@@ -127,7 +127,7 @@ export async function updateTripDetailsAction(formData: FormData) {
 export async function toggleTripPublishedAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   const published = String(formData.get("published") || "") === "true";
@@ -149,7 +149,7 @@ export async function toggleTripPublishedAction(formData: FormData) {
 export async function updateTripPricingAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   const regularPriceRaw = String(formData.get("regularPrice") || "");
@@ -220,7 +220,7 @@ export async function updateTripPricingAction(formData: FormData) {
 export async function updateTripPaymentInstructionsAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   const packPaymentInstructions = String(formData.get("packPaymentInstructions") || "").trim();
@@ -257,7 +257,7 @@ export async function updateTripPaymentInstructionsAction(formData: FormData) {
 export async function updateTripMealsAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const mealIds = formData.getAll("mealId").map(String);
   if (mealIds.length === 0) throw new Error("No meals to update.");
@@ -302,7 +302,7 @@ export async function updateTripMealsAction(formData: FormData) {
 export async function createDutySlotAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const tripPageId = String(formData.get("tripPageId") || "");
   const label = String(formData.get("label") || "").trim();
@@ -342,7 +342,7 @@ export async function createDutySlotAction(formData: FormData) {
 export async function updateDutySlotAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   const label = String(formData.get("label") || "").trim();
@@ -393,7 +393,7 @@ export async function updateDutySlotAction(formData: FormData) {
 export async function deleteDutySlotAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing duty slot id.");
@@ -417,7 +417,7 @@ export async function deleteDutySlotAction(formData: FormData) {
 export async function createActivityAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const tripPageId = String(formData.get("tripPageId") || "");
   const day = String(formData.get("day") || "");
@@ -452,7 +452,7 @@ export async function createActivityAction(formData: FormData) {
 export async function updateActivityAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   const day = String(formData.get("day") || "");
@@ -493,7 +493,7 @@ export async function updateActivityAction(formData: FormData) {
 export async function deleteActivityAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertTripPageAccess(session);
+  assertAdmin(session);
 
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing activity id.");

@@ -27,7 +27,12 @@ export default async function AuthedPortalLayout({
             </span>
           </Link>
           <Suspense fallback={null}>
-            <PortalHeaderNav role={session.role} displayName={session.displayName} hasLinkedScouts={session.scoutIds.length > 0} />
+            <PortalHeaderNav
+              role={session.role}
+              displayName={session.displayName}
+              hasLinkedScouts={session.scoutIds.length > 0}
+              hasDens={session.denIds.length > 0}
+            />
           </Suspense>
         </div>
       </header>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireParentContactsSession } from "@/lib/authorize";
+import { canViewDues, canViewEventMoney, isDenScopedRole, requireParentContactsSession } from "@/lib/authorize";
 import { getParentDashboardData } from "@/lib/parentDashboardData";
 import { getAllGuestGroups, getOpenEventsForSelfRegistration } from "@/lib/eventsData";
 import { prisma } from "@/lib/prisma";
@@ -25,11 +25,14 @@ export default async function FamilyViewPage({
   searchParams: Promise<{ denId?: string; guestSort?: string; previewScoutId?: string }>;
 }) {
   const session = await requireParentContactsSession();
-  const canRecordPayments = session.role === "ADMIN" || session.role === "DEN";
-  // Junior admins can see guest groups (read-only, same as they already see
-  // scout registrations) but can't record payments or self-register guests.
-  const canViewGuestGroups = canRecordPayments || session.role === "JUNIOR_ADMIN";
-  const isDenScoped = session.role === "DEN";
+  // Event balances: Admin records payments, Junior Admin reads them. Den
+  // Leaders (and a den-assigned Committee Member) see no event money here.
+  const canSeeEventPayments = canViewEventMoney(session);
+  const canRecordPayments = session.role === "ADMIN";
+  // Staff signing themselves (and guests) up as chaperones. Junior Admin is
+  // left out, as before.
+  const canSelfRegisterGuests = session.role !== "JUNIOR_ADMIN";
+  const isDenScoped = isDenScopedRole(session.role);
 
   if (isDenScoped && session.denIds.length === 0) {
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
@@ -134,6 +137,8 @@ export default async function FamilyViewPage({
           displayName={parentUser?.displayName ?? childName}
           readOnly
           hideConsentToken
+          hideDues={!canViewDues(session)}
+          hideEventPayments={!canSeeEventPayments}
         />
       </>
     );
@@ -141,16 +146,10 @@ export default async function FamilyViewPage({
   const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, upcomingEvents } =
     await getParentDashboardData(scoutIds, session.userId);
 
-  const [rawGuestGroups, myOpenGuestEvents] = await Promise.all([
-    canViewGuestGroups ? getAllGuestGroups() : Promise.resolve([]),
-    canRecordPayments ? getOpenEventsForSelfRegistration([], session.userId) : Promise.resolve([]),
+  const [allGuestGroups, myOpenGuestEvents] = await Promise.all([
+    canSeeEventPayments ? getAllGuestGroups() : Promise.resolve([]),
+    canSelfRegisterGuests ? getOpenEventsForSelfRegistration([], session.userId) : Promise.resolve([]),
   ]);
-  // Guest groups aren't tied to a den, so unlike scout registrations they
-  // can't be scoped by session.denIds — a den login only sees groups it
-  // self-registered (matches assertGuestGroupAccess's write-side scoping in
-  // src/lib/authorize.ts). Admin/junior admin keep the pack-wide view they
-  // already have everywhere else.
-  const allGuestGroups = isDenScoped ? rawGuestGroups.filter((g) => g.addedByUserId === session.userId) : rawGuestGroups;
   const openGuestEvents = myOpenGuestEvents.filter((e) => e.adultFeeCents !== null || e.guestChildFeeCents !== null);
 
   const scoutInfoById = new Map(scouts.map((s) => [s.id, s]));
@@ -341,6 +340,8 @@ export default async function FamilyViewPage({
         </div>
       )}
 
+      {canSeeEventPayments && (
+      <>
       <div className="section-head">
         <div className="eyebrow">Per Event</div>
         <h2>💳 Event Payments</h2>
@@ -457,8 +458,10 @@ export default async function FamilyViewPage({
           ))}
         </div>
       )}
+      </>
+      )}
 
-      {canRecordPayments && (
+      {canSelfRegisterGuests && (
         <>
           <div className="section-head">
             <div className="eyebrow">Sign Up</div>

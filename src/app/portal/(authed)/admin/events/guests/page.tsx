@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/authorize";
+import { requireEventsViewSession } from "@/lib/authorize";
 import { getAllGuestGroups } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { formatDueDate } from "@/lib/deadlineCategories";
@@ -28,7 +28,9 @@ export default async function AdminAllGuestsPage({
 }: {
   searchParams: Promise<{ sort?: string }>;
 }) {
-  await requireAdminSession();
+  // Junior Admin reads it; the CSV export and payment edits are Admin-only.
+  const session = await requireEventsViewSession();
+  const canEdit = session.role === "ADMIN";
   const { sort } = await searchParams;
   const sortMode = sort === "family" ? "family" : "guestof";
 
@@ -50,13 +52,15 @@ export default async function AdminAllGuestsPage({
             {packTotals.remaining > 0 && ` — ${formatCents(packTotals.remaining)} remaining`}.
           </p>
         </div>
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download (Route Handler), not a page navigation */}
-        <a
-          className="btn btn-quiet btn-small"
-          href="/portal/admin/events/guests/export"
-        >
-          Export CSV (All Attendees)
-        </a>
+        {canEdit && (
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- file download (Route Handler), not a page navigation
+          <a
+            className="btn btn-quiet btn-small"
+            href="/portal/admin/events/guests/export"
+          >
+            Export CSV (All Attendees)
+          </a>
+        )}
       </div>
 
       <SegmentedNav
@@ -72,9 +76,9 @@ export default async function AdminAllGuestsPage({
           <p>No guest groups registered for any event yet.</p>
         </div>
       ) : sortMode === "guestof" ? (
-        <GuestOfGrouping groups={allGroups} />
+        <GuestOfGrouping groups={allGroups} canEdit={canEdit} />
       ) : (
-        <FamilyGrouping groups={allGroups} />
+        <FamilyGrouping groups={allGroups} canEdit={canEdit} />
       )}
     </>
   );
@@ -86,7 +90,7 @@ function guestOfKey(g: Group) {
   return "none";
 }
 
-function GuestOfGrouping({ groups }: { groups: Group[] }) {
+function GuestOfGrouping({ groups, canEdit }: { groups: Group[]; canEdit: boolean }) {
   const byGuestOf = new Map<string, { label: string; groups: Group[] }>();
   for (const g of groups) {
     const key = guestOfKey(g);
@@ -115,7 +119,7 @@ function GuestOfGrouping({ groups }: { groups: Group[] }) {
             label={`${section.label} — ${totals.adults} adult${totals.adults === 1 ? "" : "s"}, ${totals.kids} kid${totals.kids === 1 ? "" : "s"} · ${formatCents(totals.paid)} paid of ${formatCents(totals.owed)}`}
           >
             {families.map((rows) => (
-              <FamilySubTable key={rows[0].familyName + rows[0].id} rows={rows} />
+              <FamilySubTable key={rows[0].familyName + rows[0].id} rows={rows} canEdit={canEdit} />
             ))}
           </CollapsibleGroup>
         );
@@ -124,7 +128,7 @@ function GuestOfGrouping({ groups }: { groups: Group[] }) {
   );
 }
 
-function FamilyGrouping({ groups }: { groups: Group[] }) {
+function FamilyGrouping({ groups, canEdit }: { groups: Group[]; canEdit: boolean }) {
   const byFamily = new Map<string, Group[]>();
   for (const g of groups) {
     const key = g.familyName.trim().toLowerCase();
@@ -174,7 +178,7 @@ function FamilyGrouping({ groups }: { groups: Group[] }) {
                           className="btn btn-quiet btn-small"
                           href={`/portal/admin/events/${g.event.id}/guests/${g.id}`}
                         >
-                          Manage Payments
+                          {canEdit ? "Manage Payments" : "View Payments"}
                         </Link>
                       </td>
                     </tr>
@@ -190,7 +194,7 @@ function FamilyGrouping({ groups }: { groups: Group[] }) {
   );
 }
 
-function FamilySubTable({ rows }: { rows: Group[] }) {
+function FamilySubTable({ rows, canEdit }: { rows: Group[]; canEdit: boolean }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <p className="form-note" style={{ marginBottom: 6 }}>{rows[0].familyName.toUpperCase()}</p>
@@ -223,7 +227,7 @@ function FamilySubTable({ rows }: { rows: Group[] }) {
                     className="btn btn-quiet btn-small"
                     href={`/portal/admin/events/${g.event.id}/guests/${g.id}`}
                   >
-                    Manage Payments
+                    {canEdit ? "Manage Payments" : "View Payments"}
                   </Link>
                 </td>
               </tr>

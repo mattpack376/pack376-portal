@@ -39,9 +39,12 @@ function bannerStatus(
 
 export default async function HomepageEventsAdminPage() {
   const session = await requireHomepageContentSession();
-  const canDelete = session.role === "ADMIN";
+  // Junior Admin posts, edits and switches off the top banner and nothing
+  // else here: no deleting, and no homepage events at all.
+  const isFullAdmin = session.role === "ADMIN";
+  const canDelete = isFullAdmin;
   const [events, banners, currentBanner] = await Promise.all([
-    getAllHomepageEvents(),
+    isFullAdmin ? getAllHomepageEvents() : Promise.resolve([]),
     getAllSiteBanners(),
     getActiveSiteBanner(),
   ]);
@@ -52,10 +55,16 @@ export default async function HomepageEventsAdminPage() {
     <>
       <div className="section-head">
         <div className="eyebrow">Admin</div>
-        <h2>Homepage Content</h2>
+        <h2>{isFullAdmin ? "Homepage Content" : "Top Banner"}</h2>
         <p>
-          Manage what shows on the public homepage — the top banner and the &quot;Upcoming Attractions&quot;
-          ticket list.
+          {isFullAdmin ? (
+            <>
+              Manage what shows on the public homepage — the top banner and the &quot;Upcoming Attractions&quot;
+              ticket list.
+            </>
+          ) : (
+            "Post an urgent notice across the top of the public homepage and the portal."
+          )}
         </p>
       </div>
 
@@ -163,6 +172,8 @@ export default async function HomepageEventsAdminPage() {
         })}
       </div>
 
+      {isFullAdmin && (
+      <>
       <div className="section-head">
         <div className="eyebrow">Upcoming Attractions</div>
         <h2>Homepage Events</h2>
@@ -280,6 +291,8 @@ export default async function HomepageEventsAdminPage() {
             </CollapsibleGroup>
           </div>
         ))
+      )}
+      </>
       )}
     </>
   );

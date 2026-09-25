@@ -63,11 +63,21 @@ export default async function AdminCampConronPage({
     getTripRegistrations(trip.id),
   ]);
 
-  // TRIP_VIEWER (e.g. a shared Troop376 login) gets a completely separate,
-  // form-free read-only render — see TripViewerView.tsx for why this isn't
-  // done as inline conditionals throughout the rest of this component.
-  if (session.role === "TRIP_VIEWER") {
-    return <TripViewerView trip={trip} meals={meals} dutySlots={dutySlots} activities={activities} registrations={registrations} />;
+  // Everyone but Admin — TRIP_VIEWER (e.g. a shared Troop376 login) and
+  // Junior Admin — gets a completely separate, form-free read-only render;
+  // see TripViewerView.tsx for why this isn't done as inline conditionals
+  // throughout the rest of this component.
+  if (!isAdmin) {
+    return (
+      <TripViewerView
+        audience={session.role === "TRIP_VIEWER" ? "troop" : "pack"}
+        trip={trip}
+        meals={meals}
+        dutySlots={dutySlots}
+        activities={activities}
+        registrations={registrations}
+      />
+    );
   }
 
   const priceCents = currentTripPriceCents(trip);

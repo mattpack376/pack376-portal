@@ -4,6 +4,7 @@ import { getMeetingDetailForAdmin } from "@/lib/attendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { RANK_INFO } from "@/lib/rankConfig";
 import { getSession } from "@/lib/auth";
+import { canResetDenAttendance } from "@/lib/authorize";
 import AttendanceControl from "@/components/AttendanceControl";
 import MarkAllPresentButton from "@/components/MarkAllPresentButton";
 import MeetingStatusToggle from "@/components/MeetingStatusToggle";
@@ -17,7 +18,7 @@ export default async function AdminMeetingAttendancePage({
   const { meetingDateId } = await params;
   const [data, session] = await Promise.all([getMeetingDetailForAdmin(meetingDateId), getSession()]);
   if (!data) notFound();
-  const canReset = session?.role === "ADMIN" || session?.role === "JUNIOR_ADMIN";
+  const canReset = !!session && canResetDenAttendance(session);
 
   const { meeting, scoutingYear, dens } = data;
   const cancelled = meeting.status === "NO_MEETING";

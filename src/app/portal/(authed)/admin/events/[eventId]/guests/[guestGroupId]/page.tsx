@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireEventPaymentSession } from "@/lib/authorize";
+import { requireEventsViewSession } from "@/lib/authorize";
 import { getGuestGroupDetail, getGuestOfOptions } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
@@ -19,16 +19,14 @@ export default async function AdminGuestGroupPage({
 }: {
   params: Promise<{ eventId: string; guestGroupId: string }>;
 }) {
-  const session = await requireEventPaymentSession();
+  // Junior Admin reads the balance and payment history; only Admin edits the
+  // group or records and deletes payments.
+  const session = await requireEventsViewSession();
+  const canEdit = session.role === "ADMIN";
   const { eventId, guestGroupId } = await params;
 
   const group = await getGuestGroupDetail(guestGroupId);
   if (!group || group.event.id !== eventId) notFound();
-  // Guest groups aren't tied to a den, so a den login only gets the detail
-  // page (full payment history, dates, notes) for a group it self-registered
-  // — matches the ownership scoping assertGuestGroupAccess already enforces
-  // on the mutation actions below. Admin keeps full access.
-  if (session.role === "DEN" && group.addedByUserId !== session.userId) notFound();
 
   const guestOfOptions = await getGuestOfOptions();
   const guestOfDefault = group.guestOfScoutId ? `scout:${group.guestOfScoutId}` : group.guestOfUserId ? `user:${group.guestOfUserId}` : "";
@@ -55,6 +53,7 @@ export default async function AdminGuestGroupPage({
           {group.remainingCents === 0 && " — paid in full"}
           {group.remainingCents < 0 && ` — overpaid by ${formatCents(-group.remainingCents)}`}
         </p>
+        {canEdit && (
         <form action={updateGuestGroupAction}>
           <input type="hidden" name="guestGroupId" value={group.id} />
           <input type="hidden" name="eventId" value={eventId} />
@@ -83,7 +82,8 @@ export default async function AdminGuestGroupPage({
             Save Changes
           </button>
         </form>
-        {session.role === "ADMIN" && (
+        )}
+        {canEdit && (
           <form action={removeGuestGroupAction} style={{ marginTop: 12 }}>
             <input type="hidden" name="guestGroupId" value={group.id} />
             <input type="hidden" name="eventId" value={eventId} />
@@ -97,6 +97,7 @@ export default async function AdminGuestGroupPage({
         )}
       </div>
 
+      {canEdit && (
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
         <h3>Record a Payment</h3>
         <form action={addGuestGroupPaymentAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -117,6 +118,7 @@ export default async function AdminGuestGroupPage({
           <button type="submit" className="btn btn-primary">Add Payment</button>
         </form>
       </div>
+      )}
 
       <h3 style={{ marginBottom: 10 }}>Payment History</h3>
       {group.payments.length === 0 ? (
@@ -129,7 +131,7 @@ export default async function AdminGuestGroupPage({
               <th>Date</th>
               <th>Amount</th>
               <th>Note</th>
-              <th></th>
+              {canEdit && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -143,6 +145,7 @@ export default async function AdminGuestGroupPage({
                 </td>
                 <td>{formatCents(payment.amountCents)}</td>
                 <td>{payment.note || "—"}</td>
+                {canEdit && (
                 <td className="actions">
                   <form action={deleteGuestGroupPaymentAction}>
                     <input type="hidden" name="paymentId" value={payment.id} />
@@ -156,6 +159,7 @@ export default async function AdminGuestGroupPage({
                     </button>
                   </form>
                 </td>
+                )}
               </tr>
             ))}
           </tbody>

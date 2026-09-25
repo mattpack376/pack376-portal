@@ -4,15 +4,53 @@ import { getSessionState, type SessionPayload } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
 
+/*
+ * Permission levels, most to least access:
+ *
+ * - Master Admin (ADMIN + a username in masterAdmins.ts): everything.
+ * - Admin: everything except the audit log and Start a Fresh Year.
+ * - Junior Admin: advancement and attendance for every den; can add scouts
+ *   to a den but not rename or remove them; reads dues and event balances
+ *   without recording payments; posts the top banner (no homepage events);
+ *   sends photo consent links; reads the Camp Conron page.
+ * - Committee Member: advancement and attendance for every den; reads photo
+ *   consent and dues. No event money, no parent contacts.
+ * - Den Leader: advancement and attendance for their assigned den(s), plus
+ *   that den's parent contacts, Family View and photo consent. No money.
+ *
+ * A Committee Member assigned to a den also gets that den's Den Leader view,
+ * so a leader who sits on the committee keeps one login. Any staff account
+ * linked to a scout additionally sees that child at /portal/my-family.
+ *
+ * Attendance Only, Photographer and Trip Viewer are narrower roles outside
+ * this ladder; see their own guards below.
+ */
+
+type Session = SessionPayload;
+
 /** Where a role lands after login / when bounced from a route it can't access. */
 export function homeForRole(role: SessionPayload["role"]) {
   if (role === "ADMIN") return "/portal/admin";
   if (role === "JUNIOR_ADMIN") return "/portal/admin";
+  if (role === "COMMITTEE") return "/portal/admin";
   if (role === "ATTENDANCE_ADMIN") return "/portal/admin/attendance";
   if (role === "PHOTOGRAPHER") return "/portal/admin/albums";
   if (role === "PARENT") return "/portal/parent";
   if (role === "TRIP_VIEWER") return "/portal/admin/camp-conron";
   return "/portal/den";
+}
+
+/**
+ * Den Leaders and Committee Members get a den's leader view through their
+ * den assignments. For Admin and Junior Admin an assignment only lists them
+ * as that den's leader — they reach every den regardless.
+ */
+export function isDenScopedRole(role: SessionPayload["role"]) {
+  return role === "DEN" || role === "COMMITTEE";
+}
+
+function leadsDen(session: Session, denId: string) {
+  return isDenScopedRole(session.role) && session.denIds.includes(denId);
 }
 
 /** For Server Components / pages: redirects if there's no valid session. */
@@ -34,33 +72,39 @@ export async function requireAdminSession(): Promise<SessionPayload> {
 }
 
 /**
- * For Server Components / pages: allows full admins and junior admins, since
- * both can browse every den and edit advancement pack-wide. Den structure
- * changes (create/promote/roster) stay admin-only via nested layouts.
+ * For Server Components / pages: every role that edits advancement for every
+ * den — Admin, Junior Admin and Committee Member. Den structure changes
+ * (create/promote) stay admin-only via nested layouts.
  */
 export async function requireAdvancementSession(): Promise<SessionPayload> {
   const session = await requireSession();
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") redirect(homeForRole(session.role));
-  return session;
-}
-
-/**
- * For Server Components / pages: allows every role that can touch
- * pack-wide attendance — full admin, junior admin, and Attendance Only.
- * Blocks den leaders (den-scoped only) and Photographer (no attendance access).
- */
-export async function requireAttendanceSession(): Promise<SessionPayload> {
-  const session = await requireSession();
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "ATTENDANCE_ADMIN") {
+  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "COMMITTEE") {
     redirect(homeForRole(session.role));
   }
   return session;
 }
 
 /**
- * For Server Components / pages: allows every role that can touch photo
- * albums — full admin and Photographer. Junior Admin, Attendance Only, and
- * den leaders don't get album access.
+ * For Server Components / pages: every role that can touch pack-wide
+ * attendance — Admin, Junior Admin, Committee Member and Attendance Only.
+ * Blocks den leaders (den-scoped only) and Photographer (no attendance access).
+ */
+export async function requireAttendanceSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (
+    session.role !== "ADMIN" &&
+    session.role !== "JUNIOR_ADMIN" &&
+    session.role !== "COMMITTEE" &&
+    session.role !== "ATTENDANCE_ADMIN"
+  ) {
+    redirect(homeForRole(session.role));
+  }
+  return session;
+}
+
+/**
+ * For Server Components / pages: every role that can touch photo albums —
+ * Admin and Photographer.
  */
 export async function requireAlbumSession(): Promise<SessionPayload> {
   const session = await requireSession();
@@ -71,38 +115,51 @@ export async function requireAlbumSession(): Promise<SessionPayload> {
 }
 
 /**
- * For Server Components / pages: parent contact info — full admin and junior
- * admin see every den, a den leader sees only their own assigned den(s)
- * (enforced by the caller via session.denIds). Attendance Only and
- * Photographer don't need this contact info.
+ * Who reaches parent contact info and Family View. Admin and Junior Admin see
+ * every den; a Den Leader, or a Committee Member assigned to a den, sees only
+ * their assigned den(s) — the caller scopes by session.denIds.
  */
+export function canViewParentContacts(session: Session) {
+  if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "DEN") return true;
+  return session.role === "COMMITTEE" && session.denIds.length > 0;
+}
+
+/** For Server Components / pages: parent contacts and Family View — see canViewParentContacts. */
 export async function requireParentContactsSession(): Promise<SessionPayload> {
   const session = await requireSession();
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "DEN") {
-    redirect(homeForRole(session.role));
-  }
+  if (!canViewParentContacts(session)) redirect(homeForRole(session.role));
   return session;
 }
 
 /**
- * For Server Components / pages: photo consent status/links — full admin and
- * junior admin see every den, a den leader sees only their own assigned
- * den(s), and Photographer sees every den (read-only — link
- * generate/regenerate/email stays gated by assertPhotoConsentDenAccess, which
- * Photographer doesn't pass) since they need to check consent before posting
- * anywhere.
+ * For Server Components / pages: photo consent status. Admin, Junior Admin,
+ * Committee Member and Photographer read every den; a Den Leader reads only
+ * their own. Who can generate, copy and email the links is a separate,
+ * narrower question — canManagePhotoConsentForDen below.
  */
 export async function requirePhotoConsentSession(): Promise<SessionPayload> {
   const session = await requireSession();
   if (
     session.role !== "ADMIN" &&
     session.role !== "JUNIOR_ADMIN" &&
+    session.role !== "COMMITTEE" &&
     session.role !== "DEN" &&
     session.role !== "PHOTOGRAPHER"
   ) {
     redirect(homeForRole(session.role));
   }
   return session;
+}
+
+/**
+ * Generating, copying and emailing a den's photo consent links: Admin and
+ * Junior Admin for any den, a Den Leader or den-assigned Committee Member for
+ * their own. The link is what lets a parent sign, so read-only roles don't
+ * see it at all.
+ */
+export function canManagePhotoConsentForDen(session: Session, denId: string) {
+  if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") return true;
+  return leadsDen(session, denId);
 }
 
 /**
@@ -117,9 +174,14 @@ export function assertAdmin(session: SessionPayload) {
   }
 }
 
-/** Full admin, junior admin, or Attendance Only — pack-wide attendance actions. */
+/** Admin, Junior Admin, Committee Member or Attendance Only — pack-wide attendance actions. */
 export function assertAttendanceAccess(session: SessionPayload) {
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "ATTENDANCE_ADMIN") {
+  if (
+    session.role !== "ADMIN" &&
+    session.role !== "JUNIOR_ADMIN" &&
+    session.role !== "COMMITTEE" &&
+    session.role !== "ATTENDANCE_ADMIN"
+  ) {
     throw new Error("Not authorized: attendance access required.");
   }
 }
@@ -131,39 +193,66 @@ export function assertAlbumEditAccess(session: SessionPayload) {
   }
 }
 
-/** Full admin or junior admin for any den's parent contacts; a den login only for its assigned den(s). */
+/** Admin or Junior Admin for any den's parent contacts; a den-scoped login only for its assigned den(s). */
 export function assertParentContactsDenAccess(session: SessionPayload, denId: string) {
   if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") return;
-  if (session.role === "DEN" && session.denIds.includes(denId)) return;
+  if (leadsDen(session, denId)) return;
   throw new Error("Not authorized for this den.");
 }
 
-/** Full admin or junior admin for any den's photo consent; a den login only for its assigned den(s). */
+/** Generate/regenerate/email a photo consent link — see canManagePhotoConsentForDen. */
 export function assertPhotoConsentDenAccess(session: SessionPayload, denId: string) {
-  if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") return;
-  if (session.role === "DEN" && session.denIds.includes(denId)) return;
+  if (canManagePhotoConsentForDen(session, denId)) return;
   throw new Error("Not authorized for this den.");
 }
 
-/** Full admin, junior admin, or Attendance Only for any den; a den login only for its assigned den(s). */
+/** Admin, Junior Admin, Committee Member or Attendance Only for any den; a den login only for its assigned den(s). */
 export function assertAttendanceDenAccess(session: SessionPayload, denId: string) {
-  if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "ATTENDANCE_ADMIN") return;
-  if (session.role === "DEN" && session.denIds.includes(denId)) return;
-  throw new Error("Not authorized for this den.");
-}
-
-/** Full admin or junior admin for any den's advancement; a den login only for its assigned den(s). */
-export function assertAdvancementDenAccess(session: SessionPayload, denId: string) {
-  if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") return;
+  if (
+    session.role === "ADMIN" ||
+    session.role === "JUNIOR_ADMIN" ||
+    session.role === "COMMITTEE" ||
+    session.role === "ATTENDANCE_ADMIN"
+  ) {
+    return;
+  }
   if (session.role === "DEN" && session.denIds.includes(denId)) return;
   throw new Error("Not authorized for this den.");
 }
 
 /**
- * For Server Components / pages: public homepage content editors (Upcoming
- * Attractions events, the top banner) — full admin and junior admin, since
- * both already manage pack-wide content elsewhere (attendance, advancement).
- * Den leaders and other roles don't.
+ * Clearing a whole den's marks for one meeting — the roles with pack-wide
+ * attendance editing, minus Attendance Only (which never had it).
+ */
+export function canResetDenAttendance(session: Session) {
+  return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "COMMITTEE";
+}
+
+/** Admin, Junior Admin or Committee Member for any den's advancement; a den login only for its assigned den(s). */
+export function assertAdvancementDenAccess(session: SessionPayload, denId: string) {
+  if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "COMMITTEE") return;
+  if (session.role === "DEN" && session.denIds.includes(denId)) return;
+  throw new Error("Not authorized for this den.");
+}
+
+/**
+ * Adding a scout to a den's roster — Admin and Junior Admin. Renaming or
+ * removing a scout, creating a den and promoting one stay admin-only.
+ */
+export function canAddScoutsToDens(session: Session) {
+  return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN";
+}
+
+export function assertCanAddScoutsToDens(session: Session) {
+  if (!canAddScoutsToDens(session)) {
+    throw new Error("Not authorized: adding scouts requires Admin or Junior Admin.");
+  }
+}
+
+/**
+ * For Server Components / pages: the Homepage Content page. Admin manages
+ * everything on it; Junior Admin sees only the top banner (the page itself
+ * hides the homepage events section for them).
  */
 export async function requireHomepageContentSession(): Promise<SessionPayload> {
   const session = await requireSession();
@@ -171,20 +260,24 @@ export async function requireHomepageContentSession(): Promise<SessionPayload> {
   return session;
 }
 
-/** Full admin or junior admin — homepage content create/edit actions. */
-export function assertHomepageContentAccess(session: SessionPayload) {
+/**
+ * Posting, editing and switching off the top banner — Admin and Junior Admin,
+ * so a junior admin can put up an urgent notice (a cancelled meeting) and take
+ * it down again. Deleting a banner, and everything about homepage events,
+ * stays admin-only via assertAdmin.
+ */
+export function assertSiteBannerAccess(session: SessionPayload) {
   if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
-    throw new Error("Not authorized: homepage content access required.");
+    throw new Error("Not authorized: top banner access required.");
   }
 }
 
 /**
  * For Server Components / pages: gates the whole /portal/admin/camp-conron
- * page — full admin, junior admin (both editable, see assertTripPageAccess
- * below), and TRIP_VIEWER (read-only; the page itself branches on role and
- * renders a completely separate form-free view for that case — this guard
- * only decides who reaches the page at all, not what they see once there).
- * The public conron.pack376nyc.org page needs no session at all.
+ * page — Admin (editable), Junior Admin and TRIP_VIEWER (both read-only; the
+ * page renders a separate form-free view for them). Every edit action on the
+ * page is admin-only via assertAdmin. The public conron.pack376nyc.org page
+ * needs no session at all.
  */
 export async function requireTripPageSession(): Promise<SessionPayload> {
   const session = await requireSession();
@@ -195,54 +288,31 @@ export async function requireTripPageSession(): Promise<SessionPayload> {
 }
 
 /**
- * Full admin or junior admin only — every trip page content/menu/duty-roster
- * EDIT action. Deliberately excludes TRIP_VIEWER even though that role can
- * reach the page itself (requireTripPageSession above): the page's viewer
- * branch never renders any of these forms, but this is the real enforcement
- * boundary, independent of what the UI happens to show.
+ * Who sees what families owe. Admin records and deletes payments; Junior
+ * Admin reads dues and event balances; Committee Member reads dues only. Den
+ * Leaders see no money at all, beyond their own linked child at
+ * /portal/my-family.
  */
-export function assertTripPageAccess(session: SessionPayload) {
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
-    throw new Error("Not authorized: trip page access required.");
-  }
+export function canViewDues(session: Session) {
+  return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "COMMITTEE";
 }
 
-/** Full admin only — homepage content delete actions; junior admin can add/edit but not delete. */
-export function assertHomepageContentDeleteAccess(session: SessionPayload) {
-  if (session.role !== "ADMIN") {
-    throw new Error("Not authorized: only a full admin can delete homepage content.");
-  }
+export function canViewEventMoney(session: Session) {
+  return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN";
 }
 
-/**
- * For Server Components / pages: recording event payments — full admin for
- * any event, a den login only for its assigned den(s). Junior admin is
- * intentionally excluded (view-only, same as the rest of the events data).
- */
-export async function requireEventPaymentSession(): Promise<SessionPayload> {
+/** For Server Components / pages: the Dues pages — see canViewDues. Only Admin gets the edit forms. */
+export async function requireDuesViewSession(): Promise<SessionPayload> {
   const session = await requireSession();
-  if (session.role !== "ADMIN" && session.role !== "DEN") redirect(homeForRole(session.role));
+  if (!canViewDues(session)) redirect(homeForRole(session.role));
   return session;
 }
 
-/** Full admin for any event; a den login only for its assigned den(s). Junior admin excluded on purpose. */
-export function assertEventPaymentDenAccess(session: SessionPayload, denId: string) {
-  if (session.role === "ADMIN") return;
-  if (session.role === "DEN" && session.denIds.includes(denId)) return;
-  throw new Error("Not authorized for this den.");
-}
-
-/**
- * Full admin, or the den login that self-registered this guest group.
- * EventGuestGroup has no den to scope against the way a scout registration
- * does, so ownership (addedByUserId) is the only available boundary — same
- * convention removeMyGuestGroupAction already used. Junior admin excluded,
- * matching assertEventPaymentDenAccess above.
- */
-export function assertGuestGroupAccess(session: SessionPayload, addedByUserId: string | null) {
-  if (session.role === "ADMIN") return;
-  if (session.role === "DEN" && addedByUserId === session.userId) return;
-  throw new Error("Not authorized for this guest group.");
+/** For Server Components / pages: the Events pages — see canViewEventMoney. Only Admin gets the edit forms. */
+export async function requireEventsViewSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (!canViewEventMoney(session)) redirect(homeForRole(session.role));
+  return session;
 }
 
 /**

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAttendanceAccess, assertAttendanceDenAccess } from "@/lib/authorize";
+import { assertAttendanceAccess, assertAttendanceDenAccess, canResetDenAttendance } from "@/lib/authorize";
 import { denDisplayName } from "@/lib/rankConfig";
 import { recordAudit, auditDate, EMPTY } from "@/lib/audit";
 
@@ -118,11 +118,11 @@ export async function markDenPresentAction(denId: string, meetingDateId: string)
   return { ok: true as const };
 }
 
-/** Full admin or junior admin only — clears every attendance mark for one den on one meeting date. */
+/** Admin, Junior Admin or Committee Member only — clears every attendance mark for one den on one meeting date. */
 export async function resetDenAttendanceAction(denId: string, meetingDateId: string) {
   const session = await getSession();
   if (!session) return { ok: false as const };
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
+  if (!canResetDenAttendance(session)) {
     return { ok: false as const };
   }
 

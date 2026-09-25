@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireParentContactsSession } from "@/lib/authorize";
+import { isDenScopedRole, requireParentContactsSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
@@ -32,12 +32,14 @@ export default async function ParentContactsPage({
   const printView = isMasterAdmin && view === "print";
   const canEdit = isMasterAdmin && !printView;
 
-  if (session.role === "DEN" && session.denIds.length === 0) {
+  // Den Leaders, and Committee Members who lead a den, see only their den(s).
+  const isDenScoped = isDenScopedRole(session.role);
+  if (isDenScoped && session.denIds.length === 0) {
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
   }
 
   const dens = await prisma.den.findMany({
-    where: session.role === "DEN" ? { id: { in: session.denIds } } : undefined,
+    where: isDenScoped ? { id: { in: session.denIds } } : undefined,
     include: {
       scouts: {
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],

@@ -138,7 +138,9 @@ export default async function ManageUserPage({
           <p>
             {user.role === "DEN"
               ? "Check every den this leader should have advancement & attendance access to."
-              : "Optional — check any den(s) this account should be listed as a leader of on the dashboard and roster. Admins and Junior Admins already have access to every den regardless."}
+              : user.role === "COMMITTEE"
+                ? "Optional — for a committee member who also leads a den. Checking a den lists them as its leader and adds that den's Den Leader view: parent contacts, Family View, and sending photo consent links."
+                : "Optional — check any den(s) this account should be listed as a leader of on the dashboard and roster. Admins and Junior Admins already have access to every den regardless."}
           </p>
           {allDens.length === 0 ? (
             <p style={{ marginBottom: 0 }}>No dens exist yet.</p>

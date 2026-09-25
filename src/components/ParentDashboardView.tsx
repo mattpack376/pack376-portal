@@ -37,6 +37,10 @@ import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
  * that family's consent form, not just the ability to read its status. The
  * status badge stays either way. Set it wherever the viewer isn't the
  * family — /portal/my-family is a staff member's own child and doesn't.
+ *
+ * `hideDues` and `hideEventPayments` withhold what a family owes from a staff
+ * preview by someone whose role can't see that money (Den Leaders see
+ * neither; Committee Members see dues but not event balances).
  */
 export default async function ParentDashboardView({
   scoutIds,
@@ -44,12 +48,16 @@ export default async function ParentDashboardView({
   displayName,
   readOnly = false,
   hideConsentToken = false,
+  hideDues = false,
+  hideEventPayments = false,
 }: {
   scoutIds: string[];
   userId: string;
   displayName: string;
   readOnly?: boolean;
   hideConsentToken?: boolean;
+  hideDues?: boolean;
+  hideEventPayments?: boolean;
 }) {
   const [
     {
@@ -259,7 +267,7 @@ export default async function ParentDashboardView({
 
       <div className="section-head">
         <div className="eyebrow">Per Scout</div>
-        <h2>Forms &amp; Dues</h2>
+        <h2>{hideDues ? "Forms" : <>Forms &amp; Dues</>}</h2>
       </div>
       {scouts.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
@@ -313,6 +321,8 @@ export default async function ParentDashboardView({
               </>
             )}
 
+            {!hideDues && (
+            <>
             <p className="form-note" style={{ marginTop: 14, marginBottom: 6 }}>ANNUAL DUES</p>
             {!scout.dues || scout.dues.amountCents === null ? (
               <p style={{ marginBottom: 0 }}>Dues amount for this scouting year hasn&apos;t been set yet.</p>
@@ -329,6 +339,8 @@ export default async function ParentDashboardView({
                 {formatCents(scout.dues.paidCents)} of {formatCents(scout.dues.amountCents)} paid so far — see the
                 Committee Treasurer or Committee Chair to make a payment.
               </p>
+            )}
+            </>
             )}
           </div>
         ))
@@ -428,6 +440,8 @@ export default async function ParentDashboardView({
         </div>
       )}
 
+      {!hideEventPayments && (
+      <>
       <div className="section-head">
         <div className="eyebrow">Per Event</div>
         <h2>💳 Event Payments</h2>
@@ -520,6 +534,8 @@ export default async function ParentDashboardView({
             See the Committee Treasurer or Committee Chair to make a payment on any balance above.
           </p>
         </>
+      )}
+      </>
       )}
 
       <div className="section-head">

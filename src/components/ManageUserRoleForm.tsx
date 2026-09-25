@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { updateUserRoleAction, type UpdateUserRoleState } from "@/lib/actions/users";
-import type { AssignableRole } from "@/lib/roleLabels";
+import { ASSIGNABLE_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, type AssignableRole } from "@/lib/roleLabels";
 
 const initialState: UpdateUserRoleState = {};
 
@@ -21,11 +21,14 @@ export default function ManageUserRoleForm({
       <div className="form-field">
         <label htmlFor="role">Permission Level</label>
         <select id="role" name="role" defaultValue={role}>
-          <option value="ADMIN">Admin — Full Privileges</option>
-          <option value="JUNIOR_ADMIN">Junior Admin — attendance, advancement, all dens</option>
-          <option value="ATTENDANCE_ADMIN">Attendance Only — attendance for all dens</option>
-          <option value="PHOTOGRAPHER">Photographer — add/edit albums only (no delete)</option>
-          <option value="DEN">Den Leader — advancement & attendance for their assigned den(s)</option>
+          {/* Every assignable role, including the account's current one —
+              a missing option would leave the browser showing the first
+              (Admin), and saving would silently promote the account. */}
+          {ASSIGNABLE_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABELS[r]} — {ROLE_DESCRIPTIONS[r]}
+            </option>
+          ))}
         </select>
       </div>
       {state?.error && <p className="form-error">{state.error}</p>}

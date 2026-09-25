@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/authorize";
+import { requireEventsViewSession } from "@/lib/authorize";
 import { getEvents } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
 import { createEventAction, toggleEventVisibilityAction } from "@/lib/actions/events";
 
 export default async function AdminEventsPage() {
-  await requireAdminSession();
+  // Junior Admin reads every event's balances; only Admin changes anything.
+  const session = await requireEventsViewSession();
+  const canEdit = session.role === "ADMIN";
   const events = await getEvents();
 
   return (
@@ -24,7 +26,7 @@ export default async function AdminEventsPage() {
 
       {events.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 24 }}>
-          <p>No events yet — add one below.</p>
+          <p>{canEdit ? "No events yet — add one below." : "No events yet."}</p>
         </div>
       ) : (
         <div className="table-scroll" style={{ marginBottom: 32 }}>
@@ -67,15 +69,17 @@ export default async function AdminEventsPage() {
                     className="btn btn-quiet btn-small"
                     href={`/portal/admin/events/${event.id}`}
                   >
-                    Manage
+                    {canEdit ? "Manage" : "View"}
                   </Link>
-                  <form action={toggleEventVisibilityAction}>
-                    <input type="hidden" name="id" value={event.id} />
-                    <input type="hidden" name="visible" value={String(event.visible)} />
-                    <button type="submit" className="btn btn-quiet btn-small">
-                      {event.visible ? "Hide" : "Show"}
-                    </button>
-                  </form>
+                  {canEdit && (
+                    <form action={toggleEventVisibilityAction}>
+                      <input type="hidden" name="id" value={event.id} />
+                      <input type="hidden" name="visible" value={String(event.visible)} />
+                      <button type="submit" className="btn btn-quiet btn-small">
+                        {event.visible ? "Hide" : "Show"}
+                      </button>
+                    </form>
+                  )}
                 </td>
               </tr>
             ))}
@@ -84,6 +88,7 @@ export default async function AdminEventsPage() {
         </div>
       )}
 
+      {canEdit && (
       <div className="info-card" style={{ maxWidth: 460 }}>
         <h3>Add an Event</h3>
         <form action={createEventAction}>
@@ -131,6 +136,7 @@ export default async function AdminEventsPage() {
           <button type="submit" className="btn btn-primary">Create Event</button>
         </form>
       </div>
+      )}
     </>
   );
 }

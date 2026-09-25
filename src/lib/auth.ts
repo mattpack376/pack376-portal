@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import type { Role } from "@/generated/prisma/enums";
 
 export const SESSION_COOKIE = "pack376_session";
 const SESSION_DURATION_SECONDS = 45 * 24 * 60 * 60; // 45 days
@@ -17,11 +18,12 @@ function secretKey() {
 
 export type SessionPayload = {
   userId: string;
-  role: "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT" | "TRIP_VIEWER";
+  role: Role;
   denIds: string[];
-  // The scout(s) this account is linked to via Parent.userId — only ever
-  // non-empty for role PARENT. Present for every role (rather than optional)
-  // so callers can read it unconditionally, same as denIds.
+  // The scout(s) this account is linked to via Parent.userId — a PARENT
+  // login's whole family, or a staff member's own child (/portal/my-family).
+  // Present for every role (rather than optional) so callers can read it
+  // unconditionally, same as denIds.
   scoutIds: string[];
   displayName: string;
   // Snapshot of User.sessionVersion at sign-in. Compared against the DB on

@@ -23,17 +23,19 @@ function formatDate(date: Date | null) {
 }
 
 /**
- * Read-only rendering for TRIP_VIEWER logins (e.g. a shared Troop376
- * account) — no forms, no buttons, nothing mutable anywhere in this tree.
- * Kept as a completely separate component from the editable admin view
- * rather than threading a third "can this role edit" check through every
- * section of that page, so there's no section here that could accidentally
- * end up with a live edit control on it.
+ * Read-only rendering of the trip page — no forms, no buttons, nothing
+ * mutable anywhere in this tree. Kept as a completely separate component from
+ * the editable admin view rather than threading a "can this role edit" check
+ * through every section of that page, so there's no section here that could
+ * accidentally end up with a live edit control on it.
  *
- * Per-family registration detail (contact info, payment history) is shown
- * for Troop 376 only; Pack 376 registrations are summarized as pack-wide
- * totals only, no names or contact info, since this login is shared outside
- * the Pack.
+ * Two audiences:
+ * - "troop" (TRIP_VIEWER, e.g. a shared Troop376 login): per-family detail
+ *   (contact info, payment history) for Troop 376 only; Pack 376 is
+ *   summarized as totals, no names or contact info, since this login is
+ *   shared outside the Pack.
+ * - "pack" (Junior Admin): Pack staff, so both Pack and Troop families are
+ *   listed in full.
  */
 export default function TripViewerView({
   trip,
@@ -41,7 +43,9 @@ export default function TripViewerView({
   dutySlots,
   activities,
   registrations,
+  audience,
 }: {
+  audience: "troop" | "pack";
   trip: Awaited<ReturnType<typeof getOrCreateTripPage>>;
   meals: Awaited<ReturnType<typeof getTripMeals>>;
   dutySlots: Awaited<ReturnType<typeof getTripDutySlots>>;
@@ -57,21 +61,6 @@ export default function TripViewerView({
   const paidKids = paidRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
 
   const troopRegistrations = registrations.filter((r) => r.affiliation === "TROOP");
-  const troopAdults = troopRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
-  const troopKids = troopRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
-  const troopOwed = troopRegistrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
-  const troopPaid = troopRegistrations.reduce((sum, r) => sum + r.paidCents, 0);
-  const troopPaidInFull = troopRegistrations.filter((r) => r.remainingCents <= 0).length;
-  const troopAdultsLabel = `${troopAdults} adult${troopAdults === 1 ? "" : "s"}`;
-  const troopKidsLabel = `${troopKids} kid${troopKids === 1 ? "" : "s"}`;
-  // Built as one plain string (not interleaved JSX text/expression children)
-  // because this toolchain's JSX transform was observed dropping the space
-  // that immediately follows a `{expr}` boundary when that boundary is
-  // followed directly by more literal text on the same line — reproducible
-  // and confirmed via the rendered DOM's child nodes, not a typo in the
-  // source. Safest fix is avoiding the adjacency entirely.
-  const troopFamiliesSummary = `${troopRegistrations.length} famil${troopRegistrations.length === 1 ? "y" : "ies"} — ${troopAdultsLabel}, ${troopKidsLabel} (4 and under)`;
-
   const packRegistrations = registrations.filter((r) => r.affiliation === "PACK");
   const packAdults = packRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
   const packKids = packRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
@@ -99,7 +88,7 @@ export default function TripViewerView({
   return (
     <>
       <div className="section-head">
-        <div className="eyebrow">Troop 376 — View Only</div>
+        <div className="eyebrow">{audience === "troop" ? "Troop 376 — View Only" : "View Only"}</div>
         <h2>Camp Conron Trip</h2>
         <p>Read-only — questions or changes go through a Pack 376 admin.</p>
       </div>
@@ -293,29 +282,72 @@ export default function TripViewerView({
       </div>
       </div>
 
+      {audience === "pack" && <FamilyDetailSection name="Pack 376" registrations={packRegistrations} />}
+      <FamilyDetailSection name="Troop 376" registrations={troopRegistrations} />
+
+      {audience === "troop" && (
+      <div className="info-card" style={{ maxWidth: CARD_WIDTH }}>
+        <h3>Pack 376 (Summary Only)</h3>
+        <p>
+          {packRegistrations.length} famil{packRegistrations.length === 1 ? "y" : "ies"} registered — {packAdults} adult
+          {packAdults === 1 ? "" : "s"}, {packKids} kid{packKids === 1 ? "" : "s"} · {formatCents(packPaid)} paid of{" "}
+          {formatCents(packOwed)} owed.
+        </p>
+      </div>
+      )}
+    </>
+  );
+}
+
+type Registrations = Awaited<ReturnType<typeof getTripRegistrations>>;
+
+/** One affiliation's families, each expandable to its contact info and payment history. */
+function FamilyDetailSection({ name, registrations }: { name: string; registrations: Registrations }) {
+  const adults = registrations.reduce((sum, r) => sum + r.payingCount, 0);
+  const kids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
+  const owed = registrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
+  const paid = registrations.reduce((sum, r) => sum + r.paidCents, 0);
+  const paidInFull = registrations.filter((r) => r.remainingCents <= 0).length;
+  // Every mixed text/value line is built as one plain string (not
+  // interleaved JSX text/expression children) because this toolchain's JSX
+  // transform was observed dropping the space that immediately follows a
+  // `{expr}` boundary when that boundary is followed directly by more
+  // literal text on the same line — reproducible and confirmed via the
+  // rendered DOM's child nodes, not a typo in the source.
+  const heading = `${name} Families (${registrations.length})`;
+  const summaryHeading = `${name} Summary`;
+  const familiesSummary = `${registrations.length} famil${registrations.length === 1 ? "y" : "ies"} — ${adults} adult${
+    adults === 1 ? "" : "s"
+  }, ${kids} kid${kids === 1 ? "" : "s"} (4 and under)`;
+  const paidInFullSummary = `${paidInFull} of ${registrations.length} paid in full`;
+  const moneySummary = `Owed ${formatCents(owed)} · Paid ${formatCents(paid)} · Remaining ${formatCents(owed - paid)}`;
+  const emptyText = `No ${name} registrations yet.`;
+
+  return (
+    <>
       <div className="section-head">
         <div className="eyebrow">Registrations</div>
-        <h2>Troop 376 Families ({troopRegistrations.length})</h2>
+        <h2>{heading}</h2>
       </div>
 
       <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
-        <h3>Troop 376 Summary</h3>
-        <p style={{ marginBottom: 8 }}>{troopFamiliesSummary}</p>
+        <h3>{summaryHeading}</h3>
+        <p style={{ marginBottom: 8 }}>{familiesSummary}</p>
         <p style={{ marginBottom: 8 }}>
-          {troopPaidInFull} of {troopRegistrations.length} paid in full
+          {paidInFullSummary}
         </p>
         <p>
-          Owed {formatCents(troopOwed)} · Paid {formatCents(troopPaid)} · Remaining {formatCents(troopOwed - troopPaid)}
+          {moneySummary}
         </p>
       </div>
 
-      {troopRegistrations.length === 0 ? (
+      {registrations.length === 0 ? (
         <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
-          <p>No Troop 376 registrations yet.</p>
+          <p>{emptyText}</p>
         </div>
       ) : (
         <div style={{ marginBottom: 24 }}>
-          {troopRegistrations.map((reg) => {
+          {registrations.map((reg) => {
             const status = paymentStatus(reg.remainingCents, reg.paidCents);
             return (
               <CollapsibleGroup
@@ -365,15 +397,6 @@ export default function TripViewerView({
           })}
         </div>
       )}
-
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH }}>
-        <h3>Pack 376 (Summary Only)</h3>
-        <p>
-          {packRegistrations.length} famil{packRegistrations.length === 1 ? "y" : "ies"} registered — {packAdults} adult
-          {packAdults === 1 ? "" : "s"}, {packKids} kid{packKids === 1 ? "" : "s"} · {formatCents(packPaid)} paid of{" "}
-          {formatCents(packOwed)} owed.
-        </p>
-      </div>
     </>
   );
 }

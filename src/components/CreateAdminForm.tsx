@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createAdminAction } from "@/lib/actions/users";
-import type { AssignableRole } from "@/lib/roleLabels";
+import { ASSIGNABLE_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, type AssignableRole } from "@/lib/roleLabels";
 import CredentialReveal from "@/components/CredentialReveal";
 import type { CreatedInvite } from "@/lib/actions/dens";
 
@@ -65,12 +65,11 @@ export default function CreateAdminForm() {
           value={role}
           onChange={(e) => setRole(e.target.value as AssignableRole)}
         >
-          <option value="ADMIN">Admin — Full Privileges</option>
-          <option value="JUNIOR_ADMIN">Junior Admin — attendance, advancement, all dens</option>
-          <option value="ATTENDANCE_ADMIN">Attendance Only — attendance for all dens</option>
-          <option value="PHOTOGRAPHER">Photographer — add/edit albums only (no delete)</option>
-          <option value="DEN">Den Leader — advancement & attendance for their assigned den(s)</option>
-          <option value="TRIP_VIEWER">Trip Viewer — view only, Camp Conron trip page only</option>
+          {ASSIGNABLE_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABELS[r]} — {ROLE_DESCRIPTIONS[r]}
+            </option>
+          ))}
         </select>
       </div>
       {error && <p className="form-error">{error}</p>}

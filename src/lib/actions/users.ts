@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession, hashPassword } from "@/lib/auth";
-import { assertAdmin, assertMasterAdmin, isReservedUsername } from "@/lib/authorize";
+import { assertAdmin, assertMasterAdmin, isDenScopedRole, isReservedUsername } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
 import { issueInviteToken, issueResetToken } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
@@ -307,8 +307,12 @@ export async function updateUserRoleAction(
     where: { id: userId },
     data: { role: role as AssignableRole, sessionVersion: { increment: 1 } },
   });
+  // Den assignments grant access only for den-scoped roles (Den Leader,
+  // Committee Member); moving to any other role would leave them as a
+  // leftover leader listing, so clear them. Den Leader <-> Committee keeps
+  // them, since the person still leads that den.
   let clearedDenAssignments = false;
-  if (user.role === "DEN" && role !== "DEN") {
+  if (isDenScopedRole(user.role) && !isDenScopedRole(role as AssignableRole)) {
     await prisma.denAssignment.deleteMany({ where: { userId } });
     clearedDenAssignments = true;
   }

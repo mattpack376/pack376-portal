@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin, isReservedUsername } from "@/lib/authorize";
+import { assertAdmin, assertCanAddScoutsToDens, isReservedUsername } from "@/lib/authorize";
 import { hashPassword } from "@/lib/auth";
 import { generatePassword } from "@/lib/passwords";
 import { deleteScoutCascade } from "@/lib/scoutDeletion";
@@ -121,10 +121,11 @@ export async function createDenAction(
   return { invite };
 }
 
+// Junior Admins can add a scout too; renaming and removing stay admin-only.
 export async function addScoutAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertAdmin(session);
+  assertCanAddScoutsToDens(session);
 
   const denId = String(formData.get("denId") || "");
   const firstName = String(formData.get("firstName") || "").trim();

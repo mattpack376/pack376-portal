@@ -36,6 +36,7 @@ const isLocal = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
 const HOME: Record<string, string> = {
   ADMIN: "/portal/admin",
   JUNIOR_ADMIN: "/portal/admin",
+  COMMITTEE: "/portal/admin",
   ATTENDANCE_ADMIN: "/portal/admin/attendance",
   PHOTOGRAPHER: "/portal/admin/albums",
   PARENT: "/portal/parent",

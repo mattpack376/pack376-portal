@@ -5,8 +5,9 @@ import type { AuditDetail } from "@/lib/audit";
 import type { Role } from "@/generated/prisma/enums";
 
 /**
- * The three tabs on /portal/admin/audit. "Admins" and "Den Leaders" are the
- * two the log was asked for; "Everyone" exists so no entry is ever only
+ * The tabs on /portal/admin/audit. "Admins" and "Den Leaders" are the two
+ * the log was asked for, and "Committee" covers the other role that edits
+ * advancement and attendance. "Everyone" exists so no entry is ever only
  * reachable by guessing a URL — Attendance Only, Photographer, Parent and
  * Trip Viewer accounts all record entries too, and they'd otherwise be
  * invisible.
@@ -19,13 +20,14 @@ import type { Role } from "@/generated/prisma/enums";
 export const AUDIT_VIEWS = {
   admins: { label: "Admins", roles: ["ADMIN", "JUNIOR_ADMIN"] as Role[] },
   dens: { label: "Den Leaders", roles: ["DEN"] as Role[] },
+  committee: { label: "Committee", roles: ["COMMITTEE"] as Role[] },
   all: { label: "Everyone", roles: null },
 } as const;
 
 export type AuditView = keyof typeof AUDIT_VIEWS;
 
 export function isAuditView(value: string | undefined): value is AuditView {
-  return value === "admins" || value === "dens" || value === "all";
+  return value !== undefined && Object.hasOwn(AUDIT_VIEWS, value);
 }
 
 export const AUDIT_PAGE_SIZE = 50;

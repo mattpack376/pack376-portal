@@ -20,6 +20,11 @@ enum Role {
   // authorize.ts/proxy.ts, which don't grant access to anything else in the
   // portal, and the read-only branch in the Camp Conron admin page itself.
   TRIP_VIEWER
+  // Pack committee: edits advancement and attendance for every den, reads
+  // photo consent and dues. No event money, no parent contacts — unless an
+  // admin also assigns them to a den they lead, which adds that den's Den
+  // Leader view (see authorize.ts).
+  COMMITTEE
 }
 
 enum DeadlineCategory {

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import type { Role } from "@/generated/prisma/enums";
 
-type Role = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT" | "TRIP_VIEWER";
 
 /** Public site host (no "portal." prefix) — matches getPublicBaseUrl() in src/lib/appUrl.ts,
  * duplicated here since that helper is server-only and this component is a client component. */
@@ -19,11 +19,14 @@ const isGroup = (item: NavItem): item is NavGroup => "children" in item;
 export default function PortalNav({
   role,
   hasLinkedScouts = false,
+  hasDens = false,
   onNavigate,
 }: {
   role: Role;
   /** Staff account with a scout linked via Parent.userId — see /portal/my-family. */
   hasLinkedScouts?: boolean;
+  /** Has at least one den assignment — gives a Committee Member their den's Family View. */
+  hasDens?: boolean;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -34,8 +37,9 @@ export default function PortalNav({
   const items: NavItem[] = (() => {
     switch (role) {
       /*
-       * Only ADMIN is grouped. Every other role has four links or fewer,
-       * where a flat row is easier to scan than a menu you have to open.
+       * Only ADMIN and JUNIOR_ADMIN are grouped. Every other role has few
+       * enough links that a flat row is easier to scan than a menu you have
+       * to open.
        *
        * Grouping follows what the pages do rather than where they sit in the
        * routes — Dues and Events both track what families owe, Roster and
@@ -74,13 +78,32 @@ export default function PortalNav({
           },
         ];
       case "JUNIOR_ADMIN":
+        // Same shape as ADMIN minus what they can't reach: Money is
+        // read-only for them, and Homepage Content is the top banner alone.
         return [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
-          { href: "/portal/admin/homepage-events", label: "Homepage Content" },
+          { href: "/portal/roster/family-view", label: "Family View" },
           { href: "/portal/admin/camp-conron", label: "Camp Conron Trip" },
           { href: "/portal/roster", label: "Roster" },
-          { href: "/portal/roster/family-view", label: "Family View" },
+          {
+            label: "Money",
+            children: [
+              { href: "/portal/admin/dues", label: "Dues" },
+              { href: "/portal/admin/events", label: "Events" },
+            ],
+          },
+          { href: "/portal/admin/homepage-events", label: "Top Banner" },
+        ];
+      case "COMMITTEE":
+        return [
+          { href: "/portal/admin", label: "Dashboard" },
+          { href: "/portal/admin/attendance", label: "Attendance" },
+          { href: "/portal/admin/dues", label: "Dues" },
+          { href: "/portal/roster", label: "Roster" },
+          { href: "/portal/roster/photo-consent", label: "Photo Consent" },
+          // A committee member who also leads a den gets that den's view.
+          ...(hasDens ? [{ href: withDenId("/portal/roster/family-view"), label: "Family View" }] : []),
         ];
       case "ATTENDANCE_ADMIN":
         return [

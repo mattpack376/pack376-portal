@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import type { Role } from "@/generated/prisma/enums";
 
 const SESSION_COOKIE = "pack376_session";
 
@@ -15,7 +16,7 @@ function secretKey() {
   return new TextEncoder().encode(secret);
 }
 
-type ProxyRole = "ADMIN" | "DEN" | "ATTENDANCE_ADMIN" | "JUNIOR_ADMIN" | "PHOTOGRAPHER" | "PARENT" | "TRIP_VIEWER";
+type ProxyRole = Role;
 
 async function readSession(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
@@ -33,6 +34,7 @@ async function readSession(request: NextRequest) {
 function homeForRole(role: ProxyRole) {
   if (role === "ADMIN") return "/portal/admin";
   if (role === "JUNIOR_ADMIN") return "/portal/admin";
+  if (role === "COMMITTEE") return "/portal/admin";
   if (role === "ATTENDANCE_ADMIN") return "/portal/admin/attendance";
   if (role === "PHOTOGRAPHER") return "/portal/admin/albums";
   if (role === "PARENT") return "/portal/parent";
@@ -48,9 +50,15 @@ function homeForRole(role: ProxyRole) {
 const ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[] = [
   // Pack-wide roster (every den, leader, and scout name) — every staff role
   // but never a PARENT account. Mirrors requireRosterSession() in authorize.ts.
-  { test: (p) => p.startsWith("/portal/roster"), roles: ["ADMIN", "JUNIOR_ADMIN", "DEN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER"] },
-  { test: (p) => p.startsWith("/portal/admin/attendance"), roles: ["ADMIN", "JUNIOR_ADMIN", "ATTENDANCE_ADMIN"] },
-  { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "JUNIOR_ADMIN", "PHOTOGRAPHER"] },
+  // Parent contacts and Family View under it are narrowed further by
+  // requireParentContactsSession() on the page (a Committee Member only with
+  // a den assigned), which this cookie-only layer can't see.
+  {
+    test: (p) => p.startsWith("/portal/roster"),
+    roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE", "DEN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER"],
+  },
+  { test: (p) => p.startsWith("/portal/admin/attendance"), roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE", "ATTENDANCE_ADMIN"] },
+  { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/parent-portal"), roles: ["ADMIN"] },
   // The audit log is master-admin-only, which this layer can't check — master
@@ -58,30 +66,31 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: ProxyRole[] }[]
   // access. ADMIN is the tightest coarse rule available; the real gate is
   // requireMasterAdminSession() on the page, which bounces everyone else.
   { test: (p) => p.startsWith("/portal/admin/audit"), roles: ["ADMIN"] },
+  { test: (p) => p.startsWith("/portal/admin/reset"), roles: ["ADMIN"] },
+  // Dues: Admin edits, Junior Admin and Committee Member read. Mirrors
+  // requireDuesViewSession().
+  { test: (p) => p.startsWith("/portal/admin/dues"), roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE"] },
   // CSV exports (per-event and pack-wide) are an admin-only bookkeeping
-  // tool — checked before the DEN-inclusive rules below since "export" would
-  // otherwise satisfy their generic segment-count patterns.
+  // tool — checked before the events rule below, which would otherwise
+  // let Junior Admin through.
   { test: (p) => /^\/portal\/admin\/events(\/[^/]+)?\/guests\/export$/.test(p), roles: ["ADMIN"] },
-  // The pack-wide "All Guests" view (grouped across every event) is
-  // admin-only, same as the events list/detail pages below.
-  { test: (p) => p === "/portal/admin/events/guests", roles: ["ADMIN"] },
-  // A den leader records payments on a single guest group's page, same as
-  // on a single scout registration's page below.
-  { test: (p) => /^\/portal\/admin\/events\/[^/]+\/guests\/[^/]+$/.test(p), roles: ["ADMIN", "DEN"] },
-  // A den leader records payments on a single registration's page (checked
-  // den-by-den in the page/action itself); the event list and event detail
-  // pages stay admin-only.
-  { test: (p) => /^\/portal\/admin\/events\/[^/]+\/[^/]+$/.test(p), roles: ["ADMIN", "DEN"] },
-  { test: (p) => p.startsWith("/portal/admin/events"), roles: ["ADMIN"] },
+  // Events, registrations and guest groups: Admin edits, Junior Admin reads.
+  // Den leaders see no money. Mirrors requireEventsViewSession().
+  { test: (p) => p.startsWith("/portal/admin/events"), roles: ["ADMIN", "JUNIOR_ADMIN"] },
   { test: (p) => p.endsWith("/promote"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens/new"), roles: ["ADMIN"] },
-  { test: (p) => p.startsWith("/portal/admin/dens"), roles: ["ADMIN", "JUNIOR_ADMIN"] },
+  { test: (p) => p.startsWith("/portal/admin/dens"), roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE"] },
   // TRIP_VIEWER (e.g. a shared Troop376 login) only reaches this exact page,
   // read-only — checked before the generic "/portal/admin" rule below, which
   // would otherwise also match this path but for ADMIN/JUNIOR_ADMIN only.
   // Deliberately an exact match, not a prefix: the CSV export route
-  // (/portal/admin/camp-conron/export) stays admin-only via the generic rule.
+  // (/portal/admin/camp-conron/export) stays admin-only via the rule below.
   { test: (p) => p === "/portal/admin/camp-conron", roles: ["ADMIN", "JUNIOR_ADMIN", "TRIP_VIEWER"] },
+  { test: (p) => p.startsWith("/portal/admin/camp-conron"), roles: ["ADMIN"] },
+  // The dashboard (den tiles, which lead to advancement) — every role that
+  // edits advancement pack-wide. Exact match: everything else under
+  // /portal/admin falls to the rule after it.
+  { test: (p) => p === "/portal/admin", roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE"] },
   { test: (p) => p.startsWith("/portal/admin"), roles: ["ADMIN", "JUNIOR_ADMIN"] },
 ];
 
