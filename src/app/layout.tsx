@@ -30,6 +30,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#003f87",
+  // With the black-translucent status bar above, a home-screen launch draws
+  // the page under the iPhone status bar. "cover" is what makes Safari report
+  // that area (env(safe-area-inset-*)), so the headers can pad out of it —
+  // see .site-header / .portal-header in globals.css.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

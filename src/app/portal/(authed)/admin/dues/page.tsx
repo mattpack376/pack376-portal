@@ -51,8 +51,8 @@ export default async function AdminDuesPage({
         </form>
       </div>
 
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 24 }}>
-        <div className="info-card" style={{ maxWidth: 360, marginBottom: 0 }}>
+      <div className="card-row">
+        <div className="info-card">
           <h3>Season Fee — {scoutingYear}</h3>
           <p>
             {amountCents === null
@@ -81,7 +81,7 @@ export default async function AdminDuesPage({
           )}
         </div>
 
-        <div className="info-card" style={{ maxWidth: 260, marginBottom: 0 }}>
+        <div className="info-card">
           <h3>Total Dues to be Collected</h3>
           <p style={{ fontSize: 28, fontWeight: 700, color: "var(--scout-blue)", margin: 0 }}>
             {totalDuesCents === null ? "—" : formatCents(totalDuesCents)}
@@ -92,7 +92,7 @@ export default async function AdminDuesPage({
           </p>
         </div>
 
-        <div className="info-card" style={{ maxWidth: 260, marginBottom: 0 }}>
+        <div className="info-card">
           <h3>Collected So Far</h3>
           <p style={{ fontSize: 28, fontWeight: 700, color: "var(--scout-blue)", margin: 0 }}>
             {formatCents(collectedCents)}
