@@ -5,6 +5,7 @@ import { getScoutDuesDetail, formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { denDisplayName } from "@/lib/rankConfig";
 import { addDuesPaymentAction, deleteDuesPaymentAction, setScoutDuesOverrideAction } from "@/lib/actions/dues";
+import { todayDateOnlyString } from "@/lib/dateOnly";
 
 export default async function AdminScoutDuesPage({
   params,
@@ -82,7 +83,7 @@ export default async function AdminScoutDuesPage({
           </div>
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
             <label htmlFor="paidOn">Date</label>
-            <input id="paidOn" name="paidOn" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+            <input id="paidOn" name="paidOn" type="date" defaultValue={todayDateOnlyString()} />
           </div>
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
             <label htmlFor="note">Note (optional)</label>

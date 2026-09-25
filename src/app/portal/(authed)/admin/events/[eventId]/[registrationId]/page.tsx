@@ -7,6 +7,7 @@ import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { denDisplayName } from "@/lib/rankConfig";
 import { formatDueDate } from "@/lib/deadlineCategories";
 import { addEventPaymentAction, deleteEventPaymentAction, updateRegistrationAmountAction } from "@/lib/actions/events";
+import { todayDateOnlyString } from "@/lib/dateOnly";
 
 export default async function AdminEventRegistrationPage({
   params,
@@ -77,7 +78,7 @@ export default async function AdminEventRegistrationPage({
           </div>
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
             <label htmlFor="paidOn">Date</label>
-            <input id="paidOn" name="paidOn" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+            <input id="paidOn" name="paidOn" type="date" defaultValue={todayDateOnlyString()} />
           </div>
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
             <label htmlFor="note">Note (optional)</label>

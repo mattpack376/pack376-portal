@@ -13,6 +13,7 @@ import {
 } from "@/lib/actions/events";
 import GuestOfSelect from "@/components/GuestOfSelect";
 import GuestGroupCountFields from "@/components/GuestGroupCountFields";
+import { todayDateOnlyString } from "@/lib/dateOnly";
 
 export default async function AdminGuestGroupPage({
   params,
@@ -109,7 +110,7 @@ export default async function AdminGuestGroupPage({
           </div>
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
             <label htmlFor="paidOn">Date</label>
-            <input id="paidOn" name="paidOn" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+            <input id="paidOn" name="paidOn" type="date" defaultValue={todayDateOnlyString()} />
           </div>
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
             <label htmlFor="note">Note (optional)</label>

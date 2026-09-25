@@ -11,6 +11,7 @@ import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import { uploadFlyer } from "@/lib/flyerUpload";
 import { dollarsToCents, parseCount } from "@/lib/formValues";
+import { todayDateOnlyString } from "@/lib/dateOnly";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 
 /** An event's title for audit text, falling back to the raw id. */
@@ -443,7 +444,7 @@ export async function addEventPaymentAction(formData: FormData) {
   if (!registration) throw new Error("Registration not found.");
   assertAdmin(session);
 
-  const paidOn = paidOnRaw ? new Date(paidOnRaw) : new Date();
+  const paidOn = new Date(paidOnRaw || todayDateOnlyString());
   if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
 
   const payment = await prisma.eventPayment.create({
@@ -852,7 +853,7 @@ export async function addGuestGroupPaymentAction(formData: FormData) {
   if (!guestGroup) throw new Error("Guest group not found.");
   assertAdmin(session);
 
-  const paidOn = paidOnRaw ? new Date(paidOnRaw) : new Date();
+  const paidOn = new Date(paidOnRaw || todayDateOnlyString());
   if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
 
   const payment = await prisma.eventGuestGroupPayment.create({

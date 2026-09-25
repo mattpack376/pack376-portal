@@ -12,7 +12,7 @@ import {
   TRIP_DAY_ORDER,
 } from "@/lib/tripPageData";
 import { formatCents } from "@/lib/duesData";
-import { toDateOnlyString } from "@/lib/dateOnly";
+import { toDateOnlyString, todayDateOnlyString } from "@/lib/dateOnly";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import {
@@ -734,7 +734,7 @@ export default async function AdminCampConronPage({
                         </div>
                         <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
                           <label htmlFor={`paidOn-${reg.id}`}>Date</label>
-                          <input id={`paidOn-${reg.id}`} name="paidOn" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+                          <input id={`paidOn-${reg.id}`} name="paidOn" type="date" defaultValue={todayDateOnlyString()} />
                         </div>
                         <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
                           <label htmlFor={`note-${reg.id}`}>Note (optional)</label>
