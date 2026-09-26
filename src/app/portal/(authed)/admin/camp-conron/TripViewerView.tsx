@@ -116,8 +116,8 @@ export default function TripViewerView({
         <p style={{ marginBottom: 8 }}>
           <strong>Collected So Far:</strong> {formatCents(totalPaid)}
         </p>
-        <p style={{ marginBottom: 8 }}>
-          <strong>Remaining:</strong> {formatCents(totalOwed - totalPaid)}
+        <p className={totalOwed - totalPaid > 0 ? "balance-negative" : undefined} style={{ marginBottom: 8 }}>
+          <strong>Outstanding Payments:</strong> {formatCents(totalOwed - totalPaid)}
         </p>
         <p style={{ marginBottom: 8 }}>
           <strong>Expenses:</strong> {formatCents(totalExpenses)}
