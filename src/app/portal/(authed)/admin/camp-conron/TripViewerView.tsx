@@ -12,6 +12,7 @@ import {
   type getTripDutySlots,
   type getTripActivities,
   type getTripRegistrations,
+  type getTripExpenses,
 } from "@/lib/tripPageData";
 
 const CARD_WIDTH = 480;
@@ -30,6 +31,9 @@ const CARD_WIDTH = 480;
  *   shared outside the Pack.
  * - "pack" (Junior Admin): Pack staff, so both Pack and Troop families are
  *   listed in full.
+ *
+ * Both audiences see the trip's expenses — it's a joint trip, so the Troop
+ * gets to see what it cost.
  */
 export default function TripViewerView({
   trip,
@@ -37,6 +41,7 @@ export default function TripViewerView({
   dutySlots,
   activities,
   registrations,
+  expenses,
   audience,
 }: {
   audience: "troop" | "pack";
@@ -45,9 +50,11 @@ export default function TripViewerView({
   dutySlots: Awaited<ReturnType<typeof getTripDutySlots>>;
   activities: Awaited<ReturnType<typeof getTripActivities>>;
   registrations: Awaited<ReturnType<typeof getTripRegistrations>>;
+  expenses: Awaited<ReturnType<typeof getTripExpenses>>;
 }) {
   const totalOwed = registrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
   const totalPaid = registrations.reduce((sum, r) => sum + r.paidCents, 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amountCents, 0);
   const totalAdults = registrations.reduce((sum, r) => sum + r.payingCount, 0);
   const totalKids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
   const paidRegistrations = registrations.filter((r) => r.remainingCents <= 0);
@@ -108,10 +115,55 @@ export default function TripViewerView({
         <p style={{ marginBottom: 8 }}>
           <strong>Collected So Far:</strong> {formatCents(totalPaid)}
         </p>
-        <p>
+        <p style={{ marginBottom: 8 }}>
           <strong>Remaining:</strong> {formatCents(totalOwed - totalPaid)}
         </p>
+        <p style={{ marginBottom: 8 }}>
+          <strong>Expenses:</strong> {formatCents(totalExpenses)}
+        </p>
+        <p style={{ marginBottom: 8 }}>
+          <strong>Available to Spend (Collected So Far):</strong> {formatCents(totalPaid - totalExpenses)}
+        </p>
+        <p>
+          <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(totalOwed - totalExpenses)}
+        </p>
       </div>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <CollapsibleGroup
+          defaultOpen={false}
+          label={`Expenses — ${formatCents(totalExpenses)} (${expenses.length} item${expenses.length === 1 ? "" : "s"})`}
+        >
+          <div className="info-card" style={{ marginTop: 8 }}>
+            {expenses.length === 0 ? (
+              <p>No expenses recorded yet.</p>
+            ) : (
+              <div className="table-scroll">
+                <table className="data-table" style={{ marginBottom: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Expense</th>
+                      <th>Date</th>
+                      <th>Paid By</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expenses.map((e) => (
+                      <tr key={e.id}>
+                        <td>{e.description}</td>
+                        <td data-label="Date">{e.spentOn.toLocaleDateString("en-US", { timeZone: "UTC" })}</td>
+                        <td data-label="Paid By">{e.paidBy || "—"}</td>
+                        <td data-label="Amount">{formatCents(e.amountCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </CollapsibleGroup>
       </div>
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>

@@ -77,6 +77,7 @@ export default async function AdminCampConronPage({
         dutySlots={dutySlots}
         activities={activities}
         registrations={registrations}
+        expenses={expenses}
       />
     );
   }
@@ -158,10 +159,10 @@ export default async function AdminCampConronPage({
             <strong>Expenses:</strong> {formatCents(totalExpenses)}
           </p>
           <p style={{ marginBottom: 8 }}>
-            <strong>Net So Far (collected − expenses):</strong> {formatCents(totalPaid - totalExpenses)}
+            <strong>Available to Spend (Collected So Far):</strong> {formatCents(totalPaid - totalExpenses)}
           </p>
           <p>
-            <strong>Projected Net (if everyone pays):</strong> {formatCents(totalOwed - totalExpenses)}
+            <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(totalOwed - totalExpenses)}
           </p>
         </div>
       </div>
