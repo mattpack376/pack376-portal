@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertPhotoConsentDenAccess } from "@/lib/authorize";
+import { assertPhotoConsentDenAccess, canManagePhotoConsentForDen } from "@/lib/authorize";
 import { generatePhotoConsentToken } from "@/lib/photoConsentTokens";
 import { getPublicBaseUrl } from "@/lib/appUrl";
-import { sendPhotoConsentLinkEmail } from "@/lib/email";
+import { sendPhotoConsentLinkEmail, sendPhotoConsentLinkEmails } from "@/lib/email";
+import { consentGroup } from "@/lib/photoConsentGroups";
 import { recordAudit } from "@/lib/audit";
 import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
 
@@ -190,4 +191,79 @@ export async function sendPhotoConsentLinkEmailAction(
   }
 
   return { sent, configured };
+}
+
+export type EmailAllConsentLinksState = { error?: string; sent?: number; failed?: number; configured?: boolean };
+
+/**
+ * Admin/den-leader — the Not Answered tab's Email All: sends every unanswered
+ * scout in the dens this login manages their own consent link, generating one
+ * first where none exists yet. Goes to the scout's first parent with an email,
+ * same as the per-scout Email Link button; scouts with no parent email are
+ * skipped (the page lists how many). Recomputes the list server-side rather
+ * than trusting anything from the form.
+ */
+// Takes no arguments: useActionState passes (prevState, formData), and neither
+// is needed since the recipient list is rebuilt here from the database.
+export async function emailAllUnansweredConsentLinksAction(): Promise<EmailAllConsentLinksState> {
+  const session = await getSession();
+  if (!session) return { error: "Not authorized." };
+
+  const dens = await prisma.den.findMany({ select: { id: true } });
+  const denIds = dens.map((d) => d.id).filter((id) => canManagePhotoConsentForDen(session, id));
+  if (denIds.length === 0) return { error: "Not authorized for any den." };
+
+  const scouts = await prisma.scout.findMany({
+    where: { denId: { in: denIds } },
+    select: {
+      id: true,
+      denId: true,
+      firstName: true,
+      lastName: true,
+      photoConsent: { select: { token: true, facebook: true, website: true, fliers: true } },
+      parents: { where: { email: { not: null } }, orderBy: { createdAt: "asc" }, select: { email: true } },
+    },
+  });
+  const targets = scouts
+    .filter((s) => consentGroup(s.photoConsent) === "unanswered")
+    .map((s) => ({ ...s, email: s.parents.map((p) => p.email?.trim()).find((e) => !!e) }))
+    .filter((s): s is typeof s & { email: string } => !!s.email);
+  if (targets.length === 0) return { sent: 0, failed: 0, configured: true };
+
+  // Scouts with no link yet get one now, same as clicking Generate Link.
+  const tokens = new Map(targets.flatMap((s) => (s.photoConsent ? [[s.id, s.photoConsent.token] as const] : [])));
+  for (const scout of targets.filter((s) => !s.photoConsent)) {
+    const record = await prisma.photoConsent.upsert({
+      where: { scoutId: scout.id },
+      create: { scoutId: scout.id, token: generatePhotoConsentToken() },
+      update: {},
+    });
+    tokens.set(scout.id, record.token);
+    await recordAudit(session, {
+      action: "photoConsent.generateLink",
+      summary: `Generated a photo consent link for ${scout.firstName} ${scout.lastName}`,
+      entityType: "PhotoConsent",
+      entityId: scout.id,
+      denId: scout.denId,
+    });
+  }
+
+  const { sent, configured } = await sendPhotoConsentLinkEmails(
+    targets.map((s) => ({ to: s.email, scoutFirstName: s.firstName, url: consentLinkUrl(tokens.get(s.id)!) }))
+  );
+
+  for (const [i, scout] of targets.entries()) {
+    if (!sent[i]) continue;
+    await recordAudit(session, {
+      action: "photoConsent.emailLink",
+      summary: `Emailed ${scout.firstName}'s photo consent link to ${scout.email} (Email All)`,
+      entityType: "PhotoConsent",
+      entityId: scout.id,
+      denId: scout.denId,
+    });
+  }
+
+  revalidatePath(ADMIN_PAGE_PATH);
+  const sentCount = sent.filter(Boolean).length;
+  return { sent: sentCount, failed: targets.length - sentCount, configured };
 }
