@@ -40,7 +40,7 @@ import {
 } from "@/lib/actions/tripRegistration";
 import TripRegistrationCountFields from "@/components/TripRegistrationCountFields";
 import TripViewerView from "./TripViewerView";
-import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
+import { paymentStatus, paymentRowClass, balanceClass } from "@/lib/paymentStatus";
 import SegmentedNav from "@/components/SegmentedNav";
 
 const CARD_WIDTH = 480;
@@ -158,10 +158,10 @@ export default async function AdminCampConronPage({
           <p style={{ marginBottom: 8 }}>
             <strong>Expenses:</strong> {formatCents(totalExpenses)}
           </p>
-          <p className="trip-available" style={{ marginBottom: 8 }}>
+          <p className={balanceClass(totalPaid - totalExpenses)} style={{ marginBottom: 8 }}>
             <strong>Available to Spend (Collected So Far):</strong> {formatCents(totalPaid - totalExpenses)}
           </p>
-          <p className="trip-available">
+          <p className={balanceClass(totalOwed - totalExpenses)}>
             <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(totalOwed - totalExpenses)}
           </p>
         </div>

@@ -2,7 +2,7 @@ import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import Linkify from "@/components/Linkify";
-import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
+import { paymentStatus, paymentRowClass, balanceClass } from "@/lib/paymentStatus";
 import {
   DAY_LABELS,
   MEAL_TYPE_LABELS,
@@ -121,10 +121,10 @@ export default function TripViewerView({
         <p style={{ marginBottom: 8 }}>
           <strong>Expenses:</strong> {formatCents(totalExpenses)}
         </p>
-        <p className="trip-available" style={{ marginBottom: 8 }}>
+        <p className={balanceClass(totalPaid - totalExpenses)} style={{ marginBottom: 8 }}>
           <strong>Available to Spend (Collected So Far):</strong> {formatCents(totalPaid - totalExpenses)}
         </p>
-        <p className="trip-available">
+        <p className={balanceClass(totalOwed - totalExpenses)}>
           <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(totalOwed - totalExpenses)}
         </p>
       </div>

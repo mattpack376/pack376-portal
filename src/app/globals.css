@@ -1367,9 +1367,10 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
  * color and doesn't carry enough contrast as small text on cream.
  */
 .den-toggle.status-owing { color: var(--carnival-red-dark); }
-/* Camp Conron "Available to Spend" lines — called out in red so they stand out in the Money card. */
-.trip-available { color: var(--carnival-red-dark); }
 .den-toggle.status-paid { color: var(--money-green); }
+/* A running balance line (Camp Conron "Available to Spend"): red below zero, green above, plain at zero. See balanceClass(). */
+.balance-negative { color: var(--carnival-red-dark); }
+.balance-positive { color: var(--money-green); }
 /* Same states on a table row (dues, event rosters, guest groups). The status
    badge and the row's buttons set their own colors, so this reaches the
    name/amount cells — exactly the ones worth scanning. */

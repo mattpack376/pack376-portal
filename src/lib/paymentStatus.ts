@@ -39,3 +39,10 @@ export function paymentRowClass(remainingCents: number | null, paidCents: number
 export function paymentStatusLabel(remainingCents: number | null, paidCents: number) {
   return paymentStatus(remainingCents, paidCents).label;
 }
+
+/** Color for a balance that can go either way — red when negative, green when positive, nothing at zero. */
+export function balanceClass(cents: number): string | undefined {
+  if (cents < 0) return "balance-negative";
+  if (cents > 0) return "balance-positive";
+  return undefined;
+}
