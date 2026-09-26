@@ -17,6 +17,7 @@ import {
   toggleSiteBannerAction,
   deleteSiteBannerAction,
 } from "@/lib/actions/siteBanner";
+import EditPopover from "@/components/EditPopover";
 
 function bannerStatus(
   banner: { active: boolean; startAt: Date | null; endAt: Date | null },
@@ -115,38 +116,33 @@ export default async function HomepageEventsAdminPage() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
-                  <details className="edit-popover">
-                    <summary className="btn btn-quiet btn-small" style={{ display: "inline-block", cursor: "pointer" }}>
-                      Edit
-                    </summary>
-                    <form action={updateSiteBannerAction}>
-                      <input type="hidden" name="id" value={banner.id} />
-                      <div className="form-field">
-                        <label htmlFor={`banner-message-${banner.id}`}>Message</label>
-                        <input id={`banner-message-${banner.id}`} name="message" defaultValue={banner.message} required />
-                      </div>
-                      <div className="form-field">
-                        <label htmlFor={`banner-startAt-${banner.id}`}>Starts (optional)</label>
-                        <input
-                          id={`banner-startAt-${banner.id}`}
-                          name="startAt"
-                          type="datetime-local"
-                          defaultValue={banner.startAt ? toPackDateTimeLocalValue(banner.startAt) : ""}
-                        />
-                      </div>
-                      <div className="form-field">
-                        <label htmlFor={`banner-endAt-${banner.id}`}>Ends (optional)</label>
-                        <input
-                          id={`banner-endAt-${banner.id}`}
-                          name="endAt"
-                          type="datetime-local"
-                          defaultValue={banner.endAt ? toPackDateTimeLocalValue(banner.endAt) : ""}
-                        />
-                      </div>
-                      <p className="form-note" style={{ marginTop: -8, marginBottom: 12 }}>Times are Eastern (pack local time).</p>
-                      <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
-                    </form>
-                  </details>
+                  <EditPopover action={updateSiteBannerAction}>
+                    <input type="hidden" name="id" value={banner.id} />
+                    <div className="form-field">
+                      <label htmlFor={`banner-message-${banner.id}`}>Message</label>
+                      <input id={`banner-message-${banner.id}`} name="message" defaultValue={banner.message} required />
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor={`banner-startAt-${banner.id}`}>Starts (optional)</label>
+                      <input
+                        id={`banner-startAt-${banner.id}`}
+                        name="startAt"
+                        type="datetime-local"
+                        defaultValue={banner.startAt ? toPackDateTimeLocalValue(banner.startAt) : ""}
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor={`banner-endAt-${banner.id}`}>Ends (optional)</label>
+                      <input
+                        id={`banner-endAt-${banner.id}`}
+                        name="endAt"
+                        type="datetime-local"
+                        defaultValue={banner.endAt ? toPackDateTimeLocalValue(banner.endAt) : ""}
+                      />
+                    </div>
+                    <p className="form-note" style={{ marginTop: -8, marginBottom: 12 }}>Times are Eastern (pack local time).</p>
+                    <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                  </EditPopover>
                   <form action={toggleSiteBannerAction}>
                     <input type="hidden" name="id" value={banner.id} />
                     <input type="hidden" name="active" value={String(banner.active)} />

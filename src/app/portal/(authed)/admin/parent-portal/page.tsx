@@ -14,6 +14,7 @@ import {
   toggleVolunteerNeedAction,
   deleteVolunteerNeedAction,
 } from "@/lib/actions/parentPortal";
+import EditPopover from "@/components/EditPopover";
 
 export default async function ParentPortalAdminPage() {
   await requireAdminSession();
@@ -61,27 +62,22 @@ export default async function ParentPortalAdminPage() {
                   <p style={{ marginBottom: 0, fontSize: 14 }}>{a.body}</p>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
-                  <details className="edit-popover">
-                    <summary className="btn btn-quiet btn-small" style={{ display: "inline-block", cursor: "pointer" }}>
-                      Edit
-                    </summary>
-                    <form action={updateAnnouncementAction}>
-                      <input type="hidden" name="id" value={a.id} />
-                      <div className="form-field">
-                        <label htmlFor={`ann-title-${a.id}`}>Title</label>
-                        <input id={`ann-title-${a.id}`} name="title" defaultValue={a.title} required />
-                      </div>
-                      <div className="form-field">
-                        <label htmlFor={`ann-body-${a.id}`}>Message</label>
-                        <textarea id={`ann-body-${a.id}`} name="body" rows={3} defaultValue={a.body} required />
-                      </div>
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 14, fontWeight: 600 }}>
-                        <input type="checkbox" name="pinned" defaultChecked={a.pinned} style={{ width: "auto" }} />
-                        Pin to top
-                      </label>
-                      <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
-                    </form>
-                  </details>
+                  <EditPopover action={updateAnnouncementAction}>
+                    <input type="hidden" name="id" value={a.id} />
+                    <div className="form-field">
+                      <label htmlFor={`ann-title-${a.id}`}>Title</label>
+                      <input id={`ann-title-${a.id}`} name="title" defaultValue={a.title} required />
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor={`ann-body-${a.id}`}>Message</label>
+                      <textarea id={`ann-body-${a.id}`} name="body" rows={3} defaultValue={a.body} required />
+                    </div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 14, fontWeight: 600 }}>
+                      <input type="checkbox" name="pinned" defaultChecked={a.pinned} style={{ width: "auto" }} />
+                      Pin to top
+                    </label>
+                    <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                  </EditPopover>
                   <form action={deleteAnnouncementAction}>
                     <input type="hidden" name="id" value={a.id} />
                     <button type="submit" className="btn btn-danger btn-small">
@@ -135,37 +131,32 @@ export default async function ParentPortalAdminPage() {
                   {d.description && <p style={{ marginBottom: 0, fontSize: 14 }}>{d.description}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
-                  <details className="edit-popover">
-                    <summary className="btn btn-quiet btn-small" style={{ display: "inline-block", cursor: "pointer" }}>
-                      Edit
-                    </summary>
-                    <form action={updateDeadlineAction}>
-                      <input type="hidden" name="id" value={d.id} />
+                  <EditPopover action={updateDeadlineAction}>
+                    <input type="hidden" name="id" value={d.id} />
+                    <div className="form-field">
+                      <label htmlFor={`dl-title-${d.id}`}>Title</label>
+                      <input id={`dl-title-${d.id}`} name="title" defaultValue={d.title} required />
+                    </div>
+                    <div className="form-row">
                       <div className="form-field">
-                        <label htmlFor={`dl-title-${d.id}`}>Title</label>
-                        <input id={`dl-title-${d.id}`} name="title" defaultValue={d.title} required />
-                      </div>
-                      <div className="form-row">
-                        <div className="form-field">
-                          <label htmlFor={`dl-category-${d.id}`}>Category</label>
-                          <select id={`dl-category-${d.id}`} name="category" defaultValue={d.category}>
-                            {Object.entries(DEADLINE_CATEGORY_LABELS).map(([value, label]) => (
-                              <option key={value} value={value}>{label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="form-field">
-                          <label htmlFor={`dl-dueDate-${d.id}`}>Due Date</label>
-                          <input id={`dl-dueDate-${d.id}`} name="dueDate" type="date" defaultValue={toDateOnlyString(d.dueDate)} required />
-                        </div>
+                        <label htmlFor={`dl-category-${d.id}`}>Category</label>
+                        <select id={`dl-category-${d.id}`} name="category" defaultValue={d.category}>
+                          {Object.entries(DEADLINE_CATEGORY_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
                       </div>
                       <div className="form-field">
-                        <label htmlFor={`dl-description-${d.id}`}>Description (optional)</label>
-                        <textarea id={`dl-description-${d.id}`} name="description" rows={2} defaultValue={d.description ?? ""} />
+                        <label htmlFor={`dl-dueDate-${d.id}`}>Due Date</label>
+                        <input id={`dl-dueDate-${d.id}`} name="dueDate" type="date" defaultValue={toDateOnlyString(d.dueDate)} required />
                       </div>
-                      <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
-                    </form>
-                  </details>
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor={`dl-description-${d.id}`}>Description (optional)</label>
+                      <textarea id={`dl-description-${d.id}`} name="description" rows={2} defaultValue={d.description ?? ""} />
+                    </div>
+                    <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                  </EditPopover>
                   <form action={deleteDeadlineAction}>
                     <input type="hidden" name="id" value={d.id} />
                     <button type="submit" className="btn btn-danger btn-small">
@@ -209,23 +200,18 @@ export default async function ParentPortalAdminPage() {
                   {v.description && <p style={{ marginBottom: 0, fontSize: 14 }}>{v.description}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
-                  <details className="edit-popover">
-                    <summary className="btn btn-quiet btn-small" style={{ display: "inline-block", cursor: "pointer" }}>
-                      Edit
-                    </summary>
-                    <form action={updateVolunteerNeedAction}>
-                      <input type="hidden" name="id" value={v.id} />
-                      <div className="form-field">
-                        <label htmlFor={`vn-title-${v.id}`}>Title</label>
-                        <input id={`vn-title-${v.id}`} name="title" defaultValue={v.title} required />
-                      </div>
-                      <div className="form-field">
-                        <label htmlFor={`vn-description-${v.id}`}>Description (optional)</label>
-                        <textarea id={`vn-description-${v.id}`} name="description" rows={2} defaultValue={v.description ?? ""} />
-                      </div>
-                      <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
-                    </form>
-                  </details>
+                  <EditPopover action={updateVolunteerNeedAction}>
+                    <input type="hidden" name="id" value={v.id} />
+                    <div className="form-field">
+                      <label htmlFor={`vn-title-${v.id}`}>Title</label>
+                      <input id={`vn-title-${v.id}`} name="title" defaultValue={v.title} required />
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor={`vn-description-${v.id}`}>Description (optional)</label>
+                      <textarea id={`vn-description-${v.id}`} name="description" rows={2} defaultValue={v.description ?? ""} />
+                    </div>
+                    <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                  </EditPopover>
                   <form action={toggleVolunteerNeedAction}>
                     <input type="hidden" name="id" value={v.id} />
                     <input type="hidden" name="active" value={String(v.active)} />

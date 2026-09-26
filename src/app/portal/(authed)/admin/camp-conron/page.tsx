@@ -17,6 +17,7 @@ import { toDateOnlyString, todayDateOnlyString } from "@/lib/dateOnly";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import EditPopover from "@/components/EditPopover";
+import TripExpenseList from "@/components/TripExpenseList";
 import {
   updateTripDetailsAction,
   updateTripPricingAction,
@@ -177,79 +178,56 @@ export default async function AdminCampConronPage({
             {expenses.length === 0 ? (
               <p>No expenses recorded yet.</p>
             ) : (
-              // No .table-scroll wrapper and a has-popovers table: both would
-              // otherwise clip the Edit popover to the table's box.
               <div style={{ marginBottom: 16 }}>
-                <table className="data-table has-popovers" style={{ marginBottom: 0 }}>
-                  <thead>
-                    <tr>
-                      <th>Expense</th>
-                      <th>Date</th>
-                      <th>Paid By</th>
-                      <th>Amount</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {expenses.map((e) => (
-                      <tr key={e.id}>
-                        <td
-                          className="audit-hover"
-                          data-audit={formatAuditTooltip("Recorded", e.createdAt, e.recordedByUser?.username ?? null)}
-                        >
-                          {e.description}
-                        </td>
-                        <td data-label="Date">{e.spentOn.toLocaleDateString("en-US", { timeZone: "UTC" })}</td>
-                        <td data-label="Paid By">{e.paidBy || "—"}</td>
-                        <td data-label="Amount">{formatCents(e.amountCents)}</td>
-                        <td className="actions">
-                          <EditPopover action={updateTripExpenseAction}>
-                            <input type="hidden" name="id" value={e.id} />
-                            <div className="form-field">
-                              <label htmlFor={`expense-description-${e.id}`}>Expense</label>
-                              <input id={`expense-description-${e.id}`} name="description" required defaultValue={e.description} />
-                            </div>
-                            <div className="form-field">
-                              <label htmlFor={`expense-amount-${e.id}`}>Amount ($)</label>
-                              <input
-                                id={`expense-amount-${e.id}`}
-                                name="amount"
-                                type="number"
-                                min="0.01"
-                                step="0.01"
-                                required
-                                defaultValue={(e.amountCents / 100).toFixed(2)}
-                              />
-                            </div>
-                            <div className="form-field">
-                              <label htmlFor={`expense-spentOn-${e.id}`}>Date</label>
-                              <input
-                                id={`expense-spentOn-${e.id}`}
-                                name="spentOn"
-                                type="date"
-                                required
-                                defaultValue={toDateOnlyString(e.spentOn) ?? ""}
-                              />
-                            </div>
-                            <div className="form-field">
-                              <label htmlFor={`expense-paidBy-${e.id}`}>Paid By (optional)</label>
-                              <input id={`expense-paidBy-${e.id}`} name="paidBy" defaultValue={e.paidBy ?? ""} />
-                            </div>
-                            <button type="submit" className="btn btn-primary btn-small">
-                              Save Changes
-                            </button>
-                          </EditPopover>
-                          <form action={deleteTripExpenseAction}>
-                            <input type="hidden" name="id" value={e.id} />
-                            <button type="submit" className="btn btn-danger btn-small">
-                              Delete
-                            </button>
-                          </form>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <TripExpenseList
+                  expenses={expenses}
+                  actions={(e, idPrefix) => (
+                    <>
+                      <EditPopover action={updateTripExpenseAction}>
+                        <input type="hidden" name="id" value={e.id} />
+                        <div className="form-field">
+                          <label htmlFor={`${idPrefix}expense-description-${e.id}`}>Expense</label>
+                          <input id={`${idPrefix}expense-description-${e.id}`} name="description" required defaultValue={e.description} />
+                        </div>
+                        <div className="form-field">
+                          <label htmlFor={`${idPrefix}expense-amount-${e.id}`}>Amount ($)</label>
+                          <input
+                            id={`${idPrefix}expense-amount-${e.id}`}
+                            name="amount"
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            required
+                            defaultValue={(e.amountCents / 100).toFixed(2)}
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label htmlFor={`${idPrefix}expense-spentOn-${e.id}`}>Date</label>
+                          <input
+                            id={`${idPrefix}expense-spentOn-${e.id}`}
+                            name="spentOn"
+                            type="date"
+                            required
+                            defaultValue={toDateOnlyString(e.spentOn) ?? ""}
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label htmlFor={`${idPrefix}expense-paidBy-${e.id}`}>Paid By (optional)</label>
+                          <input id={`${idPrefix}expense-paidBy-${e.id}`} name="paidBy" defaultValue={e.paidBy ?? ""} />
+                        </div>
+                        <button type="submit" className="btn btn-primary btn-small">
+                          Save Changes
+                        </button>
+                      </EditPopover>
+                      <form action={deleteTripExpenseAction}>
+                        <input type="hidden" name="id" value={e.id} />
+                        <button type="submit" className="btn btn-danger btn-small">
+                          Delete
+                        </button>
+                      </form>
+                    </>
+                  )}
+                />
               </div>
             )}
 

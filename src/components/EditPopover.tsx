@@ -4,10 +4,9 @@ import { useRef } from "react";
 
 /**
  * The .edit-popover "Edit" button and its form, closing itself once the save
- * finishes. The plain <details className="edit-popover"> markup used on other
- * admin pages stays open after saving, since nothing tells the <details> the
- * save happened. If the action throws, the box stays open and the error
- * surfaces as usual.
+ * finishes — a bare <details> would stay open after saving, since nothing
+ * tells it the save happened. If the action throws, the box stays open and
+ * the error surfaces as usual. Every admin Edit popover goes through this.
  */
 export default function EditPopover({
   action,

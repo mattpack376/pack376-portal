@@ -1612,6 +1612,21 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   .portal-shell .btn-small { min-height: 40px; }
 }
 
+/* ---------- Phone-only / wider-screen-only renderings ---------- */
+/* For the rare list that's laid out differently on a phone rather than just
+   restyled (TripExpenseList): render both, show one. Same 640px line as the
+   table cards below, and screen only so a print still gets the table. */
+.phone-only { display: none; }
+@media screen and (max-width: 640px) {
+  .phone-only { display: block; }
+  .phone-hidden { display: none; }
+}
+/* An opened expense row on a phone — indented to line up with the label
+   text after the toggle's 12px arrow. */
+.expense-item { padding: 6px 0 0 12px; }
+.expense-item p { margin-bottom: 4px; font-size: 15px; }
+.expense-item-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
 /* ---------- Tables as cards on phones ---------- */
 /*
  * Below 640px every .data-table row becomes its own card instead of a strip

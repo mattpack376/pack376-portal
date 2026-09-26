@@ -9,6 +9,7 @@ import {
 } from "@/lib/actions/adultLeaders";
 import DeleteAdultLeaderButton from "@/components/DeleteAdultLeaderButton";
 import type { AdultLeaderSection } from "@/generated/prisma/enums";
+import EditPopover from "@/components/EditPopover";
 
 /** Name / positions / section inputs, shared by the Add form and each row's Edit popover. */
 function LeaderFields({
@@ -104,18 +105,13 @@ export default async function ManageAdultLeadersPage() {
                     )}
                   </div>
                   <div className="attendance-buttons">
-                    <details className="edit-popover">
-                      <summary className="btn btn-quiet btn-small" style={{ display: "inline-block", cursor: "pointer" }}>
-                        Edit
-                      </summary>
-                      <form action={updateAdultLeaderAction}>
-                        <input type="hidden" name="id" value={leader.id} />
-                        <LeaderFields idPrefix={`leader-${leader.id}`} leader={leader} />
-                        <button type="submit" className="btn btn-primary btn-small">
-                          Save Changes
-                        </button>
-                      </form>
-                    </details>
+                    <EditPopover action={updateAdultLeaderAction}>
+                      <input type="hidden" name="id" value={leader.id} />
+                      <LeaderFields idPrefix={`leader-${leader.id}`} leader={leader} />
+                      <button type="submit" className="btn btn-primary btn-small">
+                        Save Changes
+                      </button>
+                    </EditPopover>
                     <form action={setAdultLeaderActiveAction}>
                       <input type="hidden" name="id" value={leader.id} />
                       <input type="hidden" name="active" value="false" />

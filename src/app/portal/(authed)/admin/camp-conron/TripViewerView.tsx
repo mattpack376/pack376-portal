@@ -2,6 +2,7 @@ import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import Linkify from "@/components/Linkify";
+import TripExpenseList from "@/components/TripExpenseList";
 import { paymentStatus, paymentRowClass, balanceClass } from "@/lib/paymentStatus";
 import {
   DAY_LABELS,
@@ -138,28 +139,7 @@ export default function TripViewerView({
             {expenses.length === 0 ? (
               <p>No expenses recorded yet.</p>
             ) : (
-              <div className="table-scroll">
-                <table className="data-table" style={{ marginBottom: 0 }}>
-                  <thead>
-                    <tr>
-                      <th>Expense</th>
-                      <th>Date</th>
-                      <th>Paid By</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {expenses.map((e) => (
-                      <tr key={e.id}>
-                        <td>{e.description}</td>
-                        <td data-label="Date">{e.spentOn.toLocaleDateString("en-US", { timeZone: "UTC" })}</td>
-                        <td data-label="Paid By">{e.paidBy || "—"}</td>
-                        <td data-label="Amount">{formatCents(e.amountCents)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <TripExpenseList expenses={expenses} />
             )}
           </div>
         </CollapsibleGroup>
