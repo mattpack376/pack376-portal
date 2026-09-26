@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { submitPhotoConsentAction, type SubmitConsentState } from "@/lib/actions/photoConsent";
+import ConsentStatusBadge from "@/components/ConsentStatusBadge";
 import { formatLongDate } from "@/lib/dateOnly";
 import { RELATIONSHIP_LABELS } from "@/lib/photoConsentLabels";
 import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
@@ -80,6 +81,51 @@ export default function PhotoConsentForm({
 }) {
   const [state, formAction, pending] = useActionState(submitPhotoConsentAction, initialState);
   const [dateValue, setDateValue] = useState(signedDate);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  // Same popup pattern as TripRegistrationForm: pushing the saved state out to
+  // the <dialog> DOM API is the one thing here that belongs in an effect.
+  useEffect(() => {
+    if (state.saved) dialogRef.current?.showModal();
+  }, [state.saved]);
+
+  const confirmation = state.saved && (
+    <dialog ref={dialogRef} className="confirm-dialog">
+      <p style={{ fontSize: 32, margin: "0 0 8px" }}>✅</p>
+      <h3>Photo Consent Submitted</h3>
+      <p>Thank you — we&apos;ve saved your answers for {scoutFirstName}:</p>
+      <p style={{ lineHeight: 2.2 }}>
+        <ConsentStatusBadge label="Instagram/Facebook" status={state.saved.facebook} />
+        <ConsentStatusBadge label="Website" status={state.saved.website} />
+        <ConsentStatusBadge label="Fliers" status={state.saved.fliers} />
+      </p>
+      <p className="form-note">If you need to change your answer later, ask your den leader for a new link.</p>
+      <button
+        type="button"
+        onClick={() => dialogRef.current?.close()}
+        className="btn btn-primary"
+        style={{ width: "100%", marginTop: 8 }}
+      >
+        Close
+      </button>
+    </dialog>
+  );
+
+  // The submission rotated the token, so this link is spent — swap the form
+  // out rather than leave it there to be resubmitted into a "link isn't
+  // valid" error (React's post-submit form reset also blanks the radios,
+  // which made it look like nothing had been saved).
+  if (state.saved) {
+    return (
+      <>
+        <div className="form-success">
+          Saved — thank you. This link has now been used; if you need to change your answer later, ask your den leader
+          for a new one.
+        </div>
+        {confirmation}
+      </>
+    );
+  }
 
   return (
     <form action={formAction}>
@@ -142,7 +188,6 @@ export default function PhotoConsentForm({
       </div>
 
       {state?.error && <div className="form-error">{state.error}</div>}
-      {state?.saved && <div className="form-success">Saved — thank you. This link has now been used; if you need to change your answer later, ask your den leader for a new one.</div>}
 
       <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={pending}>
         {pending ? "Saving…" : `Save Photo Consent for ${scoutFirstName}`}

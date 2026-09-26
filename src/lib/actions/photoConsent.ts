@@ -18,7 +18,11 @@ function consentLinkUrl(token: string) {
   return `${getPublicBaseUrl()}/consent/${token}`;
 }
 
-export type SubmitConsentState = { error?: string; saved?: boolean };
+export type SubmitConsentState = {
+  error?: string;
+  /** The answers just recorded, echoed back so the confirmation popup can show the parent what was saved. */
+  saved?: { facebook: ConsentStatus; website: ConsentStatus; fliers: ConsentStatus };
+};
 
 /**
  * Public — no session. The token itself is what authorizes this request,
@@ -76,7 +80,7 @@ export async function submitPhotoConsentAction(
     }),
   ]);
 
-  return { saved: true };
+  return { saved: { facebook, website, fliers } };
 }
 
 /** Admin/den-leader — creates the consent record + token for a scout if one doesn't exist yet. */
