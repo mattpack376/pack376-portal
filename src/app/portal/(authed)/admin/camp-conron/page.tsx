@@ -81,7 +81,7 @@ export default async function AdminCampConronPage({
         dutySlots={dutySlots}
         activities={activities}
         registrations={registrations}
-        expenses={expenses}
+        expenses={session.role === "TRIP_VIEWER" ? null : expenses}
       />
     );
   }
