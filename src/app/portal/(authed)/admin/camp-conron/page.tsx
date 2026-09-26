@@ -243,132 +243,133 @@ export default async function AdminCampConronPage({
         </CollapsibleGroup>
       </div>
 
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 24 }}>
-      <div className="info-card" style={{ flex: "1 1 400px" }}>
-        <h3>Event Details</h3>
-        <form action={updateTripDetailsAction}>
-          <input type="hidden" name="id" value={trip.id} />
-          <div className="form-field">
-            <label htmlFor="title">Title</label>
-            <input id="title" name="title" required defaultValue={trip.title} />
+      {/* Set-up-once settings, closed by default so the page opens on the
+          money and the sections that change week to week. */}
+      <div style={{ marginBottom: 24 }}>
+        <CollapsibleGroup defaultOpen={false} label="Event Details">
+          <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
+            <form action={updateTripDetailsAction}>
+              <input type="hidden" name="id" value={trip.id} />
+              <div className="form-field">
+                <label htmlFor="title">Title</label>
+                <input id="title" name="title" required defaultValue={trip.title} />
+              </div>
+              <div className="form-field">
+                <label htmlFor="location">Location</label>
+                <input id="location" name="location" defaultValue={trip.location ?? ""} />
+              </div>
+              <div className="form-row">
+                <div className="form-field">
+                  <label htmlFor="startDate">Start Date</label>
+                  <input id="startDate" name="startDate" type="date" defaultValue={toDateOnlyString(trip.startDate) ?? ""} />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="endDate">End Date</label>
+                  <input id="endDate" name="endDate" type="date" defaultValue={toDateOnlyString(trip.endDate) ?? ""} />
+                </div>
+              </div>
+              <div className="form-field">
+                <label htmlFor="detailsHtml">Details</label>
+                <textarea id="detailsHtml" name="detailsHtml" rows={3} defaultValue={trip.detailsHtml ?? ""} />
+              </div>
+              <div className="form-field">
+                <label htmlFor="flyer">Flyer</label>
+                {trip.flyerUrl && (
+                  <p style={{ marginBottom: 8 }}>
+                    <a href={trip.flyerUrl} target="_blank" rel="noopener noreferrer" className="link">
+                      View current flyer →
+                    </a>
+                  </p>
+                )}
+                <input id="flyer" name="flyer" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" />
+                <p className="form-note">Image or PDF, up to 8MB. Uploading a new file replaces the current flyer.</p>
+                {trip.flyerUrl && (
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, marginTop: 8 }}>
+                    <input type="checkbox" name="removeFlyer" value="true" style={{ width: "auto" }} />
+                    Remove current flyer
+                  </label>
+                )}
+              </div>
+              <button type="submit" className="btn btn-primary">Save Details</button>
+            </form>
           </div>
-          <div className="form-field">
-            <label htmlFor="location">Location</label>
-            <input id="location" name="location" defaultValue={trip.location ?? ""} />
+        </CollapsibleGroup>
+        <CollapsibleGroup defaultOpen={false} label="Price Structure">
+          <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
+            <p className="form-note" style={{ marginTop: 0 }}>
+              Current price: <strong>{formatCents(priceCents)}</strong>/person.
+            </p>
+            <form action={updateTripPricingAction}>
+              <input type="hidden" name="id" value={trip.id} />
+              <div className="form-row">
+                <div className="form-field">
+                  <label htmlFor="regularPrice">Regular Price ($/person)</label>
+                  <input
+                    id="regularPrice"
+                    name="regularPrice"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    defaultValue={(trip.regularPriceCents / 100).toFixed(2)}
+                  />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="earlyBirdPrice">Early-Bird Price ($/person, optional)</label>
+                  <input
+                    id="earlyBirdPrice"
+                    name="earlyBirdPrice"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    defaultValue={trip.earlyBirdPriceCents !== null ? (trip.earlyBirdPriceCents / 100).toFixed(2) : undefined}
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-field">
+                  <label htmlFor="earlyBirdDeadline">Early-Bird Deadline (paid in full by)</label>
+                  <input id="earlyBirdDeadline" name="earlyBirdDeadline" type="date" defaultValue={toDateOnlyString(trip.earlyBirdDeadline) ?? ""} />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="rsvpDeadline">RSVP &amp; Payment Deadline</label>
+                  <input id="rsvpDeadline" name="rsvpDeadline" type="date" defaultValue={toDateOnlyString(trip.rsvpDeadline) ?? ""} />
+                </div>
+              </div>
+              <div className="form-field" style={{ maxWidth: 220 }}>
+                <label htmlFor="freeAgeAndUnder">Free Age &amp; Under (optional)</label>
+                <input
+                  id="freeAgeAndUnder"
+                  name="freeAgeAndUnder"
+                  type="number"
+                  min="0"
+                  step="1"
+                  defaultValue={trip.freeAgeAndUnder ?? undefined}
+                />
+              </div>
+              <button type="submit" className="btn btn-primary">Save Pricing</button>
+            </form>
           </div>
-          <div className="form-row">
-            <div className="form-field">
-              <label htmlFor="startDate">Start Date</label>
-              <input id="startDate" name="startDate" type="date" defaultValue={toDateOnlyString(trip.startDate) ?? ""} />
-            </div>
-            <div className="form-field">
-              <label htmlFor="endDate">End Date</label>
-              <input id="endDate" name="endDate" type="date" defaultValue={toDateOnlyString(trip.endDate) ?? ""} />
-            </div>
+        </CollapsibleGroup>
+        <CollapsibleGroup defaultOpen={false} label="Payment Instructions">
+          <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
+            <p className="form-note" style={{ marginTop: 0 }}>
+              Shown to families on the public page once they pick their affiliation.
+            </p>
+            <form action={updateTripPaymentInstructionsAction}>
+              <input type="hidden" name="id" value={trip.id} />
+              <div className="form-field">
+                <label htmlFor="packPaymentInstructions">Pack 376 Instructions</label>
+                <textarea id="packPaymentInstructions" name="packPaymentInstructions" rows={2} defaultValue={trip.packPaymentInstructions ?? ""} />
+              </div>
+              <div className="form-field">
+                <label htmlFor="troopPaymentInstructions">Troop 376 Instructions</label>
+                <textarea id="troopPaymentInstructions" name="troopPaymentInstructions" rows={2} defaultValue={trip.troopPaymentInstructions ?? ""} />
+              </div>
+              <button type="submit" className="btn btn-primary">Save Instructions</button>
+            </form>
           </div>
-          <div className="form-field">
-            <label htmlFor="detailsHtml">Details</label>
-            <textarea id="detailsHtml" name="detailsHtml" rows={3} defaultValue={trip.detailsHtml ?? ""} />
-          </div>
-          <div className="form-field">
-            <label htmlFor="flyer">Flyer</label>
-            {trip.flyerUrl && (
-              <p style={{ marginBottom: 8 }}>
-                <a href={trip.flyerUrl} target="_blank" rel="noopener noreferrer" className="link">
-                  View current flyer →
-                </a>
-              </p>
-            )}
-            <input id="flyer" name="flyer" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" />
-            <p className="form-note">Image or PDF, up to 8MB. Uploading a new file replaces the current flyer.</p>
-            {trip.flyerUrl && (
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, marginTop: 8 }}>
-                <input type="checkbox" name="removeFlyer" value="true" style={{ width: "auto" }} />
-                Remove current flyer
-              </label>
-            )}
-          </div>
-          <button type="submit" className="btn btn-primary">Save Details</button>
-        </form>
-      </div>
-
-      <div style={{ flex: "1 1 400px", display: "flex", flexDirection: "column", gap: 24 }}>
-      <div className="info-card">
-        <h3>Price Structure</h3>
-        <p className="form-note" style={{ marginTop: 0 }}>
-          Current price: <strong>{formatCents(priceCents)}</strong>/person.
-        </p>
-        <form action={updateTripPricingAction}>
-          <input type="hidden" name="id" value={trip.id} />
-          <div className="form-row">
-            <div className="form-field">
-              <label htmlFor="regularPrice">Regular Price ($/person)</label>
-              <input
-                id="regularPrice"
-                name="regularPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                defaultValue={(trip.regularPriceCents / 100).toFixed(2)}
-              />
-            </div>
-            <div className="form-field">
-              <label htmlFor="earlyBirdPrice">Early-Bird Price ($/person, optional)</label>
-              <input
-                id="earlyBirdPrice"
-                name="earlyBirdPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                defaultValue={trip.earlyBirdPriceCents !== null ? (trip.earlyBirdPriceCents / 100).toFixed(2) : undefined}
-              />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-field">
-              <label htmlFor="earlyBirdDeadline">Early-Bird Deadline (paid in full by)</label>
-              <input id="earlyBirdDeadline" name="earlyBirdDeadline" type="date" defaultValue={toDateOnlyString(trip.earlyBirdDeadline) ?? ""} />
-            </div>
-            <div className="form-field">
-              <label htmlFor="rsvpDeadline">RSVP &amp; Payment Deadline</label>
-              <input id="rsvpDeadline" name="rsvpDeadline" type="date" defaultValue={toDateOnlyString(trip.rsvpDeadline) ?? ""} />
-            </div>
-          </div>
-          <div className="form-field" style={{ maxWidth: 220 }}>
-            <label htmlFor="freeAgeAndUnder">Free Age &amp; Under (optional)</label>
-            <input
-              id="freeAgeAndUnder"
-              name="freeAgeAndUnder"
-              type="number"
-              min="0"
-              step="1"
-              defaultValue={trip.freeAgeAndUnder ?? undefined}
-            />
-          </div>
-          <button type="submit" className="btn btn-primary">Save Pricing</button>
-        </form>
-      </div>
-
-      <div className="info-card">
-        <h3>Payment Instructions</h3>
-        <p className="form-note" style={{ marginTop: 0 }}>
-          Shown to families on the public page once they pick their affiliation.
-        </p>
-        <form action={updateTripPaymentInstructionsAction}>
-          <input type="hidden" name="id" value={trip.id} />
-          <div className="form-field">
-            <label htmlFor="packPaymentInstructions">Pack 376 Instructions</label>
-            <textarea id="packPaymentInstructions" name="packPaymentInstructions" rows={2} defaultValue={trip.packPaymentInstructions ?? ""} />
-          </div>
-          <div className="form-field">
-            <label htmlFor="troopPaymentInstructions">Troop 376 Instructions</label>
-            <textarea id="troopPaymentInstructions" name="troopPaymentInstructions" rows={2} defaultValue={trip.troopPaymentInstructions ?? ""} />
-          </div>
-          <button type="submit" className="btn btn-primary">Save Instructions</button>
-        </form>
-      </div>
-      </div>
+        </CollapsibleGroup>
       </div>
 
       <div className="section-head">
