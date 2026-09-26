@@ -12,23 +12,24 @@ import { CopyConsentLinkButton, RegenerateConsentLinkButton } from "@/components
 import EmailConsentLinkButton from "@/components/EmailConsentLinkButton";
 import SegmentedNav from "@/components/SegmentedNav";
 
-type ConsentView = "all" | "consented" | "declined";
+type ConsentGroup = "consented" | "declined" | "unanswered";
+type ConsentView = "all" | ConsentGroup;
 
 /**
  * Which tab a scout's consent falls under. The form makes parents answer all
  * three questions, so a signed consent is either all "Consent" or has at least
  * one "Decline" — and a single Decline puts the scout under No Consent, since
- * that's the list a photographer needs to check. Scouts with no link yet, or
- * a link nobody has answered, only appear under All.
+ * that's the list a photographer needs to check. Everyone else — no link
+ * generated yet, or a link nobody has answered — is Not Answered.
  */
 function consentGroup(
   consent: { facebook: ConsentStatus; website: ConsentStatus; fliers: ConsentStatus } | null,
-): ConsentView | null {
-  if (!consent) return null;
+): ConsentGroup {
+  if (!consent) return "unanswered";
   const answers = [consent.facebook, consent.website, consent.fliers];
   if (answers.includes("DECLINE")) return "declined";
   if (answers.every((a) => a === "CONSENT")) return "consented";
-  return null;
+  return "unanswered";
 }
 
 export default async function PhotoConsentPage({
@@ -39,7 +40,9 @@ export default async function PhotoConsentPage({
   const session = await requirePhotoConsentSession();
   const { view: requestedView } = await searchParams;
   const view: ConsentView =
-    requestedView === "consented" || requestedView === "declined" ? requestedView : "all";
+    requestedView === "consented" || requestedView === "declined" || requestedView === "unanswered"
+      ? requestedView
+      : "all";
 
   if (session.role === "DEN" && session.denIds.length === 0) {
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
@@ -63,11 +66,13 @@ export default async function PhotoConsentPage({
     all: allScouts.length,
     consented: allScouts.filter((s) => consentGroup(s.photoConsent) === "consented").length,
     declined: allScouts.filter((s) => consentGroup(s.photoConsent) === "declined").length,
+    unanswered: allScouts.filter((s) => consentGroup(s.photoConsent) === "unanswered").length,
   };
   const tabs = [
     { key: "all", href: "/portal/roster/photo-consent", label: `All (${counts.all})` },
     { key: "consented", href: "/portal/roster/photo-consent?view=consented", label: `Consented (${counts.consented})` },
     { key: "declined", href: "/portal/roster/photo-consent?view=declined", label: `No Consent (${counts.declined})` },
+    { key: "unanswered", href: "/portal/roster/photo-consent?view=unanswered", label: `Not Answered (${counts.unanswered})` },
   ];
 
   // On a filtered tab, dens (and whole years) with no matching scouts drop out
@@ -103,9 +108,9 @@ export default async function PhotoConsentPage({
       {dens.length === 0 && <div className="info-card" style={{ fontSize: 16 }}>No dens yet.</div>}
       {dens.length > 0 && shownDens.length === 0 && (
         <div className="info-card" style={{ fontSize: 16 }}>
-          {view === "consented"
-            ? "No scouts have consented to all three yet."
-            : "No scouts have declined any photo use."}
+          {view === "consented" && "No scouts have consented to all three yet."}
+          {view === "declined" && "No scouts have declined any photo use."}
+          {view === "unanswered" && "Every scout's parents have answered."}
         </div>
       )}
 
