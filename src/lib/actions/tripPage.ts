@@ -521,6 +521,46 @@ export async function addTripExpenseAction(formData: FormData) {
   revalidatePath(ADMIN_PATH);
 }
 
+export async function updateTripExpenseAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const id = String(formData.get("id") || "");
+  const description = String(formData.get("description") || "").trim();
+  const amountCents = dollarsToCents(String(formData.get("amount") || ""));
+  const spentOnRaw = String(formData.get("spentOn") || "").trim();
+  const paidBy = String(formData.get("paidBy") || "").trim() || null;
+  if (!id || !description) throw new Error("Describe what the expense was for.");
+  if (amountCents === null || amountCents === 0) throw new Error("A valid expense amount is required.");
+  if (!spentOnRaw) throw new Error("An expense date is required.");
+
+  const spentOn = new Date(spentOnRaw);
+  if (Number.isNaN(spentOn.getTime())) throw new Error("Invalid expense date.");
+
+  const before = await prisma.tripExpense.findUnique({
+    where: { id },
+    select: { description: true, amountCents: true, spentOn: true, paidBy: true },
+  });
+
+  await prisma.tripExpense.update({ where: { id }, data: { description, amountCents, spentOn, paidBy } });
+
+  await recordAudit(session, {
+    action: "trip.expense.update",
+    summary: `Edited the trip expense “${description}” — now ${auditMoney(amountCents)}`,
+    entityType: "TripExpense",
+    entityId: id,
+    details: changedFields({
+      Expense: [before?.description, description],
+      Amount: [before ? auditMoney(before.amountCents) : null, auditMoney(amountCents)],
+      Date: [before?.spentOn, spentOn],
+      "Paid by": [before?.paidBy, paidBy],
+    }),
+  });
+
+  revalidatePath(ADMIN_PATH);
+}
+
 export async function deleteTripExpenseAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");

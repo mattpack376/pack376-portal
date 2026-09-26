@@ -1391,6 +1391,12 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .data-table th { font-family: var(--font-display); font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); background: var(--cream); }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table td.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+/* A table with an .edit-popover in its rows (Camp Conron expenses): let the
+   popover spill past the table rather than be clipped by the rounded-corner
+   overflow, and round the header cells instead so the corners still read. */
+.data-table.has-popovers { overflow: visible; }
+.data-table.has-popovers th:first-child { border-top-left-radius: var(--radius); }
+.data-table.has-popovers th:last-child { border-top-right-radius: var(--radius); }
 
 .den-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
 .den-tile {
