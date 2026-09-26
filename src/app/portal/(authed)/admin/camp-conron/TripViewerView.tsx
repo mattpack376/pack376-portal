@@ -27,9 +27,10 @@ const CARD_WIDTH = 480;
  *
  * Two audiences:
  * - "troop" (TRIP_VIEWER, e.g. a shared Troop376 login): per-family detail
- *   (contact info, payment history) for Troop 376 only; Pack 376 is
- *   summarized as totals, no names or contact info, since this login is
- *   shared outside the Pack.
+ *   (contact info, payment history) for Troop 376 only. Money is Troop-only
+ *   too — the Money card totals just Troop families — while Pack 376 shows
+ *   up only as headcount (the whole-trip Headcount card and a Pack summary
+ *   with no dollar amounts), since this login is shared outside the Pack.
  * - "pack" (Junior Admin): Pack staff, so both Pack and Troop families are
  *   listed in full.
  *
@@ -55,8 +56,6 @@ export default function TripViewerView({
   registrations: Awaited<ReturnType<typeof getTripRegistrations>>;
   expenses: Awaited<ReturnType<typeof getTripExpenses>> | null;
 }) {
-  const totalOwed = registrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
-  const totalPaid = registrations.reduce((sum, r) => sum + r.paidCents, 0);
   const totalExpenses = expenses?.reduce((sum, e) => sum + e.amountCents, 0) ?? 0;
   const totalAdults = registrations.reduce((sum, r) => sum + r.payingCount, 0);
   const totalKids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
@@ -68,8 +67,10 @@ export default function TripViewerView({
   const packRegistrations = registrations.filter((r) => r.affiliation === "PACK");
   const packAdults = packRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
   const packKids = packRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
-  const packOwed = packRegistrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
-  const packPaid = packRegistrations.reduce((sum, r) => sum + r.paidCents, 0);
+  // The Troop login's Money card covers Troop families only; see the doc comment.
+  const moneyRegistrations = audience === "troop" ? troopRegistrations : registrations;
+  const moneyOwed = moneyRegistrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
+  const moneyPaid = moneyRegistrations.reduce((sum, r) => sum + r.paidCents, 0);
 
   const generalDuties = dutySlots.filter((d) => !d.tripMealId);
   const dutyByMeal = new Map<string, typeof dutySlots>();
@@ -111,29 +112,29 @@ export default function TripViewerView({
       </div>
 
       <div className="info-card" style={{ flex: "1 1 320px" }}>
-        <h3>Money</h3>
+        <h3>{audience === "troop" ? "Money — Troop 376 Families" : "Money"}</h3>
         <p style={{ marginBottom: 8 }}>
-          <strong>Anticipated Money to be Collected:</strong> {formatCents(totalOwed)}
+          <strong>Anticipated Money to be Collected:</strong> {formatCents(moneyOwed)}
         </p>
         <p style={{ marginBottom: 8 }}>
-          <strong>Collected So Far:</strong> {formatCents(totalPaid)}
+          <strong>Collected So Far:</strong> {formatCents(moneyPaid)}
         </p>
         <p
-          className={totalOwed - totalPaid > 0 ? "balance-negative" : undefined}
+          className={moneyOwed - moneyPaid > 0 ? "balance-negative" : undefined}
           style={expenses ? { marginBottom: 8 } : undefined}
         >
-          <strong>Outstanding Payments:</strong> {formatCents(totalOwed - totalPaid)}
+          <strong>Outstanding Payments:</strong> {formatCents(moneyOwed - moneyPaid)}
         </p>
         {expenses && (
           <>
             <p style={{ marginBottom: 8 }}>
               <strong>Expenses:</strong> {formatCents(totalExpenses)}
             </p>
-            <p className={balanceClass(totalPaid - totalExpenses)} style={{ marginBottom: 8 }}>
-              <strong>Available to Spend (Collected So Far):</strong> {formatCents(totalPaid - totalExpenses)}
+            <p className={balanceClass(moneyPaid - totalExpenses)} style={{ marginBottom: 8 }}>
+              <strong>Available to Spend (Collected So Far):</strong> {formatCents(moneyPaid - totalExpenses)}
             </p>
-            <p className={balanceClass(totalOwed - totalExpenses)}>
-              <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(totalOwed - totalExpenses)}
+            <p className={balanceClass(moneyOwed - totalExpenses)}>
+              <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(moneyOwed - totalExpenses)}
             </p>
           </>
         )}
@@ -325,9 +326,9 @@ export default function TripViewerView({
       <div className="info-card" style={{ maxWidth: CARD_WIDTH }}>
         <h3>Pack 376 (Summary Only)</h3>
         <p>
-          {packRegistrations.length} famil{packRegistrations.length === 1 ? "y" : "ies"} registered — {packAdults} adult
-          {packAdults === 1 ? "" : "s"}, {packKids} kid{packKids === 1 ? "" : "s"} · {formatCents(packPaid)} paid of{" "}
-          {formatCents(packOwed)} owed.
+          {`${packRegistrations.length} famil${packRegistrations.length === 1 ? "y" : "ies"} registered — ${packAdults} adult${
+            packAdults === 1 ? "" : "s"
+          }, ${packKids} kid${packKids === 1 ? "" : "s"} (4 & under).`}
         </p>
       </div>
       )}
