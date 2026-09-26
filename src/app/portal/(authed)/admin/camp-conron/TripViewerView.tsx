@@ -121,10 +121,10 @@ export default function TripViewerView({
         <p style={{ marginBottom: 8 }}>
           <strong>Expenses:</strong> {formatCents(totalExpenses)}
         </p>
-        <p style={{ marginBottom: 8 }}>
+        <p className="trip-available" style={{ marginBottom: 8 }}>
           <strong>Available to Spend (Collected So Far):</strong> {formatCents(totalPaid - totalExpenses)}
         </p>
-        <p>
+        <p className="trip-available">
           <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(totalOwed - totalExpenses)}
         </p>
       </div>
