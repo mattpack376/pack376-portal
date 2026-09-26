@@ -55,6 +55,15 @@ export function formatLongDate(date: Date): string {
 }
 
 /** Today in the pack's time zone as YYYY-MM-DD — the default date a leader almost always wants. */
-export function todayDateOnlyString(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: PACK_TIME_ZONE }).format(new Date());
+export function todayDateOnlyString(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: PACK_TIME_ZONE }).format(now);
+}
+
+/**
+ * True once a date-only deadline's whole day is over in the pack's time
+ * zone, so a deadline runs through midnight Eastern — not midnight UTC,
+ * which lands at 7 or 8 PM here.
+ */
+export function dateOnlyHasPassed(date: Date, now: Date = new Date()): boolean {
+  return todayDateOnlyString(now) > toDateOnlyString(date);
 }
