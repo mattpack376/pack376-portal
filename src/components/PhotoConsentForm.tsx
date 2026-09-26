@@ -112,9 +112,10 @@ export default function PhotoConsentForm({
   );
 
   // The submission rotated the token, so this link is spent — swap the form
-  // out rather than leave it there to be resubmitted into a "link isn't
-  // valid" error (React's post-submit form reset also blanks the radios,
-  // which made it look like nothing had been saved).
+  // (and its "please let us know" intro) out rather than leave it there to be
+  // resubmitted into a "link isn't valid" error (React's post-submit form
+  // reset also blanks the radios, which made it look like nothing had been
+  // saved).
   if (state.saved) {
     return (
       <>
@@ -128,70 +129,76 @@ export default function PhotoConsentForm({
   }
 
   return (
-    <form action={formAction}>
-      <input type="hidden" name="token" value={token} />
+    <>
+      <p className="sub">
+        Please let us know whether we can use photos of <strong>{scoutFirstName}</strong> in each of the following
+        places.
+      </p>
+      <form action={formAction}>
+        <input type="hidden" name="token" value={token} />
 
-      {VENUES.map((venue) => (
-        <ChoiceGroup
-          key={venue.key}
-          name={venue.key}
-          label={venue.label}
-          note={venue.note}
-          defaultValue={venue.key === "facebook" ? facebook : venue.key === "website" ? website : fliers}
-        />
-      ))}
-
-      <div className="form-field">
-        <label htmlFor="signedByName">Your Name</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            id="signedByName"
-            name="signedByName"
-            type="text"
-            defaultValue={signedByName ?? ""}
-            placeholder="Parent / guardian name"
-            required
-            style={{ flex: 2 }}
+        {VENUES.map((venue) => (
+          <ChoiceGroup
+            key={venue.key}
+            name={venue.key}
+            label={venue.label}
+            note={venue.note}
+            defaultValue={venue.key === "facebook" ? facebook : venue.key === "website" ? website : fliers}
           />
-          <select
-            id="signedRelationship"
-            name="signedRelationship"
-            defaultValue={signedRelationship ?? ""}
-            required
-            style={{ flex: 1 }}
-          >
-            <option value="" disabled>
-              Relationship
-            </option>
-            {Object.entries(RELATIONSHIP_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+        ))}
+
+        <div className="form-field">
+          <label htmlFor="signedByName">Your Name</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              id="signedByName"
+              name="signedByName"
+              type="text"
+              defaultValue={signedByName ?? ""}
+              placeholder="Parent / guardian name"
+              required
+              style={{ flex: 2 }}
+            />
+            <select
+              id="signedRelationship"
+              name="signedRelationship"
+              defaultValue={signedRelationship ?? ""}
+              required
+              style={{ flex: 1 }}
+            >
+              <option value="" disabled>
+                Relationship
               </option>
-            ))}
-          </select>
+              {Object.entries(RELATIONSHIP_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
 
-      <div className="form-field">
-        <label htmlFor="signedDate">Date</label>
-        <input
-          id="signedDate"
-          name="signedDate"
-          type="date"
-          value={dateValue}
-          onChange={(e) => setDateValue(e.target.value)}
-          required
-        />
-        <p className="form-note" style={{ marginTop: 4 }}>
-          {formatSignedDate(dateValue)}
-        </p>
-      </div>
+        <div className="form-field">
+          <label htmlFor="signedDate">Date</label>
+          <input
+            id="signedDate"
+            name="signedDate"
+            type="date"
+            value={dateValue}
+            onChange={(e) => setDateValue(e.target.value)}
+            required
+          />
+          <p className="form-note" style={{ marginTop: 4 }}>
+            {formatSignedDate(dateValue)}
+          </p>
+        </div>
 
-      {state?.error && <div className="form-error">{state.error}</div>}
+        {state?.error && <div className="form-error">{state.error}</div>}
 
-      <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={pending}>
-        {pending ? "Saving…" : `Save Photo Consent for ${scoutFirstName}`}
-      </button>
-    </form>
+        <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={pending}>
+          {pending ? "Saving…" : `Save Photo Consent for ${scoutFirstName}`}
+        </button>
+      </form>
+    </>
   );
 }

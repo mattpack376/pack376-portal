@@ -23,22 +23,16 @@ export default async function PhotoConsentPage({ params }: { params: Promise<{ t
         <h1>{record ? "Photo Consent" : "Link Invalid"}</h1>
 
         {record ? (
-          <>
-            <p className="sub">
-              Please let us know whether we can use photos of <strong>{record.scout.firstName}</strong> in each of
-              the following places.
-            </p>
-            <PhotoConsentForm
-              token={token}
-              scoutFirstName={record.scout.firstName}
-              facebook={record.facebook}
-              website={record.website}
-              fliers={record.fliers}
-              signedByName={record.signedByName}
-              signedRelationship={record.signedRelationship}
-              signedDate={signedDate}
-            />
-          </>
+          <PhotoConsentForm
+            token={token}
+            scoutFirstName={record.scout.firstName}
+            facebook={record.facebook}
+            website={record.website}
+            fliers={record.fliers}
+            signedByName={record.signedByName}
+            signedRelationship={record.signedRelationship}
+            signedDate={signedDate}
+          />
         ) : (
           <div className="form-error">This link isn&apos;t valid. Ask your den leader for a new one.</div>
         )}
