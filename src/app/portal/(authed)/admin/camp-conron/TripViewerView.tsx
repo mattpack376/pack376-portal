@@ -28,10 +28,9 @@ const CARD_WIDTH = 480;
  * Two audiences:
  * - "troop" (TRIP_VIEWER, e.g. a shared Troop376 login): per-family detail
  *   (contact info, payment history) for Troop 376 only. Money is Troop-only
- *   too — the Money card and the Paid in Full count cover just Troop
- *   families — while Pack 376 shows up only as headcount (the whole-trip
- *   Registered count and a Pack summary with no dollar amounts), since this
- *   login is shared outside the Pack.
+ *   too — the Money card covers just Troop families, there's no whole-trip
+ *   Headcount card, and Pack 376 appears only as a family/headcount summary
+ *   with no dollar amounts — since this login is shared outside the Pack.
  * - "pack" (Junior Admin): Pack staff, so both Pack and Troop families are
  *   listed in full.
  *
@@ -64,12 +63,11 @@ export default function TripViewerView({
   const packRegistrations = registrations.filter((r) => r.affiliation === "PACK");
   const packAdults = packRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
   const packKids = packRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
-  // The Troop login's Money card and Paid in Full count cover Troop families
-  // only; see the doc comment.
+  // The Troop login's Money card covers Troop families only; see the doc comment.
   const moneyRegistrations = audience === "troop" ? troopRegistrations : registrations;
   const moneyOwed = moneyRegistrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
   const moneyPaid = moneyRegistrations.reduce((sum, r) => sum + r.paidCents, 0);
-  const paidRegistrations = moneyRegistrations.filter((r) => r.remainingCents <= 0);
+  const paidRegistrations = registrations.filter((r) => r.remainingCents <= 0);
   const paidAdults = paidRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
   const paidKids = paidRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
 
@@ -100,6 +98,7 @@ export default function TripViewerView({
       </div>
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
+      {audience === "pack" && (
       <div className="info-card" style={{ flex: "1 1 320px" }}>
         <h3>Headcount</h3>
         <p style={{ marginBottom: 8 }}>
@@ -107,12 +106,14 @@ export default function TripViewerView({
           {totalKids === 1 ? "" : "s"} (4 &amp; under) — {totalAdults + totalKids} total
         </p>
         <p>
-          <strong>{audience === "troop" ? "Paid in Full (Troop 376):" : "Paid in Full:"}</strong> {paidAdults} adult{paidAdults === 1 ? "" : "s"}, {paidKids} kid
+          <strong>Paid in Full:</strong> {paidAdults} adult{paidAdults === 1 ? "" : "s"}, {paidKids} kid
           {paidKids === 1 ? "" : "s"} (4 &amp; under) — {paidAdults + paidKids} total
         </p>
       </div>
+      )}
 
-      <div className="info-card" style={{ flex: "1 1 320px" }}>
+      {/* Alone in this row for the Troop login, so capped rather than stretched full width. */}
+      <div className="info-card" style={audience === "troop" ? { flex: "1 1 320px", maxWidth: CARD_WIDTH } : { flex: "1 1 320px" }}>
         <h3>{audience === "troop" ? "Money — Troop 376 Families" : "Money"}</h3>
         <p style={{ marginBottom: 8 }}>
           <strong>Anticipated Money to be Collected:</strong> {formatCents(moneyOwed)}
