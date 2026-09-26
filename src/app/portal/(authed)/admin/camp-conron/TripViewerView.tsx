@@ -132,7 +132,6 @@ export default function TripViewerView({
 
       <div style={{ marginBottom: 24 }}>
         <CollapsibleGroup
-          defaultOpen={false}
           label={`Expenses — ${formatCents(totalExpenses)} (${expenses.length} item${expenses.length === 1 ? "" : "s"})`}
         >
           <div className="info-card" style={{ marginTop: 8 }}>
