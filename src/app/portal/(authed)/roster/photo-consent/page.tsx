@@ -2,7 +2,7 @@ import Link from "next/link";
 import { canManagePhotoConsentForDen, requirePhotoConsentSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
-import type { Rank } from "@/generated/prisma/enums";
+import type { ConsentStatus, Rank } from "@/generated/prisma/enums";
 import { RELATIONSHIP_LABELS } from "@/lib/photoConsentLabels";
 import { formatLongDate } from "@/lib/dateOnly";
 import ConsentStatusBadge from "@/components/ConsentStatusBadge";
@@ -10,9 +10,36 @@ import { getPublicBaseUrl } from "@/lib/appUrl";
 import { generatePhotoConsentLinkAction } from "@/lib/actions/photoConsent";
 import { CopyConsentLinkButton, RegenerateConsentLinkButton } from "@/components/PhotoConsentLinkControls";
 import EmailConsentLinkButton from "@/components/EmailConsentLinkButton";
+import SegmentedNav from "@/components/SegmentedNav";
 
-export default async function PhotoConsentPage() {
+type ConsentView = "all" | "consented" | "declined";
+
+/**
+ * Which tab a scout's consent falls under. The form makes parents answer all
+ * three questions, so a signed consent is either all "Consent" or has at least
+ * one "Decline" — and a single Decline puts the scout under No Consent, since
+ * that's the list a photographer needs to check. Scouts with no link yet, or
+ * a link nobody has answered, only appear under All.
+ */
+function consentGroup(
+  consent: { facebook: ConsentStatus; website: ConsentStatus; fliers: ConsentStatus } | null,
+): ConsentView | null {
+  if (!consent) return null;
+  const answers = [consent.facebook, consent.website, consent.fliers];
+  if (answers.includes("DECLINE")) return "declined";
+  if (answers.every((a) => a === "CONSENT")) return "consented";
+  return null;
+}
+
+export default async function PhotoConsentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const session = await requirePhotoConsentSession();
+  const { view: requestedView } = await searchParams;
+  const view: ConsentView =
+    requestedView === "consented" || requestedView === "declined" ? requestedView : "all";
 
   if (session.role === "DEN" && session.denIds.length === 0) {
     return <div className="info-card">You don&apos;t have a den assigned yet. Contact an admin.</div>;
@@ -31,7 +58,27 @@ export default async function PhotoConsentPage() {
     if (a.scoutingYear !== b.scoutingYear) return b.scoutingYear.localeCompare(a.scoutingYear);
     return RANK_ORDER.indexOf(a.rank as Rank) - RANK_ORDER.indexOf(b.rank as Rank);
   });
-  const years = Array.from(new Set(dens.map((d) => d.scoutingYear)));
+  const allScouts = dens.flatMap((d) => d.scouts);
+  const counts = {
+    all: allScouts.length,
+    consented: allScouts.filter((s) => consentGroup(s.photoConsent) === "consented").length,
+    declined: allScouts.filter((s) => consentGroup(s.photoConsent) === "declined").length,
+  };
+  const tabs = [
+    { key: "all", href: "/portal/roster/photo-consent", label: `All (${counts.all})` },
+    { key: "consented", href: "/portal/roster/photo-consent?view=consented", label: `Consented (${counts.consented})` },
+    { key: "declined", href: "/portal/roster/photo-consent?view=declined", label: `No Consent (${counts.declined})` },
+  ];
+
+  // On a filtered tab, dens (and whole years) with no matching scouts drop out
+  // entirely rather than showing an empty card each.
+  const shownDens = dens
+    .map((d) => ({
+      ...d,
+      scouts: view === "all" ? d.scouts : d.scouts.filter((s) => consentGroup(s.photoConsent) === view),
+    }))
+    .filter((d) => view === "all" || d.scouts.length > 0);
+  const years = Array.from(new Set(shownDens.map((d) => d.scoutingYear)));
   const baseUrl = getPublicBaseUrl();
   // Read-only viewers (Photographer, Committee Member outside their own den)
   // see status only — the link itself is what lets a parent sign.
@@ -51,12 +98,21 @@ export default async function PhotoConsentPage() {
         </p>
       </div>
 
+      {dens.length > 0 && <SegmentedNav items={tabs} active={view} />}
+
       {dens.length === 0 && <div className="info-card" style={{ fontSize: 16 }}>No dens yet.</div>}
+      {dens.length > 0 && shownDens.length === 0 && (
+        <div className="info-card" style={{ fontSize: 16 }}>
+          {view === "consented"
+            ? "No scouts have consented to all three yet."
+            : "No scouts have declined any photo use."}
+        </div>
+      )}
 
       {years.map((year) => (
         <div key={year} style={{ marginBottom: 32 }}>
           <h3 style={{ fontSize: 19, marginBottom: 14 }}>{year}</h3>
-          {dens
+          {shownDens
             .filter((d) => d.scoutingYear === year)
             .map((den) => {
               const canManage = canManagePhotoConsentForDen(session, den.id);
