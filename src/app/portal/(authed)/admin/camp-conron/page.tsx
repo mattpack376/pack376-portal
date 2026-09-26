@@ -18,6 +18,7 @@ import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import EditPopover from "@/components/EditPopover";
 import TripExpenseList from "@/components/TripExpenseList";
+import CopyAddressesButton from "@/components/CopyAddressesButton";
 import {
   updateTripDetailsAction,
   updateTripPricingAction,
@@ -682,12 +683,21 @@ export default async function AdminCampConronPage({
           </p>
         </div>
         {registrations.length > 0 && (
-          <a
-            className="btn btn-quiet btn-small"
-            href="/portal/admin/camp-conron/export"
-          >
-            Export CSV
-          </a>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {/* Follows the Pack/Troop filter below, so "Pack 376" copies only
+                Pack families' addresses. */}
+            <CopyAddressesButton
+              emails={visibleRegistrations.map((r) => r.contactEmail)}
+              label="Copy Emails"
+              showCount
+            />
+            <a
+              className="btn btn-quiet btn-small"
+              href="/portal/admin/camp-conron/export"
+            >
+              Export CSV
+            </a>
+          </div>
         )}
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import CopyAddressesButton from "@/components/CopyAddressesButton";
 
 const ALWAYS_CC = ["pack376.brooklyn@gmail.com", "matt.pack376@gmail.com"];
 
@@ -12,7 +12,6 @@ const ALWAYS_CC = ["pack376.brooklyn@gmail.com", "matt.pack376@gmail.com"];
  * (recipient lists on big rosters can exceed that).
  */
 export default function EmailAllButton({ emails, label }: { emails: (string | null)[]; label: string }) {
-  const [copied, setCopied] = useState(false);
   const unique = Array.from(new Set(emails.filter((e): e is string => !!e && e.trim().length > 0)));
 
   if (unique.length === 0) {
@@ -21,24 +20,12 @@ export default function EmailAllButton({ emails, label }: { emails: (string | nu
 
   const mailto = `mailto:?to=${encodeURIComponent(unique.join(","))}&cc=${encodeURIComponent(ALWAYS_CC.join(","))}`;
 
-  const copyAddresses = async () => {
-    await navigator.clipboard.writeText(unique.join(", "));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
       <a href={mailto} className="btn btn-primary btn-small">
         {label} ({unique.length})
       </a>
-      <button
-        type="button"
-        onClick={copyAddresses}
-        className="btn btn-quiet btn-small"
-      >
-        {copied ? "Copied!" : "Copy Addresses"}
-      </button>
+      <CopyAddressesButton emails={unique} />
     </div>
   );
 }
