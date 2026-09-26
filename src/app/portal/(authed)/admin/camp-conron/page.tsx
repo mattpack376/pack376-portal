@@ -5,6 +5,7 @@ import {
   getTripDutySlots,
   getTripActivities,
   getTripRegistrations,
+  getTripExpenses,
   currentTripPriceCents,
   CAMP_CONRON_SLUG,
   DAY_LABELS,
@@ -27,6 +28,8 @@ import {
   updateActivityAction,
   deleteActivityAction,
   toggleTripPublishedAction,
+  addTripExpenseAction,
+  deleteTripExpenseAction,
 } from "@/lib/actions/tripPage";
 import {
   addTripRegistrationAction,
@@ -53,11 +56,12 @@ export default async function AdminCampConronPage({
   const affiliationFilter = affiliationParam === "PACK" || affiliationParam === "TROOP" ? affiliationParam : "ALL";
 
   const trip = await getOrCreateTripPage(CAMP_CONRON_SLUG);
-  const [meals, dutySlots, activities, registrations] = await Promise.all([
+  const [meals, dutySlots, activities, registrations, expenses] = await Promise.all([
     getTripMeals(trip.id),
     getTripDutySlots(trip.id),
     getTripActivities(trip.id),
     getTripRegistrations(trip.id),
+    getTripExpenses(trip.id),
   ]);
 
   // Everyone but Admin — TRIP_VIEWER (e.g. a shared Troop376 login) and
@@ -80,6 +84,7 @@ export default async function AdminCampConronPage({
   const priceCents = currentTripPriceCents(trip);
   const totalOwed = registrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
   const totalPaid = registrations.reduce((sum, r) => sum + r.paidCents, 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amountCents, 0);
 
   const totalAdults = registrations.reduce((sum, r) => sum + r.payingCount, 0);
   const totalKids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
@@ -146,10 +151,95 @@ export default async function AdminCampConronPage({
           <p style={{ marginBottom: 8 }}>
             <strong>Collected So Far:</strong> {formatCents(totalPaid)}
           </p>
-          <p>
+          <p style={{ marginBottom: 8 }}>
             <strong>Remaining:</strong> {formatCents(totalOwed - totalPaid)}
           </p>
+          <p style={{ marginBottom: 8 }}>
+            <strong>Expenses:</strong> {formatCents(totalExpenses)}
+          </p>
+          <p style={{ marginBottom: 8 }}>
+            <strong>Net So Far (collected − expenses):</strong> {formatCents(totalPaid - totalExpenses)}
+          </p>
+          <p>
+            <strong>Projected Net (if everyone pays):</strong> {formatCents(totalOwed - totalExpenses)}
+          </p>
         </div>
+      </div>
+
+      {/* Closed by default: it's a running ledger checked now and then, and
+          the Money card above already shows the total. */}
+      <div style={{ marginBottom: 24 }}>
+        <CollapsibleGroup
+          defaultOpen={false}
+          label={`Expenses — ${formatCents(totalExpenses)} (${expenses.length} item${expenses.length === 1 ? "" : "s"})`}
+        >
+          <div className="info-card" style={{ marginTop: 8 }}>
+            {expenses.length === 0 ? (
+              <p>No expenses recorded yet.</p>
+            ) : (
+              <div className="table-scroll" style={{ marginBottom: 16 }}>
+                <table className="data-table" style={{ marginBottom: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Expense</th>
+                      <th>Date</th>
+                      <th>Paid By</th>
+                      <th>Amount</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expenses.map((e) => (
+                      <tr key={e.id}>
+                        <td
+                          className="audit-hover"
+                          data-audit={formatAuditTooltip("Recorded", e.createdAt, e.recordedByUser?.username ?? null)}
+                        >
+                          {e.description}
+                        </td>
+                        <td data-label="Date">{e.spentOn.toLocaleDateString("en-US", { timeZone: "UTC" })}</td>
+                        <td data-label="Paid By">{e.paidBy || "—"}</td>
+                        <td data-label="Amount">{formatCents(e.amountCents)}</td>
+                        <td className="actions">
+                          <form action={deleteTripExpenseAction}>
+                            <input type="hidden" name="id" value={e.id} />
+                            <button type="submit" className="btn btn-danger btn-small">
+                              Delete
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <form
+              action={addTripExpenseAction}
+              style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}
+            >
+              <input type="hidden" name="tripPageId" value={trip.id} />
+              <div className="form-field" style={{ marginBottom: 0, flex: "2 1 200px" }}>
+                <label htmlFor="expense-description">Expense</label>
+                <input id="expense-description" name="description" required placeholder="Campsite, firewood, groceries…" />
+              </div>
+              <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
+                <label htmlFor="expense-amount">Amount ($)</label>
+                <input id="expense-amount" name="amount" type="number" min="0.01" step="0.01" required />
+              </div>
+              <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
+                <label htmlFor="expense-spentOn">Date</label>
+                <input id="expense-spentOn" name="spentOn" type="date" defaultValue={todayDateOnlyString()} />
+              </div>
+              <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
+                <label htmlFor="expense-paidBy">Paid By (optional)</label>
+                <input id="expense-paidBy" name="paidBy" placeholder="Who fronted it" />
+              </div>
+              <button type="submit" className="btn btn-primary">Add Expense</button>
+            </form>
+          </div>
+        </CollapsibleGroup>
       </div>
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 24 }}>

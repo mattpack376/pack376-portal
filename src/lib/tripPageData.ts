@@ -151,6 +151,15 @@ export async function getTripRegistrations(tripPageId: string) {
   });
 }
 
+/** The trip's expenses in the order they were spent, oldest first. */
+export async function getTripExpenses(tripPageId: string) {
+  return prisma.tripExpense.findMany({
+    where: { tripPageId },
+    include: { recordedByUser: { select: { username: true } } },
+    orderBy: [{ spentOn: "asc" }, { createdAt: "asc" }],
+  });
+}
+
 /**
  * True once the trip's published RSVP deadline has passed. Dates are stored
  * as @db.Date, so the deadline means "through the end of that day, Eastern" —

@@ -98,6 +98,7 @@ model User {
   guestGroupsGuestOf       EventGuestGroup[]        @relation("GuestGroupGuestOf")
   guestGroupPaymentsLogged EventGuestGroupPayment[]
   tripPaymentsLogged       TripPayment[]
+  tripExpensesLogged       TripExpense[]
   // Audit entries this account produced. onDelete: SetNull on the other side,
   // so deleting a login leaves its history intact (see model AuditLog).
   auditEntries             AuditLog[]
@@ -630,6 +631,7 @@ model TripPage {
   meals                    TripMeal[]
   dutySlots                TripDutySlot[]
   activities               TripActivity[]
+  expenses                 TripExpense[]
 }
 
 /**
@@ -669,6 +671,25 @@ model TripPayment {
   createdAt          DateTime         @default(now())
   recordedByUserId   String?
   recordedByUser     User?            @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+}
+
+/**
+ * Money the pack spent putting the trip on — campsite fee, firewood,
+ * groceries — so the admin page can show it against what families paid.
+ * paidBy is free text (who fronted it, for reimbursement), not a User FK,
+ * since that's often a parent with no portal login.
+ */
+model TripExpense {
+  id               String   @id @default(cuid())
+  tripPageId       String
+  tripPage         TripPage @relation(fields: [tripPageId], references: [id], onDelete: Cascade)
+  description      String
+  amountCents      Int
+  spentOn          DateTime @db.Date
+  paidBy           String?
+  createdAt        DateTime @default(now())
+  recordedByUserId String?
+  recordedByUser   User?    @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
 }
 
 /**

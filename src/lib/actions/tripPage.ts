@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
-import { recordAudit, changedFields, auditMoney } from "@/lib/audit";
+import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import { uploadFlyer } from "@/lib/flyerUpload";
 import { dollarsToCents } from "@/lib/formValues";
+import { todayDateOnlyString } from "@/lib/dateOnly";
 import type { TripDay, TripMealType } from "@/generated/prisma/enums";
 
 const ADMIN_PATH = "/portal/admin/camp-conron";
@@ -481,4 +482,67 @@ export async function deleteActivityAction(formData: FormData) {
   });
 
   revalidateTrip();
+}
+
+// Expenses never appear on the public page, so these only revalidate the admin view.
+export async function addTripExpenseAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const tripPageId = String(formData.get("tripPageId") || "");
+  const description = String(formData.get("description") || "").trim();
+  const amountCents = dollarsToCents(String(formData.get("amount") || ""));
+  const spentOnRaw = String(formData.get("spentOn") || "").trim();
+  const paidBy = String(formData.get("paidBy") || "").trim() || null;
+  if (!tripPageId || !description) throw new Error("Describe what the expense was for.");
+  if (amountCents === null || amountCents === 0) throw new Error("A valid expense amount is required.");
+
+  const spentOn = new Date(spentOnRaw || todayDateOnlyString());
+  if (Number.isNaN(spentOn.getTime())) throw new Error("Invalid expense date.");
+
+  const expense = await prisma.tripExpense.create({
+    data: { tripPageId, description, amountCents, spentOn, paidBy, recordedByUserId: session.userId },
+  });
+
+  await recordAudit(session, {
+    action: "trip.expense.add",
+    summary: `Recorded a ${auditMoney(amountCents)} trip expense for “${description}”`,
+    entityType: "TripExpense",
+    entityId: expense.id,
+    details: [
+      { label: "Expense", from: "—", to: description },
+      { label: "Amount", from: "—", to: auditMoney(amountCents) },
+      { label: "Date", from: "—", to: auditDate(spentOn) },
+      ...(paidBy ? [{ label: "Paid by", from: "—", to: paidBy }] : []),
+    ],
+  });
+
+  revalidatePath(ADMIN_PATH);
+}
+
+export async function deleteTripExpenseAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const id = String(formData.get("id") || "");
+  if (!id) throw new Error("Missing expense id.");
+
+  const expense = await prisma.tripExpense.delete({ where: { id } });
+
+  await recordAudit(session, {
+    action: "trip.expense.delete",
+    summary: `Deleted the ${auditMoney(expense.amountCents)} trip expense for “${expense.description}”`,
+    entityType: "TripExpense",
+    entityId: id,
+    details: [
+      { label: "Expense", from: expense.description, to: "—" },
+      { label: "Amount", from: auditMoney(expense.amountCents), to: "—" },
+      { label: "Date", from: auditDate(expense.spentOn), to: "—" },
+      ...(expense.paidBy ? [{ label: "Paid by", from: expense.paidBy, to: "—" }] : []),
+    ],
+  });
+
+  revalidatePath(ADMIN_PATH);
 }
