@@ -684,8 +684,8 @@ export default async function AdminCampConronPage({
         </div>
         {registrations.length > 0 && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {/* Follows the Pack/Troop filter below, so "Pack 376" copies only
-                Pack families' addresses. */}
+            {/* Copy Emails and Export CSV both follow the Pack/Troop filter
+                below, so "Pack 376" copies/exports only Pack families. */}
             <CopyAddressesButton
               emails={visibleRegistrations.map((r) => r.contactEmail)}
               label="Copy Emails"
@@ -693,9 +693,9 @@ export default async function AdminCampConronPage({
             />
             <a
               className="btn btn-quiet btn-small"
-              href="/portal/admin/camp-conron/export"
+              href={`/portal/admin/camp-conron/export?affiliation=${affiliationFilter}`}
             >
-              Export CSV
+              Export CSV ({affiliationFilter === "PACK" ? "Pack 376" : affiliationFilter === "TROOP" ? "Troop 376" : "All"})
             </a>
           </div>
         )}

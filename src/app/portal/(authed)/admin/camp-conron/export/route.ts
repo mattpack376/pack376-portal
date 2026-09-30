@@ -4,11 +4,18 @@ import { toCsv, centsToDollarsString, csvResponse } from "@/lib/csv";
 import { paymentStatusLabel } from "@/lib/paymentStatus";
 
 
-export async function GET() {
+export async function GET(request: Request) {
   await requireAdminSession();
 
+  // ?affiliation=PACK|TROOP exports just that group; anything else (or
+  // nothing) exports everyone, same as the page's All / Pack 376 / Troop 376 tabs.
+  const param = new URL(request.url).searchParams.get("affiliation");
+  const affiliation = param === "PACK" || param === "TROOP" ? param : "ALL";
+
   const trip = await getOrCreateTripPage(CAMP_CONRON_SLUG);
-  const registrations = await getTripRegistrations(trip.id);
+  const allRegistrations = await getTripRegistrations(trip.id);
+  const registrations =
+    affiliation === "ALL" ? allRegistrations : allRegistrations.filter((reg) => reg.affiliation === affiliation);
 
   const rows: (string | number)[][] = [
     ["Family / Registrant", "Guest Of", "Email", "Phone", "Affiliation", "Paying", "Free", "Amount Owed", "Paid", "Remaining", "Status", "Registered"],
@@ -28,5 +35,6 @@ export async function GET() {
     ]),
   ];
 
-  return csvResponse(toCsv(rows), "camp-conron-registrations.csv");
+  const suffix = affiliation === "ALL" ? "" : `-${affiliation.toLowerCase()}`;
+  return csvResponse(toCsv(rows), `camp-conron-registrations${suffix}.csv`);
 }
