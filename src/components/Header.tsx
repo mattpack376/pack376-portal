@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/intro-to-scouting", label: "Intro to Scouting" },
   { href: "/volunteer", label: "Volunteer" },
   { href: "/activities", label: "Activities" },
+  { href: "https://conron.pack376nyc.org", label: "Camp Conron 2026", external: true },
   { href: "https://calendar.pack376nyc.org", label: "Calendar", external: true },
   { href: "/rank-requirements", label: "Rank Requirements" },
   { href: "/parent-resources", label: "Parent Resources" },
