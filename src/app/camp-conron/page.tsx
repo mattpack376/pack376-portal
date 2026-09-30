@@ -36,7 +36,7 @@ export default async function CampConronPage() {
   if (!trip.published) {
     return (
       <>
-        <Header homeHref="https://www.pack376nyc.org" />
+        <Header homeHref="https://www.pack376nyc.org" hideConronLink />
         <div className="site-banner">
           ⚠️ This page is in testing — everything listed is a placeholder for visual purposes only and is not finalized yet.
         </div>
@@ -81,7 +81,7 @@ export default async function CampConronPage() {
 
   return (
     <>
-      <Header homeHref="https://www.pack376nyc.org" />
+      <Header homeHref="https://www.pack376nyc.org" hideConronLink />
       <div className="site-banner">
         📣 The menu and activity schedule are now posted. The duty roster is still being worked on as families continue to
         register, and the activity schedule is subject to change.

@@ -5,12 +5,14 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+const CONRON_HREF = "https://conron.pack376nyc.org";
+
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/intro-to-scouting", label: "Intro to Scouting" },
   { href: "/volunteer", label: "Volunteer" },
   { href: "/activities", label: "Activities" },
-  { href: "https://conron.pack376nyc.org", label: "Camp Conron 2026", external: true },
+  { href: CONRON_HREF, label: "Camp Conron 2026", external: true },
   { href: "https://calendar.pack376nyc.org", label: "Calendar", external: true },
   { href: "/rank-requirements", label: "Rank Requirements" },
   { href: "/parent-resources", label: "Parent Resources" },
@@ -27,8 +29,17 @@ const NAV_ITEMS = [
  * site homepage instead of "/", which would otherwise just reload that same
  * subdomain's own root. Every other page renders <Header /> with no prop, so
  * "Home" stays a normal same-app "/" link there, unchanged.
+ *
+ * `hideConronLink` drops the "Camp Conron 2026" menu item — the micro-site
+ * passes it so its own menu doesn't link back to the page you're already on.
  */
-export default function Header({ homeHref = "/" }: { homeHref?: string }) {
+export default function Header({
+  homeHref = "/",
+  hideConronLink = false,
+}: {
+  homeHref?: string;
+  hideConronLink?: boolean;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const navLinksRef = useRef<HTMLDivElement>(null);
@@ -68,7 +79,7 @@ export default function Header({ homeHref = "/" }: { homeHref?: string }) {
           &#9776;
         </button>
         <div ref={navLinksRef} className={`nav-links${open ? " open" : ""}`}>
-          {NAV_ITEMS.map((link) => {
+          {NAV_ITEMS.filter((link) => !(hideConronLink && link.href === CONRON_HREF)).map((link) => {
             if (link.label === "Home" && isHomeExternal) {
               return (
                 <a key="home" href={homeHref} onClick={() => setOpen(false)}>
