@@ -102,6 +102,7 @@ model User {
   // Audit entries this account produced. onDelete: SetNull on the other side,
   // so deleting a login leaves its history intact (see model AuditLog).
   auditEntries             AuditLog[]
+  receiptsIssued           Receipt[]
   householdId              String?
   household                Household?               @relation(fields: [householdId], references: [id], onDelete: SetNull)
 
@@ -823,4 +824,37 @@ model AuditLog {
   @@index([entityType, entityId])
   // "Show me everything from this address" is the whole reason to store it.
   @@index([ipAddress, createdAt])
+}
+
+/**
+ * A donation or payment receipt an Admin issued from /portal/admin/receipts.
+ * Holds the fields the PDF is drawn from rather than the PDF itself, so any
+ * receipt can be re-downloaded identically (createdAt is the "generated"
+ * timestamp printed on it) without keeping binary files around. Nothing
+ * deletes these: they are the pack's record of what was acknowledged.
+ */
+model Receipt {
+  id              String    @id @default(cuid())
+  createdAt       DateTime  @default(now())
+  /// ReceiptKind in src/lib/receipts.ts: DONATION, DUES, CAMPING, EVENT, OTHER.
+  kind            String
+  receivedFrom    String
+  scoutName       String    @default("")
+  purpose         String
+  season          String    @default("")
+  amountCents     Int
+  /// The date paid/received as printed on the receipt.
+  receiptDate     DateTime  @db.Date
+  method          String    @default("")
+  /// ReceiptStatus: FULL, PARTIAL, NONE.
+  status          String    @default("FULL")
+  issuedByName    String
+  issuedByTitle   String    @default("")
+  /// Set once the receipt has been emailed; the most recent send if it went out more than once.
+  emailedTo       String?
+  emailedAt       DateTime?
+  createdByUserId String?
+  createdByUser   User?     @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
 }

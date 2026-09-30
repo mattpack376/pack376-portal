@@ -57,6 +57,7 @@ export const AUDIT_CATEGORY_LABELS: Record<string, string> = {
   household: "Households",
   parent: "Parent Contacts",
   photoConsent: "Photo Consent",
+  receipt: "Receipts",
   reset: "Season Reset",
   scout: "Scouts",
   trip: "Camp Conron Trip",

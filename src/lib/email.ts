@@ -143,3 +143,48 @@ export async function sendPhotoConsentLinkEmails(
 
   return { sent, configured: true };
 }
+
+function escapeHtml(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Emails a receipt PDF. Same contract as the other senders: never throws,
+ * and `configured` tells "no RESEND_API_KEY" apart from a real send failure so
+ * the admin is pointed at the Download button in the first case only.
+ */
+export async function sendReceiptEmail(
+  to: string,
+  opts: {
+    isDonation: boolean;
+    receivedFrom: string;
+    amountLabel: string;
+    filename: string;
+    pdf: Uint8Array;
+    bcc?: string;
+    replyTo?: string;
+  }
+): Promise<{ sent: boolean; configured: boolean }> {
+  const resend = getClient();
+  if (!resend) return { sent: false, configured: false };
+
+  const noun = opts.isDonation ? "donation" : "payment";
+  const intro = opts.isDonation
+    ? `Thank you for your ${opts.amountLabel} donation to Cub Scout Pack 376. Your receipt is attached as a PDF; please keep it for your records.`
+    : `Thank you for your ${opts.amountLabel} payment to Cub Scout Pack 376. Your receipt is attached as a PDF; please keep it for your records.`;
+
+  const { error } = await resend.emails.send({
+    from: FROM_ADDRESS,
+    to,
+    ...(opts.bcc ? { bcc: opts.bcc } : {}),
+    ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
+    subject: `Your Pack 376 ${noun} receipt`,
+    html: `<p>Hello ${escapeHtml(opts.receivedFrom)},</p><p>${escapeHtml(intro)}</p><p>Cub Scout Pack 376</p>`,
+    // See the note in sendAccountLinkEmail — a plain-text part helps spam scoring.
+    text: `Hello ${opts.receivedFrom},\n\n${intro}\n\nCub Scout Pack 376`,
+    attachments: [{ filename: opts.filename, content: Buffer.from(opts.pdf) }],
+  });
+
+  if (error) console.error(`sendReceiptEmail failed for ${to}:`, error);
+  return { sent: !error, configured: true };
+}
