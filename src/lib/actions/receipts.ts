@@ -159,3 +159,29 @@ export async function downloadSavedReceiptAction(id: string): Promise<GenerateRe
   const pdf = await buildReceiptPdf(data, record.createdAt);
   return { ok: true, id: record.id, filename: receiptFilename(data), pdfBase64: Buffer.from(pdf).toString("base64") };
 }
+
+export type DeleteReceiptResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Removes a receipt from the history, for one entered by mistake. The row is
+ * gone for good, so the audit entry records everything it said, and an email
+ * that already went out is not unsent.
+ */
+export async function deleteReceiptAction(id: string): Promise<DeleteReceiptResult> {
+  const session = await requireAdmin();
+  const record = typeof id === "string" && id ? await prisma.receipt.findUnique({ where: { id } }) : null;
+  if (!record) return { ok: false, error: "That receipt was already deleted." };
+
+  await prisma.receipt.delete({ where: { id: record.id } });
+
+  const data = receiptDataFromRecord(record);
+  await recordAudit(session, {
+    action: "receipt.delete",
+    summary: auditSummary("Deleted", data, ` dated ${data.date}${record.emailedTo ? `, which had been emailed to ${record.emailedTo}` : ""}`),
+    entityType: "Receipt",
+    entityId: record.id,
+  });
+  revalidatePath("/portal/admin/receipts");
+
+  return { ok: true };
+}

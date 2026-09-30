@@ -830,8 +830,9 @@ model AuditLog {
  * A donation or payment receipt an Admin issued from /portal/admin/receipts.
  * Holds the fields the PDF is drawn from rather than the PDF itself, so any
  * receipt can be re-downloaded identically (createdAt is the "generated"
- * timestamp printed on it) without keeping binary files around. Nothing
- * deletes these: they are the pack's record of what was acknowledged.
+ * timestamp printed on it) without keeping binary files around. Only an
+ * Admin can delete one (for a receipt entered by mistake); the audit log
+ * keeps a line saying what was removed.
  */
 model Receipt {
   id              String    @id @default(cuid())
