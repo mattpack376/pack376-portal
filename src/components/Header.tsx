@@ -24,26 +24,21 @@ const NAV_ITEMS = [
 ];
 
 /**
- * `homeHref` lets a page rendered on a different subdomain (e.g. the Camp
- * Conron trip micro-site on conron.pack376nyc.org) point "Home" at the real
- * site homepage instead of "/", which would otherwise just reload that same
- * subdomain's own root. Every other page renders <Header /> with no prop, so
- * "Home" stays a normal same-app "/" link there, unchanged.
- *
- * `hideConronLink` drops the "Camp Conron 2026" menu item — the micro-site
- * passes it so its own menu doesn't link back to the page you're already on.
+ * `mainSiteOrigin` is for a page rendered on a different subdomain (the Camp
+ * Conron trip micro-site on conron.pack376nyc.org). There, root-relative links
+ * like "/activities" would keep the visitor on that subdomain, and "Home"
+ * would just reload the micro-site's own root — so every same-site link is
+ * pointed at the real site instead, and the "Camp Conron 2026" item is
+ * dropped since it would link back to the page you're already on. Every other
+ * page renders <Header /> with no prop and gets normal same-app links.
  */
-export default function Header({
-  homeHref = "/",
-  hideConronLink = false,
-}: {
-  homeHref?: string;
-  hideConronLink?: boolean;
-}) {
+export default function Header({ mainSiteOrigin }: { mainSiteOrigin?: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const navLinksRef = useRef<HTMLDivElement>(null);
-  const isHomeExternal = homeHref !== "/";
+  const navItems = mainSiteOrigin
+    ? NAV_ITEMS.filter((link) => link.href !== CONRON_HREF)
+    : NAV_ITEMS;
 
   // Belt-and-suspenders against the mobile dropdown opening pre-scrolled to
   // its last item instead of the first (a scroll-anchoring quirk some mobile
@@ -79,10 +74,10 @@ export default function Header({
           &#9776;
         </button>
         <div ref={navLinksRef} className={`nav-links${open ? " open" : ""}`}>
-          {NAV_ITEMS.filter((link) => !(hideConronLink && link.href === CONRON_HREF)).map((link) => {
-            if (link.label === "Home" && isHomeExternal) {
+          {navItems.map((link) => {
+            if (mainSiteOrigin && !link.external) {
               return (
-                <a key="home" href={homeHref} onClick={() => setOpen(false)}>
+                <a key={link.href} href={`${mainSiteOrigin}${link.href}`}>
                   {link.label}
                 </a>
               );
