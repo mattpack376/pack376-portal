@@ -1764,21 +1764,33 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 }
 
 /* ---------- Print ---------- */
+/*
+ * The printable roster (Parent Contacts → Printable View) is one table per
+ * den. The den's title and its column headings both sit in the <thead>, so
+ * when a den runs past a page the browser repeats them at the top of the next
+ * one and a title can never be stranded away from its first row. A scout's
+ * parent rows are one <tbody> and are kept together; the table as a whole is
+ * free to break, so dens run on from each other instead of leaving a gap
+ * wherever the next whole table wouldn't fit.
+ */
 .print-roster-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 .print-roster-table th,
 .print-roster-table td {
   text-align: left;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--cream-dark);
-  font-size: 17px;
-}
-.print-roster-table th {
-  font-family: var(--font-display);
+  vertical-align: top;
+  padding: 5px 8px;
   font-size: 13px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.print-roster-table thead th {
+  font-family: var(--font-display);
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ink-soft);
@@ -1786,7 +1798,18 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
-.print-roster-table tr:last-child td { border-bottom: none; }
+.print-roster-table thead .print-den-title {
+  padding: 7px 8px;
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--white);
+  background: var(--scout-blue);
+}
+.print-roster-table .print-den-count { float: right; font-weight: 400; font-size: 12px; }
+.print-roster-table tbody { break-inside: avoid; }
+.print-roster-table tbody + tbody > tr:first-child > td { border-top: 1px solid var(--cream-dark); }
+.print-empty { color: var(--ink-soft); }
 
 .enlarge-dialog {
   position: fixed;
@@ -1844,7 +1867,11 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .dates-dialog-foot { text-align: right; }
 
 @media print {
+  /* The cream page color would show under the shell on a last, part-filled page. */
+  html,
+  body { background: var(--white); }
   .portal-header,
+  .site-banner,
   .no-print {
     display: none !important;
   }
@@ -1856,5 +1883,4 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
     border: 1px solid #999;
     break-inside: avoid;
   }
-  .print-roster-table { break-inside: avoid; }
 }

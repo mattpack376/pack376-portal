@@ -76,6 +76,11 @@ export default async function ParentContactsPage({
         )}
         <p style={{ fontSize: 15, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           {printView && <PrintButton />}
+          {printView && (
+            <a href="/api/parents/export/pdf" className="btn btn-quiet no-print">
+              Download PDF
+            </a>
+          )}
           {isAdmin && !printView && (
             <Link
               href="/portal/roster/parents?view=print"
@@ -85,12 +90,20 @@ export default async function ParentContactsPage({
             </Link>
           )}
           {(session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") && !printView && (
-            <a
-              href="/api/parents/export"
-              className="btn btn-quiet btn-small no-print"
-            >
-              Export All Parent Contacts (CSV)
-            </a>
+            <>
+              <a
+                href="/api/parents/export"
+                className="btn btn-quiet btn-small no-print"
+              >
+                Export All Parent Contacts (CSV)
+              </a>
+              <a
+                href="/api/parents/export/pdf"
+                className="btn btn-quiet btn-small no-print"
+              >
+                Export All Parent Contacts (PDF)
+              </a>
+            </>
           )}
         </p>
       </div>
@@ -98,53 +111,55 @@ export default async function ParentContactsPage({
       {dens.length === 0 && <div className="info-card" style={{ fontSize: 16 }}>No dens yet.</div>}
 
       {printView ? (
-        years.map((year) => {
-          const yearDens = dens.filter((d) => d.scoutingYear === year && d.scouts.length > 0);
-          if (yearDens.length === 0) return null;
-          return (
-            <div key={year} style={{ marginBottom: 22 }}>
-              <h3 style={{ fontSize: 17, marginBottom: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                {year}
-              </h3>
-              {yearDens.map((den) => (
-                <div key={den.id} style={{ marginBottom: 18 }}>
-                  <h4 style={{ fontSize: 19, marginBottom: 8, color: "var(--scout-blue)" }}>
+        // Dens are already in year/rank order and each title carries its year,
+        // so there are no separate year headings to strand at a page bottom.
+        dens
+          .filter((den) => den.scouts.length > 0)
+          .map((den) => (
+            <table className="print-roster-table" key={den.id}>
+              <colgroup>
+                <col style={{ width: "24%" }} />
+                <col style={{ width: "24%" }} />
+                <col style={{ width: "34%" }} />
+                <col style={{ width: "18%" }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th colSpan={4} className="print-den-title">
                     {denDisplayName(den.rank, den.scoutingYear, den.label)}
-                  </h4>
-                  <table className="print-roster-table">
-                    <thead>
-                      <tr>
-                        <th>Scout</th>
-                        <th>Parent / Guardian</th>
-                        <th>Email</th>
-                        <th>Phone</th>
+                    <span className="print-den-count">
+                      {den.scouts.length} scout{den.scouts.length === 1 ? "" : "s"}
+                    </span>
+                  </th>
+                </tr>
+                <tr>
+                  <th>Scout</th>
+                  <th>Parent / Guardian</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                </tr>
+              </thead>
+              {den.scouts.map((scout) => (
+                <tbody key={scout.id}>
+                  {scout.parents.length === 0 ? (
+                    <tr>
+                      <td>{scout.firstName} {scout.lastName}</td>
+                      <td colSpan={3} className="print-empty">No contacts on file</td>
+                    </tr>
+                  ) : (
+                    scout.parents.map((parent, i) => (
+                      <tr key={parent.id}>
+                        <td>{i === 0 ? `${scout.firstName} ${scout.lastName}` : ""}</td>
+                        <td>{parent.name}</td>
+                        <td>{parent.email || "—"}</td>
+                        <td>{parent.phone ? formatPhoneNumber(parent.phone) : "—"}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {den.scouts.flatMap((scout) =>
-                        scout.parents.length === 0 ? (
-                          <tr key={scout.id}>
-                            <td>{scout.firstName} {scout.lastName}</td>
-                            <td colSpan={3} style={{ color: "var(--ink-soft)" }}>No contacts on file</td>
-                          </tr>
-                        ) : (
-                          scout.parents.map((parent, i) => (
-                            <tr key={parent.id}>
-                              <td>{i === 0 ? `${scout.firstName} ${scout.lastName}` : ""}</td>
-                              <td>{parent.name}</td>
-                              <td>{parent.email || "—"}</td>
-                              <td>{parent.phone ? formatPhoneNumber(parent.phone) : "—"}</td>
-                            </tr>
-                          ))
-                        )
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                    ))
+                  )}
+                </tbody>
               ))}
-            </div>
-          );
-        })
+            </table>
+          ))
       ) : (
         years.map((year) => (
         <div key={year} style={{ marginBottom: 32 }}>
@@ -171,6 +186,12 @@ export default async function ParentContactsPage({
                         className="btn btn-quiet btn-small"
                       >
                         Export CSV
+                      </a>
+                      <a
+                        href={`/api/parents/export/den/${den.id}/pdf`}
+                        className="btn btn-quiet btn-small"
+                      >
+                        Export PDF
                       </a>
                       <EmailAllButton
                         label="Email This Den's Parents"
