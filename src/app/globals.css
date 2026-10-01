@@ -878,22 +878,6 @@ section { padding: 64px 0; }
 .rank-detail-body { padding: 24px 26px; }
 .rank-detail-body h2 { font-size: 22px; margin-bottom: 6px; }
 .rank-detail-body .tagline { color: var(--carnival-red); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
-.rank-uniform {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  font-size: 14px;
-  color: var(--ink);
-}
-.rank-uniform strong { color: var(--scout-blue-dark); }
-.rank-uniform-swatch {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
-}
 .adventure-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .adventure-tags span {
   background: var(--cream-dark);
