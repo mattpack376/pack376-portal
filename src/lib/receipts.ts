@@ -12,6 +12,7 @@ import { dollarsToCents } from "@/lib/formValues";
  * New York Councils under BSA's group exemption. Printed on donation receipts.
  */
 export const RECEIPT_ORG_NAME = "Cub Scout Pack 376";
+export const RECEIPT_COUNCIL_NAME = "Greater New York Councils, Scouting America";
 export const RECEIPT_OFFICIAL_NAME = "GNYC BSA Pack 3376F";
 export const RECEIPT_EIN = "13-1624015";
 

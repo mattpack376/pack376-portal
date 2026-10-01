@@ -4,6 +4,7 @@ import { RECEIPT_EMBLEM_PNG_BASE64 } from "@/lib/receiptEmblem";
 import {
   RECEIPT_EIN,
   RECEIPT_KIND_INFO,
+  RECEIPT_COUNCIL_NAME,
   RECEIPT_OFFICIAL_NAME,
   RECEIPT_ORG_NAME,
   RECEIPT_STATUS_LABELS,
@@ -256,6 +257,8 @@ export async function buildReceiptPdf(data: ReceiptData, now: Date = new Date())
     y -= 15;
     text("in exchange for this contribution. Please keep this receipt for your tax records.", MARGIN, y, fonts.regular, 10);
     y -= 24;
+    text(RECEIPT_COUNCIL_NAME, MARGIN, y, fonts.bold, 10);
+    y -= 15;
     text(RECEIPT_OFFICIAL_NAME, MARGIN, y, fonts.bold, 10);
     y -= 15;
     text(`EIN: ${RECEIPT_EIN}`, MARGIN, y, fonts.regular, 10);
