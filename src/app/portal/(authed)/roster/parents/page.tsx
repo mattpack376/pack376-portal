@@ -3,13 +3,14 @@ import { isDenScopedRole, requireParentContactsSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
-import { addParentAction, updateParentAction, removeParentAction } from "@/lib/actions/parents";
+import { addParentAction, updateParentAction } from "@/lib/actions/parents";
 import { formatPhoneNumber } from "@/lib/phone";
 import EmailAllButton from "@/components/EmailAllButton";
 import PrintButton from "@/components/PrintButton";
 import FileExportButton from "@/components/FileExportButton";
 import InviteParentPortalButton from "@/components/InviteParentPortalButton";
 import RevokeParentPortalButton from "@/components/RevokeParentPortalButton";
+import RemoveParentButton from "@/components/RemoveParentButton";
 
 const inputStyle = {
   padding: "8px 12px",
@@ -259,15 +260,12 @@ export default async function ParentContactsPage({
                                     Save
                                   </button>
                                 </form>
-                                <form action={removeParentAction}>
-                                  <input type="hidden" name="parentId" value={parent.id} />
-                                  <button
-                                    type="submit"
-                                    className="btn btn-danger btn-small" style={buttonStyle}
-                                  >
-                                    Remove
-                                  </button>
-                                </form>
+                                <RemoveParentButton
+                                  parentId={parent.id}
+                                  parentName={parent.name}
+                                  scoutName={`${scout.firstName} ${scout.lastName}`}
+                                  hasPortalAccess={!!parent.userId}
+                                />
                               </>
                             ) : (
                               <span style={{ fontSize: 16 }}>
