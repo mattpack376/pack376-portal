@@ -7,6 +7,7 @@ import { addParentAction, updateParentAction, removeParentAction } from "@/lib/a
 import { formatPhoneNumber } from "@/lib/phone";
 import EmailAllButton from "@/components/EmailAllButton";
 import PrintButton from "@/components/PrintButton";
+import PdfExportButton from "@/components/PdfExportButton";
 import InviteParentPortalButton from "@/components/InviteParentPortalButton";
 import RevokeParentPortalButton from "@/components/RevokeParentPortalButton";
 
@@ -77,9 +78,7 @@ export default async function ParentContactsPage({
         <p style={{ fontSize: 15, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           {printView && <PrintButton />}
           {printView && (
-            <a href="/api/parents/export/pdf" className="btn btn-quiet no-print">
-              Download PDF
-            </a>
+            <PdfExportButton href="/api/parents/export/pdf" label="Download PDF" className="btn btn-quiet no-print" />
           )}
           {isAdmin && !printView && (
             <Link
@@ -97,12 +96,11 @@ export default async function ParentContactsPage({
               >
                 Export All Parent Contacts (CSV)
               </a>
-              <a
+              <PdfExportButton
                 href="/api/parents/export/pdf"
+                label="Export All Parent Contacts (PDF)"
                 className="btn btn-quiet btn-small no-print"
-              >
-                Export All Parent Contacts (PDF)
-              </a>
+              />
             </>
           )}
         </p>
@@ -187,12 +185,11 @@ export default async function ParentContactsPage({
                       >
                         Export CSV
                       </a>
-                      <a
+                      <PdfExportButton
                         href={`/api/parents/export/den/${den.id}/pdf`}
+                        label="Export PDF"
                         className="btn btn-quiet btn-small"
-                      >
-                        Export PDF
-                      </a>
+                      />
                       <EmailAllButton
                         label="Email This Den's Parents"
                         emails={den.scouts.flatMap((scout) => scout.parents.map((parent) => parent.email))}
