@@ -196,13 +196,13 @@ export async function buildParentsPdf(
       wrap(safe(text), font, TEXT_SIZE, COL_W[col] - 2 * PAD_X);
 
     if (scout.parents.length === 0) {
-      const cells = [fit(name, 0), fit("No contacts on file", 1, fonts.italic), [], []];
+      const cells = [fit(name, 0, fonts.bold), fit("No contacts on file", 1, fonts.italic), [], []];
       const height = rowHeight(cells);
       return { rows: [{ cells, height, muted: true }], height };
     }
     const rows = scout.parents.map((parent, i) => {
       const cells = [
-        i === 0 ? fit(name, 0) : [],
+        i === 0 ? fit(name, 0, fonts.bold) : [],
         fit(parent.name, 1),
         fit(parent.email || "—", 2),
         fit(parent.phone ? formatPhoneNumber(parent.phone) : "—", 3),
@@ -244,7 +244,7 @@ export async function buildParentsPdf(
             line,
             COL_X[col] + PAD_X,
             y - PAD_Y - TEXT_SIZE * 0.82 - n * LEADING,
-            row.muted && col === 1 ? fonts.italic : fonts.regular,
+            col === 0 ? fonts.bold : row.muted && col === 1 ? fonts.italic : fonts.regular,
             TEXT_SIZE,
             row.muted && col === 1 ? GRAY : DARK
           )

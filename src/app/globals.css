@@ -1816,6 +1816,8 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .print-roster-table .print-den-count { float: right; font-weight: 400; font-size: 12px; }
 .print-roster-table tbody { break-inside: avoid; }
 .print-roster-table tbody + tbody > tr:first-child > td { border-top: 1px solid var(--cream-dark); }
+/* The scout column — the name only appears on a scout's first row. */
+.print-roster-table tbody td:first-child { font-weight: 700; }
 .print-empty { color: var(--ink-soft); }
 
 .enlarge-dialog {
