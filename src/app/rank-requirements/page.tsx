@@ -15,6 +15,7 @@ type RankCard = {
   tagline: string;
   name: string;
   blurb: string;
+  uniform: string;
   tags: string[];
   pdf: string;
 };
@@ -27,6 +28,7 @@ const RANKS: RankCard[] = [
     tagline: "First Steps on the Boardwalk",
     name: "Lion",
     blurb: "Lions explore Cub Scouting alongside a parent or guardian \"Lion Guide,\" building teamwork and curiosity through hands-on adventures designed for kindergarten-age scouts.",
+    uniform: "Yellow/gold is the identifying color.",
     tags: ["Mountain Lion", "Fun on the Run", "King of the Jungle", "Lion's Roar", "Lion's Pride"],
     pdf: "/requirements/Lion-Adventure-Requirements.pdf",
   },
@@ -37,6 +39,7 @@ const RANKS: RankCard[] = [
     tagline: "Fast, Fierce, and Just Getting Started",
     name: "Tiger",
     blurb: "Tigers pair up with an adult partner to complete required and elective adventures covering outdoor skills, fitness, citizenship, and family fun.",
+    uniform: "Orange neckerchief.",
     tags: ["Tigers in the Wild", "Tiger Bites", "Team Tiger", "Tiger's Roar", "Tiger Circles"],
     pdf: "/requirements/Tiger-Adventure-Requirements.pdf",
   },
@@ -47,6 +50,7 @@ const RANKS: RankCard[] = [
     tagline: "Running with the Pack",
     name: "Wolf",
     blurb: "Wolves take on more independence — completing adventures in citizenship, fitness, and the outdoors while learning to work as part of a den.",
+    uniform: "Red neckerchief.",
     tags: ["Paws on the Path", "Running with the Pack", "Council Fire", "Safety in Numbers", "Footsteps"],
     pdf: "/requirements/Wolf-Adventure-Requirements.pdf",
   },
@@ -57,6 +61,7 @@ const RANKS: RankCard[] = [
     tagline: "Bigger Adventures, Bigger Confidence",
     name: "Bear",
     blurb: "Bears dig into science, cooking, community, and the outdoors — building skills that carry straight into Webelos and beyond.",
+    uniform: "Light-blue neckerchief.",
     tags: ["Bear Habitat", "Bear Strong", "Paws for Action", "Standing Tall", "Fellowship"],
     pdf: "/requirements/Bear-Adventure-Requirements.pdf",
   },
@@ -67,6 +72,7 @@ const RANKS: RankCard[] = [
     tagline: "Bridging Toward Youth-Led Adventure",
     name: "Webelos",
     blurb: "Webelos scouts take on more challenging, self-directed adventures and start building the outdoor and leadership skills that prepare them for Scouts BSA.",
+    uniform: "Plaid neckerchief; green is the rank-associated color.",
     tags: ["Webelos Walkabout", "Stronger, Faster, Higher", "My Community", "My Safety", "My Family"],
     pdf: "/requirements/Webelos-Adventure-Requirements.pdf",
   },
@@ -77,6 +83,7 @@ const RANKS: RankCard[] = [
     tagline: "The Top of the Wheel",
     name: "Arrow of Light",
     blurb: "The highest Cub Scout rank — scouts organize into a patrol and complete adventures focused on outdoor readiness, first aid, and leadership, then cross the bridge into Scouts BSA at Graduation Night.",
+    uniform: "Tan Scouts BSA-style uniform; neckerchief rules are more flexible for Arrow of Light.",
     tags: ["Outdoor Adventurer", "Personal Fitness", "Citizenship", "First Aid", "Duty to God"],
     pdf: "/requirements/Arrow-of-Light-Adventure-Requirements.pdf",
   },
@@ -120,6 +127,12 @@ export default function RankRequirementsPage() {
                 <div className="tagline">{rank.tagline}</div>
                 <h2>{rank.name}</h2>
                 <p>{rank.blurb}</p>
+                <div className="rank-uniform">
+                  <span className={`rank-uniform-swatch ${rank.badgeClass}`} aria-hidden="true" />
+                  <span>
+                    <strong>Uniform &amp; Neckerchief:</strong> {rank.uniform}
+                  </span>
+                </div>
                 <div className="adventure-tags">
                   {rank.tags.map((tag) => (
                     <span key={tag}>{tag}</span>
