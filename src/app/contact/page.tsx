@@ -53,7 +53,7 @@ export default function ContactPage() {
                 <div className="icon-badge">🗓️</div>
                 <div>
                   <h4>Meetings</h4>
-                  <p>Weekly, Fridays 7:00–9:30 PM — new scouts and families welcome anytime, no experience needed.</p>
+                  <p>Weekly, Fridays 7:30–9:30 PM — new scouts and families welcome anytime, no experience needed.</p>
                 </div>
               </div>
             </div>

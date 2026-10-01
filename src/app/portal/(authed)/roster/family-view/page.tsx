@@ -241,7 +241,7 @@ export default async function FamilyViewPage({
           ) : (
             <p>No meeting date on the calendar yet.</p>
           )}
-          <p className="form-note">Weekly meetings — Fridays, 7:00–9:30 PM, Veltri Hall, Our Lady of Grace.</p>
+          <p className="form-note">Weekly meetings — Fridays, 7:30–9:30 PM, Veltri Hall, Our Lady of Grace.</p>
         </div>
 
         <div className="info-card">
