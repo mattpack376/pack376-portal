@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import { isDenScopedRole, requireParentContactsSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
@@ -253,12 +254,7 @@ export default async function ParentContactsPage({
                                     style={inputStyle}
                                     placeholder="Phone"
                                   />
-                                  <button
-                                    type="submit"
-                                    className="btn btn-quiet btn-small" style={buttonStyle}
-                                  >
-                                    Save
-                                  </button>
+                                  <SaveButton className="btn btn-quiet btn-small" style={buttonStyle}>Save</SaveButton>
                                 </form>
                                 <RemoveParentButton
                                   parentId={parent.id}

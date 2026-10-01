@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { requireDuesViewSession } from "@/lib/authorize";
@@ -68,7 +69,7 @@ export default async function AdminScoutDuesPage({
               defaultValue={overrideCents === null ? "" : (overrideCents / 100).toFixed(2)}
             />
           </div>
-          <button type="submit" className="btn btn-primary">Save</button>
+          <SaveButton className="btn btn-primary">Save</SaveButton>
         </form>
         )}
       </div>

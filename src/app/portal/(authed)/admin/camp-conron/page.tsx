@@ -1,4 +1,5 @@
 import { requireTripPageSession } from "@/lib/authorize";
+import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import {
   getOrCreateTripPage,
@@ -218,9 +219,7 @@ export default async function AdminCampConronPage({
                           <label htmlFor={`${idPrefix}expense-paidBy-${e.id}`}>Paid By (optional)</label>
                           <input id={`${idPrefix}expense-paidBy-${e.id}`} name="paidBy" defaultValue={e.paidBy ?? ""} />
                         </div>
-                        <button type="submit" className="btn btn-primary btn-small">
-                          Save Changes
-                        </button>
+                        <SaveButton className="btn btn-primary btn-small">Save Changes</SaveButton>
                       </EditPopover>
                       <form action={deleteTripExpenseAction}>
                         <input type="hidden" name="id" value={e.id} />
@@ -312,7 +311,7 @@ export default async function AdminCampConronPage({
                   </label>
                 )}
               </div>
-              <button type="submit" className="btn btn-primary">Save Details</button>
+              <SaveButton className="btn btn-primary">Save Details</SaveButton>
             </form>
           </div>
         </CollapsibleGroup>
@@ -369,7 +368,7 @@ export default async function AdminCampConronPage({
                   defaultValue={trip.freeAgeAndUnder ?? undefined}
                 />
               </div>
-              <button type="submit" className="btn btn-primary">Save Pricing</button>
+              <SaveButton className="btn btn-primary">Save Pricing</SaveButton>
             </form>
           </div>
         </CollapsibleGroup>
@@ -388,7 +387,7 @@ export default async function AdminCampConronPage({
                 <label htmlFor="troopPaymentInstructions">Troop 376 Instructions</label>
                 <textarea id="troopPaymentInstructions" name="troopPaymentInstructions" rows={2} defaultValue={trip.troopPaymentInstructions ?? ""} />
               </div>
-              <button type="submit" className="btn btn-primary">Save Instructions</button>
+              <SaveButton className="btn btn-primary">Save Instructions</SaveButton>
             </form>
           </div>
         </CollapsibleGroup>
@@ -418,7 +417,7 @@ export default async function AdminCampConronPage({
               </div>
             ))}
           </div>
-          <button type="submit" className="btn btn-primary">Save Menu</button>
+          <SaveButton className="btn btn-primary">Save Menu</SaveButton>
         </form>
       </div>
 
@@ -500,12 +499,7 @@ export default async function AdminCampConronPage({
                     <label htmlFor={`duty-notes-${duty.id}`}>Notes (optional)</label>
                     <input id={`duty-notes-${duty.id}`} name="notes" defaultValue={duty.notes ?? ""} />
                   </div>
-                  <button
-                    type="submit"
-                    className="btn btn-quiet btn-small"
-                  >
-                    Save Changes
-                  </button>
+                  <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
                 </form>
                 <form action={deleteDutySlotAction} style={{ marginTop: 12 }}>
                   <input type="hidden" name="id" value={duty.id} />
@@ -623,12 +617,7 @@ export default async function AdminCampConronPage({
                       defaultValue={activity.description ?? ""}
                     />
                   </div>
-                  <button
-                    type="submit"
-                    className="btn btn-quiet btn-small"
-                  >
-                    Save Changes
-                  </button>
+                  <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
                 </form>
                 <form action={deleteActivityAction} style={{ marginTop: 12 }}>
                   <input type="hidden" name="id" value={activity.id} />
@@ -788,12 +777,7 @@ export default async function AdminCampConronPage({
                       <p className="form-note" style={{ marginTop: -8 }}>
                         Registered {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}.
                       </p>
-                      <button
-                        type="submit"
-                        className="btn btn-quiet btn-small"
-                      >
-                        Save Changes
-                      </button>
+                      <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
                     </form>
                   ) : (
                     <p>

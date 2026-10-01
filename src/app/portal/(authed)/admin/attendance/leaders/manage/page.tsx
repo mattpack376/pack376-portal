@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import { requireAdminSession } from "@/lib/authorize";
 import { getAdultLeaderRoster } from "@/lib/adultLeaderAttendanceData";
 import { ADULT_LEADER_SECTIONS, ADULT_LEADER_SECTION_LABELS, formatPositions } from "@/lib/adultLeaderSections";
@@ -108,9 +109,7 @@ export default async function ManageAdultLeadersPage() {
                     <EditPopover action={updateAdultLeaderAction}>
                       <input type="hidden" name="id" value={leader.id} />
                       <LeaderFields idPrefix={`leader-${leader.id}`} leader={leader} />
-                      <button type="submit" className="btn btn-primary btn-small">
-                        Save Changes
-                      </button>
+                      <SaveButton className="btn btn-primary btn-small">Save Changes</SaveButton>
                     </EditPopover>
                     <form action={setAdultLeaderActiveAction}>
                       <input type="hidden" name="id" value={leader.id} />

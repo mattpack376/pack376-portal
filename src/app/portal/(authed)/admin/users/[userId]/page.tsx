@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
@@ -121,7 +122,7 @@ export default async function ManageUserPage({
             <label htmlFor="displayName">Display Name</label>
             <input id="displayName" name="displayName" type="text" defaultValue={user.displayName} required />
           </div>
-          <button type="submit" className="btn btn-primary">Save</button>
+          <SaveButton className="btn btn-primary">Save</SaveButton>
         </form>
       </div>
 
@@ -134,7 +135,7 @@ export default async function ManageUserPage({
             <label htmlFor="email">Email</label>
             <input id="email" name="email" type="email" defaultValue={user.email ?? ""} />
           </div>
-          <button type="submit" className="btn btn-primary">Save</button>
+          <SaveButton className="btn btn-primary">Save</SaveButton>
         </form>
       </div>
 
@@ -146,7 +147,7 @@ export default async function ManageUserPage({
             <label htmlFor="phone">Phone</label>
             <input id="phone" name="phone" type="tel" defaultValue={user.phone ?? ""} placeholder="(212)555-1234" />
           </div>
-          <button type="submit" className="btn btn-primary">Save</button>
+          <SaveButton className="btn btn-primary">Save</SaveButton>
         </form>
       </div>
       </>
@@ -194,9 +195,7 @@ export default async function ManageUserPage({
                   </div>
                 </div>
               ))}
-              <button type="submit" className="btn btn-primary" style={{ marginTop: 8 }}>
-                Save Den Assignments
-              </button>
+              <SaveButton className="btn btn-primary" style={{ marginTop: 8 }}>Save Den Assignments</SaveButton>
             </form>
           )}
         </div>

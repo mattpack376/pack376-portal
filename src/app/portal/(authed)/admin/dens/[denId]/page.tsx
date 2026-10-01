@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -124,9 +125,7 @@ export default async function AdminDenDetailPage({
                             fontSize: 14,
                           }}
                         />
-                        <button type="submit" className="btn btn-quiet btn-small">
-                          Save
-                        </button>
+                        <SaveButton className="btn btn-quiet btn-small">Save</SaveButton>
                       </form>
                     ) : (
                       `${scout.firstName} ${scout.lastName}`

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { requireEventsViewSession } from "@/lib/authorize";
@@ -204,7 +205,7 @@ export default async function AdminEventDetailPage({
               </label>
             )}
           </div>
-          <button type="submit" className="btn btn-primary">Save Changes</button>
+          <SaveButton className="btn btn-primary">Save Changes</SaveButton>
         </form>
       </div>
       )}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -70,7 +71,7 @@ export default async function ManageHouseholdPage({
             <label htmlFor="name">Household Name</label>
             <input id="name" name="name" type="text" defaultValue={household.name ?? ""} placeholder="e.g. The Smith Family" />
           </div>
-          <button type="submit" className="btn btn-primary">Save</button>
+          <SaveButton className="btn btn-primary">Save</SaveButton>
         </form>
       </div>
 

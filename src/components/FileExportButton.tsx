@@ -59,7 +59,16 @@ export default function FileExportButton({
   }
 
   return (
-    <a href={href} className={className} style={style} onClick={onClick} aria-busy={status === "loading"} aria-live="polite">
+    // data-file-download: SaveButton's unsaved-changes guard skips it — this saves a file, it doesn't leave the page.
+    <a
+      href={href}
+      className={className}
+      style={style}
+      onClick={onClick}
+      aria-busy={status === "loading"}
+      aria-live="polite"
+      data-file-download=""
+    >
       {status === "loading" ? "Preparing…" : status === "error" ? "Couldn't download — Try Again" : label}
     </a>
   );

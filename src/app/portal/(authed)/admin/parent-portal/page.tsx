@@ -1,4 +1,5 @@
 import { requireAdminSession } from "@/lib/authorize";
+import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { prisma } from "@/lib/prisma";
 import { DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
@@ -77,7 +78,7 @@ export default async function ParentPortalAdminPage() {
                       <input type="checkbox" name="pinned" defaultChecked={a.pinned} style={{ width: "auto" }} />
                       Pin to top
                     </label>
-                    <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                    <SaveButton className="btn btn-primary btn-small">Save Changes</SaveButton>
                   </EditPopover>
                   <form action={deleteAnnouncementAction}>
                     <input type="hidden" name="id" value={a.id} />
@@ -160,7 +161,7 @@ export default async function ParentPortalAdminPage() {
                       <label htmlFor={`dl-description-${d.id}`}>Description (optional)</label>
                       <textarea id={`dl-description-${d.id}`} name="description" rows={2} defaultValue={d.description ?? ""} />
                     </div>
-                    <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                    <SaveButton className="btn btn-primary btn-small">Save Changes</SaveButton>
                   </EditPopover>
                   <form action={deleteDeadlineAction}>
                     <input type="hidden" name="id" value={d.id} />
@@ -219,7 +220,7 @@ export default async function ParentPortalAdminPage() {
                       <label htmlFor={`vn-description-${v.id}`}>Description (optional)</label>
                       <textarea id={`vn-description-${v.id}`} name="description" rows={2} defaultValue={v.description ?? ""} />
                     </div>
-                    <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                    <SaveButton className="btn btn-primary btn-small">Save Changes</SaveButton>
                   </EditPopover>
                   <form action={toggleVolunteerNeedAction}>
                     <input type="hidden" name="id" value={v.id} />

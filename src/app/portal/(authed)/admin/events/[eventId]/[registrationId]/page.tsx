@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { requireEventsViewSession } from "@/lib/authorize";
@@ -60,9 +61,7 @@ export default async function AdminEventRegistrationPage({
               defaultValue={(reg.amountOwedCents / 100).toFixed(2)}
             />
           </div>
-          <button type="submit" className="btn btn-quiet btn-small">
-            Update Amount Owed
-          </button>
+          <SaveButton className="btn btn-quiet btn-small">Update Amount Owed</SaveButton>
         </form>
         )}
       </div>

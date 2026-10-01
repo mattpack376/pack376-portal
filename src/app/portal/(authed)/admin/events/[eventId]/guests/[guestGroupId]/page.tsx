@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { requireEventsViewSession } from "@/lib/authorize";
@@ -80,9 +81,7 @@ export default async function AdminGuestGroupPage({
             defaultChildCount={group.childCount}
             defaultAmountOwedCents={group.amountOwedCents}
           />
-          <button type="submit" className="btn btn-quiet btn-small">
-            Save Changes
-          </button>
+          <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
         </form>
         )}
         {canEdit && (

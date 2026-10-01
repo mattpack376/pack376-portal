@@ -1853,6 +1853,31 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   background: rgba(0, 0, 0, 0.6);
 }
 
+/* "Saved ✓" after a SaveButton save — see SaveButton.tsx. Fixed to the
+   screen, since the Edit popovers close on save and hide the button. */
+.save-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 1000;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--money-green);
+  color: var(--white);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  animation: save-toast-in 0.18s ease-out;
+}
+@keyframes save-toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@media print { .save-toast { display: none; } }
+
 /* Completion/award date prompt — see AdventureDatesDialog.tsx. */
 .dates-dialog {
   position: fixed;

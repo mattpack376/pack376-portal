@@ -1,4 +1,5 @@
 import { requireHomepageContentSession } from "@/lib/authorize";
+import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { getAllHomepageEvents } from "@/lib/homepageEventsData";
 import { getAllSiteBanners, getActiveSiteBanner } from "@/lib/siteBannerData";
@@ -142,7 +143,7 @@ export default async function HomepageEventsAdminPage() {
                       />
                     </div>
                     <p className="form-note" style={{ marginTop: -8, marginBottom: 12 }}>Times are Eastern (pack local time).</p>
-                    <button type="submit" className="btn btn-primary btn-small">Save Changes</button>
+                    <SaveButton className="btn btn-primary btn-small">Save Changes</SaveButton>
                   </EditPopover>
                   <form action={toggleSiteBannerAction}>
                     <input type="hidden" name="id" value={banner.id} />
@@ -257,7 +258,7 @@ export default async function HomepageEventsAdminPage() {
                       />
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
-                      <button type="submit" className="btn btn-primary btn-small">Save</button>
+                      <SaveButton className="btn btn-primary btn-small">Save</SaveButton>
                     </div>
                   </form>
                   <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>

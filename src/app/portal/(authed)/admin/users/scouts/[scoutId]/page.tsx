@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
@@ -81,7 +82,7 @@ export default async function ManageScoutPage({
               <input id="scouterId" name="scouterId" type="text" defaultValue={scout.scouterId ?? ""} />
             </div>
           </div>
-          <button type="submit" className="btn btn-primary">Save Changes</button>
+          <SaveButton className="btn btn-primary">Save Changes</SaveButton>
         </form>
       </div>
 

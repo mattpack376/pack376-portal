@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SaveButton from "@/components/SaveButton";
 import { requireDuesViewSession } from "@/lib/authorize";
 import { getDuesScoutingYears, getDuesOverview, formatCents } from "@/lib/duesData";
 import { RANK_INFO } from "@/lib/rankConfig";
@@ -76,7 +77,7 @@ export default async function AdminDuesPage({
                 required
               />
             </div>
-            <button type="submit" className="btn btn-primary">Save</button>
+            <SaveButton className="btn btn-primary">Save</SaveButton>
           </form>
           )}
         </div>
