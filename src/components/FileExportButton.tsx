@@ -10,23 +10,28 @@ import { saveBlob } from "@/lib/saveFile";
  * link to a file takes over the whole window — full screen, no toolbar,
  * nothing to share or go back with. Saved as a file it opens in the phone's own
  * viewer or save sheet. With JavaScript off it's still an ordinary download
- * link. The filename comes from the response's Content-Disposition, so the
- * route stays the one place that names its file.
+ * link. The filename comes from the response's Content-Disposition, so an
+ * export route stays the one place that names its file; a static file in
+ * /public has no such header and keeps the name it has in its URL.
  */
 
-function filenameFrom(res: Response) {
+function filenameFrom(res: Response, href: string) {
   const match = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "");
-  return match?.[1] ?? "pack376-export";
+  if (match) return match[1];
+  const last = new URL(href, window.location.origin).pathname.split("/").pop();
+  return last ? decodeURIComponent(last) : "pack376-download";
 }
 
 export default function FileExportButton({
   href,
   label,
   className,
+  style,
 }: {
   href: string;
   label: string;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
 
@@ -46,7 +51,7 @@ export default function FileExportButton({
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      saveBlob(await res.blob(), filenameFrom(res));
+      saveBlob(await res.blob(), filenameFrom(res, href));
       setStatus("idle");
     } catch {
       setStatus("error");
@@ -54,8 +59,8 @@ export default function FileExportButton({
   }
 
   return (
-    <a href={href} className={className} onClick={onClick} aria-busy={status === "loading"} aria-live="polite">
-      {status === "loading" ? "Preparing…" : status === "error" ? "Couldn't export — Try Again" : label}
+    <a href={href} className={className} style={style} onClick={onClick} aria-busy={status === "loading"} aria-live="polite">
+      {status === "loading" ? "Preparing…" : status === "error" ? "Couldn't download — Try Again" : label}
     </a>
   );
 }

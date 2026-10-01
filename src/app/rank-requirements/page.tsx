@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import FileExportButton from "@/components/FileExportButton";
 
 export const metadata: Metadata = {
   title: "Rank Requirements — Pack 376",
@@ -124,15 +125,12 @@ export default function RankRequirementsPage() {
                     <span key={tag}>{tag}</span>
                   ))}
                 </div>
-                <a
+                <FileExportButton
                   className="link"
                   href={rank.pdf}
-                  target="_blank"
-                  rel="noopener"
+                  label={`📄 Download ${rank.name} Adventure Requirements (PDF)`}
                   style={{ display: "inline-block", marginTop: 14, fontWeight: 700 }}
-                >
-                  📄 Download {rank.name} Adventure Requirements (PDF)
-                </a>
+                />
               </div>
             </div>
           ))}
