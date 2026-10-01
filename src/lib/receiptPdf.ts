@@ -283,7 +283,7 @@ export async function buildReceiptPdf(data: ReceiptData, now: Date = new Date())
   const noun = RECEIPT_KIND_INFO[data.kind].noun;
   const via = isPayment && data.method ? ` via ${data.method}` : "";
   const footer = fit(
-    `${RECEIPT_ORG_NAME}  •  Chartered by the Boy Scouts of America  •  This receipt confirms ${isPayment ? "" : "a "}${noun} received${via} on ${receiptShortDate(data.date)}`,
+    `${RECEIPT_ORG_NAME}  •  Chartered by Scouting America  •  This receipt confirms ${isPayment ? "" : "a "}${noun} received${via} on ${receiptShortDate(data.date)}`,
     fonts.regular,
     8,
     contentWidth,
