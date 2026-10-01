@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { requireDuesViewSession } from "@/lib/authorize";
 import { getScoutDuesDetail, formatCents } from "@/lib/duesData";
@@ -124,12 +125,13 @@ export default async function AdminScoutDuesPage({
                   <form action={deleteDuesPaymentAction}>
                     <input type="hidden" name="paymentId" value={payment.id} />
                     <input type="hidden" name="scoutId" value={scout.id} />
-                    <button
-                      type="submit"
+                    <ConfirmSubmitButton
                       className="btn btn-danger btn-small"
+                      pendingLabel="Deleting…"
+                      message={`Delete the ${formatCents(payment.amountCents)} dues payment from ${payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}? This can't be undone.`}
                     >
                       Delete
-                    </button>
+                    </ConfirmSubmitButton>
                   </form>
                 </td>
                 )}

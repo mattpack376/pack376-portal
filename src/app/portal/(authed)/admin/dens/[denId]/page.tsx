@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -140,9 +141,13 @@ export default async function AdminDenDetailPage({
                       <form action={removeScoutAction}>
                         <input type="hidden" name="scoutId" value={scout.id} />
                         <input type="hidden" name="denId" value={den.id} />
-                        <button type="submit" className="btn btn-danger btn-small">
+                        <ConfirmSubmitButton
+                          className="btn btn-danger btn-small"
+                          pendingLabel="Removing…"
+                          message={`Delete ${scout.firstName} ${scout.lastName}? This removes their advancement, attendance, dues, and parent contacts too — it can't be undone.`}
+                        >
                           Remove
-                        </button>
+                        </ConfirmSubmitButton>
                       </form>
                     </td>
                   )}

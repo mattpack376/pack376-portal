@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { requireEventsViewSession } from "@/lib/authorize";
 import { getGuestGroupDetail, getGuestOfOptions } from "@/lib/eventsData";
@@ -88,12 +89,13 @@ export default async function AdminGuestGroupPage({
           <form action={removeGuestGroupAction} style={{ marginTop: 12 }}>
             <input type="hidden" name="guestGroupId" value={group.id} />
             <input type="hidden" name="eventId" value={eventId} />
-            <button
-              type="submit"
+            <ConfirmSubmitButton
               className="btn btn-danger btn-small"
+              pendingLabel="Removing…"
+              message={`Remove the guest group “${group.familyName}” from “${group.event.title}”?${group.payments.length > 0 ? " Its recorded payments are deleted too." : ""} This can't be undone.`}
             >
               Remove This Group
-            </button>
+            </ConfirmSubmitButton>
           </form>
         )}
       </div>
@@ -152,12 +154,13 @@ export default async function AdminGuestGroupPage({
                     <input type="hidden" name="paymentId" value={payment.id} />
                     <input type="hidden" name="guestGroupId" value={group.id} />
                     <input type="hidden" name="eventId" value={eventId} />
-                    <button
-                      type="submit"
+                    <ConfirmSubmitButton
                       className="btn btn-danger btn-small"
+                      pendingLabel="Deleting…"
+                      message={`Delete the ${formatCents(payment.amountCents)} payment from ${payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}? This can't be undone.`}
                     >
                       Delete
-                    </button>
+                    </ConfirmSubmitButton>
                   </form>
                 </td>
                 )}

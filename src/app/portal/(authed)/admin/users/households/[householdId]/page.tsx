@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
@@ -99,12 +100,13 @@ export default async function ManageHouseholdPage({
               <form action={removeScoutFromHouseholdAction}>
                 <input type="hidden" name="scoutId" value={s.id} />
                 <input type="hidden" name="householdId" value={household.id} />
-                <button
-                  type="submit"
+                <ConfirmSubmitButton
                   className="btn btn-danger btn-small"
+                  pendingLabel="Removing…"
+                  message={`Remove ${s.firstName} ${s.lastName} from ${household.name || "this household"}? The scout isn't deleted — just unlinked from the household.`}
                 >
                   Remove
-                </button>
+                </ConfirmSubmitButton>
               </form>
             </div>
           ))
@@ -160,12 +162,13 @@ export default async function ManageHouseholdPage({
               <form action={removeUserFromHouseholdAction}>
                 <input type="hidden" name="userId" value={u.id} />
                 <input type="hidden" name="householdId" value={household.id} />
-                <button
-                  type="submit"
+                <ConfirmSubmitButton
                   className="btn btn-danger btn-small"
+                  pendingLabel="Removing…"
+                  message={`Remove ${u.displayName} from ${household.name || "this household"}? Their login isn't deleted — just unlinked from the household.`}
                 >
                   Remove
-                </button>
+                </ConfirmSubmitButton>
               </form>
             </div>
           ))

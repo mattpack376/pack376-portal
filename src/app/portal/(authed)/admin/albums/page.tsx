@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { formatLongDate } from "@/lib/dateOnly";
@@ -37,12 +38,13 @@ export default async function AdminAlbumsPage() {
           {canDelete && (
             <form action={deleteAlbumAction}>
               <input type="hidden" name="albumId" value={album.id} />
-              <button
-                type="submit"
+              <ConfirmSubmitButton
                 className="btn btn-danger btn-small"
+                pendingLabel="Deleting…"
+                message={`Delete the photo album “${album.title}”? This can't be undone.`}
               >
                 Delete
-              </button>
+              </ConfirmSubmitButton>
             </form>
           )}
         </td>

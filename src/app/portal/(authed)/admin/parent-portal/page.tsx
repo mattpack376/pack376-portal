@@ -1,4 +1,5 @@
 import { requireAdminSession } from "@/lib/authorize";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { prisma } from "@/lib/prisma";
 import { DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
 import { toDateOnlyString } from "@/lib/dateOnly";
@@ -80,9 +81,13 @@ export default async function ParentPortalAdminPage() {
                   </EditPopover>
                   <form action={deleteAnnouncementAction}>
                     <input type="hidden" name="id" value={a.id} />
-                    <button type="submit" className="btn btn-danger btn-small">
+                    <ConfirmSubmitButton
+                      className="btn btn-danger btn-small"
+                      pendingLabel="Deleting…"
+                      message={`Delete the announcement “${a.title}”? This can't be undone.`}
+                    >
                       Delete
-                    </button>
+                    </ConfirmSubmitButton>
                   </form>
                 </div>
               </div>
@@ -159,9 +164,13 @@ export default async function ParentPortalAdminPage() {
                   </EditPopover>
                   <form action={deleteDeadlineAction}>
                     <input type="hidden" name="id" value={d.id} />
-                    <button type="submit" className="btn btn-danger btn-small">
+                    <ConfirmSubmitButton
+                      className="btn btn-danger btn-small"
+                      pendingLabel="Deleting…"
+                      message={`Delete the deadline “${d.title}”? This can't be undone.`}
+                    >
                       Delete
-                    </button>
+                    </ConfirmSubmitButton>
                   </form>
                 </div>
               </div>
@@ -221,9 +230,13 @@ export default async function ParentPortalAdminPage() {
                   </form>
                   <form action={deleteVolunteerNeedAction}>
                     <input type="hidden" name="id" value={v.id} />
-                    <button type="submit" className="btn btn-danger btn-small">
+                    <ConfirmSubmitButton
+                      className="btn btn-danger btn-small"
+                      pendingLabel="Deleting…"
+                      message={`Delete the volunteer need “${v.title}”? This can't be undone.`}
+                    >
                       Delete
-                    </button>
+                    </ConfirmSubmitButton>
                   </form>
                 </div>
               </div>

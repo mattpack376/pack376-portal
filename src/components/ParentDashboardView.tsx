@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { getParentDashboardData } from "@/lib/parentDashboardData";
 import { getScoutsAdvancementByIds } from "@/lib/denData";
 import { formatCents } from "@/lib/duesData";
@@ -403,9 +404,13 @@ export default async function ParentDashboardView({
                             {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
                             {!readOnly && <form action={removeMyGuestGroupAction}>
                               <input type="hidden" name="guestGroupId" value={g.id} />
-                              <button type="submit" className="btn btn-danger btn-small">
+                              <ConfirmSubmitButton
+                                className="btn btn-danger btn-small"
+                                pendingLabel="Removing…"
+                                message={`Cancel the guest registration for ${g.familyName} at “${event.title}”?`}
+                              >
                                 Remove
-                              </button>
+                              </ConfirmSubmitButton>
                             </form>}
                           </div>
                         ))}

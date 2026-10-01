@@ -1,4 +1,5 @@
 import { requireHomepageContentSession } from "@/lib/authorize";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { getAllHomepageEvents } from "@/lib/homepageEventsData";
 import { getAllSiteBanners, getActiveSiteBanner } from "@/lib/siteBannerData";
 import { groupEventsByMonth } from "@/lib/groupEventsByMonth";
@@ -153,9 +154,13 @@ export default async function HomepageEventsAdminPage() {
                   {canDelete && (
                     <form action={deleteSiteBannerAction}>
                       <input type="hidden" name="id" value={banner.id} />
-                      <button type="submit" className="btn btn-danger btn-small">
+                      <ConfirmSubmitButton
+                        className="btn btn-danger btn-small"
+                        pendingLabel="Deleting…"
+                        message={`Delete the banner “${banner.message}”? This can't be undone.`}
+                      >
                         Delete
-                      </button>
+                      </ConfirmSubmitButton>
                     </form>
                   )}
                 </div>
@@ -269,12 +274,13 @@ export default async function HomepageEventsAdminPage() {
                     {canDelete && (
                       <form action={deleteHomepageEventAction}>
                         <input type="hidden" name="id" value={event.id} />
-                        <button
-                          type="submit"
+                        <ConfirmSubmitButton
                           className="btn btn-danger btn-small"
+                          pendingLabel="Deleting…"
+                          message={`Delete the homepage event “${event.title}”? This can't be undone.`}
                         >
                           Delete
-                        </button>
+                        </ConfirmSubmitButton>
                       </form>
                     )}
                   </div>

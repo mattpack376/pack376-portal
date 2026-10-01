@@ -1,4 +1,5 @@
 import { requireTripPageSession } from "@/lib/authorize";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import {
   getOrCreateTripPage,
   getTripMeals,
@@ -223,9 +224,13 @@ export default async function AdminCampConronPage({
                       </EditPopover>
                       <form action={deleteTripExpenseAction}>
                         <input type="hidden" name="id" value={e.id} />
-                        <button type="submit" className="btn btn-danger btn-small">
+                        <ConfirmSubmitButton
+                          className="btn btn-danger btn-small"
+                          pendingLabel="Deleting…"
+                          message={`Delete the expense “${e.description}” (${formatCents(e.amountCents)})? This can't be undone.`}
+                        >
                           Delete
-                        </button>
+                        </ConfirmSubmitButton>
                       </form>
                     </>
                   )}
@@ -504,12 +509,13 @@ export default async function AdminCampConronPage({
                 </form>
                 <form action={deleteDutySlotAction} style={{ marginTop: 12 }}>
                   <input type="hidden" name="id" value={duty.id} />
-                  <button
-                    type="submit"
+                  <ConfirmSubmitButton
                     className="btn btn-danger btn-small"
+                    pendingLabel="Removing…"
+                    message={`Remove the duty “${duty.label}”${duty.assignedName ? ` (assigned to ${duty.assignedName})` : ""}? This can't be undone.`}
                   >
                     Remove
-                  </button>
+                  </ConfirmSubmitButton>
                 </form>
               </div>
             </CollapsibleGroup>
@@ -626,12 +632,13 @@ export default async function AdminCampConronPage({
                 </form>
                 <form action={deleteActivityAction} style={{ marginTop: 12 }}>
                   <input type="hidden" name="id" value={activity.id} />
-                  <button
-                    type="submit"
+                  <ConfirmSubmitButton
                     className="btn btn-danger btn-small"
+                    pendingLabel="Removing…"
+                    message={`Remove the activity “${activity.title}”? This can't be undone.`}
                   >
                     Remove
-                  </button>
+                  </ConfirmSubmitButton>
                 </form>
               </div>
             </CollapsibleGroup>
@@ -822,12 +829,13 @@ export default async function AdminCampConronPage({
                                 <td className="actions">
                                   <form action={deleteTripPaymentAction}>
                                     <input type="hidden" name="paymentId" value={p.id} />
-                                    <button
-                                      type="submit"
+                                    <ConfirmSubmitButton
                                       className="btn btn-danger btn-small"
+                                      pendingLabel="Deleting…"
+                                      message={`Delete the ${formatCents(p.amountCents)} payment from ${p.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })} for ${reg.familyName}? This can't be undone.`}
                                     >
                                       Delete
-                                    </button>
+                                    </ConfirmSubmitButton>
                                   </form>
                                 </td>
                               )}
@@ -861,12 +869,13 @@ export default async function AdminCampConronPage({
                       </form>
                       <form action={deleteTripRegistrationAction}>
                         <input type="hidden" name="id" value={reg.id} />
-                        <button
-                          type="submit"
+                        <ConfirmSubmitButton
                           className="btn btn-danger btn-small"
+                          pendingLabel="Removing…"
+                          message={`Remove the ${reg.familyName} registration?${reg.payments.length > 0 ? " Its recorded payments are deleted too." : ""} This can't be undone.`}
                         >
                           Remove Registration
-                        </button>
+                        </ConfirmSubmitButton>
                       </form>
                     </>
                   )}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { requireEventsViewSession } from "@/lib/authorize";
 import { getRegistrationDetail } from "@/lib/eventsData";
@@ -120,12 +121,13 @@ export default async function AdminEventRegistrationPage({
                     <input type="hidden" name="paymentId" value={payment.id} />
                     <input type="hidden" name="registrationId" value={reg.id} />
                     <input type="hidden" name="eventId" value={eventId} />
-                    <button
-                      type="submit"
+                    <ConfirmSubmitButton
                       className="btn btn-danger btn-small"
+                      pendingLabel="Deleting…"
+                      message={`Delete the ${formatCents(payment.amountCents)} payment from ${payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}? This can't be undone.`}
                     >
                       Delete
-                    </button>
+                    </ConfirmSubmitButton>
                   </form>
                 </td>
                 )}

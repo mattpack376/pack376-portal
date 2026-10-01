@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { requireEventsViewSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
@@ -252,12 +253,13 @@ export default async function AdminEventDetailPage({
                             <form action={removeRegistrationAction}>
                               <input type="hidden" name="registrationId" value={reg.id} />
                               <input type="hidden" name="eventId" value={event.id} />
-                              <button
-                                type="submit"
+                              <ConfirmSubmitButton
                                 className="btn btn-danger btn-small"
+                                pendingLabel="Removing…"
+                                message={`Remove ${reg.scout.firstName} ${reg.scout.lastName} from “${event.title}”?${reg.paidCents > 0 ? " Their recorded payments are deleted too." : ""} This can't be undone.`}
                               >
                                 Remove
-                              </button>
+                              </ConfirmSubmitButton>
                             </form>
                           )}
                         </td>
@@ -366,12 +368,13 @@ export default async function AdminEventDetailPage({
                       <form action={removeGuestGroupAction}>
                         <input type="hidden" name="guestGroupId" value={group.id} />
                         <input type="hidden" name="eventId" value={event.id} />
-                        <button
-                          type="submit"
+                        <ConfirmSubmitButton
                           className="btn btn-danger btn-small"
+                          pendingLabel="Removing…"
+                          message={`Remove the guest group “${group.familyName}” from “${event.title}”?${group.paidCents > 0 ? " Its recorded payments are deleted too." : ""} This can't be undone.`}
                         >
                           Remove
-                        </button>
+                        </ConfirmSubmitButton>
                       </form>
                     )}
                   </td>
