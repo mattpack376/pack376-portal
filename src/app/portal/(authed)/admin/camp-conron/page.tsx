@@ -46,6 +46,7 @@ import TripRegistrationCountFields from "@/components/TripRegistrationCountField
 import TripViewerView from "./TripViewerView";
 import { paymentStatus, paymentRowClass, balanceClass } from "@/lib/paymentStatus";
 import SegmentedNav from "@/components/SegmentedNav";
+import FileExportButton from "@/components/FileExportButton";
 
 const CARD_WIDTH = 480;
 
@@ -691,12 +692,11 @@ export default async function AdminCampConronPage({
               label="Copy Emails"
               showCount
             />
-            <a
+            <FileExportButton
               className="btn btn-quiet btn-small"
               href={`/portal/admin/camp-conron/export?affiliation=${affiliationFilter}`}
-            >
-              Export CSV ({affiliationFilter === "PACK" ? "Pack 376" : affiliationFilter === "TROOP" ? "Troop 376" : "All"})
-            </a>
+              label={`Export CSV (${affiliationFilter === "PACK" ? "Pack 376" : affiliationFilter === "TROOP" ? "Troop 376" : "All"})`}
+            />
           </div>
         )}
       </div>

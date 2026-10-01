@@ -3,6 +3,7 @@ import { getLeaderScoutingYears, getAdultLeaderMeetingOverview } from "@/lib/adu
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { getSession } from "@/lib/auth";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
+import FileExportButton from "@/components/FileExportButton";
 
 export default async function AdminLeaderAttendancePage({
   searchParams,
@@ -42,12 +43,11 @@ export default async function AdminLeaderAttendancePage({
       <AttendanceSubNav active="leaders" year={scoutingYear} />
 
       <div style={{ marginBottom: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <a
+        <FileExportButton
           className="btn btn-quiet"
           href={`/api/attendance/export/leaders?scoutingYear=${encodeURIComponent(scoutingYear)}`}
-        >
-          ⬇ Export {scoutingYear} CSV
-        </a>
+          label={`⬇ Export ${scoutingYear} CSV`}
+        />
         {canManage && (
           <Link className="btn btn-quiet" href="/portal/admin/attendance/leaders/manage">
             Manage List

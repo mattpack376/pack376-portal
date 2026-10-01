@@ -5,6 +5,7 @@ import { getDenAttendanceOverview } from "@/lib/attendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { denDisplayName } from "@/lib/rankConfig";
 import DenSwitcher from "@/components/DenSwitcher";
+import FileExportButton from "@/components/FileExportButton";
 
 export default async function DenAttendancePage({
   searchParams,
@@ -44,12 +45,11 @@ export default async function DenAttendancePage({
       <DenSwitcher denIds={session.denIds} currentDenId={denId} basePath="/portal/den/attendance" />
 
       <div style={{ marginBottom: 16 }}>
-        <a
+        <FileExportButton
           className="btn btn-quiet"
           href={`/api/attendance/export/den/${den.id}`}
-        >
-          ⬇ Export CSV
-        </a>
+          label="⬇ Export CSV"
+        />
       </div>
 
       <div className="meeting-list">

@@ -6,6 +6,7 @@ import { formatDueDate } from "@/lib/deadlineCategories";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import SegmentedNav from "@/components/SegmentedNav";
+import FileExportButton from "@/components/FileExportButton";
 
 type Group = Awaited<ReturnType<typeof getAllGuestGroups>>[number];
 
@@ -53,13 +54,11 @@ export default async function AdminAllGuestsPage({
           </p>
         </div>
         {canEdit && (
-          // eslint-disable-next-line @next/next/no-html-link-for-pages -- file download (Route Handler), not a page navigation
-          <a
+          <FileExportButton
             className="btn btn-quiet btn-small"
             href="/portal/admin/events/guests/export"
-          >
-            Export CSV (All Attendees)
-          </a>
+            label="Export CSV (All Attendees)"
+          />
         )}
       </div>
 

@@ -4,6 +4,7 @@ import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { getSession } from "@/lib/auth";
 import { canAccessLeaderAttendance } from "@/lib/authorize";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
+import FileExportButton from "@/components/FileExportButton";
 
 export default async function AdminAttendancePage({
   searchParams,
@@ -54,9 +55,11 @@ export default async function AdminAttendancePage({
       {showLeaderTab && <AttendanceSubNav active="scouts" year={scoutingYear} />}
 
       <div style={{ marginBottom: 16 }}>
-        <a className="btn btn-quiet" href={`/api/attendance/export/pack?scoutingYear=${encodeURIComponent(scoutingYear)}`}>
-          ⬇ Export {scoutingYear} CSV
-        </a>
+        <FileExportButton
+          className="btn btn-quiet"
+          href={`/api/attendance/export/pack?scoutingYear=${encodeURIComponent(scoutingYear)}`}
+          label={`⬇ Export ${scoutingYear} CSV`}
+        />
       </div>
 
       <div className="meeting-list">

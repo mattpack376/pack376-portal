@@ -35,7 +35,16 @@ export default function FileExportButton({
     if (status === "loading") return;
     setStatus("loading");
     try {
-      const res = await fetch(href, { credentials: "same-origin" });
+      // Not followed: a redirect here means the session ran out (or the role
+      // changed), and following it would "save" the login page as the export —
+      // or, in some browsers, just throw. Navigate instead, as the plain link
+      // would have, and let the server place them (the login page).
+      const res = await fetch(href, { credentials: "same-origin", redirect: "manual" });
+      if (res.type === "opaqueredirect") {
+        setStatus("idle");
+        window.location.assign(href);
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       saveBlob(await res.blob(), filenameFrom(res));
       setStatus("idle");

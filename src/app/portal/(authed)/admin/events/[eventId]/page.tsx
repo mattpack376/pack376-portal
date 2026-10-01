@@ -23,6 +23,7 @@ import GuestGroupCountFields from "@/components/GuestGroupCountFields";
 import SortableColumnHeader from "@/components/SortableColumnHeader";
 import { sortGuestGroups } from "@/lib/guestSort";
 import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
+import FileExportButton from "@/components/FileExportButton";
 
 export default async function AdminEventDetailPage({
   params,
@@ -98,12 +99,11 @@ export default async function AdminEventDetailPage({
         {canEdit && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           {(event.registrations.length > 0 || event.guestGroups.length > 0) && (
-            <a
+            <FileExportButton
               className="btn btn-quiet btn-small"
               href={`/portal/admin/events/${event.id}/guests/export`}
-            >
-              Export CSV (Scouts &amp; Guests)
-            </a>
+              label="Export CSV (Scouts & Guests)"
+            />
           )}
           <form action={toggleEventVisibilityAction}>
             <input type="hidden" name="id" value={event.id} />
