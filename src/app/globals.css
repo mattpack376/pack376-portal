@@ -537,18 +537,20 @@ section { padding: 64px 0; }
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 13px;
-  color: var(--white);
+  color: var(--rk-ink, var(--white));
 }
 .rank-badge-card .rank-name { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--scout-blue-dark); }
 .rank-badge-card .rank-grade { font-size: 12px; color: var(--ink-soft); font-weight: 600; }
 
-/* rank colors (roughly BSA-inspired) */
-.rk-lion { background: #f6a01a; }
-.rk-tiger { background: #f47920; }
-.rk-wolf { background: #6a6f73; }
-.rk-bear { background: #6a4a2f; }
-.rk-webelos { background: var(--scout-blue); }
-.rk-aol { background: var(--carnival-red); }
+/* rank colors — match each rank's official color (Lion gold, Tiger orange,
+   Wolf red, Bear light blue, Webelos green, Arrow of Light tan). --rk-ink is
+   the text color on top: light rank colors get dark ink for legibility. */
+.rk-lion { background: #f7c61b; --rk-ink: #3a2c00; }
+.rk-tiger { background: #f47920; --rk-ink: #3d1c00; }
+.rk-wolf { background: #d62b2b; }
+.rk-bear { background: #7cc4ee; --rk-ink: #0f3552; }
+.rk-webelos { background: #26803a; }
+.rk-aol { background: #cdb88a; --rk-ink: #3b3418; }
 
 /* ---------- Events ---------- */
 .event-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
@@ -863,10 +865,15 @@ section { padding: 64px 0; }
   justify-content: center;
   gap: 8px;
   padding: 24px 12px;
-  color: var(--white);
+  color: var(--rk-ink, var(--white));
   text-align: center;
 }
-.rank-detail-side .rank-star { width: 76px; height: 76px; font-size: 15px; background: rgba(255,255,255,0.18); border: 3px solid rgba(255,255,255,0.6); }
+.rank-detail-side .rank-star {
+  width: 76px; height: 76px; font-size: 15px;
+  background: rgba(255,255,255,0.18); border: 3px solid rgba(255,255,255,0.6);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  border: 3px solid color-mix(in srgb, currentColor 55%, transparent);
+}
 .rank-detail-side .grade { font-family: var(--font-display); font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
 .rank-detail-body { padding: 24px 26px; }
 .rank-detail-body h2 { font-size: 22px; margin-bottom: 6px; }
