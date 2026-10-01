@@ -7,7 +7,7 @@ import { addParentAction, updateParentAction, removeParentAction } from "@/lib/a
 import { formatPhoneNumber } from "@/lib/phone";
 import EmailAllButton from "@/components/EmailAllButton";
 import PrintButton from "@/components/PrintButton";
-import PdfExportButton from "@/components/PdfExportButton";
+import FileExportButton from "@/components/FileExportButton";
 import InviteParentPortalButton from "@/components/InviteParentPortalButton";
 import RevokeParentPortalButton from "@/components/RevokeParentPortalButton";
 
@@ -78,7 +78,7 @@ export default async function ParentContactsPage({
         <p style={{ fontSize: 15, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           {printView && <PrintButton />}
           {printView && (
-            <PdfExportButton href="/api/parents/export/pdf" label="Download PDF" className="btn btn-quiet no-print" />
+            <FileExportButton href="/api/parents/export/pdf" label="Download PDF" className="btn btn-quiet no-print" />
           )}
           {isAdmin && !printView && (
             <Link
@@ -90,13 +90,12 @@ export default async function ParentContactsPage({
           )}
           {(session.role === "ADMIN" || session.role === "JUNIOR_ADMIN") && !printView && (
             <>
-              <a
+              <FileExportButton
                 href="/api/parents/export"
+                label="Export All Parent Contacts (CSV)"
                 className="btn btn-quiet btn-small no-print"
-              >
-                Export All Parent Contacts (CSV)
-              </a>
-              <PdfExportButton
+              />
+              <FileExportButton
                 href="/api/parents/export/pdf"
                 label="Export All Parent Contacts (PDF)"
                 className="btn btn-quiet btn-small no-print"
@@ -179,13 +178,12 @@ export default async function ParentContactsPage({
                   <h3 style={{ fontSize: 19 }}>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h3>
                   {!printView && (
                     <div className="no-print" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <a
+                      <FileExportButton
                         href={`/api/parents/export/den/${den.id}`}
+                        label="Export CSV"
                         className="btn btn-quiet btn-small"
-                      >
-                        Export CSV
-                      </a>
-                      <PdfExportButton
+                      />
+                      <FileExportButton
                         href={`/api/parents/export/den/${den.id}/pdf`}
                         label="Export PDF"
                         className="btn btn-quiet btn-small"
