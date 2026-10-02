@@ -25,25 +25,77 @@ export const metadata: Metadata = {
 
 const GLANCE_ICON = { camping: "⛺", "pack-night": "🎟️", "one-day": "☀️", fundraiser: "💵" } as const;
 
+type DateChip = { key: string; label: string; month: string; past: boolean };
+
+/** A Year at a Glance card that lists plain dates as chips: Scout Meetings, Scout Sundays, No Meetings. */
+function DateCard({
+  category,
+  icon,
+  title,
+  note,
+  chips,
+  wide,
+}: {
+  category: string;
+  icon: string;
+  title: string;
+  note?: string;
+  chips: DateChip[];
+  wide?: boolean;
+}) {
+  return (
+    <div className={`booth-card cal-glance cal-cat--${category}${wide ? " cal-glance--wide" : ""}`}>
+      <div className="cal-glance-head">
+        <div className="icon-badge">{icon}</div>
+        <div>
+          <h3>{title}</h3>
+          {note && <p>{note}</p>}
+        </div>
+      </div>
+      <ul className="cal-date-chips">
+        {chips.map((c) => (
+          <li key={c.key} className={c.past ? "is-past" : undefined}>
+            <a href={`#month-${c.month}`}>{c.label}</a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** "Black Friday — No Meeting" -> "Black Friday"; a bare "No Meeting" has no reason to add. */
+function noMeetingReason(title: string) {
+  const reason = title.replace(/\s*[—–-]\s*No Meeting\s*$/i, "").trim();
+  return reason.toLowerCase() === "no meeting" ? "" : reason;
+}
+
 export default async function CalendarPage() {
   const today = todayDateOnlyString();
   const { yearLabel, events, months, glance } = await getPublicCalendar(today);
-  // Derived from the events, not hand-listed like the other glance cards, so it can't drift from the month list.
-  const scoutSundays = events.filter((e) => e.category === "scout-sunday");
+  // The three date-list cards are derived from the events, not hand-listed like
+  // the other glance cards, so they can't drift from the month list below.
+  const chipFor = (e: (typeof events)[number], label = shortDate(e.date)): DateChip => ({
+    key: `${e.date}-${e.title}`,
+    label,
+    month: e.date.slice(0, 7),
+    past: e.date < today,
+  });
+  const meetingEvents = events.filter((e) => e.category === "meeting");
+  const scoutSundays = events.filter((e) => e.category === "scout-sunday").map((e) => chipFor(e));
+  const noMeetings = events
+    .filter((e) => e.noMeeting)
+    .map((e) => {
+      const reason = noMeetingReason(e.title);
+      return chipFor(e, reason ? `${shortDate(e.date)} · ${reason}` : shortDate(e.date));
+    });
+  const meetings = meetingEvents.map((e) => chipFor(e));
 
   return (
     <>
       <Header />
 
       <section className="page-hero">
-        <div className="eyebrow" style={{ background: "rgba(255,255,255,0.15)", color: "var(--scout-gold)" }}>
-          Mark Your Calendar
-        </div>
         <h1>{yearLabel} Calendar of Events</h1>
-        <p>
-          Welcome to Pack 376! We&apos;re excited for another great year of Cub Scout adventure. Here&apos;s
-          our full calendar of pack-wide events, campouts, and activities.
-        </p>
         <p className="cal-hero-note">All dates and events are subject to change or cancellation.</p>
       </section>
       <div className="wave-divider" style={{ marginTop: -1 }}>
@@ -88,22 +140,24 @@ export default async function CalendarPage() {
                     </ul>
                   </div>
                 ))}
-                {scoutSundays.length > 0 && (
-                  <div className="booth-card cal-glance cal-glance--wide cal-cat--scout-sunday">
-                    <div className="cal-glance-head">
-                      <div className="icon-badge">⛪</div>
-                      <div>
-                        <h3>Scout Sundays</h3>
-                        <p>10 AM Mass</p>
-                      </div>
-                    </div>
-                    <ul className="cal-sunday-dates">
-                      {scoutSundays.map((e) => (
-                        <li key={e.date} className={e.date < today ? "is-past" : undefined}>
-                          <a href={`#month-${e.date.slice(0, 7)}`}>{shortDate(e.date)}</a>
-                        </li>
-                      ))}
-                    </ul>
+                {meetings.length > 0 && (
+                  <DateCard
+                    wide
+                    category="meeting"
+                    icon="🕢"
+                    title="Scout Meetings"
+                    note={`Fridays${meetingEvents[0].detail ? ` · ${meetingEvents[0].detail}` : ""}`}
+                    chips={meetings}
+                  />
+                )}
+                {(scoutSundays.length > 0 || noMeetings.length > 0) && (
+                  <div className="cal-glance-pair">
+                    {scoutSundays.length > 0 && (
+                      <DateCard category="scout-sunday" icon="⛪" title="Scout Sundays" note="10 AM Mass" chips={scoutSundays} />
+                    )}
+                    {noMeetings.length > 0 && (
+                      <DateCard category="no-meeting" icon="🚫" title="No Meetings" note="No scout meeting these days" chips={noMeetings} />
+                    )}
                   </div>
                 )}
               </div>

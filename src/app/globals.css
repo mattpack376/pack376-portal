@@ -600,10 +600,12 @@ section { padding: 64px 0; }
 .cal-cat--one-day    { --cat: #26803a; --cat-on: var(--white); --cat-tint: #dcf0d8; --cat-ink: #1a5a29; }
 .cal-cat--fundraiser { --cat: var(--carnival-red); --cat-on: var(--white); --cat-tint: #fff5df; --cat-ink: var(--carnival-red-dark); }
 .cal-cat--scout-sunday { --cat: #6a3fa0; --cat-on: var(--white); --cat-tint: #ede4f8; --cat-ink: #4a2a7a; }
+.cal-cat--no-meeting { --cat: #6b665a; --cat-on: var(--white); --cat-tint: #efece3; --cat-ink: #4a463c; }
 .cal-cat--meeting    { --cat: var(--scout-blue-light); --cat-on: var(--white); --cat-tint: #f7faff; --cat-ink: var(--scout-blue-dark); }
 .cal-cat--general    { --cat: var(--scout-blue); --cat-on: var(--white); --cat-tint: var(--white); --cat-ink: var(--scout-blue-dark); }
 
-.page-hero .cal-hero-note { margin-top: 12px; font-size: 14px; color: rgba(255, 255, 255, 0.7); }
+/* The only line under the heading on this page, so it reads a touch stronger than a footnote. */
+.page-hero .cal-hero-note { margin-top: 10px; font-size: 15px; color: rgba(255, 255, 255, 0.85); }
 .cal-sr {
   position: absolute;
   width: 1px;
@@ -646,9 +648,9 @@ section { padding: 64px 0; }
 .cal-glance-head .icon-badge { margin-bottom: 0; flex: none; }
 .cal-glance-head h3 { margin: 0; }
 .cal-glance-head p { margin: 0; font-size: 14.5px; }
-.cal-glance .cal-sunday-dates { display: flex; flex-wrap: wrap; gap: 8px 10px; }
-.cal-glance .cal-sunday-dates li { display: block; padding: 0; border: 0; }
-.cal-glance .cal-sunday-dates a {
+.cal-glance .cal-date-chips { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.cal-glance .cal-date-chips li { display: block; padding: 0; border: 0; }
+.cal-glance .cal-date-chips a {
   display: inline-block;
   padding: 7px 16px;
   border-radius: 999px;
@@ -658,8 +660,11 @@ section { padding: 64px 0; }
   font-weight: 800;
   font-size: 14px;
 }
-.cal-glance .cal-sunday-dates a:hover { text-decoration: none; filter: brightness(1.1); }
-.cal-glance .cal-sunday-dates .is-past { opacity: 0.5; }
+.cal-glance .cal-date-chips a:hover { text-decoration: none; filter: brightness(1.1); }
+.cal-glance .cal-date-chips .is-past { opacity: 0.5; }
+/* Scout Sundays and No Meetings share one row, half each; they stack on a phone. */
+.cal-glance-pair { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 820px) { .cal-glance-pair { grid-template-columns: 1fr; } }
 
 /* Calendar admin form */
 .cal-check { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 12px; font-size: 14px; font-weight: 600; cursor: pointer; }
