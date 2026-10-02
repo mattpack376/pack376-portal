@@ -1,10 +1,15 @@
 import Link from "next/link";
 import Image from "next/image";
+import BackToTopButton from "@/components/BackToTopButton";
 
 export default function Footer() {
   const year = new Date().getFullYear();
 
+  // The back-to-top button lives here so every public page gets it from the one
+  // shared footer. It only appears once a visitor has scrolled down, so a short
+  // page that never scrolls that far never shows it.
   return (
+    <>
     <footer className="site-footer">
       <div className="footer-stripe" />
       <div className="footer-grid">
@@ -65,5 +70,7 @@ export default function Footer() {
         © {year} Cub Scout Pack 376 · Brooklyn, NY · Registration fees apply
       </div>
     </footer>
+    <BackToTopButton />
+    </>
   );
 }
