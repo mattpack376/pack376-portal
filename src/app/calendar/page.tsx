@@ -27,24 +27,22 @@ const GLANCE_ICON = { camping: "⛺", "pack-night": "🎟️", "one-day": "☀�
 
 type DateChip = { key: string; label: string; month: string };
 
-/** A Year at a Glance card that lists plain dates as chips: Scout Meetings, Scout Sundays, No Meetings. */
+/** A Year at a Glance card that lists plain dates as chips: Scout Sundays, No Meetings. */
 function DateCard({
   category,
   icon,
   title,
   note,
   chips,
-  wide,
 }: {
   category: string;
   icon: string;
   title: string;
   note?: string;
   chips: DateChip[];
-  wide?: boolean;
 }) {
   return (
-    <div className={`booth-card cal-glance cal-cat--${category}${wide ? " cal-glance--wide" : ""}`}>
+    <div className={`booth-card cal-glance cal-cat--${category}`}>
       <div className="cal-glance-head">
         <div className="icon-badge">{icon}</div>
         <div>
@@ -90,7 +88,6 @@ export default async function CalendarPage() {
     month: e.date.slice(0, 7),
   });
   const ahead = events.filter((e) => isUpcoming(e, today));
-  const meetingEvents = ahead.filter((e) => e.category === "meeting");
   const scoutSundays = ahead.filter((e) => e.category === "scout-sunday").map((e) => chipFor(e));
   const noMeetings = ahead
     .filter((e) => e.noMeeting)
@@ -98,8 +95,7 @@ export default async function CalendarPage() {
       const reason = noMeetingReason(e.title);
       return chipFor(e, reason ? `${shortDate(e.date)} · ${reason}` : shortDate(e.date));
     });
-  const meetings = meetingEvents.map((e) => chipFor(e));
-  const hasGlance = glance.length > 0 || meetings.length > 0 || scoutSundays.length > 0 || noMeetings.length > 0;
+  const hasGlance = glance.length > 0 || scoutSundays.length > 0 || noMeetings.length > 0;
 
   return (
     <>
@@ -152,16 +148,6 @@ export default async function CalendarPage() {
                       </ul>
                     </div>
                   ))}
-                  {meetings.length > 0 && (
-                    <DateCard
-                      wide
-                      category="meeting"
-                      icon="🕢"
-                      title="Scout Meetings"
-                      note={`Fridays${meetingEvents[0].detail ? ` · ${meetingEvents[0].detail}` : ""}`}
-                      chips={meetings}
-                    />
-                  )}
                   {(scoutSundays.length > 0 || noMeetings.length > 0) && (
                     <div className="cal-glance-pair">
                       {scoutSundays.length > 0 && (

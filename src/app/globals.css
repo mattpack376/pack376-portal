@@ -642,8 +642,7 @@ section { padding: 64px 0; }
   white-space: nowrap;
 }
 
-/* The Scout Sundays card runs the full row under the three category cards: a head, then one chip per date. */
-.cal-glance--wide { grid-column: 1 / -1; }
+/* The date-list cards (Scout Sundays, No Meetings): a head, then one chip per date. */
 .cal-glance-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
 .cal-glance-head .icon-badge { margin-bottom: 0; flex: none; }
 .cal-glance-head h3 { margin: 0; }
