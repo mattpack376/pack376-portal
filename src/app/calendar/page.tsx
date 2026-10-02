@@ -63,10 +63,18 @@ function DateCard({
   );
 }
 
-/** "Black Friday — No Meeting" -> "Black Friday"; a bare "No Meeting" has no reason to add. */
+/**
+ * The reason a night has no meeting, from how the title is worded: "Black
+ * Friday — No Meeting" -> "Black Friday", "No Scout Meeting - Camp Conron" ->
+ * "Camp Conron". A bare "No Meeting" has no reason to add. The card is already
+ * headed "No Meetings", so the repeated words only get in the way.
+ */
 function noMeetingReason(title: string) {
-  const reason = title.replace(/\s*[—–-]\s*No Meeting\s*$/i, "").trim();
-  return reason.toLowerCase() === "no meeting" ? "" : reason;
+  return title
+    .replace(/\s*[—–-]\s*No (Scout )?Meeting\s*$/i, "")
+    .replace(/^No (Scout )?Meeting\s*[—–:-]\s*/i, "")
+    .replace(/^No (Scout )?Meeting$/i, "")
+    .trim();
 }
 
 export default async function CalendarPage() {
