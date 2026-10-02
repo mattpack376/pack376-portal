@@ -2,17 +2,14 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { toDateOnlyString } from "@/lib/dateOnly";
 import {
-  GLANCE_CATEGORIES,
-  GLANCE_TITLES,
+  buildGlance,
   categoryFromDb,
-  dateRangeLabel,
   meetingEvents,
   monthsBetween,
   scoutingYear,
   type AdminCalendarEvent,
   type Audience,
   type CalendarEvent,
-  type GlanceGroup,
   type MeetingRule,
 } from "@/lib/calendarData";
 
@@ -97,21 +94,7 @@ export async function getPublicCalendar(today: string) {
     ? monthsBetween(withMeetings[0].date.slice(0, 7), withMeetings[withMeetings.length - 1].date.slice(0, 7))
     : [];
 
-  // Featured events, grouped by color. An event with no date yet is always
-  // featured ("TBD"); a dated one only in the year it falls in.
-  const glance: GlanceGroup[] = [];
-  for (const category of GLANCE_CATEGORIES as GlanceGroup["category"][]) {
-    const items = all
-      .filter((e) => e.glance && e.category === category && (!e.date || (e.date >= year.start && e.date <= year.end)))
-      .map((e) => ({
-        label: e.glanceLabel || e.title,
-        when: e.glanceWhen || (e.date ? dateRangeLabel(e.date, e.endDate, e.eitherDay) : "TBD"),
-        month: e.date ? e.date.slice(0, 7) : undefined,
-      }));
-    if (items.length) glance.push({ category, title: GLANCE_TITLES[category], items });
-  }
-
-  return { yearLabel: year.label, events: withMeetings, months, glance };
+  return { yearLabel: year.label, events: withMeetings, months, glance: buildGlance(all, year, today) };
 }
 
 /** Every event, past and future, hidden or not, for the admin list. */

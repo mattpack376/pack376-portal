@@ -247,6 +247,46 @@ export function lastDay(e: Pick<CalendarEvent, "date" | "endDate">): string {
 }
 
 /**
+ * Whether an event is still ahead of us. A day counts through its own date, so
+ * a night drops out of Year at a Glance the morning after, and a multi-day trip
+ * stays until its last day is over.
+ */
+export function isUpcoming(e: { date: string; endDate?: string | null }, today: string): boolean {
+  return (e.endDate ?? e.date) >= today;
+}
+
+/**
+ * The Year at a Glance category cards: events marked "feature in Year at a
+ * Glance", grouped by color, earliest first. Only what is still ahead is
+ * listed — an item leaves the box when its date passes, and a card with
+ * nothing left leaves with it. An event with no date yet is always listed
+ * ("TBD"); a dated one only in the scouting year it falls in.
+ */
+export function buildGlance(
+  events: AdminCalendarEvent[],
+  year: { start: string; end: string },
+  today: string,
+): GlanceGroup[] {
+  const groups: GlanceGroup[] = [];
+  for (const category of GLANCE_CATEGORIES as GlanceGroup["category"][]) {
+    const items = events
+      .filter(
+        (e) =>
+          e.glance &&
+          e.category === category &&
+          (!e.date || (e.date >= year.start && e.date <= year.end && isUpcoming({ date: e.date, endDate: e.endDate }, today))),
+      )
+      .map((e) => ({
+        label: e.glanceLabel || e.title,
+        when: e.glanceWhen || (e.date ? dateRangeLabel(e.date, e.endDate, e.eitherDay) : "TBD"),
+        month: e.date ? e.date.slice(0, 7) : undefined,
+      }));
+    if (items.length) groups.push({ category, title: GLANCE_TITLES[category], items });
+  }
+  return groups;
+}
+
+/**
  * The regular meeting, one entry per Friday from the rule's first through its
  * last date (clipped to the page's window) that has nothing else on it.
  * "Nothing else" is any event covering that day — a campout, a pack night, a

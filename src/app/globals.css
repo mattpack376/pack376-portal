@@ -661,7 +661,6 @@ section { padding: 64px 0; }
   font-size: 14px;
 }
 .cal-glance .cal-date-chips a:hover { text-decoration: none; filter: brightness(1.1); }
-.cal-glance .cal-date-chips .is-past { opacity: 0.5; }
 /* Scout Sundays and No Meetings share one row, half each; they stack on a phone. */
 .cal-glance-pair { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 @media (max-width: 820px) { .cal-glance-pair { grid-template-columns: 1fr; } }

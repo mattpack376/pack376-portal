@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CalendarView from "@/components/CalendarView";
 import { getPublicCalendar } from "@/lib/calendarEventsData";
-import { shortDate } from "@/lib/calendarData";
+import { isUpcoming, shortDate } from "@/lib/calendarData";
 import { todayDateOnlyString } from "@/lib/dateOnly";
 
 // Edits in the portal revalidate this page straight away. This is for the
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 
 const GLANCE_ICON = { camping: "⛺", "pack-night": "🎟️", "one-day": "☀️", fundraiser: "💵" } as const;
 
-type DateChip = { key: string; label: string; month: string; past: boolean };
+type DateChip = { key: string; label: string; month: string };
 
 /** A Year at a Glance card that lists plain dates as chips: Scout Meetings, Scout Sundays, No Meetings. */
 function DateCard({
@@ -54,7 +54,7 @@ function DateCard({
       </div>
       <ul className="cal-date-chips">
         {chips.map((c) => (
-          <li key={c.key} className={c.past ? "is-past" : undefined}>
+          <li key={c.key}>
             <a href={`#month-${c.month}`}>{c.label}</a>
           </li>
         ))}
@@ -81,22 +81,25 @@ export default async function CalendarPage() {
   const today = todayDateOnlyString();
   const { yearLabel, events, months, glance } = await getPublicCalendar(today);
   // The three date-list cards are derived from the events, not hand-listed like
-  // the other glance cards, so they can't drift from the month list below.
+  // the other glance cards, so they can't drift from the month list below. Like
+  // those cards they list only what is still ahead: a date leaves the box the
+  // morning after it passes (the month list below keeps the whole year).
   const chipFor = (e: (typeof events)[number], label = shortDate(e.date)): DateChip => ({
     key: `${e.date}-${e.title}`,
     label,
     month: e.date.slice(0, 7),
-    past: e.date < today,
   });
-  const meetingEvents = events.filter((e) => e.category === "meeting");
-  const scoutSundays = events.filter((e) => e.category === "scout-sunday").map((e) => chipFor(e));
-  const noMeetings = events
+  const ahead = events.filter((e) => isUpcoming(e, today));
+  const meetingEvents = ahead.filter((e) => e.category === "meeting");
+  const scoutSundays = ahead.filter((e) => e.category === "scout-sunday").map((e) => chipFor(e));
+  const noMeetings = ahead
     .filter((e) => e.noMeeting)
     .map((e) => {
       const reason = noMeetingReason(e.title);
       return chipFor(e, reason ? `${shortDate(e.date)} · ${reason}` : shortDate(e.date));
     });
   const meetings = meetingEvents.map((e) => chipFor(e));
+  const hasGlance = glance.length > 0 || meetings.length > 0 || scoutSundays.length > 0 || noMeetings.length > 0;
 
   return (
     <>
@@ -127,50 +130,52 @@ export default async function CalendarPage() {
         </section>
       ) : (
         <>
-          <section style={{ paddingTop: 16 }}>
-            <div className="container">
-              <div className="section-head center">
-                <div className="eyebrow">Don&apos;t Miss These</div>
-                <h2>Year at a Glance</h2>
+          {hasGlance && (
+            <section style={{ paddingTop: 16 }}>
+              <div className="container">
+                <div className="section-head center">
+                  <div className="eyebrow">Don&apos;t Miss These</div>
+                  <h2>Year at a Glance</h2>
+                </div>
+                <div className="card-grid">
+                  {glance.map((group) => (
+                    <div className={`booth-card cal-glance cal-cat--${group.category}`} key={group.category}>
+                      <div className="icon-badge">{GLANCE_ICON[group.category]}</div>
+                      <h3>{group.title}</h3>
+                      <ul>
+                        {group.items.map((item) => (
+                          <li key={`${item.label}-${item.when}`}>
+                            {item.month ? <a href={`#month-${item.month}`}>{item.label}</a> : <span>{item.label}</span>}
+                            <b>{item.when}</b>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                  {meetings.length > 0 && (
+                    <DateCard
+                      wide
+                      category="meeting"
+                      icon="🕢"
+                      title="Scout Meetings"
+                      note={`Fridays${meetingEvents[0].detail ? ` · ${meetingEvents[0].detail}` : ""}`}
+                      chips={meetings}
+                    />
+                  )}
+                  {(scoutSundays.length > 0 || noMeetings.length > 0) && (
+                    <div className="cal-glance-pair">
+                      {scoutSundays.length > 0 && (
+                        <DateCard category="scout-sunday" icon="⛪" title="Scout Sundays" note="10 AM Mass" chips={scoutSundays} />
+                      )}
+                      {noMeetings.length > 0 && (
+                        <DateCard category="no-meeting" icon="🚫" title="No Meetings" note="No scout meeting these days" chips={noMeetings} />
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="card-grid">
-                {glance.map((group) => (
-                  <div className={`booth-card cal-glance cal-cat--${group.category}`} key={group.category}>
-                    <div className="icon-badge">{GLANCE_ICON[group.category]}</div>
-                    <h3>{group.title}</h3>
-                    <ul>
-                      {group.items.map((item) => (
-                        <li key={`${item.label}-${item.when}`}>
-                          {item.month ? <a href={`#month-${item.month}`}>{item.label}</a> : <span>{item.label}</span>}
-                          <b>{item.when}</b>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-                {meetings.length > 0 && (
-                  <DateCard
-                    wide
-                    category="meeting"
-                    icon="🕢"
-                    title="Scout Meetings"
-                    note={`Fridays${meetingEvents[0].detail ? ` · ${meetingEvents[0].detail}` : ""}`}
-                    chips={meetings}
-                  />
-                )}
-                {(scoutSundays.length > 0 || noMeetings.length > 0) && (
-                  <div className="cal-glance-pair">
-                    {scoutSundays.length > 0 && (
-                      <DateCard category="scout-sunday" icon="⛪" title="Scout Sundays" note="10 AM Mass" chips={scoutSundays} />
-                    )}
-                    {noMeetings.length > 0 && (
-                      <DateCard category="no-meeting" icon="🚫" title="No Meetings" note="No scout meeting these days" chips={noMeetings} />
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
+            </section>
+          )}
 
           <section style={{ background: "var(--white)" }}>
             <div className="container">
