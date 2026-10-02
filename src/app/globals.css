@@ -599,6 +599,7 @@ section { padding: 64px 0; }
 .cal-cat--pack-night { --cat: var(--scout-gold); --cat-on: var(--scout-blue-dark); --cat-tint: #ffeeb5; --cat-ink: #5c4300; }
 .cal-cat--one-day    { --cat: #26803a; --cat-on: var(--white); --cat-tint: #dcf0d8; --cat-ink: #1a5a29; }
 .cal-cat--fundraiser { --cat: var(--carnival-red); --cat-on: var(--white); --cat-tint: #fff5df; --cat-ink: var(--carnival-red-dark); }
+.cal-cat--scout-sunday { --cat: #6a3fa0; --cat-on: var(--white); --cat-tint: #ede4f8; --cat-ink: #4a2a7a; }
 .cal-cat--general    { --cat: var(--scout-blue); --cat-on: var(--white); --cat-tint: var(--white); --cat-ink: var(--scout-blue-dark); }
 
 .page-hero .cal-hero-note { margin-top: 12px; font-size: 14px; color: rgba(255, 255, 255, 0.7); }
@@ -637,6 +638,27 @@ section { padding: 64px 0; }
   color: var(--cat-ink);
   white-space: nowrap;
 }
+
+/* The Scout Sundays card runs the full row under the three category cards: a head, then one chip per date. */
+.cal-glance--wide { grid-column: 1 / -1; }
+.cal-glance-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.cal-glance-head .icon-badge { margin-bottom: 0; flex: none; }
+.cal-glance-head h3 { margin: 0; }
+.cal-glance-head p { margin: 0; font-size: 14.5px; }
+.cal-glance .cal-sunday-dates { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.cal-glance .cal-sunday-dates li { display: block; padding: 0; border: 0; }
+.cal-glance .cal-sunday-dates a {
+  display: inline-block;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--cat);
+  color: var(--cat-on);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+}
+.cal-glance .cal-sunday-dates a:hover { text-decoration: none; filter: brightness(1.1); }
+.cal-glance .cal-sunday-dates .is-past { opacity: 0.5; }
 
 /* Next Up card */
 .cal-next {
@@ -694,10 +716,11 @@ section { padding: 64px 0; }
   color: var(--scout-blue-dark);
 }
 .cal-monthnav a:hover { background: var(--cream-dark); }
+.cal-monthnav a.is-past { opacity: 0.6; }
 .cal-dots { display: flex; gap: 3px; height: 7px; }
 .cal-dots i { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--cat); }
 
-.cal-month { margin: 0 0 44px; scroll-margin-top: 120px; }
+.cal-month { margin: 0 0 44px; scroll-margin-top: 160px; }
 .cal-month-title {
   display: flex;
   justify-content: space-between;
@@ -708,7 +731,35 @@ section { padding: 64px 0; }
   padding-bottom: 8px;
   border-bottom: 3px solid var(--scout-gold);
 }
-.cal-month-title span { font-family: var(--font-body); font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+.cal-month-count { font-family: var(--font-body); font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+/*
+ * Months wholly in the past start collapsed: the whole title row becomes one
+ * button, so the tap target is the full width of the page rather than a small
+ * chevron. [hidden] is spelled out because .cal-events' own display:flex would
+ * otherwise win over the browser's display:none for it.
+ */
+.cal-month--collapsed { margin-bottom: 20px; }
+.cal-month--collapsed .cal-month-title { margin-bottom: 0; }
+.cal-events[hidden] { display: none; }
+.cal-month-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cal-month-toggle:focus-visible { outline: 3px solid var(--scout-blue-light); outline-offset: 4px; border-radius: 6px; }
+.cal-month--collapsed .cal-month-toggle > span:first-child { color: var(--ink-soft); }
+.cal-month-toggle b { color: var(--scout-blue); text-decoration: underline; }
+.cal-month-chev { display: inline-block; margin-left: 5px; color: var(--scout-blue); transition: transform 0.15s ease; }
+.cal-month--past:not(.cal-month--collapsed) .cal-month-chev { transform: rotate(180deg); }
 .cal-empty {
   margin: 0;
   padding: 18px 20px;

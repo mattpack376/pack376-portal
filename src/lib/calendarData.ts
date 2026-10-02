@@ -10,12 +10,14 @@
  *   pack-night  gold   — pack-wide nights (parties, derby, carnival, graduation)
  *   one-day     green  — one-day outings and events
  *   fundraiser  cream  — fundraisers (red bold text in the doc)
- *   general     white  — everything the doc left uncolored (Scout Sunday, etc.)
+ *   scout-sunday purple — the monthly Scout Sunday Mass (the doc left these uncolored;
+ *                         given their own group so they can be found at a glance)
+ *   general     white  — everything else the doc left uncolored (registration nights, etc.)
  * The italic rows in the doc are `volunteer` setup/planning nights and the
  * bold "No Meeting" rows are `noMeeting`.
  */
 
-export type CalendarCategory = "camping" | "pack-night" | "one-day" | "fundraiser" | "general";
+export type CalendarCategory = "camping" | "pack-night" | "one-day" | "fundraiser" | "scout-sunday" | "general";
 
 export interface CalendarEvent {
   /** First (or only) day, YYYY-MM-DD. */
@@ -103,7 +105,7 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
   },
 
   // ---- October 2026
-  { date: "2026-10-04", title: "Scout Sunday", detail: "10 AM Mass", category: "general" },
+  { date: "2026-10-04", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
   {
     date: "2026-10-08",
     title: "Prepare for Camping Trip",
@@ -129,7 +131,7 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
   { date: "2026-10-30", title: "Pack Halloween Party", category: "pack-night" },
 
   // ---- November 2026
-  { date: "2026-11-01", title: "Scout Sunday", detail: "10 AM Mass", category: "general" },
+  { date: "2026-11-01", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
   {
     date: "2026-11-07",
     endDate: "2026-11-08",
@@ -156,12 +158,12 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
     volunteer: "all-hands",
   },
   { date: "2026-12-18", title: "Christmas Pack Night", category: "pack-night" },
-  { date: "2026-12-20", title: "Scout Sunday", detail: "10 AM Mass", category: "general" },
+  { date: "2026-12-20", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
   { date: "2026-12-25", title: "Christmas Day — No Meeting", category: "general", noMeeting: true },
 
   // ---- January 2027
   { date: "2027-01-01", title: "New Year's Day — No Meeting", category: "general", noMeeting: true },
-  { date: "2027-01-10", title: "Scout Sunday", detail: "10 AM Mass", category: "general" },
+  { date: "2027-01-10", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
   { date: "2027-01-31", title: "Klondike Derby", detail: "Coney Island", category: "one-day" },
 
   // ---- March 2027 (the doc has no February section)
@@ -185,7 +187,7 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
     category: "one-day",
     tbd: true,
   },
-  { date: "2027-03-14", title: "Scout Sunday · OLG Easter Fair", category: "general" },
+  { date: "2027-03-14", title: "Scout Sunday · OLG Easter Fair", category: "scout-sunday" },
   {
     date: "2027-03-14",
     title: "Easter Fair Bake Sale Fundraiser",
@@ -209,7 +211,7 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
   },
 
   // ---- April 2027
-  { date: "2027-04-04", title: "Scout Sunday", detail: "10 AM Mass", category: "general" },
+  { date: "2027-04-04", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
 
   // ---- May 2027
   {
@@ -226,7 +228,7 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
     category: "camping",
   },
   { date: "2027-05-08", title: "Cub Day @ Alpine Activities", category: "one-day" },
-  { date: "2027-05-23", title: "Scout Sunday", detail: "10 AM Mass", category: "general" },
+  { date: "2027-05-23", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
   {
     date: "2027-05-27",
     title: "Pull Camping Gear",
@@ -255,7 +257,7 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
     category: "pack-night",
     volunteer: "all-hands",
   },
-  { date: "2027-06-06", title: "Scout Sunday", detail: "10 AM Mass", category: "general" },
+  { date: "2027-06-06", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
   {
     date: "2027-06-17",
     title: "Graduation Setup",
@@ -273,7 +275,7 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
 
 /** The doc's "Year at a Glance — Don't Miss These!" box. Kept by hand, not derived: it's a curated subset, and it includes the Cyclones outing, which has no date yet. */
 export const YEAR_AT_A_GLANCE: {
-  category: Exclude<CalendarCategory, "general" | "fundraiser">;
+  category: Exclude<CalendarCategory, "general" | "fundraiser" | "scout-sunday">;
   title: string;
   items: { label: string; when: string; month?: string }[];
 }[] = [
@@ -333,6 +335,19 @@ function parts(iso: string): { y: number; m: number; d: number; dow: number } {
 export function monthTitle(monthKey: string): string {
   const [y, m] = monthKey.split("-").map(Number);
   return `${MONTH_LONG[m - 1]} ${y}`;
+}
+
+/** True once every day of the month is behind `today` ("2026-09" is past on 2026-10-01; the current month never is). */
+export function isMonthPast(monthKey: string, today: string): boolean {
+  const [y, m] = monthKey.split("-").map(Number);
+  const lastDayOfMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${monthKey}-${String(lastDayOfMonth).padStart(2, "0")}` < today;
+}
+
+/** "2026-10-04" -> "Oct 4". */
+export function shortDate(iso: string): string {
+  const { m, d } = parts(iso);
+  return `${MONTH_LONG[m - 1].slice(0, 3)} ${d}`;
 }
 
 /** "2026-10" -> "Oct". */

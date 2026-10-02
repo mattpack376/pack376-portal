@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CALENDAR_MONTHS,
   badgeParts,
   daysBetween,
+  isMonthPast,
   lastDay,
   longDateLabel,
   monthShort,
@@ -13,7 +14,15 @@ import {
   type CalendarEvent,
 } from "@/lib/calendarData";
 
-type FilterKey = "all" | "camping" | "pack-night" | "one-day" | "fundraiser" | "volunteer" | "no-meeting";
+type FilterKey =
+  | "all"
+  | "camping"
+  | "pack-night"
+  | "one-day"
+  | "fundraiser"
+  | "scout-sunday"
+  | "volunteer"
+  | "no-meeting";
 
 const FILTERS: { key: FilterKey; label: string; icon: string; cat?: CalendarCategory }[] = [
   { key: "all", label: "Everything", icon: "🗓️" },
@@ -21,6 +30,7 @@ const FILTERS: { key: FilterKey; label: string; icon: string; cat?: CalendarCate
   { key: "pack-night", label: "Pack Nights", icon: "🎟️", cat: "pack-night" },
   { key: "one-day", label: "One-Day Events", icon: "☀️", cat: "one-day" },
   { key: "fundraiser", label: "Fundraisers", icon: "💵", cat: "fundraiser" },
+  { key: "scout-sunday", label: "Scout Sundays", icon: "⛪", cat: "scout-sunday" },
   { key: "volunteer", label: "Leader & Volunteer", icon: "🛠️" },
   { key: "no-meeting", label: "No Meeting", icon: "🚫" },
 ];
@@ -30,6 +40,7 @@ const CATEGORY_PILL: Record<CalendarCategory, { icon: string; label: string } | 
   "pack-night": { icon: "🎟️", label: "Pack Night" },
   "one-day": { icon: "☀️", label: "One-Day Event" },
   fundraiser: { icon: "💵", label: "Fundraiser" },
+  "scout-sunday": { icon: "⛪", label: "Scout Sunday" },
   general: null,
 };
 
@@ -59,13 +70,42 @@ function countdown(e: CalendarEvent, today: string): string {
  */
 export default function CalendarView({ events, today }: { events: CalendarEvent[]; today: string }) {
   const [filter, setFilter] = useState<FilterKey>("all");
+  // Months wholly in the past start collapsed; this is the ones a visitor has opened.
+  const [openPast, setOpenPast] = useState<Set<string>>(() => new Set());
+
+  const toggleMonth = (key: string) =>
+    setOpenPast((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  const openMonth = (key: string) => setOpenPast((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+
+  // Landing on, or jumping to, a collapsed month (the Year at a Glance links,
+  // a shared #month-… URL) opens it. The month bar does the same from its click handler.
+  useEffect(() => {
+    const openFromHash = () => {
+      const match = /^#month-(\d{4}-\d{2})$/.exec(window.location.hash);
+      if (match) openMonth(match[1]);
+    };
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    return () => window.removeEventListener("hashchange", openFromHash);
+  }, []);
 
   // Stable sort: two events on one day keep the order they're listed in the data file.
   const sorted = useMemo(() => [...events].sort((a, b) => a.date.localeCompare(b.date)), [events]);
 
   const nextUp = useMemo(
     () =>
-      sorted.find((e) => lastDay(e) >= today && e.category !== "general" && !e.volunteer && !e.noMeeting),
+      sorted.find(
+        (e) =>
+          lastDay(e) >= today &&
+          e.category !== "general" &&
+          e.category !== "scout-sunday" && // monthly, so it would almost always crowd out the big event
+          !e.volunteer &&
+          !e.noMeeting,
+      ),
     [sorted, today],
   );
 
@@ -79,8 +119,9 @@ export default function CalendarView({ events, today }: { events: CalendarEvent[
     return CALENDAR_MONTHS.filter((m) => all || byMonth.get(m)!.length > 0).map((m) => ({
       key: m,
       events: byMonth.get(m)!,
+      past: isMonthPast(m, today),
     }));
-  }, [sorted, filter]);
+  }, [sorted, filter, today]);
 
   return (
     <>
@@ -126,10 +167,15 @@ export default function CalendarView({ events, today }: { events: CalendarEvent[
           {months.map((m) => {
             const cats = new Set(m.events.map((e) => e.category));
             return (
-              <a key={m.key} href={`#month-${m.key}`}>
+              <a
+                key={m.key}
+                href={`#month-${m.key}`}
+                className={m.past ? "is-past" : undefined}
+                onClick={() => openMonth(m.key)}
+              >
                 {monthShort(m.key)}
                 <span className="cal-dots" aria-hidden="true">
-                  {(["camping", "pack-night", "one-day", "fundraiser"] as const).map(
+                  {(["camping", "pack-night", "one-day", "fundraiser", "scout-sunday"] as const).map(
                     (c) => cats.has(c) && <i key={c} className={`cal-cat--${c}`} />,
                   )}
                 </span>
@@ -141,18 +187,42 @@ export default function CalendarView({ events, today }: { events: CalendarEvent[
 
       {months.length === 0 && <p className="cal-empty">Nothing scheduled in this category.</p>}
 
-      {months.map((m) => (
-        <div className="cal-month" id={`month-${m.key}`} key={m.key}>
+      {months.map((m) => {
+        const collapsible = m.past && m.events.length > 0;
+        const collapsed = collapsible && !openPast.has(m.key);
+        const count = `${m.events.length} ${m.events.length === 1 ? "event" : "events"}`;
+        return (
+        <div
+          className={`cal-month${m.past ? " cal-month--past" : ""}${collapsed ? " cal-month--collapsed" : ""}`}
+          id={`month-${m.key}`}
+          key={m.key}
+        >
           <h2 className="cal-month-title">
-            {monthTitle(m.key)}
-            <span>
-              {m.events.length} {m.events.length === 1 ? "event" : "events"}
-            </span>
+            {collapsible ? (
+              <button
+                type="button"
+                className="cal-month-toggle"
+                aria-expanded={!collapsed}
+                aria-controls={`events-${m.key}`}
+                onClick={() => toggleMonth(m.key)}
+              >
+                <span>{monthTitle(m.key)}</span>
+                <span className="cal-month-count">
+                  {count} · <b>{collapsed ? "Show" : "Hide"}</b>
+                  <span className="cal-month-chev" aria-hidden="true">▾</span>
+                </span>
+              </button>
+            ) : (
+              <>
+                <span>{monthTitle(m.key)}</span>
+                <span className="cal-month-count">{count}</span>
+              </>
+            )}
           </h2>
           {m.events.length === 0 ? (
             <p className="cal-empty">No special pack events scheduled this month.</p>
           ) : (
-            <ol className="cal-events">
+            <ol className="cal-events" id={`events-${m.key}`} hidden={collapsed}>
               {m.events.map((e, i) => {
                 const badge = badgeParts(e);
                 const pill = CATEGORY_PILL[e.category];
@@ -199,7 +269,8 @@ export default function CalendarView({ events, today }: { events: CalendarEvent[
             </ol>
           )}
         </div>
-      ))}
+        );
+      })}
     </>
   );
 }

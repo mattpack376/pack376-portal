@@ -3,7 +3,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CalendarView from "@/components/CalendarView";
-import { CALENDAR_EVENTS, YEAR_AT_A_GLANCE } from "@/lib/calendarData";
+import { CALENDAR_EVENTS, YEAR_AT_A_GLANCE, shortDate } from "@/lib/calendarData";
 import { todayDateOnlyString } from "@/lib/dateOnly";
 
 // "Past" dimming and the Next Up card key off today's date, which nothing
@@ -24,6 +24,8 @@ const GLANCE_ICON = { camping: "⛺", "pack-night": "🎟️", "one-day": "☀�
 
 export default function CalendarPage() {
   const today = todayDateOnlyString();
+  // Derived, not hand-listed like the other glance cards, so it can't drift from the month list.
+  const scoutSundays = CALENDAR_EVENTS.filter((e) => e.category === "scout-sunday");
 
   return (
     <>
@@ -71,6 +73,22 @@ export default function CalendarPage() {
                 </ul>
               </div>
             ))}
+            <div className="booth-card cal-glance cal-glance--wide cal-cat--scout-sunday">
+              <div className="cal-glance-head">
+                <div className="icon-badge">⛪</div>
+                <div>
+                  <h3>Scout Sundays</h3>
+                  <p>10 AM Mass</p>
+                </div>
+              </div>
+              <ul className="cal-sunday-dates">
+                {scoutSundays.map((e) => (
+                  <li key={e.date} className={e.date < today ? "is-past" : undefined}>
+                    <a href={`#month-${e.date.slice(0, 7)}`}>{shortDate(e.date)}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </section>
