@@ -587,6 +587,245 @@ section { padding: 64px 0; }
 .event-ticket--camping { grid-column: span 2; }
 .event-ticket--camping .event-body p { margin-bottom: 0; font-weight: 700; line-height: 1.9; }
 
+/* ---------- Calendar page (/calendar) ---------- */
+/*
+ * The color coding from the pack's Google Doc calendar, in site colors. Each
+ * .cal-cat--* class defines the same four tokens (--cat strong color, --cat-on
+ * text on that color, --cat-tint row background, --cat-ink dark text in that
+ * hue), so filter chips, glance cards, event rows, and the little month-nav
+ * dots all pick their colors up from one place by just wearing the class.
+ */
+.cal-cat--camping    { --cat: var(--carnival-red); --cat-on: var(--white); --cat-tint: #fde4e8; --cat-ink: var(--carnival-red-dark); }
+.cal-cat--pack-night { --cat: var(--scout-gold); --cat-on: var(--scout-blue-dark); --cat-tint: #ffeeb5; --cat-ink: #5c4300; }
+.cal-cat--one-day    { --cat: #26803a; --cat-on: var(--white); --cat-tint: #dcf0d8; --cat-ink: #1a5a29; }
+.cal-cat--fundraiser { --cat: var(--carnival-red); --cat-on: var(--white); --cat-tint: #fff5df; --cat-ink: var(--carnival-red-dark); }
+.cal-cat--general    { --cat: var(--scout-blue); --cat-on: var(--white); --cat-tint: var(--white); --cat-ink: var(--scout-blue-dark); }
+
+.page-hero .cal-hero-note { margin-top: 12px; font-size: 14px; color: rgba(255, 255, 255, 0.7); }
+.cal-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Year at a Glance: three booth-cards, top border and date text in the category color. */
+.booth-card.cal-glance { border-top-color: var(--cat); }
+.cal-glance .icon-badge { background: var(--cat-tint); }
+.cal-glance ul { list-style: none; padding: 0; }
+.cal-glance li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px dashed rgba(26, 26, 46, 0.18);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.cal-glance li:last-child { border-bottom: 0; padding-bottom: 0; }
+.cal-glance li a { color: var(--scout-blue-dark); font-weight: 600; }
+.cal-glance li a:hover { text-decoration: underline; }
+.cal-glance li b {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--cat-ink);
+  white-space: nowrap;
+}
+
+/* Next Up card */
+.cal-next {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  background: var(--cream);
+  border-left: 8px solid var(--scout-gold);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 20px 24px;
+  margin: 0 0 32px;
+}
+.cal-next h3 { font-size: 24px; margin: 0 0 4px; }
+.cal-next p { margin: 0; }
+.cal-next .eyebrow { margin-bottom: 8px; }
+
+/* Filter chips double as the legend. */
+.cal-filters { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 0 0 20px; }
+.cal-chip {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--scout-blue-dark);
+  background: var(--white);
+  border: 2px solid var(--cat, #d9d0b4);
+  border-radius: 999px;
+  padding: 8px 16px;
+  min-height: 40px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cal-chip[aria-pressed="true"] { background: var(--cat, var(--scout-blue)); color: var(--cat-on, var(--white)); }
+.cal-chip:focus-visible,
+.cal-monthnav a:focus-visible { outline: 3px solid var(--scout-blue-light); outline-offset: 2px; }
+
+/* Month jump bar, with a dot per kind of colored event that month holds. */
+.cal-monthnav { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0 0 40px; }
+.cal-monthnav a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 58px;
+  padding: 9px 12px 8px;
+  border-radius: 12px;
+  background: var(--cream);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--scout-blue-dark);
+}
+.cal-monthnav a:hover { background: var(--cream-dark); }
+.cal-dots { display: flex; gap: 3px; height: 7px; }
+.cal-dots i { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--cat); }
+
+.cal-month { margin: 0 0 44px; scroll-margin-top: 120px; }
+.cal-month-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 28px;
+  margin: 0 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid var(--scout-gold);
+}
+.cal-month-title span { font-family: var(--font-body); font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+.cal-empty {
+  margin: 0;
+  padding: 18px 20px;
+  text-align: center;
+  background: var(--cream);
+  border: 2px dashed var(--cream-dark);
+  border-radius: var(--radius);
+}
+
+.cal-events { list-style: none; display: flex; flex-direction: column; gap: 10px; padding: 0; margin: 0; }
+.cal-ev {
+  position: relative;
+  display: grid;
+  grid-template-columns: 76px 1fr auto;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 12px 16px 12px 26px;
+  overflow: hidden;
+  background: var(--cat-tint);
+  border: 1px solid rgba(26, 26, 46, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(26, 26, 46, 0.07);
+}
+/* The category stripe down the left edge. Fundraisers get the footer's candy stripe. */
+.cal-ev::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 9px; background: var(--cat); }
+.cal-ev.cal-cat--general::before { background: #c6d6ee; }
+.cal-ev.cal-cat--fundraiser::before {
+  background: repeating-linear-gradient(45deg, var(--carnival-red) 0 5px, var(--white) 5px 10px);
+}
+.cal-ev--past { opacity: 0.62; }
+.cal-ev--past:hover { opacity: 1; }
+/* Italic in the doc: setup and planning nights for adults. A fundraiser or Carnival Night that also needs "all hands" is a real event, so it stays upright. */
+.cal-ev.cal-cat--general.cal-ev--volunteer .cal-ev-title { font-style: italic; font-weight: 600; }
+.cal-ev--nomeet { background: #efece3; }
+.cal-ev--important { box-shadow: 0 0 0 2px var(--scout-gold), 0 2px 8px rgba(26, 26, 46, 0.07); }
+.cal-ev.cal-cat--fundraiser .cal-ev-title { color: var(--carnival-red-dark); font-weight: 800; }
+
+/* Calendar-leaf date badge. */
+.cal-date {
+  width: 76px;
+  overflow: hidden;
+  text-align: center;
+  font-family: var(--font-display);
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(26, 26, 46, 0.14);
+}
+.cal-date-dow {
+  display: block;
+  padding: 4px 4px;
+  background: var(--cat);
+  color: var(--cat-on);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cal-date-day {
+  display: block;
+  padding: 8px 4px 9px;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--scout-blue-dark);
+}
+.cal-date-day--range { font-size: 19px; padding: 11px 4px 12px; }
+
+.cal-ev-title { font-size: 17px; margin: 0; }
+.cal-ev-detail { margin: 3px 0 0; font-size: 14px; line-height: 1.4; }
+.cal-ev-side { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; }
+.cal-ev-side:empty { display: none; }
+.cal-pill,
+.cal-tag {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+.cal-pill { background: var(--cat); color: var(--cat-on); }
+.cal-tag { background: rgba(26, 26, 46, 0.07); color: var(--ink-soft); font-weight: 700; }
+.cal-link { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--scout-blue); text-decoration: underline; padding: 6px 4px; }
+
+@media (max-width: 640px) {
+  .cal-month-title { font-size: 24px; }
+  .cal-ev { grid-template-columns: 62px 1fr; gap: 6px 12px; padding: 12px 12px 12px 22px; }
+  .cal-date { width: 62px; }
+  .cal-date-day { font-size: 22px; padding: 7px 2px 8px; }
+  .cal-date-day--range { font-size: 16px; padding: 9px 2px 10px; }
+  .cal-ev-side { grid-column: 2; justify-content: flex-start; }
+  .cal-chip { min-height: 44px; }
+  .cal-next { padding: 18px 18px 18px 20px; }
+  /*
+   * Wrapped, the chips and month pills took three screens of scrolling before
+   * the first event. One swipeable row each instead, bled out to the screen
+   * edge so the cut-off last item hints there's more. Left-aligned: centered
+   * content in an overflowing flex row can't be scrolled back to its start.
+   */
+  .cal-filters,
+  .cal-monthnav {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    margin-left: -24px;
+    margin-right: -24px;
+    padding: 4px 24px 8px;
+    scrollbar-width: none;
+  }
+  .cal-filters::-webkit-scrollbar,
+  .cal-monthnav::-webkit-scrollbar { display: none; }
+  .cal-chip,
+  .cal-monthnav a { flex: none; }
+  .cal-monthnav { margin-bottom: 28px; }
+}
+
 /* ---------- Instagram callout ---------- */
 .instagram-home {
   background: linear-gradient(135deg, #fff2f7 0%, #f4efff 48%, #fff6e7 100%);
