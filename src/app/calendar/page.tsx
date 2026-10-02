@@ -3,11 +3,14 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CalendarView from "@/components/CalendarView";
-import { CALENDAR_EVENTS, YEAR_AT_A_GLANCE, shortDate } from "@/lib/calendarData";
+import { getPublicCalendar } from "@/lib/calendarEventsData";
+import { shortDate } from "@/lib/calendarData";
 import { todayDateOnlyString } from "@/lib/dateOnly";
 
-// "Past" dimming and the Next Up card key off today's date, which nothing
-// republishes when the date rolls over — same reasoning as the homepage.
+// Edits in the portal revalidate this page straight away. This is for the
+// part nothing edits: "past" dimming, collapsed months and the Next Up card
+// all key off today's date, which no admin action fires when it rolls over —
+// same reasoning as the homepage.
 export const revalidate = 300;
 
 // DRAFT: hidden from search engines, and not yet linked from the header nav,
@@ -16,16 +19,17 @@ export const revalidate = 300;
 export const metadata: Metadata = {
   title: "Calendar of Events — Pack 376",
   description:
-    "Pack 376's 2026–2027 calendar: campouts, pack nights, derbies, fundraisers, and every date to put on the fridge.",
+    "Pack 376's calendar: campouts, pack nights, derbies, fundraisers, and every date to put on the fridge.",
   robots: { index: false, follow: false },
 };
 
-const GLANCE_ICON = { camping: "⛺", "pack-night": "🎟️", "one-day": "☀️" } as const;
+const GLANCE_ICON = { camping: "⛺", "pack-night": "🎟️", "one-day": "☀️", fundraiser: "💵" } as const;
 
-export default function CalendarPage() {
+export default async function CalendarPage() {
   const today = todayDateOnlyString();
-  // Derived, not hand-listed like the other glance cards, so it can't drift from the month list.
-  const scoutSundays = CALENDAR_EVENTS.filter((e) => e.category === "scout-sunday");
+  const { yearLabel, events, months, glance } = await getPublicCalendar(today);
+  // Derived from the events, not hand-listed like the other glance cards, so it can't drift from the month list.
+  const scoutSundays = events.filter((e) => e.category === "scout-sunday");
 
   return (
     <>
@@ -35,7 +39,7 @@ export default function CalendarPage() {
         <div className="eyebrow" style={{ background: "rgba(255,255,255,0.15)", color: "var(--scout-gold)" }}>
           Mark Your Calendar
         </div>
-        <h1>2026–2027 Calendar of Events</h1>
+        <h1>{yearLabel} Calendar of Events</h1>
         <p>
           Welcome to Pack 376! We&apos;re excited for another great year of Cub Scout adventure. Here&apos;s
           our full calendar of pack-wide events, campouts, and activities.
@@ -52,52 +56,67 @@ export default function CalendarPage() {
         </svg>
       </div>
 
-      <section style={{ paddingTop: 16 }}>
-        <div className="container">
-          <div className="section-head center">
-            <div className="eyebrow">Don&apos;t Miss These</div>
-            <h2>Year at a Glance</h2>
-          </div>
-          <div className="card-grid">
-            {YEAR_AT_A_GLANCE.map((group) => (
-              <div className={`booth-card cal-glance cal-cat--${group.category}`} key={group.category}>
-                <div className="icon-badge">{GLANCE_ICON[group.category]}</div>
-                <h3>{group.title}</h3>
-                <ul>
-                  {group.items.map((item) => (
-                    <li key={item.label}>
-                      {item.month ? <a href={`#month-${item.month}`}>{item.label}</a> : <span>{item.label}</span>}
-                      <b>{item.when}</b>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-            <div className="booth-card cal-glance cal-glance--wide cal-cat--scout-sunday">
-              <div className="cal-glance-head">
-                <div className="icon-badge">⛪</div>
-                <div>
-                  <h3>Scout Sundays</h3>
-                  <p>10 AM Mass</p>
-                </div>
-              </div>
-              <ul className="cal-sunday-dates">
-                {scoutSundays.map((e) => (
-                  <li key={e.date} className={e.date < today ? "is-past" : undefined}>
-                    <a href={`#month-${e.date.slice(0, 7)}`}>{shortDate(e.date)}</a>
-                  </li>
-                ))}
-              </ul>
+      {events.length === 0 ? (
+        <section style={{ paddingTop: 16 }}>
+          <div className="container">
+            <div className="info-card" style={{ textAlign: "center" }}>
+              <h3 style={{ marginTop: 0 }}>The {yearLabel} calendar is coming soon</h3>
+              <p>Check back shortly, or get in touch and we&apos;ll tell you what&apos;s planned.</p>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <>
+          <section style={{ paddingTop: 16 }}>
+            <div className="container">
+              <div className="section-head center">
+                <div className="eyebrow">Don&apos;t Miss These</div>
+                <h2>Year at a Glance</h2>
+              </div>
+              <div className="card-grid">
+                {glance.map((group) => (
+                  <div className={`booth-card cal-glance cal-cat--${group.category}`} key={group.category}>
+                    <div className="icon-badge">{GLANCE_ICON[group.category]}</div>
+                    <h3>{group.title}</h3>
+                    <ul>
+                      {group.items.map((item) => (
+                        <li key={`${item.label}-${item.when}`}>
+                          {item.month ? <a href={`#month-${item.month}`}>{item.label}</a> : <span>{item.label}</span>}
+                          <b>{item.when}</b>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                {scoutSundays.length > 0 && (
+                  <div className="booth-card cal-glance cal-glance--wide cal-cat--scout-sunday">
+                    <div className="cal-glance-head">
+                      <div className="icon-badge">⛪</div>
+                      <div>
+                        <h3>Scout Sundays</h3>
+                        <p>10 AM Mass</p>
+                      </div>
+                    </div>
+                    <ul className="cal-sunday-dates">
+                      {scoutSundays.map((e) => (
+                        <li key={e.date} className={e.date < today ? "is-past" : undefined}>
+                          <a href={`#month-${e.date.slice(0, 7)}`}>{shortDate(e.date)}</a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
 
-      <section style={{ background: "var(--white)" }}>
-        <div className="container">
-          <CalendarView events={CALENDAR_EVENTS} today={today} />
-        </div>
-      </section>
+          <section style={{ background: "var(--white)" }}>
+            <div className="container">
+              <CalendarView events={events} months={months} today={today} />
+            </div>
+          </section>
+        </>
+      )}
 
       <section className="cta-banner section-tight">
         <h2>Questions About an Event?</h2>

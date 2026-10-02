@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  CALENDAR_MONTHS,
+  CATEGORY_PILL,
   badgeParts,
   daysBetween,
   isMonthPast,
@@ -21,6 +21,7 @@ type FilterKey =
   | "one-day"
   | "fundraiser"
   | "scout-sunday"
+  | "meeting"
   | "volunteer"
   | "no-meeting";
 
@@ -31,18 +32,10 @@ const FILTERS: { key: FilterKey; label: string; icon: string; cat?: CalendarCate
   { key: "one-day", label: "One-Day Events", icon: "☀️", cat: "one-day" },
   { key: "fundraiser", label: "Fundraisers", icon: "💵", cat: "fundraiser" },
   { key: "scout-sunday", label: "Scout Sundays", icon: "⛪", cat: "scout-sunday" },
+  { key: "meeting", label: "Scout Meetings", icon: "🕢", cat: "meeting" },
   { key: "volunteer", label: "Leader & Volunteer", icon: "🛠️" },
   { key: "no-meeting", label: "No Meeting", icon: "🚫" },
 ];
-
-const CATEGORY_PILL: Record<CalendarCategory, { icon: string; label: string } | null> = {
-  camping: { icon: "⛺", label: "Camping" },
-  "pack-night": { icon: "🎟️", label: "Pack Night" },
-  "one-day": { icon: "☀️", label: "One-Day Event" },
-  fundraiser: { icon: "💵", label: "Fundraiser" },
-  "scout-sunday": { icon: "⛪", label: "Scout Sunday" },
-  general: null,
-};
 
 const VOLUNTEER_TAG = { leaders: "Leaders & Volunteers", "all-hands": "All Hands on Deck" } as const;
 
@@ -68,7 +61,16 @@ function countdown(e: CalendarEvent, today: string): string {
  * identically on the server and in the browser — no hydration mismatch, and
  * no layout jump when an effect would otherwise fill them in.
  */
-export default function CalendarView({ events, today }: { events: CalendarEvent[]; today: string }) {
+export default function CalendarView({
+  events,
+  months: monthKeys,
+  today,
+}: {
+  events: CalendarEvent[];
+  /** Every month to give a section, first to last, so an eventless month still gets a heading. */
+  months: string[];
+  today: string;
+}) {
   const [filter, setFilter] = useState<FilterKey>("all");
   // Months wholly in the past start collapsed; this is the ones a visitor has opened.
   const [openPast, setOpenPast] = useState<Set<string>>(() => new Set());
@@ -103,6 +105,7 @@ export default function CalendarView({ events, today }: { events: CalendarEvent[
           lastDay(e) >= today &&
           e.category !== "general" &&
           e.category !== "scout-sunday" && // monthly, so it would almost always crowd out the big event
+          e.category !== "meeting" && // every Friday, for the same reason
           !e.volunteer &&
           !e.noMeeting,
       ),
@@ -110,18 +113,18 @@ export default function CalendarView({ events, today }: { events: CalendarEvent[
   );
 
   const months = useMemo(() => {
-    const byMonth = new Map<string, CalendarEvent[]>(CALENDAR_MONTHS.map((m) => [m, []]));
+    const byMonth = new Map<string, CalendarEvent[]>(monthKeys.map((m) => [m, []]));
     for (const e of sorted) {
       if (!matches(e, filter)) continue;
       byMonth.get(e.date.slice(0, 7))?.push(e);
     }
     const all = filter === "all";
-    return CALENDAR_MONTHS.filter((m) => all || byMonth.get(m)!.length > 0).map((m) => ({
+    return monthKeys.filter((m) => all || byMonth.get(m)!.length > 0).map((m) => ({
       key: m,
       events: byMonth.get(m)!,
       past: isMonthPast(m, today),
     }));
-  }, [sorted, filter, today]);
+  }, [sorted, filter, monthKeys, today]);
 
   return (
     <>

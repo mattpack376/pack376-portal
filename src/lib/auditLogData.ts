@@ -45,6 +45,7 @@ export const AUDIT_CATEGORY_LABELS: Record<string, string> = {
   announcement: "Announcements",
   attendance: "Attendance",
   banner: "Homepage Banner",
+  calendarEvent: "Calendar",
   deadline: "Deadlines",
   den: "Dens",
   dues: "Dues",

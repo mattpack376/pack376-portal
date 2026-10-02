@@ -456,6 +456,79 @@ model HomepageEvent {
   updatedAt   DateTime @updatedAt
 }
 
+/** The color group an event falls in on the public calendar (/calendar). */
+enum CalendarCategory {
+  CAMPING
+  PACK_NIGHT
+  ONE_DAY
+  FUNDRAISER
+  SCOUT_SUNDAY
+  GENERAL
+}
+
+/** Setup and planning nights are for adults, not scouts and families. */
+enum CalendarAudience {
+  LEADERS
+  ALL_HANDS
+}
+
+/**
+ * One event on the pack's public Calendar of Events (pack376nyc.org/calendar),
+ * which started as a Google Doc. The flags mirror that doc's markers: italic
+ * setup nights (`audience`), bold "No Meeting" rows (`noMeeting`), and the
+ * "Year at a Glance" box at the top (`glance`, with optional shorter wording).
+ *
+ * `date` is null only for an event whose date isn't set yet (the Cyclones
+ * outing): it shows in Year at a Glance as "TBD" but not in the month list.
+ * `endDate` is the last day of a multi-day event, inclusive; with `eitherDay`
+ * the two dates are alternatives instead ("Sat or Sun"). Both are date-only,
+ * stored as UTC midnight — see src/lib/dateOnly.ts.
+ */
+model CalendarEvent {
+  id          String            @id @default(cuid())
+  title       String
+  detail      String?
+  category    CalendarCategory  @default(GENERAL)
+  date        DateTime?         @db.Date
+  endDate     DateTime?         @db.Date
+  eitherDay   Boolean           @default(false)
+  audience    CalendarAudience?
+  noMeeting   Boolean           @default(false)
+  tbd         Boolean           @default(false)
+  // Bold, gold-outlined row for something families must not miss.
+  important   Boolean           @default(false)
+  linkUrl     String?
+  linkLabel   String?
+  glance      Boolean           @default(false)
+  glanceLabel String?
+  glanceWhen  String?
+  // Hidden events stay in the admin list but are left off the public page.
+  visible     Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([date])
+}
+
+/**
+ * The pack's regular weekly meeting on the public calendar. A single row
+ * (id "main"). Every Friday from `startDate` through `endDate` gets a
+ * "Scout Meeting" entry unless a CalendarEvent already falls on that day — a
+ * campout, a pack night, a "No Meeting" row, anything — so the regular
+ * meeting steps aside on its own instead of being listed beside the event
+ * that replaces it. Computed when the page renders (src/lib/calendarData.ts);
+ * nothing is stored per Friday.
+ */
+model CalendarMeetingRule {
+  id        String   @id @default("main")
+  enabled   Boolean  @default(true)
+  title     String   @default("Scout Meeting")
+  detail    String?
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  updatedAt DateTime @updatedAt
+}
+
 /**
  * A short, urgent notice shown in a black-and-red banner at the top of the
  * public homepage. Only the most recently created active row is displayed —

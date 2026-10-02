@@ -73,6 +73,7 @@ export default function PortalNav({
             label: "Content",
             children: [
               { href: "/portal/admin/homepage-events", label: "Homepage Content" },
+              { href: "/portal/admin/calendar", label: "Calendar" },
               { href: "/portal/admin/parent-portal", label: "Parent Portal" },
               { href: "/portal/admin/albums", label: "Photo Albums" },
             ],
@@ -81,6 +82,7 @@ export default function PortalNav({
       case "JUNIOR_ADMIN":
         // Same shape as ADMIN minus what they can't reach: Money is
         // read-only for them, and Homepage Content is the top banner alone.
+        // The public calendar they can edit (but not delete from).
         return [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
@@ -95,6 +97,7 @@ export default function PortalNav({
             ],
           },
           { href: "/portal/admin/homepage-events", label: "Top Banner" },
+          { href: "/portal/admin/calendar", label: "Calendar" },
         ];
       case "COMMITTEE":
         return [

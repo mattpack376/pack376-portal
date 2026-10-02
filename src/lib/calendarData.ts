@@ -1,37 +1,86 @@
 /*
- * The 2026–2027 Calendar of Events, transcribed from the pack's Google Doc
- * (the one calendar.pack376nyc.org points at). Dates are plain YYYY-MM-DD
- * strings and never go through a Date in local time — see dateOnly.ts for why
- * a date-only value that round-trips through the browser's time zone drifts a
- * day. The weekday and month names are derived here from the UTC calendar.
+ * Types and pure helpers for the public Calendar of Events (/calendar) and its
+ * admin editor. The events themselves live in the CalendarEvent table
+ * (prisma/schema.prisma); this module has no database access, so the client
+ * component can import it.
  *
- * Categories mirror the doc's color coding:
- *   camping     red    — campouts
- *   pack-night  gold   — pack-wide nights (parties, derby, carnival, graduation)
- *   one-day     green  — one-day outings and events
- *   fundraiser  cream  — fundraisers (red bold text in the doc)
- *   scout-sunday purple — the monthly Scout Sunday Mass (the doc left these uncolored;
- *                         given their own group so they can be found at a glance)
- *   general     white  — everything else the doc left uncolored (registration nights, etc.)
- * The italic rows in the doc are `volunteer` setup/planning nights and the
- * bold "No Meeting" rows are `noMeeting`.
+ * Dates are plain YYYY-MM-DD strings and never go through a Date in local
+ * time — see dateOnly.ts for why a date-only value that round-trips through
+ * the browser's time zone drifts a day. Weekday and month names are derived
+ * here from the UTC calendar.
+ *
+ * Categories mirror the color coding of the Google Doc the calendar started as:
+ *   camping      red     — campouts
+ *   pack-night   gold    — pack-wide nights (parties, derby, carnival, graduation)
+ *   one-day      green   — one-day outings and events
+ *   fundraiser   cream   — fundraisers (red bold text in the doc)
+ *   scout-sunday purple  — the monthly Scout Sunday Mass
+ *   general      white   — everything else (registration nights, etc.)
+ *   meeting      —       — the regular Friday meeting; generated, never stored
  */
 
-export type CalendarCategory = "camping" | "pack-night" | "one-day" | "fundraiser" | "scout-sunday" | "general";
+import type { CalendarCategory as DbCategory } from "@/generated/prisma/enums";
 
+export type CalendarCategory =
+  | "camping"
+  | "pack-night"
+  | "one-day"
+  | "fundraiser"
+  | "scout-sunday"
+  | "general"
+  | "meeting";
+
+/** The categories an admin can pick; "meeting" is only ever generated. */
+export type StoredCategory = Exclude<CalendarCategory, "meeting">;
+
+export const CATEGORIES: { value: StoredCategory; db: DbCategory; label: string; glance: boolean }[] = [
+  { value: "camping", db: "CAMPING", label: "Camping trip", glance: true },
+  { value: "pack-night", db: "PACK_NIGHT", label: "Pack night", glance: true },
+  { value: "one-day", db: "ONE_DAY", label: "One-day event", glance: true },
+  { value: "fundraiser", db: "FUNDRAISER", label: "Fundraiser", glance: true },
+  { value: "scout-sunday", db: "SCOUT_SUNDAY", label: "Scout Sunday", glance: false },
+  { value: "general", db: "GENERAL", label: "Other (no color)", glance: false },
+];
+
+export function categoryFromDb(db: DbCategory): StoredCategory {
+  return CATEGORIES.find((c) => c.db === db)!.value;
+}
+
+export function categoryToDb(value: string): DbCategory | null {
+  return CATEGORIES.find((c) => c.value === value)?.db ?? null;
+}
+
+/** Categories that can be featured in the Year at a Glance box. */
+export const GLANCE_CATEGORIES = CATEGORIES.filter((c) => c.glance).map((c) => c.value);
+
+/** The colored label on an event row; the regular meeting and uncolored events have none. */
+export const CATEGORY_PILL: Record<CalendarCategory, { icon: string; label: string } | null> = {
+  camping: { icon: "⛺", label: "Camping" },
+  "pack-night": { icon: "🎟️", label: "Pack Night" },
+  "one-day": { icon: "☀️", label: "One-Day Event" },
+  fundraiser: { icon: "💵", label: "Fundraiser" },
+  "scout-sunday": { icon: "⛪", label: "Scout Sunday" },
+  general: null,
+  meeting: null,
+};
+
+export const AUDIENCE_LABELS = { leaders: "Leaders & Volunteers", "all-hands": "All Hands on Deck" } as const;
+export type Audience = keyof typeof AUDIENCE_LABELS;
+
+/** An event as the public page shows it: always dated. */
 export interface CalendarEvent {
   /** First (or only) day, YYYY-MM-DD. */
   date: string;
   /** Last day of a multi-day event, inclusive. */
   endDate?: string;
-  /** Set when the doc gives two candidate days ("Sat or Sun") rather than a span. */
+  /** Set when the two dates are alternatives ("Sat or Sun") rather than a span. */
   eitherDay?: boolean;
   title: string;
   /** Time, place, or a short note shown under the title. */
   detail?: string;
   category: CalendarCategory;
   /** Setup/planning nights for adults — not scheduled activities for scouts. */
-  volunteer?: "leaders" | "all-hands";
+  volunteer?: Audience;
   noMeeting?: boolean;
   tbd?: boolean;
   /** A note important enough to bold, like "first meeting, full uniform". */
@@ -39,285 +88,55 @@ export interface CalendarEvent {
   link?: { href: string; label: string };
 }
 
-export const CONRON_URL = "https://conron.pack376nyc.org";
-
-export const CALENDAR_EVENTS: CalendarEvent[] = [
-  // ---- August 2026
-  {
-    date: "2026-08-01",
-    title: "Boy Scout Eagle Service Project",
-    detail: "Cubs encouraged to join for service hours credit",
-    category: "general",
-  },
-  {
-    date: "2026-08-04",
-    title: "National Night Out",
-    detail: "4:00 – 7:00 PM at NYPD 61 PCT",
-    category: "general",
-  },
-  {
-    date: "2026-08-08",
-    title: "Kayaking",
-    detail: "Floyd Bennett Field · 10:00 AM – 1:00 PM",
-    category: "general",
-  },
-  {
-    date: "2026-08-15",
-    title: "Coney Island Sand Sculpting Competition",
-    detail: "11:00 AM – 4:00 PM",
-    category: "general",
-  },
-  {
-    date: "2026-08-17",
-    title: "Committee Meeting",
-    detail: "7:30 PM",
-    category: "general",
-    volunteer: "leaders",
-  },
-  {
-    date: "2026-08-24",
-    title: "Leaders Meeting",
-    detail: "7:30 PM",
-    category: "general",
-    volunteer: "leaders",
-  },
-
-  // ---- September 2026
-  { date: "2026-09-04", title: "No Meeting", category: "general", noMeeting: true },
-  {
-    date: "2026-09-11",
-    title: "Scout Registration Night",
-    detail: "Parents only",
-    category: "general",
-  },
-  {
-    date: "2026-09-18",
-    title: "Scout Registration Night",
-    detail: "Parents only · Cubmaster meeting with parents and families",
-    category: "general",
-  },
-  {
-    date: "2026-09-25",
-    title: "First Scout Meeting",
-    detail: "All returning scouts in full uniform",
-    category: "general",
-    important: true,
-  },
-
-  // ---- October 2026
-  { date: "2026-10-04", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
-  {
-    date: "2026-10-08",
-    title: "Prepare for Camping Trip",
-    category: "general",
-    volunteer: "all-hands",
-  },
-  {
-    date: "2026-10-09",
-    endDate: "2026-10-12",
-    title: "Camp Conron Weekend",
-    detail: "Columbus Day Weekend",
-    category: "camping",
-    link: { href: CONRON_URL, label: "Trip details" },
-  },
-  { date: "2026-10-12", title: "Columbus Day", detail: "Return from camp", category: "general" },
-  {
-    date: "2026-10-29",
-    title: "Setup for Pack Halloween Party",
-    detail: "6:00 PM",
-    category: "general",
-    volunteer: "leaders",
-  },
-  { date: "2026-10-30", title: "Pack Halloween Party", category: "pack-night" },
-
-  // ---- November 2026
-  { date: "2026-11-01", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
-  {
-    date: "2026-11-07",
-    endDate: "2026-11-08",
-    eitherDay: true,
-    title: "Parish Anniversary (Chartering Organization)",
-    detail: "All scouts present",
-    category: "one-day",
-  },
-  { date: "2026-11-20", title: "Pie Night & Bring-a-Friend Night", category: "one-day" },
-  {
-    date: "2026-11-22",
-    title: "OLG Christmas Fair — Pack Fundraiser",
-    category: "fundraiser",
-    volunteer: "all-hands",
-  },
-  { date: "2026-11-27", title: "Black Friday — No Meeting", category: "general", noMeeting: true },
-
-  // ---- December 2026
-  {
-    date: "2026-12-17",
-    title: "Setup for Pack Christmas Party",
-    detail: "6:00 PM",
-    category: "general",
-    volunteer: "all-hands",
-  },
-  { date: "2026-12-18", title: "Christmas Pack Night", category: "pack-night" },
-  { date: "2026-12-20", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
-  { date: "2026-12-25", title: "Christmas Day — No Meeting", category: "general", noMeeting: true },
-
-  // ---- January 2027
-  { date: "2027-01-01", title: "New Year's Day — No Meeting", category: "general", noMeeting: true },
-  { date: "2027-01-10", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
-  { date: "2027-01-31", title: "Klondike Derby", detail: "Coney Island", category: "one-day" },
-
-  // ---- March 2027 (the doc has no February section)
-  {
-    date: "2027-03-04",
-    title: "Pinewood Derby Setup",
-    detail: "6:00 PM",
-    category: "general",
-    volunteer: "all-hands",
-  },
-  {
-    date: "2027-03-05",
-    endDate: "2027-03-06",
-    title: "Pack 376 Pinewood Derby + Overnight Lockup",
-    category: "pack-night",
-  },
-  {
-    date: "2027-03-06",
-    title: "Kings Plaza Pinewood Derby Competition",
-    detail: "Pack participation TBD",
-    category: "one-day",
-    tbd: true,
-  },
-  { date: "2027-03-14", title: "Scout Sunday · OLG Easter Fair", category: "scout-sunday" },
-  {
-    date: "2027-03-14",
-    title: "Easter Fair Bake Sale Fundraiser",
-    category: "fundraiser",
-    volunteer: "all-hands",
-  },
-  {
-    date: "2027-03-18",
-    title: "Pull Camping Gear",
-    detail: "6:00 PM",
-    category: "general",
-    volunteer: "all-hands",
-  },
-  { date: "2027-03-19", endDate: "2027-03-21", title: "Camp Pouch Weekend", category: "camping" },
-  { date: "2027-03-26", title: "Good Friday — No Meeting", category: "general", noMeeting: true },
-  {
-    date: "2027-03-28",
-    title: "Easter Sunday Bake Sale for Easter Mass",
-    category: "fundraiser",
-    volunteer: "all-hands",
-  },
-
-  // ---- April 2027
-  { date: "2027-04-04", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
-
-  // ---- May 2027
-  {
-    date: "2027-05-06",
-    title: "Pull Camping Gear",
-    detail: "6:00 PM",
-    category: "general",
-    volunteer: "all-hands",
-  },
-  {
-    date: "2027-05-07",
-    endDate: "2027-05-09",
-    title: "Camp Alpine Campout + Cub Day Activities",
-    category: "camping",
-  },
-  { date: "2027-05-08", title: "Cub Day @ Alpine Activities", category: "one-day" },
-  { date: "2027-05-23", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
-  {
-    date: "2027-05-27",
-    title: "Pull Camping Gear",
-    detail: "6:00 PM",
-    category: "general",
-    volunteer: "all-hands",
-  },
-  {
-    date: "2027-05-28",
-    endDate: "2027-05-31",
-    title: "Memorial Day Camping Trip with Troop 376",
-    category: "camping",
-  },
-
-  // ---- June 2027
-  {
-    date: "2027-06-03",
-    title: "Carnival Setup",
-    detail: "5:00 PM",
-    category: "general",
-    volunteer: "all-hands",
-  },
-  {
-    date: "2027-06-04",
-    title: "Carnival Night",
-    category: "pack-night",
-    volunteer: "all-hands",
-  },
-  { date: "2027-06-06", title: "Scout Sunday", detail: "10 AM Mass", category: "scout-sunday" },
-  {
-    date: "2027-06-17",
-    title: "Graduation Setup",
-    detail: "6:00 PM",
-    category: "general",
-    volunteer: "all-hands",
-  },
-  {
-    date: "2027-06-18",
-    title: "Graduation Night",
-    detail: "Crossing-Over Ceremony",
-    category: "pack-night",
-  },
-];
-
-/** The doc's "Year at a Glance — Don't Miss These!" box. Kept by hand, not derived: it's a curated subset, and it includes the Cyclones outing, which has no date yet. */
-export const YEAR_AT_A_GLANCE: {
-  category: Exclude<CalendarCategory, "general" | "fundraiser" | "scout-sunday">;
+/** An event as the admin editor sees it: every column, dates as strings (null when not set). */
+export interface AdminCalendarEvent {
+  id: string;
   title: string;
-  items: { label: string; when: string; month?: string }[];
-}[] = [
-  {
-    category: "camping",
-    title: "Camping Trips",
-    items: [
-      { label: "Camp Conron Weekend", when: "Oct 9–12", month: "2026-10" },
-      { label: "Camp Pouch Weekend", when: "Mar 19–21", month: "2027-03" },
-      { label: "Camp Alpine + Cub Day Weekend", when: "May 7–9", month: "2027-05" },
-      { label: "Memorial Day Camping w/ Troop 376", when: "May 28–31", month: "2027-05" },
-    ],
-  },
-  {
-    category: "pack-night",
-    title: "Pack Night Events",
-    items: [
-      { label: "Halloween Pack Night", when: "Oct 30", month: "2026-10" },
-      { label: "Christmas Pack Night", when: "Dec 18", month: "2026-12" },
-      { label: "Pinewood Derby & Lockup Overnighter", when: "Mar 5–6", month: "2027-03" },
-      { label: "Carnival Night", when: "Jun 4", month: "2027-06" },
-      { label: "Graduation Night", when: "Jun 18", month: "2027-06" },
-    ],
-  },
-  {
-    category: "one-day",
-    title: "One Day Events",
-    items: [
-      { label: "Bring a Pie & Bring a Friend Night", when: "Nov 20", month: "2026-11" },
-      { label: "OLG Parish Anniversary Celebration", when: "Early Nov", month: "2026-11" },
-      { label: "Klondike Derby", when: "Jan 31", month: "2027-01" },
-      { label: "Cub Day @ Alpine", when: "May 8", month: "2027-05" },
-      { label: "Brooklyn Cyclones Outing", when: "TBD" },
-    ],
-  },
-];
+  detail: string | null;
+  category: StoredCategory;
+  date: string | null;
+  endDate: string | null;
+  eitherDay: boolean;
+  audience: Audience | null;
+  noMeeting: boolean;
+  tbd: boolean;
+  important: boolean;
+  linkUrl: string | null;
+  linkLabel: string | null;
+  glance: boolean;
+  glanceLabel: string | null;
+  glanceWhen: string | null;
+  visible: boolean;
+}
 
-/** Scouting-year months shown on the page, so a month with no events (February) still gets a heading. */
-export const CALENDAR_MONTHS: string[] = [
-  "2026-08", "2026-09", "2026-10", "2026-11", "2026-12",
-  "2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06",
-];
+/** The regular Friday meeting — see CalendarMeetingRule in the schema. */
+export interface MeetingRule {
+  enabled: boolean;
+  title: string;
+  detail: string | null;
+  startDate: string;
+  endDate: string;
+}
+
+export interface GlanceItem {
+  label: string;
+  when: string;
+  /** "YYYY-MM" of the month section to jump to; absent for an event with no date yet. */
+  month?: string;
+}
+
+export interface GlanceGroup {
+  category: "camping" | "pack-night" | "one-day" | "fundraiser";
+  title: string;
+  items: GlanceItem[];
+}
+
+export const GLANCE_TITLES: Record<GlanceGroup["category"], string> = {
+  camping: "Camping Trips",
+  "pack-night": "Pack Night Events",
+  "one-day": "One Day Events",
+  fundraiser: "Fundraisers",
+};
 
 const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DOW_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -325,10 +144,17 @@ const MONTH_LONG = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
+const FRIDAY = 5;
 
 function parts(iso: string): { y: number; m: number; d: number; dow: number } {
   const [y, m, d] = iso.split("-").map(Number);
   return { y, m, d, dow: new Date(Date.UTC(y, m - 1, d)).getUTCDay() };
+}
+
+/** A YYYY-MM-DD plus a number of days (negative goes back). */
+export function addDays(iso: string, days: number): string {
+  const { y, m, d } = parts(iso);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
 /** "2026-10" -> "October 2026". */
@@ -355,8 +181,43 @@ export function monthShort(monthKey: string): string {
   return MONTH_LONG[Number(monthKey.split("-")[1]) - 1].slice(0, 3);
 }
 
+/** Every month key from `first` through `last` inclusive, so a month with no events still gets a heading. */
+export function monthsBetween(first: string, last: string): string[] {
+  const months: string[] = [];
+  let [y, m] = first.split("-").map(Number);
+  const [endY, endM] = last.split("-").map(Number);
+  while (y < endY || (y === endY && m <= endM)) {
+    months.push(`${y}-${String(m).padStart(2, "0")}`);
+    if (++m > 12) {
+      m = 1;
+      y++;
+    }
+  }
+  return months;
+}
+
+/**
+ * The scouting year shown on the page: July 1 through June 30. It rolls over
+ * on July 1 rather than at the first August Friday so next season's calendar
+ * can go up over the summer, once it's entered.
+ */
+export function scoutingYear(today: string): { start: string; end: string; label: string } {
+  const { y, m } = parts(today);
+  const startYear = m >= 7 ? y : y - 1;
+  return { start: `${startYear}-07-01`, end: `${startYear + 1}-06-30`, label: `${startYear}–${startYear + 1}` };
+}
+
+/** "Oct 30", "Oct 9–12", "Mar 30 – Apr 2", or "Nov 7/8" for the Year at a Glance box. */
+export function dateRangeLabel(date: string, endDate?: string | null, eitherDay?: boolean): string {
+  if (!endDate) return shortDate(date);
+  const a = parts(date);
+  const b = parts(endDate);
+  if (eitherDay) return `${MONTH_LONG[a.m - 1].slice(0, 3)} ${a.d}/${b.d}`;
+  return a.m === b.m && a.y === b.y ? `${shortDate(date)}–${b.d}` : `${shortDate(date)} – ${shortDate(endDate)}`;
+}
+
 /** The two lines of the calendar-leaf date badge: "Fri–Mon" over "9–12". */
-export function badgeParts(e: CalendarEvent): { top: string; bottom: string } {
+export function badgeParts(e: Pick<CalendarEvent, "date" | "endDate" | "eitherDay">): { top: string; bottom: string } {
   const start = parts(e.date);
   if (!e.endDate) return { top: DOW_SHORT[start.dow], bottom: String(start.d) };
   const end = parts(e.endDate);
@@ -365,7 +226,7 @@ export function badgeParts(e: CalendarEvent): { top: string; bottom: string } {
 }
 
 /** "Friday, October 9 – Monday, October 12" — for screen readers and the Next Up card. */
-export function longDateLabel(e: CalendarEvent): string {
+export function longDateLabel(e: Pick<CalendarEvent, "date" | "endDate" | "eitherDay">): string {
   const one = (iso: string) => {
     const p = parts(iso);
     return `${DOW_LONG[p.dow]}, ${MONTH_LONG[p.m - 1]} ${p.d}`;
@@ -381,6 +242,42 @@ export function daysBetween(from: string, to: string): number {
   return Math.round((Date.UTC(b.y, b.m - 1, b.d) - Date.UTC(a.y, a.m - 1, a.d)) / 86_400_000);
 }
 
-export function lastDay(e: CalendarEvent): string {
+export function lastDay(e: Pick<CalendarEvent, "date" | "endDate">): string {
   return e.endDate ?? e.date;
+}
+
+/**
+ * The regular meeting, one entry per Friday from the rule's first through its
+ * last date (clipped to the page's window) that has nothing else on it.
+ * "Nothing else" is any event covering that day — a campout, a pack night, a
+ * registration night, a "No Meeting" row. The one exception is a setup or
+ * planning night for adults, which doesn't replace the scouts' meeting.
+ */
+export function meetingEvents(
+  rule: MeetingRule | null,
+  events: Pick<CalendarEvent, "date" | "endDate" | "category" | "volunteer">[],
+  windowStart: string,
+  windowEnd: string,
+): CalendarEvent[] {
+  if (!rule?.enabled) return [];
+  const from = rule.startDate > windowStart ? rule.startDate : windowStart;
+  const to = rule.endDate < windowEnd ? rule.endDate : windowEnd;
+
+  const taken = new Set<string>();
+  for (const e of events) {
+    if (e.category === "general" && e.volunteer) continue;
+    // The span is bounded so a mistyped end year can't make this loop for ages.
+    const end = lastDay(e) < addDays(e.date, 366) ? lastDay(e) : addDays(e.date, 366);
+    for (let day = e.date; day <= end; day = addDays(day, 1)) taken.add(day);
+  }
+
+  const meetings: CalendarEvent[] = [];
+  let day = from;
+  while (parts(day).dow !== FRIDAY) day = addDays(day, 1);
+  for (; day <= to; day = addDays(day, 7)) {
+    if (!taken.has(day)) {
+      meetings.push({ date: day, title: rule.title, detail: rule.detail ?? undefined, category: "meeting" });
+    }
+  }
+  return meetings;
 }

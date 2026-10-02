@@ -15,6 +15,7 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  * - Junior Admin: advancement and attendance for every den; can add scouts
  *   to a den but not rename or remove them; reads dues and event balances
  *   without recording payments; posts the top banner (no homepage events);
+ *   adds, edits and hides events on the public calendar (not deleting them);
  *   sends photo consent links; reads the Camp Conron page.
  * - Committee Member: advancement and attendance for every den; reads photo
  *   consent and dues. No event money, no parent contacts.
@@ -291,6 +292,27 @@ export async function requireHomepageContentSession(): Promise<SessionPayload> {
 export function assertSiteBannerAccess(session: SessionPayload) {
   if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
     throw new Error("Not authorized: top banner access required.");
+  }
+}
+
+/**
+ * For Server Components / pages: the public Calendar of Events editor — Admin
+ * and Junior Admin. Committee Members and Den Leaders don't reach it.
+ */
+export async function requireCalendarSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") redirect(homeForRole(session.role));
+  return session;
+}
+
+/**
+ * Adding, editing and hiding calendar events, and the regular Friday meeting
+ * setting — Admin and Junior Admin. Deleting an event stays admin-only via
+ * assertAdmin, the same line the top banner draws.
+ */
+export function assertCalendarAccess(session: SessionPayload) {
+  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
+    throw new Error("Not authorized: calendar access required.");
   }
 }
 

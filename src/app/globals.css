@@ -600,6 +600,7 @@ section { padding: 64px 0; }
 .cal-cat--one-day    { --cat: #26803a; --cat-on: var(--white); --cat-tint: #dcf0d8; --cat-ink: #1a5a29; }
 .cal-cat--fundraiser { --cat: var(--carnival-red); --cat-on: var(--white); --cat-tint: #fff5df; --cat-ink: var(--carnival-red-dark); }
 .cal-cat--scout-sunday { --cat: #6a3fa0; --cat-on: var(--white); --cat-tint: #ede4f8; --cat-ink: #4a2a7a; }
+.cal-cat--meeting    { --cat: var(--scout-blue-light); --cat-on: var(--white); --cat-tint: #f7faff; --cat-ink: var(--scout-blue-dark); }
 .cal-cat--general    { --cat: var(--scout-blue); --cat-on: var(--white); --cat-tint: var(--white); --cat-ink: var(--scout-blue-dark); }
 
 .page-hero .cal-hero-note { margin-top: 12px; font-size: 14px; color: rgba(255, 255, 255, 0.7); }
@@ -659,6 +660,13 @@ section { padding: 64px 0; }
 }
 .cal-glance .cal-sunday-dates a:hover { text-decoration: none; filter: brightness(1.1); }
 .cal-glance .cal-sunday-dates .is-past { opacity: 0.5; }
+
+/* Calendar admin form */
+.cal-check { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 12px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.cal-check input { flex: none; width: 18px; height: 18px; margin-top: 2px; }
+.cal-check small { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 400; color: var(--ink-soft); }
+.cal-glance-fields { margin: 20px 0; padding: 16px 16px 4px; border: 2px dashed var(--cream-dark); border-radius: 12px; }
+.cal-glance-fields legend { padding: 0 8px; font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--scout-blue-dark); }
 
 /* Next Up card */
 .cal-next {
@@ -790,6 +798,13 @@ section { padding: 64px 0; }
   background: repeating-linear-gradient(45deg, var(--carnival-red) 0 5px, var(--white) 5px 10px);
 }
 .cal-ev--past { opacity: 0.62; }
+/* The regular Friday meeting repeats all year, so it sits quieter than a one-off event. */
+.cal-ev.cal-cat--meeting { box-shadow: none; padding-top: 8px; padding-bottom: 8px; }
+.cal-ev.cal-cat--meeting::before { background: #dbe6f6; }
+.cal-ev.cal-cat--meeting .cal-ev-title { font-size: 16px; font-weight: 600; }
+.cal-ev.cal-cat--meeting .cal-date-dow { background: #7d9bc9; }
+.cal-ev--hidden { opacity: 0.55; }
+.cal-ev--hidden:hover { opacity: 1; }
 .cal-ev--past:hover { opacity: 1; }
 /* Italic in the doc: setup and planning nights for adults. A fundraiser or Carnival Night that also needs "all hands" is a real event, so it stays upright. */
 .cal-ev.cal-cat--general.cal-ev--volunteer .cal-ev-title { font-style: italic; font-weight: 600; }
