@@ -27,8 +27,8 @@ const GLANCE_ICON = { camping: "⛺", "pack-night": "🎟️", "one-day": "☀�
 
 type DateChip = { key: string; label: string; month: string };
 
-/** A Year at a Glance card that lists plain dates as chips: Scout Sundays, No Meetings. */
-function DateCard({
+/** A slim Year at a Glance ribbon that lists plain dates as chips: Scout Sundays, No Meetings. */
+function DateRibbon({
   category,
   icon,
   title,
@@ -42,9 +42,11 @@ function DateCard({
   chips: DateChip[];
 }) {
   return (
-    <div className={`booth-card cal-glance cal-cat--${category}`}>
-      <div className="cal-glance-head">
-        <div className="icon-badge">{icon}</div>
+    <div className={`cal-ribbon cal-cat--${category}`}>
+      <div className="cal-ribbon-head">
+        <span className="cal-ribbon-icon" aria-hidden="true">
+          {icon}
+        </span>
         <div>
           <h3>{title}</h3>
           {note && <p>{note}</p>}
@@ -133,6 +135,7 @@ export default async function CalendarPage() {
                   <div className="eyebrow">Don&apos;t Miss These</div>
                   <h2>Year at a Glance</h2>
                 </div>
+                {glance.length > 0 && (
                 <div className="card-grid">
                   {glance.map((group) => (
                     <div className={`booth-card cal-glance cal-cat--${group.category}`} key={group.category}>
@@ -148,17 +151,18 @@ export default async function CalendarPage() {
                       </ul>
                     </div>
                   ))}
-                  {(scoutSundays.length > 0 || noMeetings.length > 0) && (
-                    <div className="cal-glance-pair">
-                      {scoutSundays.length > 0 && (
-                        <DateCard category="scout-sunday" icon="⛪" title="Scout Sundays" note="10 AM Mass" chips={scoutSundays} />
-                      )}
-                      {noMeetings.length > 0 && (
-                        <DateCard category="no-meeting" icon="🚫" title="No Meetings" note="No scout meeting these days" chips={noMeetings} />
-                      )}
-                    </div>
-                  )}
                 </div>
+                )}
+                {(scoutSundays.length > 0 || noMeetings.length > 0) && (
+                  <div className="cal-ribbons">
+                    {scoutSundays.length > 0 && (
+                      <DateRibbon category="scout-sunday" icon="⛪" title="Scout Sundays" note="10 AM Mass" chips={scoutSundays} />
+                    )}
+                    {noMeetings.length > 0 && (
+                      <DateRibbon category="no-meeting" icon="🚫" title="No Meetings" note="No scout meeting these days" chips={noMeetings} />
+                    )}
+                  </div>
+                )}
               </div>
             </section>
           )}

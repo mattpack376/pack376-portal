@@ -642,16 +642,42 @@ section { padding: 64px 0; }
   white-space: nowrap;
 }
 
-/* The date-list cards (Scout Sundays, No Meetings): a head, then one chip per date. */
-.cal-glance-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
-.cal-glance-head .icon-badge { margin-bottom: 0; flex: none; }
-.cal-glance-head h3 { margin: 0; }
-.cal-glance-head p { margin: 0; font-size: 14.5px; }
-.cal-glance .cal-date-chips { display: flex; flex-wrap: wrap; gap: 8px 10px; }
-.cal-glance .cal-date-chips li { display: block; padding: 0; border: 0; }
-.cal-glance .cal-date-chips a {
+/*
+ * The date lists under the category cards (Scout Sundays, No Meetings): one slim
+ * ribbon each, in the category's color, rather than a tall card. The head sits
+ * on the left and the date chips fill the rest of the row, wrapping beneath it
+ * on a phone. Colors come from the same .cal-cat--* tokens as everything else.
+ */
+.cal-ribbons { display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
+.cal-ribbon {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+  padding: 14px 20px 14px 22px;
+  background: var(--cat-tint);
+  border-left: 8px solid var(--cat);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+.cal-ribbon-head { display: flex; align-items: center; gap: 12px; flex: none; }
+.cal-ribbon-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--white);
+  font-size: 20px;
+}
+.cal-ribbon h3 { margin: 0; font-size: 18px; }
+.cal-ribbon p { margin: 0; font-size: 13.5px; line-height: 1.3; }
+.cal-date-chips { display: flex; flex: 1 1 280px; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0; }
+.cal-date-chips a {
   display: inline-block;
-  padding: 7px 16px;
+  padding: 6px 14px;
   border-radius: 999px;
   background: var(--cat);
   color: var(--cat-on);
@@ -659,10 +685,7 @@ section { padding: 64px 0; }
   font-weight: 800;
   font-size: 14px;
 }
-.cal-glance .cal-date-chips a:hover { text-decoration: none; filter: brightness(1.1); }
-/* Scout Sundays and No Meetings share one row, half each; they stack on a phone. */
-.cal-glance-pair { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-@media (max-width: 820px) { .cal-glance-pair { grid-template-columns: 1fr; } }
+.cal-date-chips a:hover { text-decoration: none; filter: brightness(1.1); }
 
 /* Calendar admin form */
 .cal-check { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 12px; font-size: 14px; font-weight: 600; cursor: pointer; }
