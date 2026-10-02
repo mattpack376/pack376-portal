@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import BackToTopButton from "@/components/BackToTopButton";
 import CalendarView from "@/components/CalendarView";
 import { getPublicCalendar } from "@/lib/calendarEventsData";
 import { isUpcoming, shortDate } from "@/lib/calendarData";
@@ -184,6 +185,7 @@ export default async function CalendarPage() {
       </section>
 
       <Footer />
+      <BackToTopButton />
     </>
   );
 }
