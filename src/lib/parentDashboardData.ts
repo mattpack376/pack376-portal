@@ -1,7 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { todayUtc } from "@/lib/dateOnly";
-import { scoutingYearForDate, ensureMeetingDates, formatMeetingDate, isFridayMeeting } from "@/lib/attendanceSchedule";
+import { todayUtc, todayDateOnlyString } from "@/lib/dateOnly";
+import { formatMeetingDate } from "@/lib/attendanceSchedule";
+import { getNextMeeting } from "@/lib/calendarEventsData";
+import { dateRangeLabel } from "@/lib/calendarData";
 import { getScoutDuesDetail } from "@/lib/duesData";
 import {
   getScoutEventBalances,
@@ -13,27 +15,15 @@ import {
 export async function getParentDashboardData(scoutIds: string[], userId: string) {
   const today = todayUtc();
 
-  // Best-effort — meeting dates for the current scouting year may not have
-  // been generated yet if no one has opened an attendance page this year.
-  try {
-    await ensureMeetingDates(scoutingYearForDate(today));
-  } catch {
-    // Non-fatal: "next meeting" below just comes back empty.
-  }
-
-  const [scouts, upcomingMeetings, announcements, deadlines, volunteerNeeds] = await Promise.all([
+  const [scouts, nextMeetingInfo, announcements, deadlines, volunteerNeeds] = await Promise.all([
     prisma.scout.findMany({
       where: { id: { in: scoutIds } },
       include: { den: true, photoConsent: true },
       orderBy: [{ firstName: "asc" }],
     }),
-    // A few, not one: Scout Sundays share this table, and the card below is
-    // about the weekly Friday meeting.
-    prisma.meetingDate.findMany({
-      where: { date: { gte: today }, status: "SCHEDULED" },
-      orderBy: { date: "asc" },
-      take: 10,
-    }),
+    // From the calendar, not the attendance dates: those include Scout Sundays
+    // and the camping Friday, which aren't the regular meeting.
+    getNextMeeting(todayDateOnlyString()),
     prisma.announcement.findMany({
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
       take: 6,
@@ -48,8 +38,6 @@ export async function getParentDashboardData(scoutIds: string[], userId: string)
       orderBy: { createdAt: "desc" },
     }),
   ]);
-
-  const nextMeeting = upcomingMeetings.find((m) => isFridayMeeting(m.date)) ?? null;
 
   const [duesByScout, eventBalances, guestGroupBalances, openEvents, upcomingEvents] = await Promise.all([
     Promise.all(scouts.map((s) => getScoutDuesDetail(s.id))),
@@ -84,7 +72,16 @@ export async function getParentDashboardData(scoutIds: string[], userId: string)
         : null,
       dues: duesByScout[i],
     })),
-    nextMeeting: nextMeeting ? { formatted: formatMeetingDate(nextMeeting.date) } : null,
+    nextMeeting: nextMeetingInfo
+      ? {
+          formatted: formatMeetingDate(new Date(`${nextMeetingInfo.date}T00:00:00.000Z`)),
+          skipped: nextMeetingInfo.skipped.map((s) => ({
+            when: dateRangeLabel(s.date, s.endDate),
+            title: s.title,
+            camping: s.camping,
+          })),
+        }
+      : null,
     announcements,
     deadlines,
     volunteerNeeds,

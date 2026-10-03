@@ -8,6 +8,7 @@ import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import ScoutChecklist from "@/components/ScoutChecklist";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
+import NextMeetingCard from "@/components/NextMeetingCard";
 import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
 import EventFlyer from "@/components/EventFlyer";
 import ConsentStatusBadge from "@/components/ConsentStatusBadge";
@@ -145,15 +146,7 @@ export default async function ParentDashboardView({
         the row below it. All three stack at 900px.
       */}
       <div className="two-col" style={{ marginBottom: 32 }}>
-        <div className="info-card two-col-full">
-          <h3>🗓️ Next Meeting</h3>
-          {nextMeeting ? (
-            <p style={{ fontSize: 18, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{nextMeeting.formatted}</p>
-          ) : (
-            <p>No meeting date on the calendar yet.</p>
-          )}
-          <p className="form-note">Weekly meetings — Fridays, 7:30–9:30 PM, Veltri Hall, Our Lady of Grace.</p>
-        </div>
+        <NextMeetingCard nextMeeting={nextMeeting} wide />
 
         <div className="info-card">
           <h3>📣 Announcements</h3>

@@ -322,3 +322,59 @@ export function meetingEvents(
   }
   return meetings;
 }
+
+/** A Friday with no meeting that falls before the next one — a camping trip, a "No Meeting" entry, or a cancelled night. */
+export interface MeetingSkip {
+  date: string;
+  endDate?: string;
+  title: string;
+  camping: boolean;
+}
+
+export interface NextMeeting {
+  /** The next Friday meeting still on, YYYY-MM-DD. */
+  date: string;
+  /** What took away the Fridays between today and then, earliest first (empty when the very next Friday is on). */
+  skipped: MeetingSkip[];
+}
+
+/**
+ * The parent dashboard's "Next Meeting": the first regular meeting from today
+ * on, by the same rule the public calendar uses (so a camping Friday or a "No
+ * Meeting" entry is never offered as the next meeting), plus whatever took
+ * away the Fridays before it so parents can see why it isn't this week.
+ *
+ * `cancelled` is Fridays an admin marked No Meeting on the attendance side
+ * without a calendar entry — they're skipped too, so the card never promises a
+ * meeting the pack has cancelled. Null once the season has no meeting left.
+ */
+export function findNextMeeting(
+  rule: MeetingRule | null,
+  events: CalendarEvent[],
+  today: string,
+  cancelled: ReadonlySet<string> = new Set(),
+): NextMeeting | null {
+  if (!rule?.enabled) return null;
+  const next = meetingEvents(rule, events, today, rule.endDate).find((m) => !cancelled.has(m.date));
+  if (!next) return null;
+
+  const skipped: MeetingSkip[] = [];
+  const seen = new Set<CalendarEvent>();
+  let friday = rule.startDate > today ? rule.startDate : today;
+  while (parts(friday).dow !== FRIDAY) friday = addDays(friday, 1);
+  for (; friday < next.date; friday = addDays(friday, 7)) {
+    const covering = events.filter(
+      (e) => (e.noMeeting || e.category === "camping") && e.date <= friday && friday <= lastDay(e),
+    );
+    if (covering.length === 0) {
+      skipped.push({ date: friday, title: "No meeting", camping: false });
+      continue;
+    }
+    for (const e of covering) {
+      if (seen.has(e)) continue;
+      seen.add(e);
+      skipped.push({ date: e.date, endDate: e.endDate, title: e.title, camping: e.category === "camping" });
+    }
+  }
+  return { date: next.date, skipped };
+}

@@ -10,6 +10,7 @@ import type { Rank } from "@/generated/prisma/enums";
 import { DEADLINE_CATEGORY_LABELS, DEADLINE_CATEGORY_ICONS, formatDueDate } from "@/lib/deadlineCategories";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import DenSwitcher from "@/components/DenSwitcher";
+import NextMeetingCard from "@/components/NextMeetingCard";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import SortableColumnHeader from "@/components/SortableColumnHeader";
 import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
@@ -234,15 +235,7 @@ export default async function FamilyViewPage({
       {isDenScoped && <DenSwitcher denIds={session.denIds} currentDenId={denId!} basePath="/portal/roster/family-view" />}
 
       <div className="two-col" style={{ marginBottom: 32 }}>
-        <div className="info-card">
-          <h3>🗓️ Next Meeting</h3>
-          {nextMeeting ? (
-            <p style={{ fontSize: 18, fontWeight: 700, color: "var(--scout-blue-dark)" }}>{nextMeeting.formatted}</p>
-          ) : (
-            <p>No meeting date on the calendar yet.</p>
-          )}
-          <p className="form-note">Weekly meetings — Fridays, 7:30–9:30 PM, Veltri Hall, Our Lady of Grace.</p>
-        </div>
+        <NextMeetingCard nextMeeting={nextMeeting} />
 
         <div className="info-card">
           <h3>📣 Announcements</h3>
