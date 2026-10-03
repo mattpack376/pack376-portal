@@ -7,6 +7,7 @@ import { assertAttendanceAccess, assertAttendanceDenAccess, canResetDenAttendanc
 import { denDisplayName } from "@/lib/rankConfig";
 import { recordAudit, auditDate, EMPTY } from "@/lib/audit";
 import { meetingIsSchedulable, meetingLabel } from "@/lib/attendanceData";
+import { MEETING_LABEL_MAX_LENGTH } from "@/lib/meetingLabel";
 
 export async function setAttendanceAction(scoutId: string, meetingDateId: string, present: boolean) {
   const session = await getSession();
@@ -178,4 +179,45 @@ export async function setMeetingStatusAction(meetingDateId: string, status: "SCH
   revalidatePath("/portal/admin/attendance/leaders");
   revalidatePath(`/portal/admin/attendance/leaders/${meetingDateId}`);
   return { ok: true as const };
+}
+
+/**
+ * Sets (or, left blank, clears) the label shown beside a meeting date, e.g.
+ * "Camp Conron". Throws on failure like every other Save-button action, so
+ * the "Saved ✓" toast only ever follows a save that went through.
+ */
+export async function setMeetingLabelAction(meetingDateId: string, formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not signed in.");
+  assertAttendanceAccess(session);
+
+  const label = String(formData.get("label") ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MEETING_LABEL_MAX_LENGTH);
+  const next = label === "" ? null : label;
+
+  const before = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { label: true, date: true } });
+  if (!before) throw new Error("Meeting not found.");
+
+  await prisma.meetingDate.update({ where: { id: meetingDateId }, data: { label: next } });
+
+  if (before.label !== next) {
+    const date = auditDate(before.date);
+    await recordAudit(session, {
+      action: "attendance.meetingLabel",
+      summary: next === null ? `Removed the label from the ${date} meeting` : `Labeled the ${date} meeting "${next}"`,
+      entityType: "MeetingDate",
+      entityId: meetingDateId,
+      details: [{ label: "Label", from: before.label ?? EMPTY, to: next ?? EMPTY }],
+    });
+  }
+
+  // Every attendance list shows the label, and den leaders' lists are the same data.
+  revalidatePath("/portal/den/attendance");
+  revalidatePath(`/portal/den/attendance/${meetingDateId}`);
+  revalidatePath("/portal/admin/attendance");
+  revalidatePath(`/portal/admin/attendance/${meetingDateId}`);
+  revalidatePath("/portal/admin/attendance/leaders");
+  revalidatePath(`/portal/admin/attendance/leaders/${meetingDateId}`);
 }

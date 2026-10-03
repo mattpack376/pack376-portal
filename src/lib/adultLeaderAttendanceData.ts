@@ -1,12 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import {
-  ensureMeetingDates,
-  eventLabelFor,
-  fridaysForScoutingYear,
-  getMeetingEventLabels,
-  scoutingYearForDate,
-} from "@/lib/attendanceSchedule";
+import { ensureMeetingDates, fridaysForScoutingYear, scoutingYearForDate } from "@/lib/attendanceSchedule";
 import { getAdminScoutingYears, type MeetingListItem } from "@/lib/attendanceData";
 import { ADULT_LEADER_SECTIONS, ADULT_LEADER_SECTION_LABELS } from "@/lib/adultLeaderSections";
 import { leaderContact } from "@/lib/adultLeaderContact";
@@ -39,13 +33,12 @@ export async function getAdultLeaderMeetingOverview(scoutingYear: string) {
   await ensureMeetingDates(scoutingYear);
   const fridays = fridaysForScoutingYear(scoutingYear);
 
-  const [dates, activeCount, eventLabels] = await Promise.all([
+  const [dates, activeCount] = await Promise.all([
     prisma.meetingDate.findMany({
       where: { date: { gte: fridays[0], lte: fridays[fridays.length - 1] } },
       orderBy: { date: "asc" },
     }),
     prisma.adultLeader.count({ where: { active: true } }),
-    getMeetingEventLabels(),
   ]);
 
   const attendances = await prisma.adultLeaderAttendance.findMany({
@@ -65,7 +58,7 @@ export async function getAdultLeaderMeetingOverview(scoutingYear: string) {
     date: d.date,
     status: d.status,
     presentCount: presentCounts.get(d.id) ?? 0,
-    eventLabel: eventLabelFor(eventLabels, d.date),
+    eventLabel: d.label,
     listedCount: activeCount + (removedCounts.get(d.id) ?? 0),
   }));
 
@@ -89,7 +82,7 @@ export async function getAdultLeaderMeetingDetail(meetingDateId: string) {
 
   return {
     meeting,
-    eventLabel: eventLabelFor(await getMeetingEventLabels(), meeting.date),
+    eventLabel: meeting.label,
     scoutingYear: scoutingYearForDate(meeting.date),
     sections: ADULT_LEADER_SECTIONS.map((section) => ({
       section,

@@ -1,7 +1,5 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { toDateOnlyString } from "@/lib/dateOnly";
-import { CAMP_CONRON_SLUG } from "@/lib/tripPageData";
 
 /**
  * All date math here must stay UTC-only (Date.UTC / getUTCDay / setUTCDate).
@@ -61,8 +59,8 @@ export function scoutingYearForDate(date: Date): string {
 }
 
 /**
- * Formats a stored meeting date for display, with an optional event label
- * (see getMeetingEventLabels) appended. Must pin timeZone: "UTC" —
+ * Formats a stored meeting date for display, with the meeting's label
+ * (MeetingDate.label, e.g. "Camp Conron") appended when it has one. Must pin timeZone: "UTC" —
  * these are date-only values stored at UTC midnight, and the server process
  * may not itself run in UTC, so a naive toLocaleDateString() could render
  * the day before.
@@ -76,30 +74,4 @@ export function formatMeetingDate(date: Date, eventLabel?: string | null): strin
     year: "numeric",
   }).format(date);
   return eventLabel ? `${formatted} — ${eventLabel}` : formatted;
-}
-
-/**
- * Friday meetings that are really something else, as YYYY-MM-DD → label.
- * Add a line here to label another date; a date past its season just sits
- * unused. The Camp Conron departure day isn't listed because it's read from
- * the trip page below.
- */
-const FIXED_MEETING_LABELS: Record<string, string> = {
-  "2026-10-30": "Halloween Pack Night",
-};
-
-/**
- * Meeting dates the attendance lists should call out, as YYYY-MM-DD → label.
- * The Camp Conron departure day comes from the trip page's start date rather
- * than being hard-coded, so it follows the trip if the admin moves the dates.
- */
-export async function getMeetingEventLabels(): Promise<Map<string, string>> {
-  const trip = await prisma.tripPage.findUnique({ where: { slug: CAMP_CONRON_SLUG }, select: { startDate: true } });
-  const labels = new Map(Object.entries(FIXED_MEETING_LABELS));
-  if (trip?.startDate) labels.set(toDateOnlyString(trip.startDate), "Camp Conron");
-  return labels;
-}
-
-export function eventLabelFor(labels: Map<string, string>, date: Date): string | null {
-  return labels.get(toDateOnlyString(date)) ?? null;
 }

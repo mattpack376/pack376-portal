@@ -254,6 +254,10 @@ model MeetingDate {
   id                     String                  @id @default(cuid())
   date                   DateTime                @unique @db.Date
   status                 MeetingStatus           @default(SCHEDULED)
+  // What the night is when it isn't a plain Friday meeting ("Camp Conron",
+  // "Halloween Pack Night"); shown beside the date on every attendance view.
+  // Edited from the meeting's page.
+  label                  String?
   attendances            Attendance[]
   adultLeaderAttendances AdultLeaderAttendance[]
 }

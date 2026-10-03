@@ -8,6 +8,7 @@ import { canAccessLeaderAttendance, canResetDenAttendance } from "@/lib/authoriz
 import AttendanceControl from "@/components/AttendanceControl";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import MarkAllPresentButton from "@/components/MarkAllPresentButton";
+import MeetingLabelForm from "@/components/MeetingLabelForm";
 import MeetingStatusToggle from "@/components/MeetingStatusToggle";
 import ResetDenAttendanceButton from "@/components/ResetDenAttendanceButton";
 
@@ -40,6 +41,8 @@ export default async function AdminMeetingAttendancePage({
       {session && canAccessLeaderAttendance(session) && (
         <AttendanceSubNav active="scouts" meetingDateId={meeting.id} />
       )}
+
+      <MeetingLabelForm meetingDateId={meeting.id} label={meeting.label} />
 
       {cancelled ? (
         <div className="info-card">This meeting was cancelled — no attendance to take.</div>

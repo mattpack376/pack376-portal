@@ -7,6 +7,7 @@ import { canResetLeaderAttendance } from "@/lib/authorize";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import LeaderAttendanceControl from "@/components/LeaderAttendanceControl";
 import MarkAllLeadersPresentButton from "@/components/MarkAllLeadersPresentButton";
+import MeetingLabelForm from "@/components/MeetingLabelForm";
 import MeetingStatusToggle from "@/components/MeetingStatusToggle";
 import ResetLeaderAttendanceButton from "@/components/ResetLeaderAttendanceButton";
 
@@ -38,6 +39,8 @@ export default async function AdminLeaderMeetingAttendancePage({
       </div>
 
       <AttendanceSubNav active="leaders" meetingDateId={meeting.id} />
+
+      <MeetingLabelForm meetingDateId={meeting.id} label={meeting.label} />
 
       {cancelled ? (
         <div className="info-card">This meeting was cancelled — no attendance to take.</div>

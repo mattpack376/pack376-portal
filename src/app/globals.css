@@ -1848,6 +1848,11 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .meeting-row .meeting-summary { font-size: 13px; color: var(--ink-soft); }
 .meeting-row .badge-pill.badge-cancelled { background: var(--cream-dark); color: var(--carnival-red); }
 
+/* The "Label for this date" field + Save beside a meeting's attendance. */
+.meeting-label-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 18px; }
+.meeting-label-form .form-field { margin-bottom: 0; flex: 1 1 240px; max-width: 420px; }
+.meeting-label-form .form-note { flex-basis: 100%; margin-top: 0; }
+
 .attendance-group { margin-bottom: 28px; }
 .attendance-group-head {
   display: flex;

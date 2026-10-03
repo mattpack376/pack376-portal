@@ -1,5 +1,5 @@
 import "server-only";
-import { eventLabelFor, formatMeetingDate } from "@/lib/attendanceSchedule";
+import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { escapeCsvField } from "@/lib/csv";
 import { RANK_INFO } from "@/lib/rankConfig";
 import { ADULT_LEADER_SECTION_LABELS } from "@/lib/adultLeaderSections";
@@ -12,6 +12,7 @@ export type AttendanceCsvRow = {
   firstName: string;
   lastName: string;
   date: Date;
+  eventLabel: string | null;
   present: boolean | null;
 };
 
@@ -25,7 +26,7 @@ function statusLabel(present: boolean | null) {
  * Excel opens these BOM-less UTF-8 files as Windows-1252 and would garble it.
  * A separate column also keeps Meeting Date clean to sort and filter on.
  */
-export function buildAttendanceCsv(rows: AttendanceCsvRow[], eventLabels: Map<string, string>): string {
+export function buildAttendanceCsv(rows: AttendanceCsvRow[]): string {
   const header = ["Scouting Year", "Den", "Scout First Name", "Scout Last Name", "Meeting Date", "Event", "Status"];
   const lines = [header.join(",")];
 
@@ -39,7 +40,7 @@ export function buildAttendanceCsv(rows: AttendanceCsvRow[], eventLabels: Map<st
         escapeCsvField(row.firstName),
         escapeCsvField(row.lastName),
         escapeCsvField(formatMeetingDate(row.date)),
-        escapeCsvField(eventLabelFor(eventLabels, row.date) ?? ""),
+        escapeCsvField(row.eventLabel ?? ""),
         escapeCsvField(status),
       ].join(",")
     );
@@ -54,13 +55,11 @@ export type AdultLeaderAttendanceCsvRow = {
   name: string;
   positions: string[];
   date: Date;
+  eventLabel: string | null;
   present: boolean | null;
 };
 
-export function buildAdultLeaderAttendanceCsv(
-  rows: AdultLeaderAttendanceCsvRow[],
-  eventLabels: Map<string, string>,
-): string {
+export function buildAdultLeaderAttendanceCsv(rows: AdultLeaderAttendanceCsvRow[]): string {
   const header = ["Scouting Year", "Section", "Name", "Positions", "Meeting Date", "Event", "Status"];
   const lines = [header.join(",")];
 
@@ -74,7 +73,7 @@ export function buildAdultLeaderAttendanceCsv(
         // UTF-8 file as Windows-1252 and would garble it.
         escapeCsvField(row.positions.join("; ")),
         escapeCsvField(formatMeetingDate(row.date)),
-        escapeCsvField(eventLabelFor(eventLabels, row.date) ?? ""),
+        escapeCsvField(row.eventLabel ?? ""),
         escapeCsvField(statusLabel(row.present)),
       ].join(",")
     );

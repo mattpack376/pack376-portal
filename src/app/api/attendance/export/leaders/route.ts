@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertLeaderAttendanceAccess } from "@/lib/authorize";
-import { fridaysForScoutingYear, getMeetingEventLabels } from "@/lib/attendanceSchedule";
+import { fridaysForScoutingYear } from "@/lib/attendanceSchedule";
 import { buildAdultLeaderAttendanceCsv, type AdultLeaderAttendanceCsvRow } from "@/lib/attendanceCsv";
 
 export async function GET(request: NextRequest) {
@@ -49,12 +49,13 @@ export async function GET(request: NextRequest) {
         name: leader.name,
         positions: leader.positions,
         date: meeting.date,
+        eventLabel: meeting.label,
         present: byDate.get(meeting.id) ?? null,
       });
     }
   }
 
-  const csv = buildAdultLeaderAttendanceCsv(rows, await getMeetingEventLabels());
+  const csv = buildAdultLeaderAttendanceCsv(rows);
   const filename = `pack376-leader-attendance-${scoutingYear}.csv`;
 
   return new NextResponse(csv, {
