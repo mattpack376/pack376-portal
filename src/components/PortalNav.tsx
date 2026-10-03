@@ -59,6 +59,8 @@ export default function PortalNav({
             children: [
               { href: "/portal/roster", label: "Roster" },
               { href: "/portal/admin/users", label: "Users" },
+              // Admin-only page; contact info for people who never get a login.
+              { href: "/portal/admin/attendance/leaders/manage", label: "Committee & Leaders" },
             ],
           },
           {
