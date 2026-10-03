@@ -102,6 +102,11 @@ export async function getAdultLeaderMeetingDetail(meetingDateId: string) {
 export async function getAdultLeaderRoster() {
   return prisma.adultLeader.findMany({
     orderBy: [{ active: "desc" }, { section: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
-    include: { _count: { select: { attendances: true } } },
+    include: {
+      _count: { select: { attendances: true } },
+      // The login this person is linked to (if any) — their contact info lives
+      // there; see adultLeaderContact.ts.
+      user: { select: { id: true, username: true, displayName: true, email: true, phone: true } },
+    },
   });
 }

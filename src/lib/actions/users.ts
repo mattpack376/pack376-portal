@@ -199,6 +199,9 @@ export async function updateUserEmailAction(formData: FormData) {
   revalidatePath(`/portal/admin/users/parents/${userId}`);
   revalidatePath("/portal/admin/users/parents");
   revalidatePath("/portal/roster/parents");
+  // A linked Leaders & Committee entry reads its contact info from this login.
+  revalidatePath("/portal/admin/attendance/leaders/manage");
+  revalidatePath("/portal/admin");
 }
 
 export async function updateUserPhoneAction(formData: FormData) {
@@ -237,6 +240,9 @@ export async function updateUserPhoneAction(formData: FormData) {
   revalidatePath(`/portal/admin/users/parents/${userId}`);
   revalidatePath("/portal/admin/users/parents");
   revalidatePath("/portal/roster/parents");
+  // A linked Leaders & Committee entry reads its contact info from this login.
+  revalidatePath("/portal/admin/attendance/leaders/manage");
+  revalidatePath("/portal/admin");
 }
 
 export async function updateUserDisplayNameAction(formData: FormData) {
@@ -427,7 +433,17 @@ export async function deleteUserAction(userId: string) {
     return { ok: false as const, error: "You can't delete your own account while logged in." };
   }
 
-  await prisma.user.delete({ where: { id: userId } });
+  // A Leaders & Committee entry linked to this login keeps its email and phone
+  // only on the login (see adultLeaderContact.ts), and the link is nulled out
+  // when the login goes — copy them onto the entry first so the person stays
+  // reachable.
+  const linkedLeader = await prisma.adultLeader.findUnique({ where: { userId }, select: { id: true } });
+  await prisma.$transaction([
+    ...(linkedLeader
+      ? [prisma.adultLeader.update({ where: { id: linkedLeader.id }, data: { email: user.email, phone: user.phone } })]
+      : []),
+    prisma.user.delete({ where: { id: userId } }),
+  ]);
 
   await recordAudit(session, {
     action: "user.delete",
@@ -446,5 +462,6 @@ export async function deleteUserAction(userId: string) {
   revalidatePath("/portal/admin/users/parents");
   revalidatePath(`/portal/admin/users/parents/${userId}`);
   revalidatePath("/portal/roster/parents");
+  revalidatePath("/portal/admin/attendance/leaders", "layout");
   return { ok: true as const };
 }

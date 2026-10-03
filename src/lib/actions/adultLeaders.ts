@@ -3,11 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin, assertLeaderAttendanceAccess, canResetLeaderAttendance } from "@/lib/authorize";
+import {
+  assertAdmin,
+  assertCanMutateUser,
+  assertLeaderAttendanceAccess,
+  canResetLeaderAttendance,
+} from "@/lib/authorize";
 import { leadersListedForMeeting } from "@/lib/adultLeaderAttendanceData";
 import { meetingIsSchedulable, meetingLabel } from "@/lib/attendanceData";
 import { ADULT_LEADER_SECTION_LABELS, formatPositions, isAdultLeaderSection } from "@/lib/adultLeaderSections";
-import { recordAudit, changedFields, EMPTY } from "@/lib/audit";
+import { recordAudit, changedFields, EMPTY, type AuditDetail } from "@/lib/audit";
 import { formatPhoneNumber } from "@/lib/phone";
 import type { AdultLeaderSection } from "@/generated/prisma/enums";
 
@@ -169,6 +174,10 @@ function readLeaderForm(formData: FormData) {
   const section = String(formData.get("section") || "");
   const email = String(formData.get("email") || "").trim();
   const phone = formatPhoneNumber(String(formData.get("phone") || ""));
+  const userId = String(formData.get("userId") || "").trim() || null;
+  // A linked person's form has no email/phone inputs (their login holds
+  // those), so an absent field means "leave it alone", not "blank it".
+  const hasContactFields = formData.has("email") || formData.has("phone");
 
   if (!name) throw new Error("Name is required.");
   if (name.length > MAX_NAME_LENGTH) throw new Error(`Keep the name under ${MAX_NAME_LENGTH} characters.`);
@@ -180,7 +189,72 @@ function readLeaderForm(formData: FormData) {
     throw new Error("Enter a valid email address.");
   }
   if (phone.length > MAX_PHONE_LENGTH) throw new Error("That phone number is too long.");
-  return { name, positions, section, email: email || null, phone: phone || null };
+  return { name, positions, section, email: email || null, phone: phone || null, userId, hasContactFields };
+}
+
+/**
+ * The login being linked, checked again server-side (the form only offers
+ * valid ones): a Parent Portal login or the shared trip-viewer login isn't a
+ * person on this list, and a login can be linked to one entry at a time.
+ */
+async function loadLinkableAccount(userId: string, leaderId: string | null) {
+  const account = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      role: true,
+      email: true,
+      phone: true,
+      adultLeader: { select: { id: true } },
+    },
+  });
+  if (!account || account.role === "PARENT" || account.role === "TRIP_VIEWER") {
+    throw new Error("That account can't be linked.");
+  }
+  if (account.adultLeader && account.adultLeader.id !== leaderId) {
+    throw new Error("That account is already linked to someone else on the list.");
+  }
+  return account;
+}
+
+/**
+ * Linking makes the login the only copy of someone's email/phone, so anything
+ * typed on the list for them moves onto the login first — but only into
+ * blanks: an address already on the account is never overwritten. Mirrors
+ * onto any scout-contact rows the login is tied to, like the account page's
+ * own email/phone edits. Skipped for the master admin's account unless the
+ * viewer is the master. Returns the account's contact info afterwards, plus
+ * the audit lines for whatever moved.
+ */
+async function moveContactOntoAccount(
+  session: NonNullable<Awaited<ReturnType<typeof getSession>>>,
+  account: { id: string; username: string; email: string | null; phone: string | null },
+  typed: { email: string | null; phone: string | null }
+): Promise<{ email: string | null; phone: string | null; details: AuditDetail[] }> {
+  const unchanged = { email: account.email, phone: account.phone, details: [] as AuditDetail[] };
+  const data: { email?: string; phone?: string } = {};
+  if (!account.email && typed.email) data.email = typed.email;
+  if (!account.phone && typed.phone) data.phone = typed.phone;
+  if (Object.keys(data).length === 0) return unchanged;
+  try {
+    await assertCanMutateUser(session, account);
+  } catch {
+    return unchanged;
+  }
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: account.id }, data }),
+    prisma.parent.updateMany({ where: { userId: account.id }, data }),
+  ]);
+  return {
+    email: data.email ?? account.email,
+    phone: data.phone ?? account.phone,
+    details: [
+      ...(data.email ? [{ label: `Email on “${account.username}”`, from: EMPTY, to: data.email }] : []),
+      ...(data.phone ? [{ label: `Phone on “${account.username}”`, from: EMPTY, to: data.phone }] : []),
+    ],
+  };
 }
 
 async function nextSortOrder(section: AdultLeaderSection) {
@@ -193,10 +267,22 @@ export async function createAdultLeaderAction(formData: FormData) {
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const { name, positions, section, email, phone } = readLeaderForm(formData);
+  const { name, positions, section, email, phone, userId } = readLeaderForm(formData);
+
+  const account = userId ? await loadLinkableAccount(userId, null) : null;
+  const moved = account ? (await moveContactOntoAccount(session, account, { email, phone })).details : [];
 
   const leader = await prisma.adultLeader.create({
-    data: { name, positions, section, email, phone, sortOrder: await nextSortOrder(section) },
+    data: {
+      name,
+      positions,
+      section,
+      // A linked person's contact info lives on their login only.
+      email: account ? null : email,
+      phone: account ? null : phone,
+      userId: account?.id ?? null,
+      sortOrder: await nextSortOrder(section),
+    },
   });
 
   await recordAudit(session, {
@@ -208,8 +294,10 @@ export async function createAdultLeaderAction(formData: FormData) {
       { label: "Name", from: EMPTY, to: name },
       { label: "Positions", from: EMPTY, to: formatPositions(positions) || EMPTY },
       { label: "Section", from: EMPTY, to: ADULT_LEADER_SECTION_LABELS[section] },
-      ...(email ? [{ label: "Email", from: EMPTY, to: email }] : []),
-      ...(phone ? [{ label: "Phone", from: EMPTY, to: phone }] : []),
+      ...(account ? [{ label: "Portal account", from: EMPTY, to: account.username }] : []),
+      ...(!account && email ? [{ label: "Email", from: EMPTY, to: email }] : []),
+      ...(!account && phone ? [{ label: "Phone", from: EMPTY, to: phone }] : []),
+      ...moved,
     ],
   });
 
@@ -223,13 +311,57 @@ export async function updateAdultLeaderAction(formData: FormData) {
 
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing leader id.");
-  const { name, positions, section, email, phone } = readLeaderForm(formData);
+  const form = readLeaderForm(formData);
+  const { name, positions, section } = form;
 
   const before = await prisma.adultLeader.findUnique({
     where: { id },
-    select: { name: true, positions: true, section: true, email: true, phone: true },
+    select: {
+      name: true,
+      positions: true,
+      section: true,
+      email: true,
+      phone: true,
+      userId: true,
+      user: { select: { username: true, email: true, phone: true } },
+    },
   });
   if (!before) throw new Error("That person is no longer on the list.");
+
+  const account = form.userId ? await loadLinkableAccount(form.userId, id) : null;
+  // Typed values count only when the form had the inputs (an unlinked person).
+  const typed = form.hasContactFields ? { email: form.email, phone: form.phone } : { email: null, phone: null };
+
+  // What goes in the entry's own columns, and what the person's contact info
+  // reads as afterwards (for the audit line).
+  let email: string | null;
+  let phone: string | null;
+  let emailAfter: string | null;
+  let phoneAfter: string | null;
+  let moved: AuditDetail[] = [];
+  if (account) {
+    // Linked: the login is the only copy, whether newly linked or already.
+    email = null;
+    phone = null;
+    const result =
+      before.userId === account.id
+        ? { email: account.email, phone: account.phone, details: [] as AuditDetail[] }
+        : await moveContactOntoAccount(session, account, typed);
+    moved = result.details;
+    emailAfter = result.email;
+    phoneAfter = result.phone;
+  } else {
+    // Unlinked (or just unlinked): the entry's own columns hold the contact
+    // info, carrying the login's over when there was one so it isn't lost.
+    const carried = before.user ?? before;
+    email = form.hasContactFields ? form.email : carried.email;
+    phone = form.hasContactFields ? form.phone : carried.phone;
+    emailAfter = email;
+    phoneAfter = phone;
+  }
+
+  const emailBefore = before.user ? before.user.email : before.email;
+  const phoneBefore = before.user ? before.user.phone : before.phone;
 
   await prisma.adultLeader.update({
     where: { id },
@@ -239,6 +371,7 @@ export async function updateAdultLeaderAction(formData: FormData) {
       section,
       email,
       phone,
+      userId: account?.id ?? null,
       // Moving sections goes to the end of the new one, same as someone new.
       ...(section !== before.section ? { sortOrder: await nextSortOrder(section) } : {}),
     },
@@ -248,9 +381,11 @@ export async function updateAdultLeaderAction(formData: FormData) {
     Name: [before.name, name],
     Positions: [formatPositions(before.positions), formatPositions(positions)],
     Section: [ADULT_LEADER_SECTION_LABELS[before.section], ADULT_LEADER_SECTION_LABELS[section]],
-    Email: [before.email, email],
-    Phone: [before.phone, phone],
+    "Portal account": [before.user?.username ?? null, account?.username ?? null],
+    Email: [emailBefore, emailAfter],
+    Phone: [phoneBefore, phoneAfter],
   });
+  details.push(...moved);
   if (details.length > 0) {
     await recordAudit(session, {
       action: "adultLeader.update",

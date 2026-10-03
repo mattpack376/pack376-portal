@@ -21,7 +21,11 @@ export default async function AdminDashboardPage() {
     ? await Promise.all([
         prisma.parent.findMany({ where: { email: { not: null } }, select: { email: true } }),
         prisma.user.findMany({ where: { email: { not: null } }, select: { email: true } }),
-        prisma.adultLeader.findMany({ where: { active: true, email: { not: null } }, select: { email: true } }),
+        // Linked entries are skipped: their address is the login's, already counted above.
+        prisma.adultLeader.findMany({
+          where: { active: true, userId: null, email: { not: null } },
+          select: { email: true },
+        }),
       ])
     : [[], [], []];
   const everyoneEmails = [...parentEmails, ...userEmails, ...leaderEmails].map((r) => r.email);

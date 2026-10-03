@@ -103,6 +103,8 @@ model User {
   // so deleting a login leaves its history intact (see model AuditLog).
   auditEntries             AuditLog[]
   receiptsIssued           Receipt[]
+  // The Leaders & Committee entry this login belongs to, if any.
+  adultLeader              AdultLeader?
   householdId              String?
   household                Household?               @relation(fields: [householdId], references: [id], onDelete: SetNull)
 
@@ -299,10 +301,18 @@ model AdultLeader {
   section     AdultLeaderSection
   // Contact info for people who never sign in. Active entries' emails are
   // folded into the admin dashboard's "Email Everyone" list alongside parent
-  // contacts and user logins (see admin/page.tsx), so someone here who also
-  // has a login is deduped by address rather than emailed twice.
+  // contacts and user logins (see admin/page.tsx). Only used while `user` is
+  // null: a linked person's contact info lives on their login (read through
+  // `user`, see adultLeaderContact.ts) and these two are cleared, so there is
+  // never a second copy to drift out of date.
   email       String?
   phone       String?
+  // The portal login this person signs in with, if they have one. Nulled out
+  // (not cascaded) when the login is deleted, so the person and their
+  // attendance survive; deleteUserAction copies the login's email/phone back
+  // onto this row first so the contact info survives too.
+  userId      String?                 @unique
+  user        User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
   // Display order within the section. Not an admin input yet (same as
   // TripActivity.sortOrder) — someone new goes to the end of their section.
   sortOrder   Int                     @default(0)

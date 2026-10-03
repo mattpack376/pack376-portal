@@ -1,6 +1,8 @@
 import Link from "next/link";
 import SaveButton from "@/components/SaveButton";
+import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/authorize";
+import { leaderContact } from "@/lib/adultLeaderContact";
 import { getAdultLeaderRoster } from "@/lib/adultLeaderAttendanceData";
 import { ADULT_LEADER_SECTIONS, ADULT_LEADER_SECTION_LABELS, formatPositions } from "@/lib/adultLeaderSections";
 import {
@@ -13,14 +15,56 @@ import type { AdultLeaderSection } from "@/generated/prisma/enums";
 import EditPopover from "@/components/EditPopover";
 import { formatPhoneNumber } from "@/lib/phone";
 
-/** Name / positions / section inputs, shared by the Add form and each row's Edit popover. */
+type AccountOption = {
+  id: string;
+  username: string;
+  displayName: string;
+  email: string | null;
+  adultLeader: { id: string } | null;
+};
+
+type LeaderForFields = {
+  id: string;
+  name: string;
+  positions: string[];
+  section: AdultLeaderSection;
+  email: string | null;
+  phone: string | null;
+  userId: string | null;
+  user: { id: string; username: string; email: string | null; phone: string | null } | null;
+};
+
+/**
+ * Name / positions / section / portal-account inputs, shared by the Add form
+ * and each row's Edit popover. A linked person's popover has no email/phone
+ * inputs — their login holds the only copy, edited on the account page — and
+ * the action treats the missing fields as "leave alone".
+ */
 function LeaderFields({
   idPrefix,
   leader,
+  accounts,
 }: {
   idPrefix: string;
-  leader?: { name: string; positions: string[]; section: AdultLeaderSection; email: string | null; phone: string | null };
+  leader?: LeaderForFields;
+  accounts: AccountOption[];
 }) {
+  // Logins not already tied to someone else on the list, likely matches first
+  // (same name, or the address typed here is the account's) so linking an
+  // existing person is a one-click pick.
+  const nameKey = leader?.name.trim().toLowerCase();
+  const emailKey = leader?.email?.trim().toLowerCase();
+  const options = accounts
+    .filter((a) => !a.adultLeader || a.adultLeader.id === leader?.id)
+    .map((a) => ({
+      ...a,
+      likely:
+        a.id !== leader?.userId &&
+        ((!!nameKey && a.displayName.trim().toLowerCase() === nameKey) ||
+          (!!emailKey && a.email?.trim().toLowerCase() === emailKey)),
+    }))
+    .sort((a, b) => Number(b.likely) - Number(a.likely));
+
   return (
     <>
       <div className="form-field">
@@ -55,35 +99,72 @@ function LeaderFields({
         </select>
       </div>
       <div className="form-field">
-        <label htmlFor={`${idPrefix}-email`}>Email (optional)</label>
-        <input
-          id={`${idPrefix}-email`}
-          name="email"
-          type="email"
-          maxLength={200}
-          defaultValue={leader?.email ?? ""}
-          placeholder="e.g. jane@example.com"
-        />
-        <p className="form-note">Included when you use Email Everyone on the Admin Dashboard.</p>
+        <label htmlFor={`${idPrefix}-user`}>Portal account</label>
+        <select id={`${idPrefix}-user`} name="userId" defaultValue={leader?.userId ?? ""}>
+          <option value="">No login — keep contact info here</option>
+          {options.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.displayName} ({a.username}){a.likely ? " — likely match" : ""}
+            </option>
+          ))}
+        </select>
+        <p className="form-note">
+          If they have a portal login, pick it: their email and phone are then kept in one place, on the account,
+          instead of being typed here too.
+        </p>
       </div>
-      <div className="form-field">
-        <label htmlFor={`${idPrefix}-phone`}>Phone (optional)</label>
-        <input
-          id={`${idPrefix}-phone`}
-          name="phone"
-          type="tel"
-          maxLength={40}
-          defaultValue={leader?.phone ?? ""}
-          placeholder="e.g. (718)555-0123"
-        />
-      </div>
+      {leader?.user ? (
+        <div className="form-field">
+          <label>Email &amp; phone</label>
+          <p className="form-note" style={{ marginTop: 0 }}>
+            Kept on their portal account: {leader.user.email ?? "no email"} ·{" "}
+            {leader.user.phone ? formatPhoneNumber(leader.user.phone) : "no phone"}.{" "}
+            <Link href={`/portal/admin/users/${leader.user.id}`}>Edit on the account page →</Link>
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="form-field">
+            <label htmlFor={`${idPrefix}-email`}>Email (optional)</label>
+            <input
+              id={`${idPrefix}-email`}
+              name="email"
+              type="email"
+              maxLength={200}
+              defaultValue={leader?.email ?? ""}
+              placeholder="e.g. jane@example.com"
+            />
+            <p className="form-note">Included when you use Email Everyone on the Admin Dashboard.</p>
+          </div>
+          <div className="form-field">
+            <label htmlFor={`${idPrefix}-phone`}>Phone (optional)</label>
+            <input
+              id={`${idPrefix}-phone`}
+              name="phone"
+              type="tel"
+              maxLength={40}
+              defaultValue={leader?.phone ?? ""}
+              placeholder="e.g. (718)555-0123"
+            />
+          </div>
+        </>
+      )}
     </>
   );
 }
 
 export default async function ManageAdultLeadersPage() {
   await requireAdminSession();
-  const roster = await getAdultLeaderRoster();
+  const [roster, accounts] = await Promise.all([
+    getAdultLeaderRoster(),
+    // Anyone who signs in as themselves can be linked; a Parent Portal login
+    // or the shared trip-viewer login isn't a person on this list.
+    prisma.user.findMany({
+      where: { role: { notIn: ["PARENT", "TRIP_VIEWER"] } },
+      select: { id: true, username: true, displayName: true, email: true, adultLeader: { select: { id: true } } },
+      orderBy: { displayName: "asc" },
+    }),
+  ]);
   const removed = roster.filter((l) => !l.active);
 
   return (
@@ -100,14 +181,16 @@ export default async function ManageAdultLeadersPage() {
         <p>
           This is also the place to keep contact info for committee members and leaders who don&apos;t need a portal
           login. Adding someone here never creates an account or sends a sign-up link — their email is just included
-          when you use Email Everyone on the Admin Dashboard.
+          when you use Email Everyone on the Admin Dashboard. If someone does have a login, link it
+          (<strong>Portal account</strong> when you add or edit them) and their email and phone are read from the
+          account, so the same details aren&apos;t kept in two places.
         </p>
       </div>
 
       <div className="info-card" style={{ maxWidth: 480, marginBottom: 24 }}>
         <h3>Add Someone</h3>
         <form action={createAdultLeaderAction}>
-          <LeaderFields idPrefix="new" />
+          <LeaderFields idPrefix="new" accounts={accounts} />
           <button type="submit" className="btn btn-primary">
             Add to List
           </button>
@@ -141,22 +224,27 @@ export default async function ManageAdultLeadersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {people.map((leader) => (
+                  {people.map((leader) => {
+                    const contact = leaderContact(leader);
+                    return (
                     <tr key={leader.id}>
                       <td>
                         <span className="attendance-name">{leader.name}</span>
                         {leader.positions.length > 0 && (
                           <span className="attendance-detail">{formatPositions(leader.positions)}</span>
                         )}
+                        {leader.user && (
+                          <span className="attendance-detail">Portal login: {leader.user.username}</span>
+                        )}
                       </td>
                       <td data-label="Email" style={{ overflowWrap: "anywhere" }}>
-                        {leader.email ? <a href={`mailto:${leader.email}`}>{leader.email}</a> : "—"}
+                        {contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : "—"}
                       </td>
-                      <td data-label="Phone">{leader.phone ? formatPhoneNumber(leader.phone) : "—"}</td>
+                      <td data-label="Phone">{contact.phone ? formatPhoneNumber(contact.phone) : "—"}</td>
                       <td className="actions">
                         <EditPopover action={updateAdultLeaderAction}>
                           <input type="hidden" name="id" value={leader.id} />
-                          <LeaderFields idPrefix={`leader-${leader.id}`} leader={leader} />
+                          <LeaderFields idPrefix={`leader-${leader.id}`} leader={leader} accounts={accounts} />
                           <SaveButton className="btn btn-primary btn-small">Save Changes</SaveButton>
                         </EditPopover>
                         <form action={setAdultLeaderActiveAction}>
@@ -168,7 +256,8 @@ export default async function ManageAdultLeadersPage() {
                         </form>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             )}
