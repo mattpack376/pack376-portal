@@ -12,7 +12,17 @@ const ALWAYS_CC = ["pack376.brooklyn@gmail.com", "matt.pack376@gmail.com"];
  * (recipient lists on big rosters can exceed that).
  */
 export default function EmailAllButton({ emails, label }: { emails: (string | null)[]; label: string }) {
-  const unique = Array.from(new Set(emails.filter((e): e is string => !!e && e.trim().length > 0)));
+  // Deduped ignoring case and padding, like CopyAddressesButton: someone can now
+  // be on file as a parent, a login, and a committee entry with the address
+  // typed slightly differently, and the count on the button should match.
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const raw of emails) {
+    const email = raw?.trim();
+    if (!email || seen.has(email.toLowerCase())) continue;
+    seen.add(email.toLowerCase());
+    unique.push(email);
+  }
 
   if (unique.length === 0) {
     return <span style={{ fontSize: 14, color: "var(--ink-soft)" }}>No email addresses on file yet.</span>;

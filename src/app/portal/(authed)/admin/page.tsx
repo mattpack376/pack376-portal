@@ -15,13 +15,16 @@ export default async function AdminDashboardPage() {
     },
   });
 
-  const [parentEmails, userEmails] = session.role === "ADMIN"
+  // Removed leaders/committee members are off the list going forward, so they
+  // aren't emailed either; their address stays on file if they're restored.
+  const [parentEmails, userEmails, leaderEmails] = session.role === "ADMIN"
     ? await Promise.all([
         prisma.parent.findMany({ where: { email: { not: null } }, select: { email: true } }),
         prisma.user.findMany({ where: { email: { not: null } }, select: { email: true } }),
+        prisma.adultLeader.findMany({ where: { active: true, email: { not: null } }, select: { email: true } }),
       ])
-    : [[], []];
-  const everyoneEmails = [...parentEmails, ...userEmails].map((r) => r.email);
+    : [[], [], []];
+  const everyoneEmails = [...parentEmails, ...userEmails, ...leaderEmails].map((r) => r.email);
 
   dens.sort((a, b) => {
     if (a.scoutingYear !== b.scoutingYear) return b.scoutingYear.localeCompare(a.scoutingYear);
@@ -46,9 +49,11 @@ export default async function AdminDashboardPage() {
         <div className="info-card" style={{ marginBottom: 24 }}>
           <h3>Email Everyone</h3>
           <p style={{ marginBottom: 12 }}>
-            Every scout&apos;s parent/guardian and every user account (den leaders, admins, etc.) that has an
-            email address on file. Opens your own email app with everyone in the To: field and pack376.brooklyn@gmail.com
-            + matt.pack376@gmail.com cc&apos;d — nothing is sent from here.
+            Every scout&apos;s parent/guardian, every user account (den leaders, admins, etc.), and every committee
+            member or leader on the{" "}
+            <Link href="/portal/admin/attendance/leaders/manage">Leaders &amp; Committee list</Link> that has an
+            email address on file. Opens your own email app with everyone in the To: field and
+            pack376.brooklyn@gmail.com + matt.pack376@gmail.com cc&apos;d — nothing is sent from here.
           </p>
           <EmailAllButton label="Email All Parents & Leaders" emails={everyoneEmails} />
         </div>

@@ -8,6 +8,7 @@ import { leadersListedForMeeting } from "@/lib/adultLeaderAttendanceData";
 import { meetingIsSchedulable, meetingLabel } from "@/lib/attendanceData";
 import { ADULT_LEADER_SECTION_LABELS, formatPositions, isAdultLeaderSection } from "@/lib/adultLeaderSections";
 import { recordAudit, changedFields, EMPTY } from "@/lib/audit";
+import { formatPhoneNumber } from "@/lib/phone";
 import type { AdultLeaderSection } from "@/generated/prisma/enums";
 
 const LEADERS_PATH = "/portal/admin/attendance/leaders";
@@ -15,6 +16,12 @@ const LEADERS_PATH = "/portal/admin/attendance/leaders";
 const MAX_NAME_LENGTH = 100;
 const MAX_POSITIONS = 10;
 const MAX_POSITION_LENGTH = 100;
+const MAX_EMAIL_LENGTH = 200;
+const MAX_PHONE_LENGTH = 40;
+// Same loose shape check as the trip sign-up form: the browser's type="email"
+// does the real prevention, this only stops a malformed address from landing
+// in the Email Everyone list, where it would break the whole send.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function revalidateMeeting(meetingDateId: string) {
   revalidatePath(LEADERS_PATH);
@@ -160,6 +167,8 @@ function readLeaderForm(formData: FormData) {
     ),
   ];
   const section = String(formData.get("section") || "");
+  const email = String(formData.get("email") || "").trim();
+  const phone = formatPhoneNumber(String(formData.get("phone") || ""));
 
   if (!name) throw new Error("Name is required.");
   if (name.length > MAX_NAME_LENGTH) throw new Error(`Keep the name under ${MAX_NAME_LENGTH} characters.`);
@@ -167,7 +176,11 @@ function readLeaderForm(formData: FormData) {
     throw new Error("Too many positions, or one is too long.");
   }
   if (!isAdultLeaderSection(section)) throw new Error("Choose a section.");
-  return { name, positions, section };
+  if (email && (email.length > MAX_EMAIL_LENGTH || !EMAIL_RE.test(email))) {
+    throw new Error("Enter a valid email address.");
+  }
+  if (phone.length > MAX_PHONE_LENGTH) throw new Error("That phone number is too long.");
+  return { name, positions, section, email: email || null, phone: phone || null };
 }
 
 async function nextSortOrder(section: AdultLeaderSection) {
@@ -180,10 +193,10 @@ export async function createAdultLeaderAction(formData: FormData) {
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const { name, positions, section } = readLeaderForm(formData);
+  const { name, positions, section, email, phone } = readLeaderForm(formData);
 
   const leader = await prisma.adultLeader.create({
-    data: { name, positions, section, sortOrder: await nextSortOrder(section) },
+    data: { name, positions, section, email, phone, sortOrder: await nextSortOrder(section) },
   });
 
   await recordAudit(session, {
@@ -195,6 +208,8 @@ export async function createAdultLeaderAction(formData: FormData) {
       { label: "Name", from: EMPTY, to: name },
       { label: "Positions", from: EMPTY, to: formatPositions(positions) || EMPTY },
       { label: "Section", from: EMPTY, to: ADULT_LEADER_SECTION_LABELS[section] },
+      ...(email ? [{ label: "Email", from: EMPTY, to: email }] : []),
+      ...(phone ? [{ label: "Phone", from: EMPTY, to: phone }] : []),
     ],
   });
 
@@ -208,11 +223,11 @@ export async function updateAdultLeaderAction(formData: FormData) {
 
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing leader id.");
-  const { name, positions, section } = readLeaderForm(formData);
+  const { name, positions, section, email, phone } = readLeaderForm(formData);
 
   const before = await prisma.adultLeader.findUnique({
     where: { id },
-    select: { name: true, positions: true, section: true },
+    select: { name: true, positions: true, section: true, email: true, phone: true },
   });
   if (!before) throw new Error("That person is no longer on the list.");
 
@@ -222,6 +237,8 @@ export async function updateAdultLeaderAction(formData: FormData) {
       name,
       positions,
       section,
+      email,
+      phone,
       // Moving sections goes to the end of the new one, same as someone new.
       ...(section !== before.section ? { sortOrder: await nextSortOrder(section) } : {}),
     },
@@ -231,6 +248,8 @@ export async function updateAdultLeaderAction(formData: FormData) {
     Name: [before.name, name],
     Positions: [formatPositions(before.positions), formatPositions(positions)],
     Section: [ADULT_LEADER_SECTION_LABELS[before.section], ADULT_LEADER_SECTION_LABELS[section]],
+    Email: [before.email, email],
+    Phone: [before.phone, phone],
   });
   if (details.length > 0) {
     await recordAudit(session, {

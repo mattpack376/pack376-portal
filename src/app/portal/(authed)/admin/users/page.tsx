@@ -95,6 +95,17 @@ export default async function AdminUsersPage() {
         )}
         <CreateAdminForm canCreateAdmins={viewerIsMaster} />
       </div>
+
+      <div className="info-card" style={{ maxWidth: 420, marginTop: 16 }}>
+        <h3>Committee Members &amp; Leaders Without a Login</h3>
+        <p style={{ marginTop: 0 }}>
+          Not everyone needs portal access. Add them to the Leaders &amp; Committee list with an email and phone
+          instead — no account and no sign-up link, and they&apos;re still included in Email Everyone.
+        </p>
+        <Link className="btn btn-quiet btn-small" href="/portal/admin/attendance/leaders/manage">
+          Manage Leaders &amp; Committee
+        </Link>
+      </div>
     </>
   );
 }

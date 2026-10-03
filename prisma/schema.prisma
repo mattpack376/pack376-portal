@@ -280,6 +280,7 @@ enum AdultLeaderSection {
  * weekly meetings, separately from the scouts. Deliberately not tied to a User
  * login: plenty of committee members never sign in to the portal, and a
  * leader's portal account can come and go without touching their attendance.
+ * That also makes this the place to keep a login-free person's contact info.
  * Same free-text-name convention as TripDutySlot.assignedName.
  *
  * Not scoped to a scouting year the way Den/Scout are — the list carries over
@@ -296,6 +297,12 @@ model AdultLeader {
   // taken once per person, not once per position.
   positions   String[]
   section     AdultLeaderSection
+  // Contact info for people who never sign in. Active entries' emails are
+  // folded into the admin dashboard's "Email Everyone" list alongside parent
+  // contacts and user logins (see admin/page.tsx), so someone here who also
+  // has a login is deduped by address rather than emailed twice.
+  email       String?
+  phone       String?
   // Display order within the section. Not an admin input yet (same as
   // TripActivity.sortOrder) — someone new goes to the end of their section.
   sortOrder   Int                     @default(0)

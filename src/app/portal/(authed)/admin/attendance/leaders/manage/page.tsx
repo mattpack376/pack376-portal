@@ -11,6 +11,7 @@ import {
 import DeleteAdultLeaderButton from "@/components/DeleteAdultLeaderButton";
 import type { AdultLeaderSection } from "@/generated/prisma/enums";
 import EditPopover from "@/components/EditPopover";
+import { formatPhoneNumber } from "@/lib/phone";
 
 /** Name / positions / section inputs, shared by the Add form and each row's Edit popover. */
 function LeaderFields({
@@ -18,7 +19,7 @@ function LeaderFields({
   leader,
 }: {
   idPrefix: string;
-  leader?: { name: string; positions: string[]; section: AdultLeaderSection };
+  leader?: { name: string; positions: string[]; section: AdultLeaderSection; email: string | null; phone: string | null };
 }) {
   return (
     <>
@@ -53,8 +54,36 @@ function LeaderFields({
           ))}
         </select>
       </div>
+      <div className="form-field">
+        <label htmlFor={`${idPrefix}-email`}>Email (optional)</label>
+        <input
+          id={`${idPrefix}-email`}
+          name="email"
+          type="email"
+          maxLength={200}
+          defaultValue={leader?.email ?? ""}
+          placeholder="e.g. jane@example.com"
+        />
+        <p className="form-note">Included when you use Email Everyone on the Admin Dashboard.</p>
+      </div>
+      <div className="form-field">
+        <label htmlFor={`${idPrefix}-phone`}>Phone (optional)</label>
+        <input
+          id={`${idPrefix}-phone`}
+          name="phone"
+          type="tel"
+          maxLength={40}
+          defaultValue={leader?.phone ?? ""}
+          placeholder="e.g. (718)555-0123"
+        />
+      </div>
     </>
   );
+}
+
+/** "jane@example.com · (718)555-0123" under a name, skipping whichever is blank. */
+function contactLine(leader: { email: string | null; phone: string | null }) {
+  return [leader.email, leader.phone ? formatPhoneNumber(leader.phone) : null].filter(Boolean).join(" · ");
 }
 
 export default async function ManageAdultLeadersPage() {
@@ -72,6 +101,11 @@ export default async function ManageAdultLeadersPage() {
         <p>
           Who&apos;s on the leader &amp; committee attendance tracker. Someone who holds more than one position is
           listed once with all of them, so their attendance is taken once per meeting.
+        </p>
+        <p>
+          This is also the place to keep contact info for committee members and leaders who don&apos;t need a portal
+          login. Adding someone here never creates an account or sends a sign-up link — their email is just included
+          when you use Email Everyone on the Admin Dashboard.
         </p>
       </div>
 
@@ -104,6 +138,7 @@ export default async function ManageAdultLeadersPage() {
                     {leader.positions.length > 0 && (
                       <span className="attendance-detail">{formatPositions(leader.positions)}</span>
                     )}
+                    {contactLine(leader) && <span className="attendance-detail">{contactLine(leader)}</span>}
                   </div>
                   <div className="attendance-buttons">
                     <EditPopover action={updateAdultLeaderAction}>
