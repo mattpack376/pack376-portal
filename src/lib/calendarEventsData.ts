@@ -4,7 +4,6 @@ import { toDateOnlyString } from "@/lib/dateOnly";
 import {
   buildGlance,
   categoryFromDb,
-  findNextMeeting,
   meetingEvents,
   monthsBetween,
   scoutingYear,
@@ -112,11 +111,13 @@ export async function getCalendarEventById(id: string): Promise<AdminCalendarEve
 }
 
 /**
- * What the parent dashboard's "Next Meeting" card shows: the next regular
- * meeting by the calendar (visible events and the meeting rule), minus any
- * Friday an admin cancelled on the attendance side. See findNextMeeting.
+ * The calendar as the Parent Dashboard needs it: the visible dated events (as
+ * the public page shows them), the Friday meeting rule, and the Fridays an
+ * admin cancelled on the attendance side. The dashboard derives both its Next
+ * Meeting card (findNextMeeting) and its Upcoming Events list from this one
+ * read.
  */
-export async function getNextMeeting(today: string) {
+export async function getCalendarForParents(today: string) {
   const [rows, rule, cancelledRows] = await Promise.all([
     prisma.calendarEvent.findMany({ where: { visible: true, date: { not: null } }, orderBy: [...CALENDAR_ORDER] }),
     getMeetingRule(),
@@ -129,5 +130,5 @@ export async function getNextMeeting(today: string) {
     .map(toAdminEvent)
     .filter((e): e is AdminCalendarEvent & { date: string } => !!e.date)
     .map(toPublicEvent);
-  return findNextMeeting(rule, events, today, new Set(cancelledRows.map((r) => toDateOnlyString(r.date))));
+  return { rule, events, cancelled: new Set(cancelledRows.map((r) => toDateOnlyString(r.date))) };
 }

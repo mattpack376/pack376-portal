@@ -16,7 +16,7 @@ import SortableColumnHeader from "@/components/SortableColumnHeader";
 import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
 import { sortGuestGroups } from "@/lib/guestSort";
 import { registerMyGuestGroupForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
-import EventFlyer from "@/components/EventFlyer";
+import UpcomingEventsSection from "@/components/UpcomingEventsSection";
 import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import ParentPreviewPicker from "@/components/ParentPreviewPicker";
 import ParentDashboardView from "@/components/ParentDashboardView";
@@ -145,7 +145,7 @@ export default async function FamilyViewPage({
       </>
     );
   }
-  const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, upcomingEvents } =
+  const { scouts, nextMeeting, announcements, deadlines, volunteerNeeds, eventBalances, upcomingItems } =
     await getParentDashboardData(scoutIds, session.userId);
 
   const [allGuestGroups, myOpenGuestEvents] = await Promise.all([
@@ -259,31 +259,7 @@ export default async function FamilyViewPage({
         <PaymentInstructionsCard />
       </div>
 
-      <div className="section-head">
-        <div className="eyebrow">What&apos;s Coming Up</div>
-        <h2>🎉 Upcoming Events</h2>
-      </div>
-      {upcomingEvents.length === 0 ? (
-        <div className="info-card" style={{ marginBottom: 32 }}>
-          <p>No upcoming events posted right now.</p>
-        </div>
-      ) : (
-        <div className="resource-grid" style={{ marginBottom: 32 }}>
-          {upcomingEvents.map((event) => (
-            <div className="resource-card" key={event.id}>
-              <div className="icon-badge">{DEADLINE_CATEGORY_ICONS[event.category]}</div>
-              <div>
-                <p className="form-note" style={{ marginBottom: 4 }}>
-                  {DEADLINE_CATEGORY_LABELS[event.category].toUpperCase()} · {formatDueDate(event.eventDate)}
-                </p>
-                <h3>{event.title}</h3>
-                {event.description && <p style={{ marginBottom: 10 }}>{event.description}</p>}
-                <EventFlyer flyerUrl={event.flyerUrl} title={event.title} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <UpcomingEventsSection items={upcomingItems} />
 
       <div className="section-head">
         <div className="eyebrow">Lend a Hand</div>

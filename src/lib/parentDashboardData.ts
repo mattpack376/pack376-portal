@@ -2,8 +2,9 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { todayUtc, todayDateOnlyString } from "@/lib/dateOnly";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
-import { getNextMeeting } from "@/lib/calendarEventsData";
-import { dateRangeLabel } from "@/lib/calendarData";
+import { getCalendarForParents } from "@/lib/calendarEventsData";
+import { dateRangeLabel, findNextMeeting } from "@/lib/calendarData";
+import { mergeUpcoming, parentCalendarEvents, type UpcomingItem } from "@/lib/parentUpcoming";
 import { getScoutDuesDetail } from "@/lib/duesData";
 import {
   getScoutEventBalances,
@@ -15,7 +16,7 @@ import {
 export async function getParentDashboardData(scoutIds: string[], userId: string) {
   const today = todayUtc();
 
-  const [scouts, nextMeetingInfo, announcements, deadlines, volunteerNeeds] = await Promise.all([
+  const [scouts, calendar, announcements, deadlines, volunteerNeeds] = await Promise.all([
     prisma.scout.findMany({
       where: { id: { in: scoutIds } },
       include: { den: true, photoConsent: true },
@@ -23,7 +24,7 @@ export async function getParentDashboardData(scoutIds: string[], userId: string)
     }),
     // From the calendar, not the attendance dates: those include Scout Sundays
     // and the camping Friday, which aren't the regular meeting.
-    getNextMeeting(todayDateOnlyString()),
+    getCalendarForParents(todayDateOnlyString()),
     prisma.announcement.findMany({
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
       take: 6,
@@ -46,6 +47,23 @@ export async function getParentDashboardData(scoutIds: string[], userId: string)
     getOpenEventsForSelfRegistration(scoutIds, userId),
     getUpcomingVisibleEvents(),
   ]);
+
+  const todayIso = todayDateOnlyString();
+  const nextMeetingInfo = findNextMeeting(calendar.rule, calendar.events, todayIso, calendar.cancelled);
+
+  // Registration events (flyers, sign-ups) and the calendar's family-facing
+  // events in one list, with a calendar entry dropped when a registration event
+  // is the same thing.
+  const registrationItems: UpcomingItem[] = upcomingEvents.map((e) => ({ kind: "event" as const, ...e }));
+  const calendarItems: UpcomingItem[] = parentCalendarEvents(
+    calendar.events,
+    upcomingEvents.map((e) => ({
+      title: e.title,
+      date: e.eventDate.toISOString().slice(0, 10),
+      camping: e.category === "CAMPING",
+    })),
+    todayIso,
+  ).map((event) => ({ kind: "calendar" as const, key: `${event.date}-${event.title}`, event }));
 
   return {
     scouts: scouts.map((scout, i) => ({
@@ -88,6 +106,6 @@ export async function getParentDashboardData(scoutIds: string[], userId: string)
     eventBalances,
     guestGroupBalances,
     openEvents,
-    upcomingEvents,
+    upcomingItems: mergeUpcoming(registrationItems, calendarItems),
   };
 }
