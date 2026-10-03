@@ -18,6 +18,7 @@ import DeleteAdultLeaderButton from "@/components/DeleteAdultLeaderButton";
 import type { AdultLeaderSection } from "@/generated/prisma/enums";
 import EditPopover from "@/components/EditPopover";
 import FileExportButton from "@/components/FileExportButton";
+import EmailAllButton from "@/components/EmailAllButton";
 import PrintButton from "@/components/PrintButton";
 import { formatPhoneNumber } from "@/lib/phone";
 
@@ -269,20 +270,27 @@ export default async function ManageAdultLeadersPage({
           (<strong>Portal account</strong> when you add or edit them) and their email and phone are read from the
           account, so the same details aren&apos;t kept in two places.
         </p>
-        <p style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <Link href="/portal/admin/attendance/leaders/manage?view=print" className="btn btn-quiet btn-small no-print">
+        {/* A div, not a <p>: EmailAllButton renders its own div. */}
+        <div className="no-print" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+          <Link href="/portal/admin/attendance/leaders/manage?view=print" className="btn btn-quiet btn-small">
             Printable View
           </Link>
           <FileExportButton
             href="/api/leaders/export"
             label="Export Contact List (CSV)"
-            className="btn btn-quiet btn-small no-print"
+            className="btn btn-quiet btn-small"
           />
           <FileExportButton
             href="/api/leaders/export/pdf"
             label="Export Contact List (PDF)"
-            className="btn btn-quiet btn-small no-print"
+            className="btn btn-quiet btn-small"
           />
+          <EmailAllButton label="Email Everyone" emails={roster.filter((l) => l.active).map((l) => leaderContact(l).email)} />
+        </div>
+        <p className="form-note no-print" style={{ marginTop: 0 }}>
+          The email buttons open your own email app with those people in the To: field and pack376.brooklyn@gmail.com
+          + matt.pack376@gmail.com cc&apos;d — nothing is sent from here. <strong>Copy Addresses</strong> copies them
+          instead, to paste wherever you like. Each section below has its own pair for just that group.
         </p>
       </div>
 
@@ -298,13 +306,21 @@ export default async function ManageAdultLeadersPage({
 
       {ADULT_LEADER_SECTIONS.map((section) => {
         const people = roster.filter((l) => l.active && l.section === section);
+        // Read through the portal login when there is one; a section nobody has
+        // an address for gets no email buttons rather than a "none on file" note.
+        const sectionEmails = people.map((l) => leaderContact(l).email).filter((e): e is string => !!e);
         return (
           <div className="attendance-group" key={section}>
             <div className="attendance-group-head">
               <h3 style={{ marginBottom: 0 }}>{ADULT_LEADER_SECTION_LABELS[section]}</h3>
-              <span className="progress-pill">
-                {people.length} {people.length === 1 ? "person" : "people"}
-              </span>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                {sectionEmails.length > 0 && (
+                  <EmailAllButton label={`Email ${ADULT_LEADER_SECTION_LABELS[section]}`} emails={sectionEmails} />
+                )}
+                <span className="progress-pill">
+                  {people.length} {people.length === 1 ? "person" : "people"}
+                </span>
+              </div>
             </div>
             {people.length === 0 ? (
               <div className="attendance-card">
