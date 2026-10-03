@@ -79,14 +79,23 @@ export function formatMeetingDate(date: Date, eventLabel?: string | null): strin
 }
 
 /**
- * Friday meeting dates that are really a trip's departure day, as
- * YYYY-MM-DD → label, so the attendance lists can say so. Read from the Camp
- * Conron trip page's start date rather than hard-coded, so it follows the
- * trip if the admin moves the dates.
+ * Friday meetings that are really something else, as YYYY-MM-DD → label.
+ * Add a line here to label another date; a date past its season just sits
+ * unused. The Camp Conron departure day isn't listed because it's read from
+ * the trip page below.
+ */
+const FIXED_MEETING_LABELS: Record<string, string> = {
+  "2026-10-30": "Halloween Pack Night",
+};
+
+/**
+ * Meeting dates the attendance lists should call out, as YYYY-MM-DD → label.
+ * The Camp Conron departure day comes from the trip page's start date rather
+ * than being hard-coded, so it follows the trip if the admin moves the dates.
  */
 export async function getMeetingEventLabels(): Promise<Map<string, string>> {
   const trip = await prisma.tripPage.findUnique({ where: { slug: CAMP_CONRON_SLUG }, select: { startDate: true } });
-  const labels = new Map<string, string>();
+  const labels = new Map(Object.entries(FIXED_MEETING_LABELS));
   if (trip?.startDate) labels.set(toDateOnlyString(trip.startDate), "Camp Conron");
   return labels;
 }
