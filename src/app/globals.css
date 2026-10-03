@@ -1146,7 +1146,9 @@ section { padding: 64px 0; }
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  z-index: 5;
+  /* One above the sticky section headings (.attendance-group-head, z 5),
+     which come later in the page and would otherwise paint over the box. */
+  z-index: 6;
   width: 280px;
   max-width: calc(100vw - 40px);
   background: var(--white);
