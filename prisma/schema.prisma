@@ -534,10 +534,10 @@ model CalendarEvent {
 /**
  * The pack's regular weekly meeting on the public calendar. A single row
  * (id "main"). Every Friday from `startDate` through `endDate` gets a
- * "Scout Meeting" entry unless a CalendarEvent already falls on that day — a
- * campout, a pack night, a "No Meeting" row, anything — so the regular
- * meeting steps aside on its own instead of being listed beside the event
- * that replaces it. Computed when the page renders (src/lib/calendarData.ts);
+ * "Scout Meeting" entry, listed beside any pack night or other event that
+ * Friday — those are held at the regular meeting — unless a camping trip or a
+ * "No Meeting" CalendarEvent covers that day, in which case the meeting steps
+ * aside on its own. Computed when the page renders (src/lib/calendarData.ts);
  * nothing is stored per Friday.
  */
 model CalendarMeetingRule {

@@ -86,7 +86,9 @@ export async function getPublicCalendar(today: string) {
 
   const dated = all.filter((e): e is AdminCalendarEvent & { date: string } => !!e.date && e.date >= year.start && e.date <= year.end);
   const events = dated.map(toPublicEvent);
-  const withMeetings = [...events, ...meetingEvents(rule, events, year.start, year.end)].sort((a, b) =>
+  // The meeting goes first so that on a Friday with a pack night, the meeting
+  // (7:30 PM) reads above the event. The sort is stable, so same-day order holds.
+  const withMeetings = [...meetingEvents(rule, events, year.start, year.end), ...events].sort((a, b) =>
     a.date.localeCompare(b.date),
   );
 

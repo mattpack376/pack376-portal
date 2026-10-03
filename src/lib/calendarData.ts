@@ -288,14 +288,15 @@ export function buildGlance(
 
 /**
  * The regular meeting, one entry per Friday from the rule's first through its
- * last date (clipped to the page's window) that has nothing else on it.
- * "Nothing else" is any event covering that day — a campout, a pack night, a
- * registration night, a "No Meeting" row. The one exception is a setup or
- * planning night for adults, which doesn't replace the scouts' meeting.
+ * last date (clipped to the page's window). A pack night, a registration night
+ * or any other event on a Friday is held at the regular meeting, so it doesn't
+ * replace it: the meeting is listed beside the event. Only two things take a
+ * Friday's meeting away — a camping trip (the scouts are away) and a "No
+ * Meeting" entry.
  */
 export function meetingEvents(
   rule: MeetingRule | null,
-  events: Pick<CalendarEvent, "date" | "endDate" | "category" | "volunteer">[],
+  events: Pick<CalendarEvent, "date" | "endDate" | "category" | "noMeeting">[],
   windowStart: string,
   windowEnd: string,
 ): CalendarEvent[] {
@@ -305,7 +306,7 @@ export function meetingEvents(
 
   const taken = new Set<string>();
   for (const e of events) {
-    if (e.category === "general" && e.volunteer) continue;
+    if (!e.noMeeting && e.category !== "camping") continue;
     // The span is bounded so a mistyped end year can't make this loop for ages.
     const end = lastDay(e) < addDays(e.date, 366) ? lastDay(e) : addDays(e.date, 366);
     for (let day = e.date; day <= end; day = addDays(day, 1)) taken.add(day);

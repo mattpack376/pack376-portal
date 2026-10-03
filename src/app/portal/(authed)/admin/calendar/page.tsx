@@ -93,9 +93,9 @@ export default async function CalendarAdminPage() {
       <div className="info-card" style={{ marginBottom: 28 }}>
         <h3>Regular Friday Meeting</h3>
         <p className="form-note" style={{ marginTop: 0, marginBottom: 16 }}>
-          Every Friday between the first and last meeting dates gets this entry on the calendar — except a Friday that
-          already has something on it: a campout, a pack night, a registration night, or a “No Meeting” entry. Add or
-          remove one of those and the regular meeting adjusts on its own.
+          Every Friday between the first and last meeting dates gets this entry on the calendar, with any pack night or
+          other event listed beneath it — except a Friday with a camping trip or a “No Meeting” entry. Add or remove one
+          of those and the regular meeting adjusts on its own.
         </p>
         <form action={updateMeetingRuleAction}>
           <label className="cal-check">
