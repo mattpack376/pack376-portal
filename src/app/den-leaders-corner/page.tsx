@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -9,7 +10,6 @@ export const metadata: Metadata = {
     "Meet the pack leadership and den leaders of Pack 376, plus leader resources — rosters, forms, the pack calendar, and links to BSA tools.",
 };
 
-const CALENDAR_URL = "https://calendar.pack376nyc.org";
 
 export default function DenLeadersCornerPage() {
   return (
@@ -200,8 +200,8 @@ export default function DenLeadersCornerPage() {
               <div className="icon-badge">🗓️</div>
               <div>
                 <h3>Calendar of Events</h3>
-                <p>The live 2026–2027 pack calendar — updates to the published document appear automatically.</p>
-                <a className="link" href={CALENDAR_URL} target="_blank" rel="noopener">Open Live Calendar →</a>
+                <p>Every campout, pack night, meeting date, and Scout Sunday for the year — kept up to date as plans change.</p>
+                <Link className="link" href="/calendar">Open Live Calendar →</Link>
               </div>
             </div>
             <div className="resource-card">

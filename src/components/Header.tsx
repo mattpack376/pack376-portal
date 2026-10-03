@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { href: "/volunteer", label: "Volunteer" },
   { href: "/activities", label: "Activities" },
   { href: CONRON_HREF, label: "Camp Conron 2026", external: true },
-  { href: "https://calendar.pack376nyc.org", label: "Calendar", external: true },
+  { href: "/calendar", label: "Calendar" },
   { href: "/rank-requirements", label: "Rank Requirements" },
   { href: "/parent-resources", label: "Parent Resources" },
   { href: "/den-leaders-corner", label: "Den Leaders' Corner" },

@@ -13,14 +13,22 @@ import { todayDateOnlyString } from "@/lib/dateOnly";
 // same reasoning as the homepage.
 export const revalidate = 300;
 
-// DRAFT: hidden from search engines, and not yet linked from the header nav,
-// sitemap.ts, or the Activities page. When this replaces the Google Doc calendar,
-// drop the `robots` line and wire those up (see the Header's "Calendar" item).
+// The pack's calendar of record. calendar.pack376nyc.org redirects here
+// (next.config.ts), and the Header, Footer, Activities, Parent Resources and
+// Den Leaders' Corner all link to it.
 export const metadata: Metadata = {
   title: "Calendar of Events — Pack 376",
   description:
-    "Pack 376's calendar: campouts, pack nights, derbies, fundraisers, and every date to put on the fridge.",
-  robots: { index: false, follow: false },
+    "Pack 376's calendar: campouts, pack nights, derbies, fundraisers, Scout Sundays, and every meeting date to put on the fridge.",
+  alternates: { canonical: "/calendar" },
+  openGraph: {
+    title: "Calendar of Events — Pack 376",
+    description:
+      "Campouts, pack nights, derbies, fundraisers, Scout Sundays, and every meeting date for Cub Scout Pack 376 in Gravesend, Brooklyn.",
+    url: "/calendar",
+    type: "website",
+    siteName: "Pack 376",
+  },
 };
 
 const GLANCE_ICON = { camping: "⛺", "pack-night": "🎟️", "one-day": "☀️", fundraiser: "💵" } as const;

@@ -103,15 +103,13 @@ export default function ActivitiesPage() {
             </p>
             <div className="hero-actions" style={{ justifyContent: "center" }}>
               <Link className="btn btn-primary" href="/gallery">View Photo Albums</Link>
-              <a
+              <Link
                 className="btn btn-outline"
-                href="https://calendar.pack376nyc.org"
-                target="_blank"
-                rel="noopener"
+                href="/calendar"
                 style={{ borderColor: "var(--scout-blue)", color: "var(--scout-blue)" }}
               >
                 See the Calendar
-              </a>
+              </Link>
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -6,9 +7,6 @@ export const metadata: Metadata = {
   title: "Parent Resources — Pack 376",
   description: "Pack 376 calendars, parent guides, and family resources for Cub Scout families in Brooklyn, NY.",
 };
-
-const CALENDAR_URL =
-  "https://docs.google.com/document/d/e/2PACX-1vTt7ZYfxypgB9-HXM7inLi7vznfwXyszYWvKKrSrPmCPfoa1CJzaxnBweqPetUUuC7Bz6J7KeItwDc9/pub";
 
 const PARENT_GUIDES = [
   { grade: "Kindergarten", name: "Lion", icon: "🦁", file: "lion-parent-guide-2026-2027.pdf", blurb: "For our youngest Scouts — a parent or adult partner joins every den meeting and outing." },
@@ -62,12 +60,12 @@ export default function ParentResourcesPage() {
             <div className="eyebrow">Start Here</div>
             <h2 style={{ marginBottom: 8 }}>Calendar of Events</h2>
             <p>
-              View the live Pack 376 calendar for the 2026–2027 scouting year — updates made to the
-              published document appear automatically.
+              Every campout, pack night, Scout Sunday, and meeting date for the scouting year — kept
+              up to date by the pack leaders as plans change.
             </p>
-            <a className="btn btn-primary" href={CALENDAR_URL} target="_blank" rel="noopener">
+            <Link className="btn btn-primary" href="/calendar">
               Open Live Calendar
-            </a>
+            </Link>
           </div>
 
           <div className="section-head">

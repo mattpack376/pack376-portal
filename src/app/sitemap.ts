@@ -4,6 +4,7 @@ import { getPublicBaseUrl } from "@/lib/appUrl";
 const PUBLIC_ROUTES: { path: string; changeFrequency: NonNullable<MetadataRoute.Sitemap[number]["changeFrequency"]>; priority: number }[] = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/intro-to-scouting", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/calendar", changeFrequency: "weekly", priority: 0.8 },
   { path: "/contact", changeFrequency: "yearly", priority: 0.7 },
   { path: "/activities", changeFrequency: "monthly", priority: 0.6 },
   { path: "/rank-requirements", changeFrequency: "monthly", priority: 0.6 },

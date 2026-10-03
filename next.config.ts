@@ -115,8 +115,11 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         has: [{ type: "host", value: "calendar.pack376nyc.org" }],
-        destination:
-          "https://docs.google.com/document/d/e/2PACX-1vTt7ZYfxypgB9-HXM7inLi7vznfwXyszYWvKKrSrPmCPfoa1CJzaxnBweqPetUUuC7Bz6J7KeItwDc9/pub",
+        // The old address families already have bookmarked and printed. Any
+        // path on it lands on the calendar page. Temporary (307) rather than
+        // permanent on purpose: browsers keep a permanent redirect forever,
+        // and this address might one day be pointed somewhere else.
+        destination: "https://pack376nyc.org/calendar",
         permanent: false,
       },
       {
