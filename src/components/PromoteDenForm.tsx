@@ -43,7 +43,8 @@ export default function PromoteDenForm({
       </p>
       <p className="form-note" style={{ marginBottom: 16 }}>
         This copies every scout on the current roster into a brand-new {toLabel} den with fresh, unchecked
-        adventures. The current den and its history stay exactly as they are.
+        adventures. Parent contacts and Parent Portal logins, Scouter ID#s and registration expiry dates come along;
+        dues, discounts and photo consent start fresh. The current den and its history stay exactly as they are.
       </p>
       <form action={formAction}>
         <input type="hidden" name="denId" value={denId} />

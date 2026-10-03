@@ -93,7 +93,9 @@ async function submitTripRegistration(formData: FormData): Promise<RegisterForTr
   // matching "trip-registration" rule in the Vercel Firewall dashboard; with
   // no such rule this is a no-op, which is why the per-email ceiling further
   // down is enforced in the database rather than relying on this.
-  const { rateLimited } = await checkRateLimit("trip-registration", { headers: await headers() });
+  const { rateLimited, error: rateLimitError } = await checkRateLimit("trip-registration", { headers: await headers() });
+  // Same as loginAction: the log line is the only sign the Firewall rule is missing.
+  if (rateLimitError === "not-found") console.error('[rate limit] no "trip-registration" rule in the Vercel Firewall');
   if (rateLimited) {
     return { error: "Too many registration attempts from this connection. Try again in a few minutes." };
   }
@@ -138,37 +140,50 @@ async function submitTripRegistration(formData: FormData): Promise<RegisterForTr
   }
 
   const normalizedEmail = contactEmail.toLowerCase();
-  const sameEmail = await prisma.tripRegistration.findMany({
-    where: { tripPageId, contactEmail: { equals: normalizedEmail, mode: "insensitive" } },
-    select: { familyName: true, payingCount: true, freeCount: true },
-  });
-  // A resubmitted form — a double-click, a refresh, a replayed request —
-  // reports the success it would have reported the first time rather than
-  // filing a second identical row. A genuinely different second group from
-  // the same address still goes through.
-  const isReplay = sameEmail.some(
-    (r) => r.familyName === familyName && r.payingCount === payingCount && r.freeCount === freeCount,
-  );
-  if (isReplay) return { success: true };
-  if (sameEmail.length >= MAX_REGISTRATIONS_PER_EMAIL) {
-    return { error: "This email already has several registrations for this trip. Please contact us to add more." };
-  }
-
   const amountOwedCents = payingCount * currentTripPriceCents(trip);
 
-  await prisma.tripRegistration.create({
-    data: {
-      tripPageId,
-      familyName,
-      contactEmail,
-      contactPhone,
-      guestOfName,
-      affiliation: affiliationRaw as TripAffiliation,
-      payingCount,
-      freeCount,
-      amountOwedCents,
-    },
+  // The replay check and the per-email cap are both read-then-write, so two
+  // submissions arriving together could each read "nothing yet" and both
+  // insert. A transaction-scoped advisory lock on this trip + email makes
+  // same-address submissions take turns: the second one waits for the first
+  // to commit, then sees its row. Different addresses never wait on each
+  // other, and the lock releases itself when the transaction ends.
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`trip-registration:${tripPageId}:${normalizedEmail}`}))`;
+
+    const sameEmail = await tx.tripRegistration.findMany({
+      where: { tripPageId, contactEmail: { equals: normalizedEmail, mode: "insensitive" } },
+      select: { familyName: true, payingCount: true, freeCount: true },
+    });
+    // A resubmitted form — a double-click, a refresh, a replayed request —
+    // reports the success it would have reported the first time rather than
+    // filing a second identical row. A genuinely different second group from
+    // the same address still goes through.
+    const isReplay = sameEmail.some(
+      (r) => r.familyName === familyName && r.payingCount === payingCount && r.freeCount === freeCount,
+    );
+    if (isReplay) return "replay" as const;
+    if (sameEmail.length >= MAX_REGISTRATIONS_PER_EMAIL) return "capped" as const;
+
+    await tx.tripRegistration.create({
+      data: {
+        tripPageId,
+        familyName,
+        contactEmail,
+        contactPhone,
+        guestOfName,
+        affiliation: affiliationRaw as TripAffiliation,
+        payingCount,
+        freeCount,
+        amountOwedCents,
+      },
+    });
+    return "created" as const;
   });
+  if (result === "replay") return { success: true };
+  if (result === "capped") {
+    return { error: "This email already has several registrations for this trip. Please contact us to add more." };
+  }
 
   revalidatePath(ADMIN_PATH);
   revalidatePath(PUBLIC_PATH);

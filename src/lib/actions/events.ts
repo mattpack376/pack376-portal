@@ -12,6 +12,7 @@ import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import { uploadFlyer } from "@/lib/flyerUpload";
 import { dollarsToCents, parseCount } from "@/lib/formValues";
 import { todayDateOnlyString } from "@/lib/dateOnly";
+import { upcomingVisibleEventWhere } from "@/lib/eventsData";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 
 /** An event's title for audit text, falling back to the raw id. */
@@ -484,7 +485,10 @@ export async function registerMyScoutsForEventAction(formData: FormData) {
     throw new Error("Not authorized for one or more of those scouts.");
   }
 
-  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { feeCents: true } });
+  const event = await prisma.event.findFirst({
+    where: { id: eventId, ...upcomingVisibleEventWhere() },
+    select: { feeCents: true },
+  });
   if (!event || event.feeCents === null) throw new Error("This event isn't open for self-registration.");
 
   const existing = await prisma.eventRegistration.findMany({
@@ -554,11 +558,11 @@ export async function registerMyGuestGroupForEventAction(formData: FormData) {
   }
   if (adultCount + childCount === 0) throw new Error("Enter at least one adult or child.");
 
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
+  const event = await prisma.event.findFirst({
+    where: { id: eventId, ...upcomingVisibleEventWhere() },
     select: { adultFeeCents: true, guestChildFeeCents: true },
   });
-  if (!event) throw new Error("Event not found.");
+  if (!event) throw new Error("This event isn't open for self-registration.");
   if (adultCount > 0 && event.adultFeeCents === null) {
     throw new Error("This event isn't open for adult guest self-registration.");
   }
@@ -611,20 +615,29 @@ export async function removeMyGuestGroupAction(formData: FormData) {
   const guestGroupId = String(formData.get("guestGroupId") || "");
   if (!guestGroupId) throw new Error("Missing guest group id.");
 
-  const group = await prisma.eventGuestGroup.findUnique({
-    where: { id: guestGroupId },
-    select: { addedByUserId: true, _count: { select: { payments: true } } },
-  });
-  if (!group || group.addedByUserId !== session.userId) throw new Error("Not authorized for this guest group.");
   // Deleting the group cascades to every payment recorded against it (see
   // schema.prisma). Once an admin has logged money against a group, only an
   // admin can remove it (removeGuestGroupAction), so the financial record
   // can't be unilaterally erased by whoever registered it.
-  if (group._count.payments > 0) {
-    throw new Error("This guest group has payments recorded — ask an admin to remove it.");
-  }
-
-  const removed = await prisma.eventGuestGroup.delete({ where: { id: guestGroupId } });
+  //
+  // The check and the delete share one transaction that locks the group row
+  // first. Recording a payment has to take a key-share lock on that same row
+  // (the foreign key check), which FOR UPDATE blocks — so a payment either
+  // commits before the count (and the withdrawal is refused) or waits until
+  // the group is gone (and fails). Without the lock, a payment landing
+  // between the count and the delete was silently cascaded away.
+  const removed = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "EventGuestGroup" WHERE id = ${guestGroupId} FOR UPDATE`;
+    const group = await tx.eventGuestGroup.findUnique({
+      where: { id: guestGroupId },
+      select: { addedByUserId: true, _count: { select: { payments: true } } },
+    });
+    if (!group || group.addedByUserId !== session.userId) throw new Error("Not authorized for this guest group.");
+    if (group._count.payments > 0) {
+      throw new Error("This guest group has payments recorded — ask an admin to remove it.");
+    }
+    return tx.eventGuestGroup.delete({ where: { id: guestGroupId } });
+  });
 
   await recordAudit(session, {
     action: "guestGroup.selfRemove",

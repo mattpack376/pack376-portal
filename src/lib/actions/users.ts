@@ -320,7 +320,12 @@ export async function updateUserRoleAction(
   try {
     await assertCanGrantRole(session, role, user.role);
   } catch {
-    return { error: "Only the master admin can make someone an Admin." };
+    return {
+      error:
+        user.role === "ADMIN"
+          ? "Only the master admin can change an Admin's permission level."
+          : "Only the master admin can make someone an Admin.",
+    };
   }
 
   // Revoke existing sessions so the old role in their JWT stops being honored.

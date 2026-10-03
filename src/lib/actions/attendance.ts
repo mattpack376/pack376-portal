@@ -195,6 +195,8 @@ export async function setMeetingStatusAction(meetingDateId: string, status: "SCH
   // Leaders & committee share the same meeting calendar, so a cancellation lands there too.
   revalidatePath("/portal/admin/attendance/leaders");
   revalidatePath(`/portal/admin/attendance/leaders/${meetingDateId}`);
+  // The public calendar drops the regular meeting on a cancelled Friday (getPublicCalendar).
+  revalidatePath("/calendar");
   return { ok: true as const };
 }
 

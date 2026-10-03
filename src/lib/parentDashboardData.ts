@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { todayUtc, todayDateOnlyString } from "@/lib/dateOnly";
+import { todayDateOnly, todayDateOnlyString } from "@/lib/dateOnly";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { getCalendarForParents } from "@/lib/calendarEventsData";
 import { dateRangeLabel, findNextMeeting } from "@/lib/calendarData";
@@ -14,7 +14,7 @@ import {
 } from "@/lib/eventsData";
 
 export async function getParentDashboardData(scoutIds: string[], userId: string) {
-  const today = todayUtc();
+  const today = todayDateOnly();
 
   const [scouts, calendar, announcements, deadlines, volunteerNeeds] = await Promise.all([
     prisma.scout.findMany({

@@ -14,9 +14,12 @@ export default async function AdminParentAccountsPage() {
   const parents = await prisma.user.findMany({
     where: { role: "PARENT" },
     include: {
+      // One entry per scout: a login can have two contact rows for the same
+      // child, and Unlink clears them all (unlinkParentScoutAction).
       parentContacts: {
         include: { scout: { include: { den: true } } },
         orderBy: { createdAt: "asc" },
+        distinct: ["scoutId"],
       },
     },
     orderBy: [{ displayName: "asc" }],

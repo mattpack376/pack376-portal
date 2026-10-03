@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { todayUtc } from "@/lib/dateOnly";
+import { todayDateOnly } from "@/lib/dateOnly";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import { ROLE_LABELS } from "@/lib/roleLabels";
 import type { Rank } from "@/generated/prisma/enums";
@@ -223,6 +223,18 @@ export async function getGuestGroupBalances(userId: string) {
 }
 
 /**
+ * The events families can see and sign up for: visible, and dated today or
+ * later in the pack's time zone. The lists below and the self-registration
+ * actions (registerMyScoutsForEventAction, registerMyGuestGroupForEventAction)
+ * all filter with this, so hiding an event or letting it pass closes sign-up
+ * for a form that's still open in someone's browser, not just the listing.
+ * Admins registering someone by hand don't go through it.
+ */
+export function upcomingVisibleEventWhere() {
+  return { eventDate: { gte: todayDateOnly() }, visible: true };
+}
+
+/**
  * Every upcoming, visible pack event (regardless of fee/registration status)
  * — used by the Parent Dashboard's and Family View's "Upcoming Events" list
  * so a flyer/description is visible even for events that aren't open for
@@ -231,7 +243,7 @@ export async function getGuestGroupBalances(userId: string) {
  */
 export async function getUpcomingVisibleEvents() {
   const events = await prisma.event.findMany({
-    where: { eventDate: { gte: todayUtc() }, visible: true },
+    where: upcomingVisibleEventWhere(),
     orderBy: { eventDate: "asc" },
   });
 
@@ -258,8 +270,7 @@ export async function getUpcomingVisibleEvents() {
 export async function getOpenEventsForSelfRegistration(scoutIds: string[], userId: string) {
   const events = await prisma.event.findMany({
     where: {
-      eventDate: { gte: todayUtc() },
-      visible: true,
+      ...upcomingVisibleEventWhere(),
       OR: [{ feeCents: { not: null } }, { adultFeeCents: { not: null } }, { guestChildFeeCents: { not: null } }],
     },
     include: {

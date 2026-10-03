@@ -11,7 +11,7 @@ import {
   updateUserDisplayNameAction,
   updateUserPhoneAction,
 } from "@/lib/actions/users";
-import { DEN_ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/roleLabels";
+import { DEN_ASSIGNABLE_ROLES, ROLE_LABELS, type AssignableRole } from "@/lib/roleLabels";
 import type { Rank } from "@/generated/prisma/enums";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
 import DeleteUserButton from "@/components/DeleteUserButton";
@@ -32,7 +32,8 @@ export default async function ManageUserPage({
     where: { id: userId },
     include: {
       denAssignments: { include: { den: true } },
-      parentContacts: { include: { scout: { include: { den: true } } }, orderBy: { createdAt: "asc" } },
+      // One entry per scout — Unlink clears every row for that child (unlinkParentScoutAction).
+      parentContacts: { include: { scout: { include: { den: true } } }, orderBy: { createdAt: "asc" }, distinct: ["scoutId"] },
     },
   });
   // Parent Portal accounts are managed from Roster → Parents instead — this
@@ -43,13 +44,11 @@ export default async function ManageUserPage({
   const protectedAccount = isProtectedUsername(user.username);
   // Mirrors the guards in src/lib/actions/users.ts: a master admin's role is
   // fixed in code and only a master admin edits that account; protected
-  // accounts can't be deleted; deleting any Admin is the master admin's call.
-  const roleEditable = !masterAccount;
+  // accounts can't be deleted; moving anyone into or out of Admin, and
+  // deleting any Admin, is the master admin's call (assertCanGrantRole).
+  const roleEditable = !masterAccount && (user.role !== "ADMIN" || viewerIsMaster);
   const detailsEditable = !masterAccount || viewerIsMaster;
   const deletable = !protectedAccount && (user.role !== "ADMIN" || viewerIsMaster);
-  // Only the master admin can make someone an Admin; an existing Admin keeps
-  // the option so the picker doesn't silently show a different role.
-  const allowAdminRole = viewerIsMaster || user.role === "ADMIN";
   const assignedDenIds = new Set(user.denAssignments.map((a) => a.denId));
   const canAssignDens = DEN_ASSIGNABLE_ROLES.includes(user.role as (typeof DEN_ASSIGNABLE_ROLES)[number]);
 
@@ -104,12 +103,19 @@ export default async function ManageUserPage({
         </div>
       ) : null}
 
-      {roleEditable && (
+      {roleEditable ? (
         <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
           <h3>Permission Level</h3>
-          <ManageUserRoleForm userId={user.id} role={user.role as AssignableRole} allowAdmin={allowAdminRole} />
+          <ManageUserRoleForm userId={user.id} role={user.role as AssignableRole} allowAdmin={viewerIsMaster} />
         </div>
-      )}
+      ) : !masterAccount ? (
+        <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
+          <h3>Permission Level</h3>
+          <p>
+            {ROLE_LABELS[user.role] ?? user.role}. Only the master admin can change an Admin&apos;s permission level.
+          </p>
+        </div>
+      ) : null}
 
       {detailsEditable ? (
       <>

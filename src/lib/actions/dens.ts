@@ -227,7 +227,7 @@ export async function promoteDenAction(
   const createLogin = formData.get("createLogin") === "on";
   const username = String(formData.get("username") || "").trim();
 
-  const den = await prisma.den.findUnique({ where: { id: denId }, include: { scouts: true } });
+  const den = await prisma.den.findUnique({ where: { id: denId }, include: { scouts: { include: { parents: true } } } });
   if (!den) return { error: "Den not found." };
 
   const next = computeNextRank(den.rank);
@@ -244,19 +244,43 @@ export async function promoteDenAction(
   });
   if (existing) return { error: "A den already exists for that rank, year, and label." };
 
-  const newDen = await prisma.den.create({
-    data: { rank: next, scoutingYear, label: den.label },
-  });
-
-  if (den.scouts.length > 0) {
-    await prisma.scout.createMany({
-      data: den.scouts.map((s) => ({
-        denId: newDen.id,
-        firstName: s.firstName,
-        lastName: s.lastName,
-      })),
+  // Each promoted scout is a new row in the new den (the old den keeps last
+  // year's advancement, attendance and dues as history). What belongs to the
+  // child rather than the year comes along: BSA paperwork, notes, household,
+  // and every parent contact — including its portal login, so a parent's
+  // dashboard picks up the new den. Left behind on purpose as per-year data:
+  // advancement, attendance, dues payments and the dues override (a sibling
+  // discount is set fresh each season), and photo consent.
+  const linkedUserIds = [
+    ...new Set(den.scouts.flatMap((s) => s.parents.map((p) => p.userId)).filter((id): id is string => !!id)),
+  ];
+  const newDen = await prisma.$transaction(async (tx) => {
+    const created = await tx.den.create({
+      data: { rank: next, scoutingYear, label: den.label },
     });
-  }
+    for (const s of den.scouts) {
+      await tx.scout.create({
+        data: {
+          denId: created.id,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          scouterId: s.scouterId,
+          registrationExpiresOn: s.registrationExpiresOn,
+          notes: s.notes,
+          householdId: s.householdId,
+          parents: {
+            create: s.parents.map((p) => ({ name: p.name, email: p.email, phone: p.phone, userId: p.userId })),
+          },
+        },
+      });
+    }
+    // scoutIds are baked into the session at sign-in; bump so the next
+    // request signs these parents out and the fresh sign-in sees the new den.
+    if (linkedUserIds.length > 0) {
+      await tx.user.updateMany({ where: { id: { in: linkedUserIds } }, data: { sessionVersion: { increment: 1 } } });
+    }
+    return created;
+  }, { timeout: 20_000 });
 
   await recordAudit(session, {
     action: "den.promote",

@@ -467,12 +467,15 @@ export async function assertCanMutateUser(session: SessionPayload, target: { use
 }
 
 /**
- * Making someone an Admin — creating an ADMIN account, or changing an
- * existing account's role to ADMIN — is master-admin only, like deleting one
- * (deleteUserAction). Leaving an existing Admin as Admin isn't a grant.
+ * Moving an account into or out of Admin is master-admin only: creating an
+ * ADMIN account, promoting someone to ADMIN, or demoting an existing Admin.
+ * Demotion has to be covered too, because deleteUserAction only asks for the
+ * master admin when the target is still an Admin — an ordinary Admin could
+ * otherwise demote another Admin and then delete them. Leaving an existing
+ * Admin as Admin, and moves between non-Admin roles, aren't gated here.
  */
 export async function assertCanGrantRole(session: SessionPayload, role: string, currentRole?: string) {
-  if (role !== "ADMIN" || currentRole === "ADMIN") return;
+  if ((role === "ADMIN") === (currentRole === "ADMIN")) return;
   await assertMasterAdmin(session);
 }
 

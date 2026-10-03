@@ -23,7 +23,10 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   // rate limit rule in the Vercel Firewall dashboard; fails open (no-op) if that
   // rule isn't configured, so this alone doesn't throttle anything by itself.
   const headerList = await headers();
-  const { rateLimited } = await checkRateLimit("portal-login", { headers: headerList });
+  const { rateLimited, error: rateLimitError } = await checkRateLimit("portal-login", { headers: headerList });
+  // Failing open is silent otherwise — this line in the Vercel logs is the
+  // only sign the Firewall rule is gone.
+  if (rateLimitError === "not-found") console.error('[rate limit] no "portal-login" rule in the Vercel Firewall');
   if (rateLimited) {
     // Deliberately not audited. This branch exists to stop doing work for a
     // flood of requests, and writing a row per blocked attempt would hand that

@@ -72,25 +72,39 @@ export async function getMeetingRule(): Promise<MeetingRule | null> {
 }
 
 /**
+ * Fridays an admin cancelled with the attendance page's No Meeting toggle, as
+ * YYYY-MM-DD. The public calendar and the Parent Dashboard both drop the
+ * regular meeting on these, so a cancellation made only on the attendance
+ * side can't leave one of them still promising a meeting.
+ */
+async function attendanceCancellations(from: string) {
+  const rows = await prisma.meetingDate.findMany({
+    where: { status: "NO_MEETING", date: { gte: new Date(`${from}T00:00:00.000Z`) } },
+    select: { date: true },
+  });
+  return new Set(rows.map((r) => toDateOnlyString(r.date)));
+}
+
+/**
  * Everything the public /calendar page shows for the scouting year containing
  * `today`: the events (with the regular Friday meetings filled in), the month
  * sections to render, and the Year at a Glance box. Hidden events are left out.
  */
 export async function getPublicCalendar(today: string) {
   const year = scoutingYear(today);
-  const [rows, rule] = await Promise.all([
+  const [rows, rule, cancelled] = await Promise.all([
     prisma.calendarEvent.findMany({ where: { visible: true }, orderBy: [...CALENDAR_ORDER] }),
     getMeetingRule(),
+    attendanceCancellations(year.start),
   ]);
   const all = rows.map(toAdminEvent);
 
   const dated = all.filter((e): e is AdminCalendarEvent & { date: string } => !!e.date && e.date >= year.start && e.date <= year.end);
   const events = dated.map(toPublicEvent);
+  const meetings = meetingEvents(rule, events, year.start, year.end).filter((m) => !cancelled.has(m.date));
   // The meeting goes first so that on a Friday with a pack night, the meeting
   // (7:30 PM) reads above the event. The sort is stable, so same-day order holds.
-  const withMeetings = [...meetingEvents(rule, events, year.start, year.end), ...events].sort((a, b) =>
-    a.date.localeCompare(b.date),
-  );
+  const withMeetings = [...meetings, ...events].sort((a, b) => a.date.localeCompare(b.date));
 
   const months = withMeetings.length
     ? monthsBetween(withMeetings[0].date.slice(0, 7), withMeetings[withMeetings.length - 1].date.slice(0, 7))
@@ -118,17 +132,14 @@ export async function getCalendarEventById(id: string): Promise<AdminCalendarEve
  * read.
  */
 export async function getCalendarForParents(today: string) {
-  const [rows, rule, cancelledRows] = await Promise.all([
+  const [rows, rule, cancelled] = await Promise.all([
     prisma.calendarEvent.findMany({ where: { visible: true, date: { not: null } }, orderBy: [...CALENDAR_ORDER] }),
     getMeetingRule(),
-    prisma.meetingDate.findMany({
-      where: { status: "NO_MEETING", date: { gte: new Date(`${today}T00:00:00.000Z`) } },
-      select: { date: true },
-    }),
+    attendanceCancellations(today),
   ]);
   const events = rows
     .map(toAdminEvent)
     .filter((e): e is AdminCalendarEvent & { date: string } => !!e.date)
     .map(toPublicEvent);
-  return { rule, events, cancelled: new Set(cancelledRows.map((r) => toDateOnlyString(r.date))) };
+  return { rule, events, cancelled };
 }

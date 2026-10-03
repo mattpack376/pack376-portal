@@ -25,6 +25,18 @@ async function findExistingParentAccountId(email: string | null): Promise<string
   return existing && existing.role === "PARENT" ? existing.id : null;
 }
 
+/**
+ * scoutIds are baked into the session JWT at sign-in, so linking another
+ * scout to an existing login doesn't reach a session that's already open —
+ * the child stays missing from the dashboard until it expires. Every path
+ * that links a contact to a login bumps sessionVersion in the same
+ * transaction (as attachParentToScoutAction does), so the next request signs
+ * them out and the fresh sign-in picks the scout up.
+ */
+function refreshParentSession(userId: string) {
+  return prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } });
+}
+
 /** A scout's name + den for audit text on parent-contact changes. */
 async function scoutContext(scoutId: string) {
   const scout = await prisma.scout.findUnique({
@@ -47,9 +59,12 @@ export async function addParentAction(formData: FormData) {
 
   const userId = await findExistingParentAccountId(email);
 
-  const parent = await prisma.parent.create({
-    data: { scoutId, name, email: email || null, phone: phone || null, userId },
-  });
+  const [parent] = await prisma.$transaction([
+    prisma.parent.create({
+      data: { scoutId, name, email: email || null, phone: phone || null, userId },
+    }),
+    ...(userId ? [refreshParentSession(userId)] : []),
+  ]);
 
   const scout = await scoutContext(scoutId);
   await recordAudit(session, {
@@ -100,10 +115,14 @@ export async function updateParentAction(formData: FormData) {
     : null;
   if (linkedAccount) await assertCanMutateUser(session, linkedAccount);
 
-  const parent = await prisma.parent.update({
-    where: { id: parentId },
-    data: { name, email: email || null, phone: phone || null, userId },
-  });
+  const [parent] = await prisma.$transaction([
+    prisma.parent.update({
+      where: { id: parentId },
+      data: { name, email: email || null, phone: phone || null, userId },
+    }),
+    // Only when this edit is what links it; an already-linked row changes nothing about access.
+    ...(userId && !before?.userId ? [refreshParentSession(userId)] : []),
+  ]);
 
   // Keep the linked portal account's contact info — and every sibling contact
   // row sharing that same login — in sync with whatever's edited here, since
@@ -219,7 +238,10 @@ export async function inviteParentPortalAction(parentId: string) {
     if (existing.role !== "PARENT") {
       return { ok: false as const, error: "That email is already in use by a different portal account." };
     }
-    await prisma.parent.update({ where: { id: parentId }, data: { userId: existing.id } });
+    await prisma.$transaction([
+      prisma.parent.update({ where: { id: parentId }, data: { userId: existing.id } }),
+      refreshParentSession(existing.id),
+    ]);
     const scout = await scoutContext(parent.scoutId);
     await recordAudit(session, {
       action: "parent.linkPortal",
@@ -291,7 +313,13 @@ export async function unlinkParentScoutAction(parentId: string) {
   if (!parent.userId) return { ok: false as const, error: "This contact isn't linked to a portal account." };
 
   await prisma.$transaction([
-    prisma.parent.update({ where: { id: parentId }, data: { userId: null } }),
+    // Every contact row tying this login to this scout, not just the one
+    // clicked: a scout can carry two rows for the same guardian (a second
+    // contact added with the same email auto-links, or a re-invite), and
+    // sign-in rebuilds scoutIds from whatever rows are left — so clearing one
+    // would report success while the next sign-in still shows the child.
+    // Rows for this login's other scouts are untouched.
+    prisma.parent.updateMany({ where: { userId: parent.userId, scoutId: parent.scoutId }, data: { userId: null } }),
     // Bump so an already-issued session (scoutIds are baked into the JWT) stops
     // vouching for the unlinked scout until the user logs in again.
     prisma.user.update({ where: { id: parent.userId }, data: { sessionVersion: { increment: 1 } } }),

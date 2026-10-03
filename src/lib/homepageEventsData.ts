@@ -1,11 +1,11 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { todayUtc } from "@/lib/dateOnly";
+import { todayDateOnly } from "@/lib/dateOnly";
 
 /** Homepage "Upcoming Attractions" ticket list — past events drop off on their own, hidden events are excluded. */
 export async function getUpcomingHomepageEvents() {
   return prisma.homepageEvent.findMany({
-    where: { sortDate: { gte: todayUtc() }, visible: true },
+    where: { sortDate: { gte: todayDateOnly() }, visible: true },
     orderBy: { sortDate: "asc" },
   });
 }

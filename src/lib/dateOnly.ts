@@ -41,12 +41,13 @@ export function formatDateOnly(iso: string): string {
 }
 
 /**
- * Today's UTC calendar date at UTC midnight — the cutoff for "upcoming" when
- * filtering a date-only column, so anything dated before today drops off.
+ * Today in the pack's time zone, as the UTC-midnight Date a date-only column
+ * stores — the cutoff for "upcoming", so anything dated before today drops
+ * off. Taking the date in UTC instead would roll over at 8 PM Eastern and hide
+ * tonight's event or deadline while the day is still on here.
  */
-export function todayUtc(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+export function todayDateOnly(now: Date = new Date()): Date {
+  return new Date(`${todayDateOnlyString(now)}T00:00:00.000Z`);
 }
 
 /** A stored date-only value as "August 12, 2026". */
