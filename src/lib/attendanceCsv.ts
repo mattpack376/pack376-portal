@@ -1,5 +1,5 @@
 import "server-only";
-import { formatMeetingDate } from "@/lib/attendanceSchedule";
+import { eventLabelFor, formatMeetingDate } from "@/lib/attendanceSchedule";
 import { escapeCsvField } from "@/lib/csv";
 import { RANK_INFO } from "@/lib/rankConfig";
 import { ADULT_LEADER_SECTION_LABELS } from "@/lib/adultLeaderSections";
@@ -19,8 +19,14 @@ function statusLabel(present: boolean | null) {
   return present === true ? "Present" : present === false ? "Absent" : "Not Recorded";
 }
 
-export function buildAttendanceCsv(rows: AttendanceCsvRow[]): string {
-  const header = ["Scouting Year", "Den", "Scout First Name", "Scout Last Name", "Meeting Date", "Status"];
+/*
+ * The event label (e.g. "Camp Conron") gets its own column rather than being
+ * appended to Meeting Date as on screen: the portal's " — " is non-ASCII, and
+ * Excel opens these BOM-less UTF-8 files as Windows-1252 and would garble it.
+ * A separate column also keeps Meeting Date clean to sort and filter on.
+ */
+export function buildAttendanceCsv(rows: AttendanceCsvRow[], eventLabels: Map<string, string>): string {
+  const header = ["Scouting Year", "Den", "Scout First Name", "Scout Last Name", "Meeting Date", "Event", "Status"];
   const lines = [header.join(",")];
 
   for (const row of rows) {
@@ -33,6 +39,7 @@ export function buildAttendanceCsv(rows: AttendanceCsvRow[]): string {
         escapeCsvField(row.firstName),
         escapeCsvField(row.lastName),
         escapeCsvField(formatMeetingDate(row.date)),
+        escapeCsvField(eventLabelFor(eventLabels, row.date) ?? ""),
         escapeCsvField(status),
       ].join(",")
     );
@@ -50,8 +57,11 @@ export type AdultLeaderAttendanceCsvRow = {
   present: boolean | null;
 };
 
-export function buildAdultLeaderAttendanceCsv(rows: AdultLeaderAttendanceCsvRow[]): string {
-  const header = ["Scouting Year", "Section", "Name", "Positions", "Meeting Date", "Status"];
+export function buildAdultLeaderAttendanceCsv(
+  rows: AdultLeaderAttendanceCsvRow[],
+  eventLabels: Map<string, string>,
+): string {
+  const header = ["Scouting Year", "Section", "Name", "Positions", "Meeting Date", "Event", "Status"];
   const lines = [header.join(",")];
 
   for (const row of rows) {
@@ -64,6 +74,7 @@ export function buildAdultLeaderAttendanceCsv(rows: AdultLeaderAttendanceCsvRow[
         // UTF-8 file as Windows-1252 and would garble it.
         escapeCsvField(row.positions.join("; ")),
         escapeCsvField(formatMeetingDate(row.date)),
+        escapeCsvField(eventLabelFor(eventLabels, row.date) ?? ""),
         escapeCsvField(statusLabel(row.present)),
       ].join(",")
     );

@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAttendanceDenAccess } from "@/lib/authorize";
-import { fridaysForScoutingYear } from "@/lib/attendanceSchedule";
+import { fridaysForScoutingYear, getMeetingEventLabels } from "@/lib/attendanceSchedule";
 import { buildAttendanceCsv, type AttendanceCsvRow } from "@/lib/attendanceCsv";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ denId: string }> }) {
@@ -48,7 +48,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     }
   }
 
-  const csv = buildAttendanceCsv(rows);
+  const csv = buildAttendanceCsv(rows, await getMeetingEventLabels());
   const filename = `pack376-attendance-${den.rank.toLowerCase()}-${den.scoutingYear}.csv`;
 
   return new NextResponse(csv, {
