@@ -3,11 +3,7 @@ import SaveButton from "@/components/SaveButton";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/authorize";
 import { leaderContact } from "@/lib/adultLeaderContact";
-import {
-  getAdultLeaderRoster,
-  getLeaderContactList,
-  type LeaderContactSection,
-} from "@/lib/adultLeaderAttendanceData";
+import { getAdultLeaderRoster } from "@/lib/adultLeaderAttendanceData";
 import { ADULT_LEADER_SECTIONS, ADULT_LEADER_SECTION_LABELS, formatPositions } from "@/lib/adultLeaderSections";
 import {
   createAdultLeaderAction,
@@ -17,9 +13,9 @@ import {
 import DeleteAdultLeaderButton from "@/components/DeleteAdultLeaderButton";
 import type { AdultLeaderSection } from "@/generated/prisma/enums";
 import EditPopover from "@/components/EditPopover";
-import FileExportButton from "@/components/FileExportButton";
+import LeaderContactActions from "@/components/LeaderContactActions";
+import LeaderContactsPrintView from "@/components/LeaderContactsPrintView";
 import EmailAllButton from "@/components/EmailAllButton";
-import PrintButton from "@/components/PrintButton";
 import { formatPhoneNumber } from "@/lib/phone";
 
 type AccountOption = {
@@ -160,77 +156,6 @@ function LeaderFields({
   );
 }
 
-/**
- * Printable View: one table per section, the section title and column
- * headings in the <thead> so they repeat on every page a section spans, and
- * each person in their own <tbody> so a row is never split — the same layout
- * (and .print-roster-table styles) as the Parent Contacts printable view.
- */
-async function PrintableLeaders() {
-  const sections: LeaderContactSection[] = (await getLeaderContactList()).filter((s) => s.people.length > 0);
-  const generated = new Date().toLocaleDateString("en-US", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  return (
-    <>
-      <div className="section-head">
-        <div className="eyebrow no-print">
-          <Link href="/portal/admin/attendance/leaders/manage">← Exit Printable View</Link>
-        </div>
-        <h2>Committee &amp; Leaders Contact Information</h2>
-        <p style={{ fontSize: 17 }}>Printable list · generated {generated}</p>
-        <p style={{ fontSize: 15, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <PrintButton />
-          <FileExportButton href="/api/leaders/export/pdf" label="Download PDF" className="btn btn-quiet no-print" />
-        </p>
-      </div>
-
-      {sections.length === 0 && <div className="info-card">Nobody is on the list yet.</div>}
-
-      {sections.map(({ section, label, people }) => (
-        <table className="print-roster-table" key={section}>
-          <colgroup>
-            <col style={{ width: "26%" }} />
-            <col style={{ width: "26%" }} />
-            <col style={{ width: "30%" }} />
-            <col style={{ width: "18%" }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th colSpan={4} className="print-den-title">
-                {label}
-                <span className="print-den-count">
-                  {people.length} {people.length === 1 ? "person" : "people"}
-                </span>
-              </th>
-            </tr>
-            <tr>
-              <th>Name</th>
-              <th>Positions</th>
-              <th>Email</th>
-              <th>Phone</th>
-            </tr>
-          </thead>
-          {people.map((person) => (
-            <tbody key={person.id}>
-              <tr>
-                <td>{person.name}</td>
-                <td>{formatPositions(person.positions) || "—"}</td>
-                <td>{person.email || "—"}</td>
-                <td>{person.phone ? formatPhoneNumber(person.phone) : "—"}</td>
-              </tr>
-            </tbody>
-          ))}
-        </table>
-      ))}
-    </>
-  );
-}
-
 export default async function ManageAdultLeadersPage({
   searchParams,
 }: {
@@ -238,7 +163,9 @@ export default async function ManageAdultLeadersPage({
 }) {
   await requireAdminSession();
   const { view } = await searchParams;
-  if (view === "print") return <PrintableLeaders />;
+  if (view === "print") {
+    return <LeaderContactsPrintView backHref="/portal/admin/attendance/leaders/manage" />;
+  }
 
   const [roster, accounts] = await Promise.all([
     getAdultLeaderRoster(),
@@ -270,28 +197,10 @@ export default async function ManageAdultLeadersPage({
           (<strong>Portal account</strong> when you add or edit them) and their email and phone are read from the
           account, so the same details aren&apos;t kept in two places.
         </p>
-        {/* A div, not a <p>: EmailAllButton renders its own div. */}
-        <div className="no-print" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
-          <Link href="/portal/admin/attendance/leaders/manage?view=print" className="btn btn-quiet btn-small">
-            Printable View
-          </Link>
-          <FileExportButton
-            href="/api/leaders/export"
-            label="Export Contact List (CSV)"
-            className="btn btn-quiet btn-small"
-          />
-          <FileExportButton
-            href="/api/leaders/export/pdf"
-            label="Export Contact List (PDF)"
-            className="btn btn-quiet btn-small"
-          />
-          <EmailAllButton label="Email Everyone" emails={roster.filter((l) => l.active).map((l) => leaderContact(l).email)} />
-        </div>
-        <p className="form-note no-print" style={{ marginTop: 0 }}>
-          The email buttons open your own email app with those people in the To: field and pack376.brooklyn@gmail.com
-          + matt.pack376@gmail.com cc&apos;d — nothing is sent from here. <strong>Copy Addresses</strong> copies them
-          instead, to paste wherever you like. Each section below has its own pair for just that group.
-        </p>
+        <LeaderContactActions
+          printHref="/portal/admin/attendance/leaders/manage?view=print"
+          everyoneEmails={roster.filter((l) => l.active).map((l) => leaderContact(l).email)}
+        />
       </div>
 
       <div className="info-card" style={{ maxWidth: 480, marginBottom: 24 }}>

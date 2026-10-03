@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { canExportLeaderContacts } from "@/lib/authorize";
 import { getLeaderContactList } from "@/lib/adultLeaderAttendanceData";
 import { buildLeaderContactsCsv } from "@/lib/leadersCsv";
 
-// Admin only, like the Manage Leaders & Committee page it's exported from.
+// Admin and Junior Admin, like the parent contact exports (canExportLeaderContacts).
 export async function GET() {
   const session = await getSession();
   if (!session) return new NextResponse("Not authorized.", { status: 401 });
-  if (session.role !== "ADMIN") return new NextResponse("Not authorized.", { status: 403 });
+  if (!canExportLeaderContacts(session)) return new NextResponse("Not authorized.", { status: 403 });
 
   const csv = buildLeaderContactsCsv(await getLeaderContactList());
 

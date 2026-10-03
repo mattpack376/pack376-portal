@@ -31,7 +31,9 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  *
  * The Committee & Leaders contact list is the one thing every staff level can
  * see — read-only for everyone but an Admin, who edits it (requireAdminSession
- * on the Manage page). Parent and Trip Viewer logins never see it.
+ * on the Manage page). Admin and Junior Admin can also export it (CSV, PDF,
+ * Printable View) and email/copy its addresses. Parent and Trip Viewer logins
+ * never see it.
  */
 
 type Session = SessionPayload;
@@ -396,6 +398,16 @@ export async function requireLeaderContactsSession(): Promise<SessionPayload> {
   const session = await requireSession();
   if (!LEADER_CONTACT_ROLES.includes(session.role)) redirect(homeForRole(session.role));
   return session;
+}
+
+/**
+ * Exporting the Committee & Leaders list — the CSV and PDF downloads, the
+ * Printable View, and the email/copy-addresses buttons: Admin and Junior
+ * Admin, the same two roles that export parent contacts. Everyone else who can
+ * see the list reads it on screen only.
+ */
+export function canExportLeaderContacts(session: SessionPayload) {
+  return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN";
 }
 
 /** For Server Components / pages: only PARENT-role accounts reach the Parent Dashboard. */
