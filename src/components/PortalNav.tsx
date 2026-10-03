@@ -90,7 +90,15 @@ export default function PortalNav({
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/roster/family-view", label: "Family View" },
           { href: "/portal/admin/camp-conron", label: "Camp Conron Trip" },
-          { href: "/portal/roster", label: "Roster" },
+          // The read-only view of the Committee & Leaders list (an Admin edits
+          // it from the Manage page, linked from People for them).
+          {
+            label: "People",
+            children: [
+              { href: "/portal/roster", label: "Roster" },
+              { href: "/portal/roster/leaders", label: "Committee & Leaders" },
+            ],
+          },
           {
             label: "Money",
             children: [
@@ -107,6 +115,7 @@ export default function PortalNav({
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/admin/dues", label: "Dues" },
           { href: "/portal/roster", label: "Roster" },
+          { href: "/portal/roster/leaders", label: "Committee & Leaders" },
           { href: "/portal/roster/photo-consent", label: "Photo Consent" },
           // A committee member who also leads a den gets that den's view.
           ...(hasDens ? [{ href: withDenId("/portal/roster/family-view"), label: "Family View" }] : []),
@@ -115,11 +124,13 @@ export default function PortalNav({
         return [
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/roster", label: "Roster" },
+          { href: "/portal/roster/leaders", label: "Committee & Leaders" },
         ];
       case "PHOTOGRAPHER":
         return [
           { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/roster", label: "Roster" },
+          { href: "/portal/roster/leaders", label: "Committee & Leaders" },
         ];
       case "PARENT":
         return [{ href: "/portal/parent", label: "Dashboard" }];
@@ -132,6 +143,7 @@ export default function PortalNav({
           { href: withDenId("/portal/den"), label: "My Den" },
           { href: withDenId("/portal/den/attendance"), label: "Attendance" },
           { href: "/portal/roster", label: "Roster" },
+          { href: "/portal/roster/leaders", label: "Committee & Leaders" },
           { href: withDenId("/portal/roster/family-view"), label: "Family View" },
         ];
     }

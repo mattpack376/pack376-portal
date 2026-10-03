@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { canViewParentContacts, requireRosterSession } from "@/lib/authorize";
+import { LEADER_CONTACT_ROLES, canViewParentContacts, requireRosterSession } from "@/lib/authorize";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
@@ -31,6 +31,13 @@ export default async function RosterPage() {
         <p style={{ fontSize: 17 }}>
           Every den, its leader(s), and its scouts — a clean master list, no advancement or attendance detail.
         </p>
+        {LEADER_CONTACT_ROLES.includes(session.role) && (
+          <p style={{ fontSize: 17 }}>
+            <Link href="/portal/roster/leaders" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
+              → Committee &amp; Leaders
+            </Link>
+          </p>
+        )}
         {canSeeParentContacts && (
           <p style={{ fontSize: 17 }}>
             <Link href="/portal/roster/parents" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>

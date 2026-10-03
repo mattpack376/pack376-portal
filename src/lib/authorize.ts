@@ -28,6 +28,10 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  *
  * Attendance Only, Photographer and Trip Viewer are narrower roles outside
  * this ladder; see their own guards below.
+ *
+ * The Committee & Leaders contact list is the one thing every staff level can
+ * see — read-only for everyone but an Admin, who edits it (requireAdminSession
+ * on the Manage page). Parent and Trip Viewer logins never see it.
  */
 
 type Session = SessionPayload;
@@ -367,6 +371,30 @@ export async function requireEventsViewSession(): Promise<SessionPayload> {
 export async function requireRosterSession(): Promise<SessionPayload> {
   const session = await requireSession();
   if (session.role === "PARENT") redirect(homeForRole(session.role));
+  return session;
+}
+
+/**
+ * For Server Components / pages: the Committee & Leaders contact list — every
+ * staff level (Admin, Junior Admin, Committee Member, Den Leader, Attendance
+ * Only, Photographer), view-only except through the Admin-only Manage page.
+ * Spelled out role by role rather than "not a PARENT" like the roster, since
+ * this is people's personal phone numbers and email addresses and the shared
+ * Trip Viewer login mustn't see them. Mirrors the /portal/roster rule in
+ * src/proxy.ts.
+ */
+export const LEADER_CONTACT_ROLES: SessionPayload["role"][] = [
+  "ADMIN",
+  "JUNIOR_ADMIN",
+  "COMMITTEE",
+  "DEN",
+  "ATTENDANCE_ADMIN",
+  "PHOTOGRAPHER",
+];
+
+export async function requireLeaderContactsSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (!LEADER_CONTACT_ROLES.includes(session.role)) redirect(homeForRole(session.role));
   return session;
 }
 
