@@ -4,6 +4,8 @@ import { getAdultLeaderMeetingDetail } from "@/lib/adultLeaderAttendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { getSession } from "@/lib/auth";
 import { canResetLeaderAttendance } from "@/lib/authorize";
+import { canEditMeetingAttendance, isAttendanceLocked } from "@/lib/attendanceLock";
+import AttendanceLockNotice from "@/components/AttendanceLockNotice";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import LeaderAttendanceControl from "@/components/LeaderAttendanceControl";
 import MarkAllLeadersPresentButton from "@/components/MarkAllLeadersPresentButton";
@@ -19,9 +21,11 @@ export default async function AdminLeaderMeetingAttendancePage({
   const { meetingDateId } = await params;
   const [data, session] = await Promise.all([getAdultLeaderMeetingDetail(meetingDateId), getSession()]);
   if (!data) notFound();
-  const canReset = !!session && canResetLeaderAttendance(session);
-
   const { meeting, eventLabel, scoutingYear, sections } = data;
+  // Past noon the day after the meeting, only Admins can edit — see attendanceLock.ts.
+  const canEdit = !!session && canEditMeetingAttendance(session.role, meeting.date);
+  const meetingLocked = isAttendanceLocked(meeting.date);
+  const canReset = canEdit && !!session && canResetLeaderAttendance(session);
   const cancelled = meeting.status === "NO_MEETING";
   const listedCount = sections.reduce((sum, s) => sum + s.leaders.length, 0);
 
@@ -35,12 +39,13 @@ export default async function AdminLeaderMeetingAttendancePage({
           <h2>{formatMeetingDate(meeting.date, eventLabel)}</h2>
           <p>{scoutingYear} — leaders &amp; committee.</p>
         </div>
-        <MeetingStatusToggle meetingDateId={meeting.id} status={meeting.status} />
+        {canEdit && <MeetingStatusToggle meetingDateId={meeting.id} status={meeting.status} />}
       </div>
 
       <AttendanceSubNav active="leaders" meetingDateId={meeting.id} />
 
-      <MeetingLabelForm meetingDateId={meeting.id} label={meeting.label} />
+      {canEdit && <MeetingLabelForm meetingDateId={meeting.id} label={meeting.label} />}
+      <AttendanceLockNotice meetingDate={meeting.date} locked={!canEdit} lockedForOthers={canEdit && meetingLocked} />
 
       {cancelled ? (
         <div className="info-card">This meeting was cancelled — no attendance to take.</div>
@@ -48,9 +53,9 @@ export default async function AdminLeaderMeetingAttendancePage({
         <div className="info-card">Nobody is on the leader &amp; committee list yet.</div>
       ) : (
         <>
-          {(listedCount > 1 || canReset) && (
+          {((canEdit && listedCount > 1) || canReset) && (
             <div style={{ marginBottom: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {listedCount > 1 && <MarkAllLeadersPresentButton meetingDateId={meeting.id} />}
+              {canEdit && listedCount > 1 && <MarkAllLeadersPresentButton meetingDateId={meeting.id} />}
               {canReset && <ResetLeaderAttendanceButton meetingDateId={meeting.id} />}
             </div>
           )}
@@ -81,6 +86,7 @@ export default async function AdminLeaderMeetingAttendancePage({
                         initialPresent={leader.present}
                         updatedAt={leader.updatedAt}
                         updatedByUsername={leader.updatedByUsername}
+                        locked={!canEdit}
                       />
                     ))}
                   </div>

@@ -15,6 +15,7 @@ export default function LeaderAttendanceControl({
   initialPresent,
   updatedAt,
   updatedByUsername,
+  locked = false,
 }: {
   adultLeaderId: string;
   meetingDateId: string;
@@ -25,6 +26,8 @@ export default function LeaderAttendanceControl({
   initialPresent: boolean | null;
   updatedAt?: Date | null;
   updatedByUsername?: string | null;
+  /** Past the lock and not an Admin: shown, but not editable. */
+  locked?: boolean;
 }) {
   const [present, setPresent] = useState<boolean | null>(initialPresent);
   const [isPending, startTransition] = useTransition();
@@ -34,7 +37,11 @@ export default function LeaderAttendanceControl({
     setPresent(value);
     startTransition(async () => {
       const result = await setAdultLeaderAttendanceAction(adultLeaderId, meetingDateId, value);
-      if (!result.ok) setPresent(prev);
+      if (!result.ok) {
+        setPresent(prev);
+        // e.g. the lock arrived while this page was open — say so rather than silently undoing the click.
+        if ("error" in result && result.error) window.alert(result.error);
+      }
     });
   }
 
@@ -57,12 +64,12 @@ export default function LeaderAttendanceControl({
         )}
         {positions.length > 0 && <span className="attendance-detail">{formatPositions(positions)}</span>}
       </div>
-      <div className="attendance-buttons">
+      <div className={`attendance-buttons${locked ? " att-locked" : ""}`}>
         <button
           type="button"
           className={`att-btn att-present${present === true ? " active" : ""}`}
           onClick={() => handleSet(true)}
-          disabled={isPending}
+          disabled={isPending || locked}
         >
           Present
         </button>
@@ -70,7 +77,7 @@ export default function LeaderAttendanceControl({
           type="button"
           className={`att-btn att-absent${present === false ? " active" : ""}`}
           onClick={() => handleSet(false)}
-          disabled={isPending}
+          disabled={isPending || locked}
         >
           Absent
         </button>

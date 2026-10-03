@@ -6,7 +6,8 @@ import { getSession } from "@/lib/auth";
 import { assertAttendanceAccess, assertAttendanceDenAccess, canResetDenAttendance } from "@/lib/authorize";
 import { denDisplayName } from "@/lib/rankConfig";
 import { recordAudit, auditDate, EMPTY } from "@/lib/audit";
-import { meetingIsSchedulable, meetingLabel } from "@/lib/attendanceData";
+import { attendanceLockedFor, meetingIsSchedulable, meetingLabel } from "@/lib/attendanceData";
+import { ATTENDANCE_LOCKED_MESSAGE } from "@/lib/attendanceLock";
 import { MEETING_LABEL_MAX_LENGTH } from "@/lib/meetingLabel";
 
 export async function setAttendanceAction(scoutId: string, meetingDateId: string, present: boolean) {
@@ -23,6 +24,10 @@ export async function setAttendanceAction(scoutId: string, meetingDateId: string
     assertAttendanceDenAccess(session, scout.denId);
   } catch {
     return { ok: false as const };
+  }
+
+  if (await attendanceLockedFor(session.role, meetingDateId)) {
+    return { ok: false as const, error: ATTENDANCE_LOCKED_MESSAGE };
   }
 
   if (!(await meetingIsSchedulable(meetingDateId))) {
@@ -75,6 +80,10 @@ export async function markDenPresentAction(denId: string, meetingDateId: string)
     return { ok: false as const };
   }
 
+  if (await attendanceLockedFor(session.role, meetingDateId)) {
+    return { ok: false as const, error: ATTENDANCE_LOCKED_MESSAGE };
+  }
+
   if (!(await meetingIsSchedulable(meetingDateId))) {
     return { ok: false as const, error: "This meeting has been cancelled." };
   }
@@ -117,6 +126,10 @@ export async function resetDenAttendanceAction(denId: string, meetingDateId: str
     return { ok: false as const };
   }
 
+  if (await attendanceLockedFor(session.role, meetingDateId)) {
+    return { ok: false as const, error: ATTENDANCE_LOCKED_MESSAGE };
+  }
+
   const { count } = await prisma.attendance.deleteMany({
     where: { meetingDateId, scout: { denId } },
   });
@@ -145,6 +158,10 @@ export async function setMeetingStatusAction(meetingDateId: string, status: "SCH
     assertAttendanceAccess(session);
   } catch {
     return { ok: false as const };
+  }
+
+  if (await attendanceLockedFor(session.role, meetingDateId)) {
+    return { ok: false as const, error: ATTENDANCE_LOCKED_MESSAGE };
   }
 
   const before = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { status: true, date: true } });
@@ -190,6 +207,7 @@ export async function setMeetingLabelAction(meetingDateId: string, formData: For
   const session = await getSession();
   if (!session) throw new Error("Not signed in.");
   assertAttendanceAccess(session);
+  if (await attendanceLockedFor(session.role, meetingDateId)) throw new Error(ATTENDANCE_LOCKED_MESSAGE);
 
   const label = String(formData.get("label") ?? "")
     .replace(/\s+/g, " ")

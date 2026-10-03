@@ -10,7 +10,8 @@ import {
   canResetLeaderAttendance,
 } from "@/lib/authorize";
 import { leadersListedForMeeting } from "@/lib/adultLeaderAttendanceData";
-import { meetingIsSchedulable, meetingLabel } from "@/lib/attendanceData";
+import { attendanceLockedFor, meetingIsSchedulable, meetingLabel } from "@/lib/attendanceData";
+import { ATTENDANCE_LOCKED_MESSAGE } from "@/lib/attendanceLock";
 import { ADULT_LEADER_SECTION_LABELS, formatPositions, isAdultLeaderSection } from "@/lib/adultLeaderSections";
 import { recordAudit, changedFields, EMPTY, type AuditDetail } from "@/lib/audit";
 import { formatPhoneNumber } from "@/lib/phone";
@@ -47,6 +48,10 @@ export async function setAdultLeaderAttendanceAction(adultLeaderId: string, meet
     select: { name: true, active: true },
   });
   if (!leader) return { ok: false as const };
+
+  if (await attendanceLockedFor(session.role, meetingDateId)) {
+    return { ok: false as const, error: ATTENDANCE_LOCKED_MESSAGE };
+  }
 
   if (!(await meetingIsSchedulable(meetingDateId))) {
     return { ok: false as const, error: "This meeting has been cancelled." };
@@ -101,6 +106,10 @@ export async function markAllAdultLeadersPresentAction(meetingDateId: string) {
     return { ok: false as const };
   }
 
+  if (await attendanceLockedFor(session.role, meetingDateId)) {
+    return { ok: false as const, error: ATTENDANCE_LOCKED_MESSAGE };
+  }
+
   if (!(await meetingIsSchedulable(meetingDateId))) {
     return { ok: false as const, error: "This meeting has been cancelled." };
   }
@@ -137,6 +146,10 @@ export async function resetAdultLeaderAttendanceAction(meetingDateId: string) {
   if (!session) return { ok: false as const };
   if (!canResetLeaderAttendance(session)) {
     return { ok: false as const };
+  }
+
+  if (await attendanceLockedFor(session.role, meetingDateId)) {
+    return { ok: false as const, error: ATTENDANCE_LOCKED_MESSAGE };
   }
 
   const { count } = await prisma.adultLeaderAttendance.deleteMany({ where: { meetingDateId } });

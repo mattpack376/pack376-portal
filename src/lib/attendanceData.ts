@@ -3,12 +3,24 @@ import { prisma } from "@/lib/prisma";
 import { ensureMeetingDates, fridaysForScoutingYear, scoutingYearForDate } from "@/lib/attendanceSchedule";
 import { RANK_ORDER } from "@/lib/rankConfig";
 import { auditDate } from "@/lib/audit";
+import { canEditMeetingAttendance } from "@/lib/attendanceLock";
 import type { Rank } from "@/generated/prisma/enums";
 
 /** Whether attendance can be marked for this meeting — false for a No Meeting day or an id that doesn't exist. */
 export async function meetingIsSchedulable(meetingDateId: string) {
   const meeting = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { status: true } });
   return !!meeting && meeting.status === "SCHEDULED";
+}
+
+/**
+ * True when this meeting's attendance has locked (noon the day after) and the
+ * login isn't an Admin — see attendanceLock.ts. Every write path asks this, so
+ * the lock can't be sidestepped by an open page or a hand-built request. An id
+ * that doesn't exist reads as not locked; the callers' other checks reject it.
+ */
+export async function attendanceLockedFor(role: string, meetingDateId: string) {
+  const meeting = await prisma.meetingDate.findUnique({ where: { id: meetingDateId }, select: { date: true } });
+  return !!meeting && !canEditMeetingAttendance(role, meeting.date);
 }
 
 /** The meeting's date as audit text; falls back to the id if the row vanished mid-request. */

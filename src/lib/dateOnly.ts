@@ -6,7 +6,7 @@
  * <input type="date"> speaks, so nothing has to round-trip through a Date.
  */
 
-const PACK_TIME_ZONE = "America/New_York";
+export const PACK_TIME_ZONE = "America/New_York";
 
 /** A stored date-only value as YYYY-MM-DD, ready for <input type="date">. */
 export function toDateOnlyString(date: Date): string;

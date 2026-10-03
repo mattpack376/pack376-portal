@@ -5,7 +5,9 @@ import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { RANK_INFO } from "@/lib/rankConfig";
 import { getSession } from "@/lib/auth";
 import { canAccessLeaderAttendance, canResetDenAttendance } from "@/lib/authorize";
+import { canEditMeetingAttendance, isAttendanceLocked } from "@/lib/attendanceLock";
 import AttendanceControl from "@/components/AttendanceControl";
+import AttendanceLockNotice from "@/components/AttendanceLockNotice";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import MarkAllPresentButton from "@/components/MarkAllPresentButton";
 import MeetingLabelForm from "@/components/MeetingLabelForm";
@@ -20,9 +22,11 @@ export default async function AdminMeetingAttendancePage({
   const { meetingDateId } = await params;
   const [data, session] = await Promise.all([getMeetingDetailForAdmin(meetingDateId), getSession()]);
   if (!data) notFound();
-  const canReset = !!session && canResetDenAttendance(session);
-
   const { meeting, eventLabel, scoutingYear, dens } = data;
+  // Past noon the day after the meeting, only Admins can edit — see attendanceLock.ts.
+  const canEdit = !!session && canEditMeetingAttendance(session.role, meeting.date);
+  const meetingLocked = isAttendanceLocked(meeting.date);
+  const canReset = canEdit && !!session && canResetDenAttendance(session);
   const cancelled = meeting.status === "NO_MEETING";
 
   return (
@@ -35,14 +39,15 @@ export default async function AdminMeetingAttendancePage({
           <h2>{formatMeetingDate(meeting.date, eventLabel)}</h2>
           <p>{scoutingYear} — every den, in one place.</p>
         </div>
-        <MeetingStatusToggle meetingDateId={meeting.id} status={meeting.status} />
+        {canEdit && <MeetingStatusToggle meetingDateId={meeting.id} status={meeting.status} />}
       </div>
 
       {session && canAccessLeaderAttendance(session) && (
         <AttendanceSubNav active="scouts" meetingDateId={meeting.id} />
       )}
 
-      <MeetingLabelForm meetingDateId={meeting.id} label={meeting.label} />
+      {canEdit && <MeetingLabelForm meetingDateId={meeting.id} label={meeting.label} />}
+      <AttendanceLockNotice meetingDate={meeting.date} locked={!canEdit} lockedForOthers={canEdit && meetingLocked} />
 
       {cancelled ? (
         <div className="info-card">This meeting was cancelled — no attendance to take.</div>
@@ -70,9 +75,9 @@ export default async function AdminMeetingAttendancePage({
                     {den.scouts.length === 0 ? "No scouts" : `${presentCount}/${den.scouts.length} present`}
                   </span>
                 </div>
-                {(den.scouts.length > 1 || canReset) && (
+                {((canEdit && den.scouts.length > 1) || canReset) && (
                   <div style={{ margin: "10px 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {den.scouts.length > 1 && <MarkAllPresentButton denId={den.id} meetingDateId={meeting.id} />}
+                    {canEdit && den.scouts.length > 1 && <MarkAllPresentButton denId={den.id} meetingDateId={meeting.id} />}
                     {canReset && den.scouts.length > 0 && (
                       <ResetDenAttendanceButton
                         denId={den.id}
@@ -94,6 +99,7 @@ export default async function AdminMeetingAttendancePage({
                       initialPresent={scout.present}
                       updatedAt={scout.updatedAt}
                       updatedByUsername={scout.updatedByUsername}
+                      locked={!canEdit}
                     />
                   ))}
                 </div>
