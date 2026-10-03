@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { todayUtc } from "@/lib/dateOnly";
-import { scoutingYearForDate, ensureMeetingDates, formatMeetingDate } from "@/lib/attendanceSchedule";
+import { scoutingYearForDate, ensureMeetingDates, formatMeetingDate, isFridayMeeting } from "@/lib/attendanceSchedule";
 import { getScoutDuesDetail } from "@/lib/duesData";
 import {
   getScoutEventBalances,
@@ -21,15 +21,18 @@ export async function getParentDashboardData(scoutIds: string[], userId: string)
     // Non-fatal: "next meeting" below just comes back empty.
   }
 
-  const [scouts, nextMeeting, announcements, deadlines, volunteerNeeds] = await Promise.all([
+  const [scouts, upcomingMeetings, announcements, deadlines, volunteerNeeds] = await Promise.all([
     prisma.scout.findMany({
       where: { id: { in: scoutIds } },
       include: { den: true, photoConsent: true },
       orderBy: [{ firstName: "asc" }],
     }),
-    prisma.meetingDate.findFirst({
+    // A few, not one: Scout Sundays share this table, and the card below is
+    // about the weekly Friday meeting.
+    prisma.meetingDate.findMany({
       where: { date: { gte: today }, status: "SCHEDULED" },
       orderBy: { date: "asc" },
+      take: 10,
     }),
     prisma.announcement.findMany({
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
@@ -45,6 +48,8 @@ export async function getParentDashboardData(scoutIds: string[], userId: string)
       orderBy: { createdAt: "desc" },
     }),
   ]);
+
+  const nextMeeting = upcomingMeetings.find((m) => isFridayMeeting(m.date)) ?? null;
 
   const [duesByScout, eventBalances, guestGroupBalances, openEvents, upcomingEvents] = await Promise.all([
     Promise.all(scouts.map((s) => getScoutDuesDetail(s.id))),

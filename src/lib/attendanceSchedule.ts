@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { MEETING_LABEL_MAX_LENGTH } from "@/lib/meetingLabel";
 
 /**
  * All date math here must stay UTC-only (Date.UTC / getUTCDay / setUTCDate).
@@ -22,11 +23,15 @@ export function parseScoutingYear(scoutingYear: string): { startYear: number; en
   return { startYear, endYear };
 }
 
+/** Sept 1 of startYear through June 30 of endYear, inclusive — the span a season's meetings fall in. */
+export function attendanceWindowForScoutingYear(scoutingYear: string): { start: Date; end: Date } {
+  const { startYear, endYear } = parseScoutingYear(scoutingYear);
+  return { start: new Date(Date.UTC(startYear, 8, 1)), end: new Date(Date.UTC(endYear, 5, 30)) };
+}
+
 /** Every Friday from Sept 1 of startYear through June 30 of endYear, inclusive. */
 export function fridaysForScoutingYear(scoutingYear: string): Date[] {
-  const { startYear, endYear } = parseScoutingYear(scoutingYear);
-  const start = new Date(Date.UTC(startYear, 8, 1)); // Sept 1
-  const end = new Date(Date.UTC(endYear, 5, 30)); // June 30
+  const { start, end } = attendanceWindowForScoutingYear(scoutingYear);
 
   const first = new Date(start);
   first.setUTCDate(first.getUTCDate() + ((5 - first.getUTCDay() + 7) % 7));
@@ -39,16 +44,83 @@ export function fridaysForScoutingYear(scoutingYear: string): Date[] {
 }
 
 /**
+ * A regular weekly meeting, as opposed to a date the calendar adds (Scout
+ * Sunday). Anything that means "the Friday meeting" — like the parent
+ * dashboard's "next meeting" — has to ask this, since both kinds of date share
+ * the MeetingDate table.
+ */
+export function isFridayMeeting(date: Date): boolean {
+  return date.getUTCDay() === 5;
+}
+
+const isoDay = (date: Date) => date.toISOString().slice(0, 10);
+
+/**
+ * The Scout Sundays on the public calendar for this season, each with the
+ * label its attendance date starts with (the event's own title, so "Scout
+ * Sunday · OLG Easter Fair" keeps its tail). Hidden events, ones with no firm
+ * date yet (TBD) and "either of two days" events are skipped: there's no one
+ * day to take attendance on.
+ */
+async function scoutSundaysForScoutingYear(scoutingYear: string): Promise<{ date: Date; label: string }[]> {
+  const { start, end } = attendanceWindowForScoutingYear(scoutingYear);
+  const events = await prisma.calendarEvent.findMany({
+    where: { category: "SCOUT_SUNDAY", visible: true, tbd: false, eitherDay: false, date: { gte: start, lte: end } },
+    select: { date: true, title: true },
+    orderBy: { date: "asc" },
+  });
+  const byDay = new Map<string, { date: Date; label: string }>();
+  for (const event of events) {
+    if (!event.date || byDay.has(isoDay(event.date))) continue;
+    const label = event.title.replace(/\s+/g, " ").trim().slice(0, MEETING_LABEL_MAX_LENGTH) || "Scout Sunday";
+    byDay.set(isoDay(event.date), { date: event.date, label });
+  }
+  return [...byDay.values()];
+}
+
+/**
  * Idempotent — safe to call on every attendance page load. Isolated here
  * (rather than inlined in a page) because every other data-loader in this app
  * is read-only; this is the one place that writes during a render path.
+ *
+ * Creates every Friday of the season, plus a date for each Scout Sunday on the
+ * calendar (labeled from the event). A date that already exists is left alone,
+ * so an edited label or a No Meeting is never overwritten.
  */
 export async function ensureMeetingDates(scoutingYear: string) {
-  const fridays = fridaysForScoutingYear(scoutingYear);
-  await prisma.meetingDate.createMany({
-    data: fridays.map((date) => ({ date })),
-    skipDuplicates: true,
-  });
+  const dates = new Map<string, { date: Date; label?: string }>();
+  for (const date of fridaysForScoutingYear(scoutingYear)) dates.set(isoDay(date), { date });
+  for (const sunday of await scoutSundaysForScoutingYear(scoutingYear)) {
+    if (!dates.has(isoDay(sunday.date))) dates.set(isoDay(sunday.date), sunday);
+  }
+  await prisma.meetingDate.createMany({ data: [...dates.values()], skipDuplicates: true });
+}
+
+/**
+ * The meetings to list for a season, oldest first: every Friday, the Scout
+ * Sundays still on the calendar, and any other date that already has
+ * attendance marked (so moving or deleting a calendar event never hides a
+ * record). A calendar date nobody marked that has since left the calendar just
+ * drops off — it's never deleted, because deleting would take marks with it.
+ * Callers run ensureMeetingDates first.
+ */
+export async function meetingDatesForYear(scoutingYear: string, options: { scheduledOnly?: boolean } = {}) {
+  const { start, end } = attendanceWindowForScoutingYear(scoutingYear);
+  const [rows, sundays] = await Promise.all([
+    prisma.meetingDate.findMany({
+      where: { date: { gte: start, lte: end }, ...(options.scheduledOnly ? { status: "SCHEDULED" as const } : {}) },
+      orderBy: { date: "asc" },
+      include: { _count: { select: { attendances: true, adultLeaderAttendances: true } } },
+    }),
+    scoutSundaysForScoutingYear(scoutingYear),
+  ]);
+  const onCalendar = new Set(sundays.map((s) => isoDay(s.date)));
+  return rows.filter(
+    (row) =>
+      isFridayMeeting(row.date) ||
+      onCalendar.has(isoDay(row.date)) ||
+      row._count.attendances + row._count.adultLeaderAttendances > 0
+  );
 }
 
 /** Derives the display scouting-year label for a given meeting date. */

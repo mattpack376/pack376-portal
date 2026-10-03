@@ -39,7 +39,7 @@ export default async function DenAttendancePage({
       <div className="section-head">
         <div className="eyebrow">Attendance</div>
         <h2>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h2>
-        <p>Weekly Friday meetings, September through June. Tap a date to take attendance.</p>
+        <p>Weekly Friday meetings, September through June, plus the Scout Sundays on the calendar. Tap a date to take attendance.</p>
       </div>
 
       <DenSwitcher denIds={session.denIds} currentDenId={denId} basePath="/portal/den/attendance" />

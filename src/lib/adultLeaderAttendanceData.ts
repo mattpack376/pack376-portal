@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { ensureMeetingDates, fridaysForScoutingYear, scoutingYearForDate } from "@/lib/attendanceSchedule";
+import { ensureMeetingDates, meetingDatesForYear, scoutingYearForDate } from "@/lib/attendanceSchedule";
 import { getAdminScoutingYears, type MeetingListItem } from "@/lib/attendanceData";
 import { ADULT_LEADER_SECTIONS, ADULT_LEADER_SECTION_LABELS } from "@/lib/adultLeaderSections";
 import { leaderContact } from "@/lib/adultLeaderContact";
@@ -31,13 +31,9 @@ export type LeaderMeetingListItem = MeetingListItem & { listedCount: number };
 
 export async function getAdultLeaderMeetingOverview(scoutingYear: string) {
   await ensureMeetingDates(scoutingYear);
-  const fridays = fridaysForScoutingYear(scoutingYear);
 
   const [dates, activeCount] = await Promise.all([
-    prisma.meetingDate.findMany({
-      where: { date: { gte: fridays[0], lte: fridays[fridays.length - 1] } },
-      orderBy: { date: "asc" },
-    }),
+    meetingDatesForYear(scoutingYear),
     prisma.adultLeader.count({ where: { active: true } }),
   ]);
 

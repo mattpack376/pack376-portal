@@ -23,7 +23,7 @@ export default async function AdminLeaderAttendancePage({
         <div>
           <div className="eyebrow">Attendance</div>
           <h2>Leaders &amp; Committee</h2>
-          <p>Same Friday meeting calendar as the scouts — a date marked No Meeting is cancelled here too.</p>
+          <p>Same meeting calendar as the scouts (Fridays plus Scout Sundays) — a date marked No Meeting is cancelled here too.</p>
         </div>
         <form style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <div className="form-field" style={{ marginBottom: 0 }}>

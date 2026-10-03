@@ -19,7 +19,7 @@ export default function MeetingStatusToggle({
     const next = cancelled ? "SCHEDULED" : "NO_MEETING";
     const confirmMsg = cancelled
       ? "Reactivate this meeting? Den leaders will be able to take attendance again."
-      : "Mark this Friday as No Meeting for the whole pack? Nobody will be able to take attendance for this date.";
+      : "Mark this date as No Meeting for the whole pack? Nobody will be able to take attendance for this date.";
     if (!window.confirm(confirmMsg)) return;
     startTransition(async () => {
       await setMeetingStatusAction(meetingDateId, next);

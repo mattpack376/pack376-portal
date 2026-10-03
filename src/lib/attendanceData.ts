@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { ensureMeetingDates, fridaysForScoutingYear, scoutingYearForDate } from "@/lib/attendanceSchedule";
+import { ensureMeetingDates, meetingDatesForYear, scoutingYearForDate } from "@/lib/attendanceSchedule";
 import { RANK_ORDER } from "@/lib/rankConfig";
 import { auditDate } from "@/lib/audit";
 import { canEditMeetingAttendance } from "@/lib/attendanceLock";
@@ -51,13 +51,9 @@ export async function getDenAttendanceOverview(denId: string) {
   if (!den) return null;
 
   await ensureMeetingDates(den.scoutingYear);
-  const fridays = fridaysForScoutingYear(den.scoutingYear);
 
   const [dates, scouts] = await Promise.all([
-    prisma.meetingDate.findMany({
-      where: { date: { gte: fridays[0], lte: fridays[fridays.length - 1] } },
-      orderBy: { date: "asc" },
-    }),
+    meetingDatesForYear(den.scoutingYear),
     prisma.scout.findMany({ where: { denId }, select: { id: true } }),
   ]);
 
@@ -118,13 +114,9 @@ export async function getAdminScoutingYears() {
 
 export async function getAdminMeetingOverview(scoutingYear: string) {
   await ensureMeetingDates(scoutingYear);
-  const fridays = fridaysForScoutingYear(scoutingYear);
 
   const [dates, dens] = await Promise.all([
-    prisma.meetingDate.findMany({
-      where: { date: { gte: fridays[0], lte: fridays[fridays.length - 1] } },
-      orderBy: { date: "asc" },
-    }),
+    meetingDatesForYear(scoutingYear),
     prisma.den.findMany({ where: { scoutingYear }, include: { scouts: { select: { id: true } } } }),
   ]);
 

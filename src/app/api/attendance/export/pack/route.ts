@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAttendanceAccess } from "@/lib/authorize";
-import { fridaysForScoutingYear } from "@/lib/attendanceSchedule";
+import { meetingDatesForYear } from "@/lib/attendanceSchedule";
 import { buildAttendanceCsv, type AttendanceCsvRow } from "@/lib/attendanceCsv";
 
 export async function GET(request: NextRequest) {
@@ -18,11 +18,7 @@ export async function GET(request: NextRequest) {
   const scoutingYear = request.nextUrl.searchParams.get("scoutingYear");
   if (!scoutingYear) return new NextResponse("Missing scoutingYear query param.", { status: 400 });
 
-  const fridays = fridaysForScoutingYear(scoutingYear);
-  const dates = await prisma.meetingDate.findMany({
-    where: { date: { gte: fridays[0], lte: fridays[fridays.length - 1] }, status: "SCHEDULED" },
-    orderBy: { date: "asc" },
-  });
+  const dates = await meetingDatesForYear(scoutingYear, { scheduledOnly: true });
 
   const dens = await prisma.den.findMany({
     where: { scoutingYear },

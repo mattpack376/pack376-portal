@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertLeaderAttendanceAccess } from "@/lib/authorize";
-import { fridaysForScoutingYear } from "@/lib/attendanceSchedule";
+import { attendanceWindowForScoutingYear, meetingDatesForYear } from "@/lib/attendanceSchedule";
 import { buildAdultLeaderAttendanceCsv, type AdultLeaderAttendanceCsvRow } from "@/lib/attendanceCsv";
 
 export async function GET(request: NextRequest) {
@@ -18,17 +18,13 @@ export async function GET(request: NextRequest) {
   const scoutingYear = request.nextUrl.searchParams.get("scoutingYear");
   if (!scoutingYear) return new NextResponse("Missing scoutingYear query param.", { status: 400 });
 
-  let fridays: Date[];
   try {
-    fridays = fridaysForScoutingYear(scoutingYear);
+    attendanceWindowForScoutingYear(scoutingYear);
   } catch {
     return new NextResponse("Malformed scoutingYear query param.", { status: 400 });
   }
 
-  const dates = await prisma.meetingDate.findMany({
-    where: { date: { gte: fridays[0], lte: fridays[fridays.length - 1] }, status: "SCHEDULED" },
-    orderBy: { date: "asc" },
-  });
+  const dates = await meetingDatesForYear(scoutingYear, { scheduledOnly: true });
   const dateIds = dates.map((d) => d.id);
 
   // Everyone on the list now, plus anyone since removed who was marked at
