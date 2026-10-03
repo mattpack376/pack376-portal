@@ -32,7 +32,7 @@ export default async function DenMeetingAttendancePage({
   const data = await getMeetingDetailForDen(denId, meetingDateId);
   if (!data) notFound();
 
-  const { den, meeting, scouts } = data;
+  const { den, meeting, eventLabel, scouts } = data;
   const cancelled = meeting.status === "NO_MEETING";
 
   return (
@@ -41,7 +41,7 @@ export default async function DenMeetingAttendancePage({
         <div className="eyebrow">
           <Link href={`/portal/den/attendance?denId=${denId}`}>← All Meetings</Link>
         </div>
-        <h2>{formatMeetingDate(meeting.date)}</h2>
+        <h2>{formatMeetingDate(meeting.date, eventLabel)}</h2>
         <p>{denDisplayName(den.rank, den.scoutingYear, den.label)}</p>
       </div>
 

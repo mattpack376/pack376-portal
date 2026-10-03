@@ -66,12 +66,12 @@ export default async function AdminLeaderAttendancePage({
         {dates.map((m) =>
           m.status === "NO_MEETING" ? (
             <Link className="meeting-row no-meeting" href={`/portal/admin/attendance/leaders/${m.id}`} key={m.id}>
-              <span className="meeting-date-label">{formatMeetingDate(m.date)}</span>
+              <span className="meeting-date-label">{formatMeetingDate(m.date, m.eventLabel)}</span>
               <span className="badge-pill badge-cancelled">No Meeting</span>
             </Link>
           ) : (
             <Link className="meeting-row" href={`/portal/admin/attendance/leaders/${m.id}`} key={m.id}>
-              <span className="meeting-date-label">{formatMeetingDate(m.date)}</span>
+              <span className="meeting-date-label">{formatMeetingDate(m.date, m.eventLabel)}</span>
               <span className="meeting-summary">
                 {m.listedCount === 0 ? "Nobody on the list" : `${m.presentCount}/${m.listedCount} present`}
               </span>

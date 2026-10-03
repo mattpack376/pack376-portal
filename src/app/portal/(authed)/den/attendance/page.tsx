@@ -56,12 +56,12 @@ export default async function DenAttendancePage({
         {dates.map((m) =>
           m.status === "NO_MEETING" ? (
             <div className="meeting-row no-meeting" key={m.id}>
-              <span className="meeting-date-label">{formatMeetingDate(m.date)}</span>
+              <span className="meeting-date-label">{formatMeetingDate(m.date, m.eventLabel)}</span>
               <span className="badge-pill badge-cancelled">No Meeting</span>
             </div>
           ) : (
             <Link className="meeting-row" href={`/portal/den/attendance/${m.id}?denId=${denId}`} key={m.id}>
-              <span className="meeting-date-label">{formatMeetingDate(m.date)}</span>
+              <span className="meeting-date-label">{formatMeetingDate(m.date, m.eventLabel)}</span>
               <span className="meeting-summary">
                 {totalScouts === 0
                   ? "No scouts on roster"

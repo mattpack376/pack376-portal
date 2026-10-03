@@ -1,5 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { toDateOnlyString } from "@/lib/dateOnly";
+import { CAMP_CONRON_SLUG } from "@/lib/tripPageData";
 
 /**
  * All date math here must stay UTC-only (Date.UTC / getUTCDay / setUTCDate).
@@ -59,17 +61,36 @@ export function scoutingYearForDate(date: Date): string {
 }
 
 /**
- * Formats a stored meeting date for display. Must pin timeZone: "UTC" —
+ * Formats a stored meeting date for display, with an optional event label
+ * (see getMeetingEventLabels) appended. Must pin timeZone: "UTC" —
  * these are date-only values stored at UTC midnight, and the server process
  * may not itself run in UTC, so a naive toLocaleDateString() could render
  * the day before.
  */
-export function formatMeetingDate(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
+export function formatMeetingDate(date: Date, eventLabel?: string | null): string {
+  const formatted = new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
   }).format(date);
+  return eventLabel ? `${formatted} — ${eventLabel}` : formatted;
+}
+
+/**
+ * Friday meeting dates that are really a trip's departure day, as
+ * YYYY-MM-DD → label, so the attendance lists can say so. Read from the Camp
+ * Conron trip page's start date rather than hard-coded, so it follows the
+ * trip if the admin moves the dates.
+ */
+export async function getMeetingEventLabels(): Promise<Map<string, string>> {
+  const trip = await prisma.tripPage.findUnique({ where: { slug: CAMP_CONRON_SLUG }, select: { startDate: true } });
+  const labels = new Map<string, string>();
+  if (trip?.startDate) labels.set(toDateOnlyString(trip.startDate), "Camp Conron");
+  return labels;
+}
+
+export function eventLabelFor(labels: Map<string, string>, date: Date): string | null {
+  return labels.get(toDateOnlyString(date)) ?? null;
 }

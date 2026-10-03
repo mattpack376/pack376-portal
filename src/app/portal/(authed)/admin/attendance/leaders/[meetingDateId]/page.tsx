@@ -20,7 +20,7 @@ export default async function AdminLeaderMeetingAttendancePage({
   if (!data) notFound();
   const canReset = !!session && canResetLeaderAttendance(session);
 
-  const { meeting, scoutingYear, sections } = data;
+  const { meeting, eventLabel, scoutingYear, sections } = data;
   const cancelled = meeting.status === "NO_MEETING";
   const listedCount = sections.reduce((sum, s) => sum + s.leaders.length, 0);
 
@@ -31,7 +31,7 @@ export default async function AdminLeaderMeetingAttendancePage({
           <div className="eyebrow">
             <Link href={`/portal/admin/attendance/leaders?year=${encodeURIComponent(scoutingYear)}`}>← All Meetings</Link>
           </div>
-          <h2>{formatMeetingDate(meeting.date)}</h2>
+          <h2>{formatMeetingDate(meeting.date, eventLabel)}</h2>
           <p>{scoutingYear} — leaders &amp; committee.</p>
         </div>
         <MeetingStatusToggle meetingDateId={meeting.id} status={meeting.status} />

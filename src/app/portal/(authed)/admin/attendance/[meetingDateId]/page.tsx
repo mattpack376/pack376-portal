@@ -21,7 +21,7 @@ export default async function AdminMeetingAttendancePage({
   if (!data) notFound();
   const canReset = !!session && canResetDenAttendance(session);
 
-  const { meeting, scoutingYear, dens } = data;
+  const { meeting, eventLabel, scoutingYear, dens } = data;
   const cancelled = meeting.status === "NO_MEETING";
 
   return (
@@ -31,7 +31,7 @@ export default async function AdminMeetingAttendancePage({
           <div className="eyebrow">
             <Link href="/portal/admin/attendance">← All Meetings</Link>
           </div>
-          <h2>{formatMeetingDate(meeting.date)}</h2>
+          <h2>{formatMeetingDate(meeting.date, eventLabel)}</h2>
           <p>{scoutingYear} — every den, in one place.</p>
         </div>
         <MeetingStatusToggle meetingDateId={meeting.id} status={meeting.status} />

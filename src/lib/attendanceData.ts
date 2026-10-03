@@ -1,6 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { ensureMeetingDates, fridaysForScoutingYear, scoutingYearForDate } from "@/lib/attendanceSchedule";
+import {
+  ensureMeetingDates,
+  eventLabelFor,
+  fridaysForScoutingYear,
+  getMeetingEventLabels,
+  scoutingYearForDate,
+} from "@/lib/attendanceSchedule";
 import { RANK_ORDER } from "@/lib/rankConfig";
 import { auditDate } from "@/lib/audit";
 import type { Rank } from "@/generated/prisma/enums";
@@ -22,6 +28,8 @@ export type MeetingListItem = {
   date: Date;
   status: "SCHEDULED" | "NO_MEETING";
   presentCount: number;
+  /** Set when the date is also a trip departure, e.g. "Camp Conron". */
+  eventLabel: string | null;
 };
 
 function presentCountsByDate(attendances: { meetingDateId: string; present: boolean }[]) {
@@ -39,12 +47,13 @@ export async function getDenAttendanceOverview(denId: string) {
   await ensureMeetingDates(den.scoutingYear);
   const fridays = fridaysForScoutingYear(den.scoutingYear);
 
-  const [dates, scouts] = await Promise.all([
+  const [dates, scouts, eventLabels] = await Promise.all([
     prisma.meetingDate.findMany({
       where: { date: { gte: fridays[0], lte: fridays[fridays.length - 1] } },
       orderBy: { date: "asc" },
     }),
     prisma.scout.findMany({ where: { denId }, select: { id: true } }),
+    getMeetingEventLabels(),
   ]);
 
   const scoutIds = scouts.map((s) => s.id);
@@ -58,15 +67,17 @@ export async function getDenAttendanceOverview(denId: string) {
     date: d.date,
     status: d.status,
     presentCount: counts.get(d.id) ?? 0,
+    eventLabel: eventLabelFor(eventLabels, d.date),
   }));
 
   return { den, totalScouts: scoutIds.length, dates: items };
 }
 
 export async function getMeetingDetailForDen(denId: string, meetingDateId: string) {
-  const [den, meeting] = await Promise.all([
+  const [den, meeting, eventLabels] = await Promise.all([
     prisma.den.findUnique({ where: { id: denId } }),
     prisma.meetingDate.findUnique({ where: { id: meetingDateId } }),
+    getMeetingEventLabels(),
   ]);
   if (!den || !meeting) return null;
 
@@ -84,6 +95,7 @@ export async function getMeetingDetailForDen(denId: string, meetingDateId: strin
   return {
     den,
     meeting,
+    eventLabel: eventLabelFor(eventLabels, meeting.date),
     scouts: scouts.map((s) => ({
       id: s.id,
       firstName: s.firstName,
@@ -104,12 +116,13 @@ export async function getAdminMeetingOverview(scoutingYear: string) {
   await ensureMeetingDates(scoutingYear);
   const fridays = fridaysForScoutingYear(scoutingYear);
 
-  const [dates, dens] = await Promise.all([
+  const [dates, dens, eventLabels] = await Promise.all([
     prisma.meetingDate.findMany({
       where: { date: { gte: fridays[0], lte: fridays[fridays.length - 1] } },
       orderBy: { date: "asc" },
     }),
     prisma.den.findMany({ where: { scoutingYear }, include: { scouts: { select: { id: true } } } }),
+    getMeetingEventLabels(),
   ]);
 
   const allScoutIds = dens.flatMap((d) => d.scouts.map((s) => s.id));
@@ -123,6 +136,7 @@ export async function getAdminMeetingOverview(scoutingYear: string) {
     date: d.date,
     status: d.status,
     presentCount: counts.get(d.id) ?? 0,
+    eventLabel: eventLabelFor(eventLabels, d.date),
   }));
 
   return { scoutingYear, totalScouts: allScoutIds.length, dates: items };
@@ -132,6 +146,7 @@ export async function getMeetingDetailForAdmin(meetingDateId: string) {
   const meeting = await prisma.meetingDate.findUnique({ where: { id: meetingDateId } });
   if (!meeting) return null;
   const scoutingYear = scoutingYearForDate(meeting.date);
+  const eventLabel = eventLabelFor(await getMeetingEventLabels(), meeting.date);
 
   const dens = await prisma.den.findMany({
     where: { scoutingYear },
@@ -151,6 +166,7 @@ export async function getMeetingDetailForAdmin(meetingDateId: string) {
 
   return {
     meeting,
+    eventLabel,
     scoutingYear,
     dens: dens.map((den) => ({
       id: den.id,
