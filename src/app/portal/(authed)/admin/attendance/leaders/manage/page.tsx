@@ -3,7 +3,11 @@ import SaveButton from "@/components/SaveButton";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/authorize";
 import { leaderContact } from "@/lib/adultLeaderContact";
-import { getAdultLeaderRoster } from "@/lib/adultLeaderAttendanceData";
+import {
+  getAdultLeaderRoster,
+  getLeaderContactList,
+  type LeaderContactSection,
+} from "@/lib/adultLeaderAttendanceData";
 import { ADULT_LEADER_SECTIONS, ADULT_LEADER_SECTION_LABELS, formatPositions } from "@/lib/adultLeaderSections";
 import {
   createAdultLeaderAction,
@@ -13,6 +17,8 @@ import {
 import DeleteAdultLeaderButton from "@/components/DeleteAdultLeaderButton";
 import type { AdultLeaderSection } from "@/generated/prisma/enums";
 import EditPopover from "@/components/EditPopover";
+import FileExportButton from "@/components/FileExportButton";
+import PrintButton from "@/components/PrintButton";
 import { formatPhoneNumber } from "@/lib/phone";
 
 type AccountOption = {
@@ -153,8 +159,86 @@ function LeaderFields({
   );
 }
 
-export default async function ManageAdultLeadersPage() {
+/**
+ * Printable View: one table per section, the section title and column
+ * headings in the <thead> so they repeat on every page a section spans, and
+ * each person in their own <tbody> so a row is never split — the same layout
+ * (and .print-roster-table styles) as the Parent Contacts printable view.
+ */
+async function PrintableLeaders() {
+  const sections: LeaderContactSection[] = (await getLeaderContactList()).filter((s) => s.people.length > 0);
+  const generated = new Date().toLocaleDateString("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  return (
+    <>
+      <div className="section-head">
+        <div className="eyebrow no-print">
+          <Link href="/portal/admin/attendance/leaders/manage">← Exit Printable View</Link>
+        </div>
+        <h2>Committee &amp; Leaders Contact Information</h2>
+        <p style={{ fontSize: 17 }}>Printable list · generated {generated}</p>
+        <p style={{ fontSize: 15, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <PrintButton />
+          <FileExportButton href="/api/leaders/export/pdf" label="Download PDF" className="btn btn-quiet no-print" />
+        </p>
+      </div>
+
+      {sections.length === 0 && <div className="info-card">Nobody is on the list yet.</div>}
+
+      {sections.map(({ section, label, people }) => (
+        <table className="print-roster-table" key={section}>
+          <colgroup>
+            <col style={{ width: "26%" }} />
+            <col style={{ width: "26%" }} />
+            <col style={{ width: "30%" }} />
+            <col style={{ width: "18%" }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th colSpan={4} className="print-den-title">
+                {label}
+                <span className="print-den-count">
+                  {people.length} {people.length === 1 ? "person" : "people"}
+                </span>
+              </th>
+            </tr>
+            <tr>
+              <th>Name</th>
+              <th>Positions</th>
+              <th>Email</th>
+              <th>Phone</th>
+            </tr>
+          </thead>
+          {people.map((person) => (
+            <tbody key={person.id}>
+              <tr>
+                <td>{person.name}</td>
+                <td>{formatPositions(person.positions) || "—"}</td>
+                <td>{person.email || "—"}</td>
+                <td>{person.phone ? formatPhoneNumber(person.phone) : "—"}</td>
+              </tr>
+            </tbody>
+          ))}
+        </table>
+      ))}
+    </>
+  );
+}
+
+export default async function ManageAdultLeadersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   await requireAdminSession();
+  const { view } = await searchParams;
+  if (view === "print") return <PrintableLeaders />;
+
   const [roster, accounts] = await Promise.all([
     getAdultLeaderRoster(),
     // Anyone who signs in as themselves can be linked; a Parent Portal login
@@ -184,6 +268,21 @@ export default async function ManageAdultLeadersPage() {
           when you use Email Everyone on the Admin Dashboard. If someone does have a login, link it
           (<strong>Portal account</strong> when you add or edit them) and their email and phone are read from the
           account, so the same details aren&apos;t kept in two places.
+        </p>
+        <p style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <Link href="/portal/admin/attendance/leaders/manage?view=print" className="btn btn-quiet btn-small no-print">
+            Printable View
+          </Link>
+          <FileExportButton
+            href="/api/leaders/export"
+            label="Export Contact List (CSV)"
+            className="btn btn-quiet btn-small no-print"
+          />
+          <FileExportButton
+            href="/api/leaders/export/pdf"
+            label="Export Contact List (PDF)"
+            className="btn btn-quiet btn-small no-print"
+          />
         </p>
       </div>
 

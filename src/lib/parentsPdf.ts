@@ -60,7 +60,7 @@ type Fonts = { regular: PDFFont; bold: PDFFont; italic: PDFFont };
 type ScoutBlock = { rows: { cells: string[][]; height: number; muted?: boolean }[]; height: number };
 
 /** Drops characters the built-in Helvetica can't draw (it would throw) rather than failing the export. */
-function makeSafe(font: PDFFont) {
+export function makeSafe(font: PDFFont) {
   const supported = new Set(font.getCharacterSet());
   return (text: string) =>
     Array.from(text)
@@ -73,7 +73,7 @@ function makeSafe(font: PDFFont) {
  * broken after its last "@", ".", "-" or "_" that fits, or by character if it
  * has none.
  */
-function wrap(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+export function wrap(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
   let line = "";
   for (const word of text.split(/\s+/).filter(Boolean)) {
@@ -103,7 +103,7 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number): stri
   return lines.length ? lines : [""];
 }
 
-/** Same download headers as the parent-contact CSV routes: private, uncached, saved as a file. */
+/** Same download headers as the parent-contact CSV routes: private, uncached, saved as a file. Also used by leadersPdf.ts. */
 export function parentsPdfResponse(bytes: Uint8Array, filename: string): Response {
   return new Response(Buffer.from(bytes), {
     headers: {
@@ -115,7 +115,7 @@ export function parentsPdfResponse(bytes: Uint8Array, filename: string): Respons
   });
 }
 
-function longDate(now: Date) {
+export function longDate(now: Date) {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: PACK_TIME_ZONE,
     year: "numeric",

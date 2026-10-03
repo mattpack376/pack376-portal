@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { ensureMeetingDates, fridaysForScoutingYear, scoutingYearForDate } from "@/lib/attendanceSchedule";
 import { getAdminScoutingYears, type MeetingListItem } from "@/lib/attendanceData";
 import { ADULT_LEADER_SECTIONS, ADULT_LEADER_SECTION_LABELS } from "@/lib/adultLeaderSections";
+import { leaderContact } from "@/lib/adultLeaderContact";
+import type { AdultLeaderSection } from "@/generated/prisma/enums";
 
 /**
  * Who a meeting lists: everyone active now, plus anyone since removed who was
@@ -109,4 +111,33 @@ export async function getAdultLeaderRoster() {
       user: { select: { id: true, username: true, displayName: true, email: true, phone: true } },
     },
   });
+}
+
+export type LeaderContactSection = {
+  section: AdultLeaderSection;
+  label: string;
+  people: { id: string; name: string; positions: string[]; email: string | null; phone: string | null }[];
+};
+
+/**
+ * The contact list behind every Leaders & Committee export (CSV, PDF and the
+ * Printable View): everyone currently on the list, a section at a time in the
+ * order the tracker shows them, with email and phone resolved through the
+ * linked portal login when there is one (see adultLeaderContact.ts). People
+ * taken off the list are left out. Empty sections are kept so a caller can say
+ * "nobody yet" if it wants to; the exports drop them.
+ */
+export async function getLeaderContactList(): Promise<LeaderContactSection[]> {
+  const leaders = await prisma.adultLeader.findMany({
+    where: { active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    include: { user: { select: { email: true, phone: true } } },
+  });
+  return ADULT_LEADER_SECTIONS.map((section) => ({
+    section,
+    label: ADULT_LEADER_SECTION_LABELS[section],
+    people: leaders
+      .filter((l) => l.section === section)
+      .map((l) => ({ id: l.id, name: l.name, positions: l.positions, ...leaderContact(l) })),
+  }));
 }
