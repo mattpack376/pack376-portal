@@ -81,11 +81,6 @@ function LeaderFields({
   );
 }
 
-/** "jane@example.com · (718)555-0123" under a name, skipping whichever is blank. */
-function contactLine(leader: { email: string | null; phone: string | null }) {
-  return [leader.email, leader.phone ? formatPhoneNumber(leader.phone) : null].filter(Boolean).join(" · ");
-}
-
 export default async function ManageAdultLeadersPage() {
   await requireAdminSession();
   const roster = await getAdultLeaderRoster();
@@ -129,34 +124,54 @@ export default async function ManageAdultLeadersPage() {
                 {people.length} {people.length === 1 ? "person" : "people"}
               </span>
             </div>
-            <div className="attendance-card">
-              {people.length === 0 && <p style={{ padding: "12px 0" }}>Nobody in this section yet.</p>}
-              {people.map((leader) => (
-                <div className="attendance-row" key={leader.id}>
-                  <div>
-                    <span className="attendance-name">{leader.name}</span>
-                    {leader.positions.length > 0 && (
-                      <span className="attendance-detail">{formatPositions(leader.positions)}</span>
-                    )}
-                    {contactLine(leader) && <span className="attendance-detail">{contactLine(leader)}</span>}
-                  </div>
-                  <div className="attendance-buttons">
-                    <EditPopover action={updateAdultLeaderAction}>
-                      <input type="hidden" name="id" value={leader.id} />
-                      <LeaderFields idPrefix={`leader-${leader.id}`} leader={leader} />
-                      <SaveButton className="btn btn-primary btn-small">Save Changes</SaveButton>
-                    </EditPopover>
-                    <form action={setAdultLeaderActiveAction}>
-                      <input type="hidden" name="id" value={leader.id} />
-                      <input type="hidden" name="active" value="false" />
-                      <button type="submit" className="btn btn-quiet btn-small">
-                        Remove
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {people.length === 0 ? (
+              <div className="attendance-card">
+                <p style={{ padding: "12px 0" }}>Nobody in this section yet.</p>
+              </div>
+            ) : (
+              // No .table-scroll wrapper, and has-popovers: both would otherwise
+              // clip each row's Edit popover to the table.
+              <table className="data-table has-popovers" style={{ marginBottom: 0 }}>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {people.map((leader) => (
+                    <tr key={leader.id}>
+                      <td>
+                        <span className="attendance-name">{leader.name}</span>
+                        {leader.positions.length > 0 && (
+                          <span className="attendance-detail">{formatPositions(leader.positions)}</span>
+                        )}
+                      </td>
+                      <td data-label="Email" style={{ overflowWrap: "anywhere" }}>
+                        {leader.email ? <a href={`mailto:${leader.email}`}>{leader.email}</a> : "—"}
+                      </td>
+                      <td data-label="Phone">{leader.phone ? formatPhoneNumber(leader.phone) : "—"}</td>
+                      <td className="actions">
+                        <EditPopover action={updateAdultLeaderAction}>
+                          <input type="hidden" name="id" value={leader.id} />
+                          <LeaderFields idPrefix={`leader-${leader.id}`} leader={leader} />
+                          <SaveButton className="btn btn-primary btn-small">Save Changes</SaveButton>
+                        </EditPopover>
+                        <form action={setAdultLeaderActiveAction}>
+                          <input type="hidden" name="id" value={leader.id} />
+                          <input type="hidden" name="active" value="false" />
+                          <button type="submit" className="btn btn-quiet btn-small">
+                            Remove
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         );
       })}
