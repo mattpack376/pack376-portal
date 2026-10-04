@@ -21,6 +21,14 @@
 
 import type { CalendarCategory as DbCategory } from "@/generated/prisma/enums";
 
+/**
+ * The public calendar's absolute address, for links from the portal. A
+ * root-relative "/calendar" there resolves against portal.pack376nyc.org,
+ * which masks every path under /portal (see proxy.ts) and so 404s.
+ * calendar.pack376nyc.org redirects to the real page (next.config.ts).
+ */
+export const PUBLIC_CALENDAR_URL = "https://calendar.pack376nyc.org";
+
 export type CalendarCategory =
   | "camping"
   | "pack-night"

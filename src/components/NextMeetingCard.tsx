@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PUBLIC_CALENDAR_URL } from "@/lib/calendarData";
 
 export type NextMeetingCardData = {
   /** The next regular meeting, already formatted for display. */
@@ -39,9 +39,9 @@ export default function NextMeetingCard({ nextMeeting, wide = false }: { nextMee
       )}
       <p className="form-note" style={{ marginTop: 12 }}>
         Weekly meetings — Fridays, 7:30–9:30 PM, Veltri Hall, Our Lady of Grace.{" "}
-        <Link href="/calendar" style={{ fontWeight: 700, textDecoration: "underline" }}>
+        <a href={PUBLIC_CALENDAR_URL} style={{ fontWeight: 700, textDecoration: "underline" }}>
           See the full calendar →
-        </Link>
+        </a>
       </p>
     </div>
   );

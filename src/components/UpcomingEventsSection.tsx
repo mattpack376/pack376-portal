@@ -1,6 +1,5 @@
-import Link from "next/link";
 import EventFlyer from "@/components/EventFlyer";
-import { CATEGORY_PILL } from "@/lib/calendarData";
+import { CATEGORY_PILL, PUBLIC_CALENDAR_URL } from "@/lib/calendarData";
 import { DEADLINE_CATEGORY_ICONS, DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
 import { calendarWhenLabel, type UpcomingItem } from "@/lib/parentUpcoming";
 
@@ -67,9 +66,9 @@ export default function UpcomingEventsSection({ items }: { items: UpcomingItem[]
       )}
       <p className="form-note" style={{ marginBottom: 32 }}>
         The next few from the pack calendar.{" "}
-        <Link href="/calendar" style={{ fontWeight: 700, textDecoration: "underline" }}>
+        <a href={PUBLIC_CALENDAR_URL} style={{ fontWeight: 700, textDecoration: "underline" }}>
           See the full calendar →
-        </Link>
+        </a>
       </p>
     </>
   );
