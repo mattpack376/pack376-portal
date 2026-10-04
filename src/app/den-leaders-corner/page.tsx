@@ -107,9 +107,10 @@ export default function DenLeadersCornerPage() {
                 <div className="corner-photo corner-photo-patch">
                   <Image src="/patches/den-leader.jpg" alt="Cub Scout Den Leader patch" width={88} height={88} />
                 </div>
-                <h3>Nicole Scivioli</h3>
+                <h3>Skylar Moeller</h3>
                 <div className="corner-role">Lion Den Leader</div>
-                <p className="corner-bio">Nicole leads our Lions, helping our newest scouts take their very first steps on the Cub Scout trail.</p>
+                <p className="corner-bio">Skylar leads our Lions, helping our newest scouts take their very first steps on the Cub Scout trail.</p>
+                <div className="corner-note">Also the Tiger Den Leader</div>
               </div>
             </div>
 
@@ -119,9 +120,10 @@ export default function DenLeadersCornerPage() {
                 <div className="corner-photo corner-photo-patch">
                   <Image src="/patches/den-leader.jpg" alt="Cub Scout Den Leader patch" width={88} height={88} />
                 </div>
-                <h3>Jeanne Drago</h3>
+                <h3>Skylar Moeller</h3>
                 <div className="corner-role">Tiger Den Leader</div>
-                <p className="corner-bio">Jeanne leads our Tigers, guiding scouts through their first hands-on adventures.</p>
+                <p className="corner-bio">Skylar leads our Tigers, guiding scouts through their first hands-on adventures.</p>
+                <div className="corner-note">Also the Lion Den Leader</div>
               </div>
             </div>
 
@@ -143,9 +145,9 @@ export default function DenLeadersCornerPage() {
                 <div className="corner-photo corner-photo-patch">
                   <Image src="/patches/den-leader.jpg" alt="Cub Scout Den Leader patch" width={88} height={88} />
                 </div>
-                <h3>Skylar Moeller</h3>
+                <h3>Nicole Scivioli</h3>
                 <div className="corner-role">Bear Den Leader</div>
-                <p className="corner-bio">Skylar leads our Bears, digging into science, cooking, and community adventures with our 3rd graders.</p>
+                <p className="corner-bio">Nicole leads our Bears, digging into science, cooking, and community adventures with our 3rd graders.</p>
               </div>
             </div>
 
