@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { requireCalendarSession } from "@/lib/authorize";
+import { requireAdminSession } from "@/lib/authorize";
 import CalendarEventForm from "@/components/CalendarEventForm";
 import { createCalendarEventAction } from "@/lib/actions/calendar";
 
 export default async function NewCalendarEventPage() {
-  await requireCalendarSession();
+  await requireAdminSession();
 
   return (
     <>

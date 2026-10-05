@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireCalendarSession } from "@/lib/authorize";
+import { requireAdminSession } from "@/lib/authorize";
 import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import CalendarEventForm from "@/components/CalendarEventForm";
@@ -12,9 +12,8 @@ import {
 } from "@/lib/actions/calendar";
 
 export default async function EditCalendarEventPage({ params }: { params: Promise<{ eventId: string }> }) {
-  const session = await requireCalendarSession();
-  // Junior Admin can edit and hide an event; deleting it is Admin's alone.
-  const canDelete = session.role === "ADMIN";
+  // Editing, hiding and deleting are Admin-only; everyone else reads the list.
+  await requireAdminSession();
   const { eventId } = await params;
   const event = await getCalendarEventById(eventId);
   if (!event) notFound();
@@ -49,18 +48,16 @@ export default async function EditCalendarEventPage({ params }: { params: Promis
               {event.visible ? "Hide from Site" : "Show on Site"}
             </button>
           </form>
-          {canDelete && (
-            <form action={deleteCalendarEventAction}>
-              <input type="hidden" name="id" value={event.id} />
-              <ConfirmSubmitButton
-                className="btn btn-danger btn-small"
-                pendingLabel="Deleting…"
-                message={`Delete the calendar event “${event.title}”? This can't be undone.`}
-              >
-                Delete
-              </ConfirmSubmitButton>
-            </form>
-          )}
+          <form action={deleteCalendarEventAction}>
+            <input type="hidden" name="id" value={event.id} />
+            <ConfirmSubmitButton
+              className="btn btn-danger btn-small"
+              pendingLabel="Deleting…"
+              message={`Delete the calendar event “${event.title}”? This can't be undone.`}
+            >
+              Delete
+            </ConfirmSubmitButton>
+          </form>
         </div>
       </div>
     </>

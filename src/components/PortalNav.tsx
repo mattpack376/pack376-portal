@@ -84,7 +84,7 @@ export default function PortalNav({
       case "JUNIOR_ADMIN":
         // Same shape as ADMIN minus what they can't reach: Money is
         // read-only for them, and Homepage Content is the top banner alone.
-        // The public calendar they can edit (but not delete from).
+        // The calendar is view-only for them, as for every role below Admin.
         return [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
@@ -116,6 +116,7 @@ export default function PortalNav({
           { href: "/portal/admin/dues", label: "Dues" },
           { href: "/portal/roster", label: "Roster" },
           { href: "/portal/roster/leaders", label: "Committee & Leaders" },
+          { href: "/portal/admin/calendar", label: "Calendar" },
           { href: "/portal/roster/photo-consent", label: "Photo Consent" },
           // A committee member who also leads a den gets that den's view.
           ...(hasDens ? [{ href: withDenId("/portal/roster/family-view"), label: "Family View" }] : []),
@@ -125,12 +126,14 @@ export default function PortalNav({
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/roster", label: "Roster" },
           { href: "/portal/roster/leaders", label: "Committee & Leaders" },
+          { href: "/portal/admin/calendar", label: "Calendar" },
         ];
       case "PHOTOGRAPHER":
         return [
           { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/roster", label: "Roster" },
           { href: "/portal/roster/leaders", label: "Committee & Leaders" },
+          { href: "/portal/admin/calendar", label: "Calendar" },
         ];
       case "PARENT":
         return [{ href: "/portal/parent", label: "Dashboard" }];
@@ -145,6 +148,7 @@ export default function PortalNav({
           { href: "/portal/roster", label: "Roster" },
           { href: "/portal/roster/leaders", label: "Committee & Leaders" },
           { href: withDenId("/portal/roster/family-view"), label: "Family View" },
+          { href: "/portal/admin/calendar", label: "Calendar" },
         ];
     }
   })();

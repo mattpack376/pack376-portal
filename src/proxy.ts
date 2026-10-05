@@ -70,6 +70,15 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
   // (/portal/admin/camp-conron/export) stays admin-only via the rule below.
   { test: (p) => p === "/portal/admin/camp-conron", roles: ["ADMIN", "JUNIOR_ADMIN", "TRIP_VIEWER"] },
   { test: (p) => p.startsWith("/portal/admin/camp-conron"), roles: ["ADMIN"] },
+  // The calendar list is readable by every staff level, view-only; adding or
+  // editing an event (the pages under it) is Admin-only. Checked before the
+  // generic /portal/admin rule below, which would otherwise let in only Admin
+  // and Junior Admin. Mirrors CALENDAR_VIEW_ROLES in authorize.ts.
+  {
+    test: (p) => p === "/portal/admin/calendar",
+    roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE", "DEN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER"],
+  },
+  { test: (p) => p.startsWith("/portal/admin/calendar/"), roles: ["ADMIN"] },
   // The dashboard (den tiles, which lead to advancement) — every role that
   // edits advancement pack-wide. Exact match: everything else under
   // /portal/admin falls to the rule after it.

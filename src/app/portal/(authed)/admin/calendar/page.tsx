@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireCalendarSession } from "@/lib/authorize";
+import { requireCalendarViewSession } from "@/lib/authorize";
 import SaveButton from "@/components/SaveButton";
 import CalendarDateFields from "@/components/CalendarDateFields";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
@@ -13,10 +13,10 @@ import {
   monthTitle,
   type AdminCalendarEvent,
 } from "@/lib/calendarData";
-import { todayDateOnlyString } from "@/lib/dateOnly";
+import { formatDateOnly, todayDateOnlyString } from "@/lib/dateOnly";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 
-function EventRow({ event }: { event: AdminCalendarEvent }) {
+function EventRow({ event, canEdit }: { event: AdminCalendarEvent; canEdit: boolean }) {
   const pill = CATEGORY_PILL[event.category];
   const badge = event.date
     ? badgeParts({ date: event.date, endDate: event.endDate ?? undefined, eitherDay: event.eitherDay })
@@ -41,23 +41,29 @@ function EventRow({ event }: { event: AdminCalendarEvent }) {
         {event.noMeeting && <span className="cal-tag">No Meeting</span>}
         {event.glance && <span className="cal-tag">★ Year at a Glance</span>}
         {!event.visible && <span className="cal-tag">Hidden from site</span>}
-        <Link className="btn btn-quiet btn-small" href={`/portal/admin/calendar/${event.id}`}>
-          Edit
-        </Link>
-        <form action={toggleCalendarEventVisibilityAction}>
-          <input type="hidden" name="id" value={event.id} />
-          <input type="hidden" name="visible" value={String(event.visible)} />
-          <button type="submit" className="btn btn-quiet btn-small">
-            {event.visible ? "Hide" : "Show"}
-          </button>
-        </form>
+        {canEdit && (
+          <>
+            <Link className="btn btn-quiet btn-small" href={`/portal/admin/calendar/${event.id}`}>
+              Edit
+            </Link>
+            <form action={toggleCalendarEventVisibilityAction}>
+              <input type="hidden" name="id" value={event.id} />
+              <input type="hidden" name="visible" value={String(event.visible)} />
+              <button type="submit" className="btn btn-quiet btn-small">
+                {event.visible ? "Hide" : "Show"}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </li>
   );
 }
 
 export default async function CalendarAdminPage() {
-  await requireCalendarSession();
+  const session = await requireCalendarViewSession();
+  // Every staff level reads the calendar here; only an Admin changes it.
+  const canEdit = session.role === "ADMIN";
   const [events, rule] = await Promise.all([getAllCalendarEvents(), getMeetingRule()]);
   const today = todayDateOnlyString();
 
@@ -73,20 +79,23 @@ export default async function CalendarAdminPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Admin</div>
+          <div className="eyebrow">{canEdit ? "Admin" : "Calendar"}</div>
           <h2>Calendar of Events</h2>
           <p>
-            Everything on the public calendar. Changes show up on the website right away. The year at the top of the
-            page switches on July 1, so next season can be entered over the summer.
+            {canEdit
+              ? "Everything on the public calendar. Changes show up on the website right away. The year at the top of the page switches on July 1, so next season can be entered over the summer."
+              : "Everything on the pack's calendar, including events not on the website yet. This page is view-only — an Admin makes the changes."}
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <a className="btn btn-quiet" href={`${getPublicBaseUrl()}/calendar`} target="_blank" rel="noopener noreferrer">
             View on site
           </a>
-          <Link className="btn btn-primary" href="/portal/admin/calendar/new">
-            + Add Event
-          </Link>
+          {canEdit && (
+            <Link className="btn btn-primary" href="/portal/admin/calendar/new">
+              + Add Event
+            </Link>
+          )}
         </div>
       </div>
 
@@ -97,6 +106,7 @@ export default async function CalendarAdminPage() {
           other event listed beneath it — except a Friday with a camping trip or a “No Meeting” entry. Add or remove one
           of those and the regular meeting adjusts on its own.
         </p>
+        {canEdit ? (
         <form action={updateMeetingRuleAction}>
           <label className="cal-check">
             <input type="checkbox" name="enabled" defaultChecked={rule?.enabled ?? true} />
@@ -125,11 +135,24 @@ export default async function CalendarAdminPage() {
           />
           <SaveButton className="btn btn-primary btn-small">Save Meeting</SaveButton>
         </form>
+        ) : (
+          <p style={{ marginBottom: 0 }}>
+            {rule?.enabled ? (
+              <>
+                <b>{rule.title}</b>
+                {rule.detail ? ` · ${rule.detail}` : ""} — every Friday from {formatDateOnly(rule.startDate)} through{" "}
+                {formatDateOnly(rule.endDate)}.
+              </>
+            ) : (
+              "The regular meeting isn't shown on the calendar."
+            )}
+          </p>
+        )}
       </div>
 
       {events.length === 0 && (
         <div className="info-card">
-          <p>No events yet — add one above.</p>
+          <p>{canEdit ? "No events yet — add one above." : "No events yet."}</p>
         </div>
       )}
 
@@ -138,7 +161,7 @@ export default async function CalendarAdminPage() {
           <CollapsibleGroup label={`No date yet (${undated.length})`}>
             <ol className="cal-events" style={{ margin: "10px 0 20px" }}>
               {undated.map((e) => (
-                <EventRow key={e.id} event={e} />
+                <EventRow key={e.id} event={e} canEdit={canEdit} />
               ))}
             </ol>
           </CollapsibleGroup>
@@ -150,7 +173,7 @@ export default async function CalendarAdminPage() {
           <CollapsibleGroup label={`${monthTitle(key)} (${monthEvents.length})`} defaultOpen={!isMonthPast(key, today)}>
             <ol className="cal-events" style={{ margin: "10px 0 20px" }}>
               {monthEvents.map((e) => (
-                <EventRow key={e.id} event={e} />
+                <EventRow key={e.id} event={e} canEdit={canEdit} />
               ))}
             </ol>
           </CollapsibleGroup>

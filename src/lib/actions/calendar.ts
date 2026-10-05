@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin, assertCalendarAccess } from "@/lib/authorize";
+import { assertCalendarEditAccess } from "@/lib/authorize";
 import { recordAudit, changedFields, auditDate } from "@/lib/audit";
 import { parseDateOnlyString } from "@/lib/dateOnly";
 import { AUDIENCE_LABELS, CATEGORIES, GLANCE_CATEGORIES, categoryToDb } from "@/lib/calendarData";
@@ -15,7 +15,7 @@ const CALENDAR_PUBLIC_PATH = "/calendar";
 async function requireCalendarEditor() {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-  assertCalendarAccess(session);
+  assertCalendarEditAccess(session);
   return session;
 }
 
@@ -183,11 +183,8 @@ export async function toggleCalendarEventVisibilityAction(formData: FormData) {
   revalidateCalendar(id);
 }
 
-/** Admin only — Junior Admin can hide an event but not delete it. */
 export async function deleteCalendarEventAction(formData: FormData) {
-  const session = await getSession();
-  if (!session) throw new Error("Not authorized.");
-  assertAdmin(session);
+  const session = await requireCalendarEditor();
 
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing event id.");

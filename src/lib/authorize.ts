@@ -15,7 +15,6 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  * - Junior Admin: advancement and attendance for every den; can add scouts
  *   to a den but not rename or remove them; reads dues and event balances
  *   without recording payments; posts the top banner (no homepage events);
- *   adds, edits and hides events on the public calendar (not deleting them);
  *   sends photo consent links; reads the Camp Conron page.
  * - Committee Member: advancement and attendance for every den; reads photo
  *   consent and dues. No event money, no parent contacts.
@@ -34,6 +33,10 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  * on the Manage page). Admin and Junior Admin can also export it (CSV, PDF,
  * Printable View) and email/copy its addresses. Parent and Trip Viewer logins
  * never see it.
+ *
+ * The calendar (Content -> Calendar) works the same way: every staff level,
+ * Junior Admin included, reads it, and only an Admin adds, edits, hides or
+ * deletes anything on it.
  */
 
 type Session = SessionPayload;
@@ -302,23 +305,36 @@ export function assertSiteBannerAccess(session: SessionPayload) {
 }
 
 /**
- * For Server Components / pages: the public Calendar of Events editor — Admin
- * and Junior Admin. Committee Members and Den Leaders don't reach it.
+ * Who may open the Calendar page in the portal to read it: every staff level
+ * (Admin, Junior Admin, Committee Member, Den Leader, Attendance Only,
+ * Photographer), view-only. The shared Trip Viewer login and parent accounts
+ * don't see it. Mirrors the /portal/admin/calendar rule in src/proxy.ts.
  */
-export async function requireCalendarSession(): Promise<SessionPayload> {
+export const CALENDAR_VIEW_ROLES: SessionPayload["role"][] = [
+  "ADMIN",
+  "JUNIOR_ADMIN",
+  "COMMITTEE",
+  "DEN",
+  "ATTENDANCE_ADMIN",
+  "PHOTOGRAPHER",
+];
+
+/** For Server Components / pages: the calendar list — see CALENDAR_VIEW_ROLES. Only an Admin gets the controls. */
+export async function requireCalendarViewSession(): Promise<SessionPayload> {
   const session = await requireSession();
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") redirect(homeForRole(session.role));
+  if (!CALENDAR_VIEW_ROLES.includes(session.role)) redirect(homeForRole(session.role));
   return session;
 }
 
 /**
- * Adding, editing and hiding calendar events, and the regular Friday meeting
- * setting — Admin and Junior Admin. Deleting an event stays admin-only via
- * assertAdmin, the same line the top banner draws.
+ * Adding, editing, hiding and deleting calendar events, and changing the
+ * regular Friday meeting — Admin only. Junior Admin and everyone below read the
+ * calendar but can't change it. The pages that hold the forms use
+ * requireAdminSession; every Server Action goes through here.
  */
-export function assertCalendarAccess(session: SessionPayload) {
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
-    throw new Error("Not authorized: calendar access required.");
+export function assertCalendarEditAccess(session: SessionPayload) {
+  if (session.role !== "ADMIN") {
+    throw new Error("Not authorized: only an Admin can change the calendar.");
   }
 }
 
