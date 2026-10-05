@@ -3,12 +3,14 @@ import { requireMasterAdminSession } from "@/lib/authorize";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import {
   AUDIT_TABS,
-  AUDIT_PAGE_SIZE,
+  AUDIT_PAGE_SIZES,
+  DEFAULT_AUDIT_PAGE_SIZE,
   NO_ACCOUNT_ROLE,
   auditCategoryLabel,
   getAuditLogPage,
   isAuditTab,
   parseAuditDetails,
+  parseAuditPageSize,
   parseAuditRoleFilter,
   type AuditTab,
 } from "@/lib/auditLogData";
@@ -17,7 +19,7 @@ import { AUDIT_RETENTION_MONTHS } from "@/lib/audit";
 
 /**
  * The full history of changes made through the portal, split into tabs by
- * type — Main, Sign-ins, Security, Attendance, Dues, Camp Conron, plus an
+ * type — Main, Sign-ins, Security, Attendance, Dues & Payments, Camp Conron, plus an
  * "All activity" list (see AUDIT_TABS in src/lib/auditLogData.ts).
  *
  * Master admins only (requireMasterAdminSession), matching the Danger Zone
@@ -38,6 +40,7 @@ export default async function AuditLogPage({
     denId?: string;
     ip?: string;
     page?: string;
+    per?: string;
   }>;
 }) {
   await requireMasterAdminSession();
@@ -45,6 +48,7 @@ export default async function AuditLogPage({
 
   const view: AuditTab = isAuditTab(params.view) ? params.view : "main";
   const role = parseAuditRoleFilter(params.role);
+  const pageSize = parseAuditPageSize(params.per);
   const pageParam = Number(params.page);
   const requestedPage = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
 
@@ -56,17 +60,28 @@ export default async function AuditLogPage({
     denId: params.denId || undefined,
     ipAddress: params.ip || undefined,
     page: requestedPage,
+    pageSize,
   });
+
+  /** Page size is how you like to read the log, not a filter, so unlike the
+   *  filters it follows you across tabs, through Clear, and onto an address. */
+  const auditHref = (query: URLSearchParams, size: number = pageSize) => {
+    if (size !== DEFAULT_AUDIT_PAGE_SIZE) query.set("per", String(size));
+    return `/portal/admin/audit?${query.toString()}`;
+  };
 
   // Filters are scoped to the tab, so carrying them across tabs would usually
   // land on an empty table (the Sign-ins tab has no "Advancement" entries).
   const tabs = (Object.keys(AUDIT_TABS) as AuditTab[]).map((key) => ({
     key,
-    href: `/portal/admin/audit?view=${key}`,
+    href: auditHref(new URLSearchParams({ view: key })),
     label: AUDIT_TABS[key].label,
   }));
 
-  const pageHref = (targetPage: number) => {
+  /** The current tab and filters at another page — or, from the Per page
+   *  links, at another page size (back to page 1, since the old page number
+   *  means something different at a new size). */
+  const pageHref = (targetPage: number, size: number = pageSize) => {
     const query = new URLSearchParams({ view });
     if (role) query.set("role", role);
     if (params.actor) query.set("actor", params.actor);
@@ -74,11 +89,11 @@ export default async function AuditLogPage({
     if (params.denId) query.set("denId", params.denId);
     if (params.ip) query.set("ip", params.ip);
     if (targetPage > 1) query.set("page", String(targetPage));
-    return `/portal/admin/audit?${query.toString()}`;
+    return auditHref(query, size);
   };
 
-  const firstOnPage = total === 0 ? 0 : (page - 1) * AUDIT_PAGE_SIZE + 1;
-  const lastOnPage = Math.min(page * AUDIT_PAGE_SIZE, total);
+  const firstOnPage = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const lastOnPage = Math.min(page * pageSize, total);
   const hasFilters = !!(role || params.actor || params.category || params.denId || params.ip);
 
   /** Filtering by address is reached by clicking one in the table, so the GET
@@ -86,7 +101,7 @@ export default async function AuditLogPage({
    *  It always opens "All activity": the question an address raises is
    *  everything it did — sign-ins and changes together — not just the kind of
    *  entry it happened to be clicked from. */
-  const ipFilterHref = (ip: string) => `/portal/admin/audit?${new URLSearchParams({ view: "all", ip }).toString()}`;
+  const ipFilterHref = (ip: string) => auditHref(new URLSearchParams({ view: "all", ip }));
 
   return (
     <>
@@ -115,6 +130,7 @@ export default async function AuditLogPage({
       <form method="get" className="info-card no-print" style={{ marginBottom: 24, padding: 20 }}>
         <input type="hidden" name="view" value={view} />
         {params.ip && <input type="hidden" name="ip" value={params.ip} />}
+        {pageSize !== DEFAULT_AUDIT_PAGE_SIZE && <input type="hidden" name="per" value={pageSize} />}
         <div className="form-row" style={{ marginBottom: 12, alignItems: "flex-end" }}>
           <div className="form-field">
             <label htmlFor="audit-role">Role</label>
@@ -174,7 +190,7 @@ export default async function AuditLogPage({
           </div>
           {hasFilters && (
             <div className="form-field" style={{ flexGrow: 0 }}>
-              <Link className="btn btn-quiet btn-small" href={`/portal/admin/audit?view=${view}`}>
+              <Link className="btn btn-quiet btn-small" href={auditHref(new URLSearchParams({ view }))}>
                 Clear
               </Link>
             </div>
@@ -185,11 +201,31 @@ export default async function AuditLogPage({
             Showing only activity from <strong style={{ fontWeight: 700 }}>{params.ip}</strong>.
           </p>
         )}
-        <p className="form-note" style={{ marginTop: 0 }}>
-          {total === 0
-            ? "No entries match."
-            : `Showing ${firstOnPage}–${lastOnPage} of ${total} ${total === 1 ? "entry" : "entries"}.`}
-        </p>
+        <div className="segmented" style={{ marginBottom: 0, alignItems: "center", justifyContent: "space-between" }}>
+          <p className="form-note" style={{ margin: 0 }}>
+            {total === 0
+              ? "No entries match."
+              : `Showing ${firstOnPage}–${lastOnPage} of ${total} ${total === 1 ? "entry" : "entries"}.`}
+          </p>
+          {/* Links rather than a select, so a new size applies on click —
+              the page has no client JavaScript to submit a select with. */}
+          <div className="segmented" style={{ marginBottom: 0, alignItems: "center" }}>
+            <span className="form-note" style={{ marginTop: 0 }}>
+              Per page
+            </span>
+            {AUDIT_PAGE_SIZES.map((size) => (
+              <Link
+                key={size}
+                href={pageHref(1, size)}
+                scroll={false}
+                aria-current={size === pageSize ? "true" : undefined}
+                className={`btn btn-small ${size === pageSize ? "btn-primary" : "btn-quiet"}`}
+              >
+                {size}
+              </Link>
+            ))}
+          </div>
+        </div>
       </form>
 
       <div className="table-scroll">

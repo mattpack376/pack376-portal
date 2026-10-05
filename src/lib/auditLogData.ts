@@ -57,9 +57,11 @@ const CLAIMING_TABS = {
     categories: ["attendance"],
   },
   dues: {
-    label: "Dues",
-    description: "Dues payments recorded or deleted, per-scout dues amounts, and the dues settings.",
-    categories: ["dues"],
+    label: "Dues & Payments",
+    description:
+      "Dues payments, per-scout dues amounts and the dues settings, plus event payments from scouts and guest groups and changes to what a scout owes for an event. Camp Conron payments are on the Camp Conron tab.",
+    categories: ["dues", "eventPayment", "guestGroupPayment"],
+    actions: ["eventRegistration.updateAmount"],
   },
   conron: {
     label: "Camp Conron",
@@ -72,7 +74,7 @@ export const AUDIT_TABS = {
   main: {
     label: "Main",
     description:
-      "Everything that isn’t a sign-in, security, attendance, dues or Camp Conron entry — advancement, scouts, events, calendar, announcements and the rest.",
+      "Everything that isn’t a sign-in, security, attendance, payment or Camp Conron entry — advancement, scouts, events, calendar, announcements and the rest.",
   },
   ...CLAIMING_TABS,
   all: {
@@ -118,7 +120,15 @@ export function parseAuditRoleFilter(value: string | undefined): AuditRoleFilter
   return value !== undefined && Object.hasOwn(RoleEnum, value) ? (value as Role) : undefined;
 }
 
-export const AUDIT_PAGE_SIZE = 50;
+/** The "Per page" choices. The first is the default. */
+export const AUDIT_PAGE_SIZES = [25, 50, 75, 100] as const;
+export type AuditPageSize = (typeof AUDIT_PAGE_SIZES)[number];
+export const DEFAULT_AUDIT_PAGE_SIZE: AuditPageSize = AUDIT_PAGE_SIZES[0];
+
+export function parseAuditPageSize(value: string | undefined): AuditPageSize {
+  const size = Number(value);
+  return (AUDIT_PAGE_SIZES as readonly number[]).includes(size) ? (size as AuditPageSize) : DEFAULT_AUDIT_PAGE_SIZE;
+}
 
 /**
  * Human labels for the `category` column, which recordAudit derives from the
@@ -187,6 +197,7 @@ export type AuditFilters = {
   /** Exact client address — reached by clicking one in the table, not a dropdown. */
   ipAddress?: string;
   page: number;
+  pageSize: AuditPageSize;
 };
 
 /**
@@ -212,8 +223,8 @@ export async function getAuditLogPage(filters: AuditFilters) {
     prisma.auditLog.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      skip: (filters.page - 1) * AUDIT_PAGE_SIZE,
-      take: AUDIT_PAGE_SIZE,
+      skip: (filters.page - 1) * filters.pageSize,
+      take: filters.pageSize,
     }),
   ]);
 
@@ -269,7 +280,7 @@ export async function getAuditLogPage(filters: AuditFilters) {
     entries,
     total,
     page: filters.page,
-    pageCount: Math.max(1, Math.ceil(total / AUDIT_PAGE_SIZE)),
+    pageCount: Math.max(1, Math.ceil(total / filters.pageSize)),
     actors,
     categories,
     dens,
