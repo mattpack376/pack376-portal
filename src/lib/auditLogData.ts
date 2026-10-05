@@ -59,8 +59,8 @@ const CLAIMING_TABS = {
   dues: {
     label: "Dues & Payments",
     description:
-      "Dues payments, per-scout dues amounts and the dues settings, plus event payments from scouts and guest groups and changes to what a scout owes for an event. Camp Conron payments are on the Camp Conron tab.",
-    categories: ["dues", "eventPayment", "guestGroupPayment"],
+      "Dues payments, per-scout dues amounts and the dues settings, event payments from scouts and guest groups, changes to what a scout owes for an event, and receipts generated, emailed or deleted. Camp Conron payments are on the Camp Conron tab.",
+    categories: ["dues", "eventPayment", "guestGroupPayment", "receipt"],
     actions: ["eventRegistration.updateAmount"],
   },
   conron: {
@@ -121,7 +121,7 @@ export function parseAuditRoleFilter(value: string | undefined): AuditRoleFilter
 }
 
 /** The "Per page" choices. The first is the default. */
-export const AUDIT_PAGE_SIZES = [25, 50, 75, 100] as const;
+export const AUDIT_PAGE_SIZES = [10, 25, 50, 75, 100] as const;
 export type AuditPageSize = (typeof AUDIT_PAGE_SIZES)[number];
 export const DEFAULT_AUDIT_PAGE_SIZE: AuditPageSize = AUDIT_PAGE_SIZES[0];
 
