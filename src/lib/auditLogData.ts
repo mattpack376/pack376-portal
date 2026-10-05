@@ -2,32 +2,120 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName } from "@/lib/rankConfig";
 import type { AuditDetail } from "@/lib/audit";
+import { Role as RoleEnum } from "@/generated/prisma/enums";
 import type { Role } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 
 /**
- * The tabs on /portal/admin/audit. "Admins" and "Den Leaders" are the two
- * the log was asked for, and "Committee" covers the other role that edits
- * advancement and attendance. "Everyone" exists so no entry is ever only
- * reachable by guessing a URL — Attendance Only, Photographer, Parent and
- * Trip Viewer accounts all record entries too, and they'd otherwise be
- * invisible.
+ * The tabs on /portal/admin/audit, split by what kind of entry it is. The log
+ * records everything (every attendance mark, every sign-in), so a single list
+ * buried the entries worth reading under the routine ones.
  *
- * The role filters match on actorRole, which is null for a failed sign-in
- * against a username no account has. Those entries therefore appear only
- * under "Everyone" — correct, since they belong to no role, but it means
- * "Everyone" is the tab to watch for someone probing for accounts.
+ * A tab claims entries by `category` (the first segment of the action key)
+ * or, where a category is only partly relevant, by exact `action`. "Main" is
+ * whatever no other tab claims, so a newly added action always lands
+ * somewhere visible without anyone remembering to update this list. "All
+ * activity" is the old single list, kept so a person's or an address's
+ * activity can still be read across every type at once.
+ *
+ * Security covers anything that grants, changes or removes access: login
+ * accounts and their roles, passwords and dens ("user.*"), Parent Portal
+ * logins created or revoked from the parent contacts page, and the Danger
+ * Zone season reset. The rest of the parent-contact actions are ordinary
+ * roster edits and stay in Main.
  */
-export const AUDIT_VIEWS = {
-  admins: { label: "Admins", roles: ["ADMIN", "JUNIOR_ADMIN"] as Role[] },
-  dens: { label: "Den Leaders", roles: ["DEN"] as Role[] },
-  committee: { label: "Committee", roles: ["COMMITTEE"] as Role[] },
-  all: { label: "Everyone", roles: null },
-} as const;
+type AuditTabDef = {
+  label: string;
+  description: string;
+  categories?: readonly string[];
+  actions?: readonly string[];
+};
 
-export type AuditView = keyof typeof AUDIT_VIEWS;
+const CLAIMING_TABS = {
+  signins: {
+    label: "Sign-ins",
+    description:
+      "Every sign-in and failed sign-in attempt. Failed attempts for usernames that match no account show as “No account”.",
+    categories: ["auth"],
+  },
+  security: {
+    label: "Security",
+    description:
+      "Changes to who can get in and what they can do — logins created or deleted, access levels, den assignments, password resets, Parent Portal access, and the season reset.",
+    categories: ["user", "reset"],
+    actions: [
+      "parent.createAccount",
+      "parent.invitePortal",
+      "parent.linkPortal",
+      "parent.unlinkPortal",
+      "parent.revokePortal",
+    ],
+  },
+  attendance: {
+    label: "Attendance",
+    description: "Every attendance mark, den reset, meeting status and meeting label change.",
+    categories: ["attendance"],
+  },
+  dues: {
+    label: "Dues",
+    description: "Dues payments recorded or deleted, per-scout dues amounts, and the dues settings.",
+    categories: ["dues"],
+  },
+  conron: {
+    label: "Camp Conron",
+    description: "Everything on the Camp Conron trip — details, pricing, registrations, payments, expenses, duties and activities.",
+    categories: ["trip", "tripPayment", "tripRegistration"],
+  },
+} as const satisfies Record<string, AuditTabDef>;
 
-export function isAuditView(value: string | undefined): value is AuditView {
-  return value !== undefined && Object.hasOwn(AUDIT_VIEWS, value);
+export const AUDIT_TABS = {
+  main: {
+    label: "Main",
+    description:
+      "Everything that isn’t a sign-in, security, attendance, dues or Camp Conron entry — advancement, scouts, events, calendar, announcements and the rest.",
+  },
+  ...CLAIMING_TABS,
+  all: {
+    label: "All activity",
+    description: "Every entry from every tab in one list — useful with the Who filter, or after clicking an address.",
+  },
+} as const satisfies Record<string, AuditTabDef>;
+
+export type AuditTab = keyof typeof AUDIT_TABS;
+
+export function isAuditTab(value: string | undefined): value is AuditTab {
+  return value !== undefined && Object.hasOwn(AUDIT_TABS, value);
+}
+
+function claimConditions(tab: AuditTabDef): Prisma.AuditLogWhereInput[] {
+  const conditions: Prisma.AuditLogWhereInput[] = [];
+  if (tab.categories?.length) conditions.push({ category: { in: [...tab.categories] } });
+  if (tab.actions?.length) conditions.push({ action: { in: [...tab.actions] } });
+  return conditions;
+}
+
+function tabWhere(tab: AuditTab): Prisma.AuditLogWhereInput {
+  if (tab === "all") return {};
+  if (tab === "main") {
+    // category and action are both non-null, so NOT(OR(...)) can't drop rows
+    // to SQL's NULL handling.
+    return { NOT: { OR: Object.values(CLAIMING_TABS).flatMap(claimConditions) } };
+  }
+  return { OR: claimConditions(CLAIMING_TABS[tab]) };
+}
+
+/**
+ * The Role filter. These used to be the tabs themselves; they're a dropdown
+ * now that the tabs split by type. "none" picks out entries with no account
+ * behind them at all (actorRole is null only for a failed sign-in against a
+ * username that doesn't exist).
+ */
+export const NO_ACCOUNT_ROLE = "none";
+export type AuditRoleFilter = Role | typeof NO_ACCOUNT_ROLE;
+
+export function parseAuditRoleFilter(value: string | undefined): AuditRoleFilter | undefined {
+  if (value === NO_ACCOUNT_ROLE) return value;
+  return value !== undefined && Object.hasOwn(RoleEnum, value) ? (value as Role) : undefined;
 }
 
 export const AUDIT_PAGE_SIZE = 50;
@@ -91,7 +179,8 @@ export function parseAuditDetails(value: unknown): AuditDetail[] {
 }
 
 export type AuditFilters = {
-  view: AuditView;
+  tab: AuditTab;
+  role?: AuditRoleFilter;
   actorUserId?: string;
   category?: string;
   denId?: string;
@@ -108,9 +197,10 @@ export type AuditFilters = {
  * want to look them up.
  */
 export async function getAuditLogPage(filters: AuditFilters) {
-  const roles = AUDIT_VIEWS[filters.view].roles;
-  const where = {
-    ...(roles ? { actorRole: { in: roles } } : {}),
+  const scopeWhere = tabWhere(filters.tab);
+  const where: Prisma.AuditLogWhereInput = {
+    ...scopeWhere,
+    ...(filters.role ? { actorRole: filters.role === NO_ACCOUNT_ROLE ? null : filters.role } : {}),
     ...(filters.actorUserId ? { actorUserId: filters.actorUserId } : {}),
     ...(filters.category ? { category: filters.category } : {}),
     ...(filters.denId ? { denId: filters.denId } : {}),
@@ -128,13 +218,11 @@ export async function getAuditLogPage(filters: AuditFilters) {
   ]);
 
   /*
-   * Options come from the same role scope as the table, so switching to
-   * "Den Leaders" doesn't leave admin-only names in the Who dropdown. Grouped
-   * in the database rather than derived from `entries`, which is only the
-   * current page.
+   * Options come from the same tab as the table, so the Sign-ins tab doesn't
+   * offer "Advancement" in the What dropdown. Grouped in the database rather
+   * than derived from `entries`, which is only the current page.
    */
-  const scopeWhere = roles ? { actorRole: { in: roles } } : {};
-  const [actorGroups, categoryGroups, denGroups] = await Promise.all([
+  const [actorGroups, categoryGroups, denGroups, roleGroups] = await Promise.all([
     prisma.auditLog.groupBy({
       by: ["actorUserId", "actorUsername", "actorDisplayName"],
       where: scopeWhere,
@@ -142,12 +230,13 @@ export async function getAuditLogPage(filters: AuditFilters) {
     }),
     prisma.auditLog.groupBy({ by: ["category"], where: scopeWhere, _count: { _all: true } }),
     prisma.auditLog.groupBy({ by: ["denId"], where: { ...scopeWhere, denId: { not: null } } }),
+    prisma.auditLog.groupBy({ by: ["actorRole"], where: scopeWhere, _count: { _all: true } }),
   ]);
 
   const actors = actorGroups
     .map((group) => ({
       // Entries whose account was deleted have a null actorUserId and can't be
-      // filtered to individually; they're still listed under "Everyone".
+      // filtered to individually; they're still in the unfiltered list.
       id: group.actorUserId,
       username: group.actorUsername,
       displayName: group.actorDisplayName,
@@ -159,6 +248,10 @@ export async function getAuditLogPage(filters: AuditFilters) {
   const categories = categoryGroups
     .map((group) => ({ value: group.category, label: auditCategoryLabel(group.category), count: group._count._all }))
     .sort((a, b) => a.label.localeCompare(b.label));
+
+  const roles = roleGroups
+    .map((group) => ({ value: (group.actorRole ?? NO_ACCOUNT_ROLE) as AuditRoleFilter, count: group._count._all }))
+    .sort((a, b) => b.count - a.count);
 
   const denIds = denGroups.map((group) => group.denId).filter((id): id is string => id !== null);
   const denRows =
@@ -180,5 +273,6 @@ export async function getAuditLogPage(filters: AuditFilters) {
     actors,
     categories,
     dens,
+    roles,
   };
 }

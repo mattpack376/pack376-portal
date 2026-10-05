@@ -2,20 +2,23 @@ import Link from "next/link";
 import { requireMasterAdminSession } from "@/lib/authorize";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import {
-  AUDIT_VIEWS,
+  AUDIT_TABS,
   AUDIT_PAGE_SIZE,
+  NO_ACCOUNT_ROLE,
   auditCategoryLabel,
   getAuditLogPage,
-  isAuditView,
+  isAuditTab,
   parseAuditDetails,
-  type AuditView,
+  parseAuditRoleFilter,
+  type AuditTab,
 } from "@/lib/auditLogData";
 import SegmentedNav from "@/components/SegmentedNav";
 import { AUDIT_RETENTION_MONTHS } from "@/lib/audit";
 
 /**
- * The full history of changes made through the portal — one tab for admin
- * accounts, one for den leaders, and an "Everyone" catch-all.
+ * The full history of changes made through the portal, split into tabs by
+ * type — Main, Sign-ins, Security, Attendance, Dues, Camp Conron, plus an
+ * "All activity" list (see AUDIT_TABS in src/lib/auditLogData.ts).
  *
  * Master admins only (requireMasterAdminSession), matching the Danger Zone
  * reset page: a log that the people it records can edit their own way out of
@@ -29,6 +32,7 @@ export default async function AuditLogPage({
 }: {
   searchParams: Promise<{
     view?: string;
+    role?: string;
     actor?: string;
     category?: string;
     denId?: string;
@@ -39,12 +43,14 @@ export default async function AuditLogPage({
   await requireMasterAdminSession();
   const params = await searchParams;
 
-  const view: AuditView = isAuditView(params.view) ? params.view : "admins";
+  const view: AuditTab = isAuditTab(params.view) ? params.view : "main";
+  const role = parseAuditRoleFilter(params.role);
   const pageParam = Number(params.page);
   const requestedPage = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
 
-  const { entries, total, page, pageCount, actors, categories, dens } = await getAuditLogPage({
-    view,
+  const { entries, total, page, pageCount, actors, categories, dens, roles } = await getAuditLogPage({
+    tab: view,
+    role,
     actorUserId: params.actor || undefined,
     category: params.category || undefined,
     denId: params.denId || undefined,
@@ -53,15 +59,16 @@ export default async function AuditLogPage({
   });
 
   // Filters are scoped to the tab, so carrying them across tabs would usually
-  // land on an empty table (a den leader has no "Logins & Roles" entries).
-  const tabs = (Object.keys(AUDIT_VIEWS) as AuditView[]).map((key) => ({
+  // land on an empty table (the Sign-ins tab has no "Advancement" entries).
+  const tabs = (Object.keys(AUDIT_TABS) as AuditTab[]).map((key) => ({
     key,
     href: `/portal/admin/audit?view=${key}`,
-    label: AUDIT_VIEWS[key].label,
+    label: AUDIT_TABS[key].label,
   }));
 
   const pageHref = (targetPage: number) => {
     const query = new URLSearchParams({ view });
+    if (role) query.set("role", role);
     if (params.actor) query.set("actor", params.actor);
     if (params.category) query.set("category", params.category);
     if (params.denId) query.set("denId", params.denId);
@@ -72,16 +79,14 @@ export default async function AuditLogPage({
 
   const firstOnPage = total === 0 ? 0 : (page - 1) * AUDIT_PAGE_SIZE + 1;
   const lastOnPage = Math.min(page * AUDIT_PAGE_SIZE, total);
-  const hasFilters = !!(params.actor || params.category || params.denId || params.ip);
+  const hasFilters = !!(role || params.actor || params.category || params.denId || params.ip);
 
   /** Filtering by address is reached by clicking one in the table, so the GET
-   *  form has to carry it forward as a hidden field or Apply would drop it. */
-  const ipFilterHref = (ip: string) => {
-    const query = new URLSearchParams({ view, ip });
-    if (params.actor) query.set("actor", params.actor);
-    if (params.category) query.set("category", params.category);
-    return `/portal/admin/audit?${query.toString()}`;
-  };
+   *  form has to carry it forward as a hidden field or Apply would drop it.
+   *  It always opens "All activity": the question an address raises is
+   *  everything it did — sign-ins and changes together — not just the kind of
+   *  entry it happened to be clicked from. */
+  const ipFilterHref = (ip: string) => `/portal/admin/audit?${new URLSearchParams({ view: "all", ip }).toString()}`;
 
   return (
     <>
@@ -90,7 +95,7 @@ export default async function AuditLogPage({
         <h2>Audit Log</h2>
         <p>
           Every change made through the portal, plus every sign-in and failed sign-in attempt, newest first — who did
-          it, what it was, and the values before and after. Entries are never edited, and no one can delete a
+          it, what it was, and the values before and after — sorted into tabs by type. Entries are never edited, and no one can delete a
           particular one; they age out on their own after {AUDIT_RETENTION_MONTHS} months. Only the master admin
           accounts can read this page.
         </p>
@@ -99,11 +104,7 @@ export default async function AuditLogPage({
       <SegmentedNav items={tabs} active={view} noPrint />
 
       <p className="form-note" style={{ marginTop: -12, marginBottom: 20 }}>
-        {view === "admins" && "Changes made by Admin and Junior Admin accounts."}
-        {view === "dens" && "Changes made by Den Leader logins — mostly attendance and advancement for their own den."}
-        {view === "committee" && "Changes made by Committee Member logins — mostly attendance and advancement, across every den."}
-        {view === "all" &&
-          "Every account, including Attendance Only, Photographer, Trip Viewer and parent logins. Entries whose account has since been deleted appear here too, as do failed sign-ins for usernames that match no account — those belong to no role, so this is the only tab that shows them."}
+        {AUDIT_TABS[view].description}
       </p>
 
       {/*
@@ -116,6 +117,18 @@ export default async function AuditLogPage({
         {params.ip && <input type="hidden" name="ip" value={params.ip} />}
         <div className="form-row" style={{ marginBottom: 12, alignItems: "flex-end" }}>
           <div className="form-field">
+            <label htmlFor="audit-role">Role</label>
+            <select id="audit-role" name="role" defaultValue={role ?? ""}>
+              <option value="">Any role</option>
+              {roles.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.value === NO_ACCOUNT_ROLE ? "No account" : ROLE_LABELS[option.value] ?? option.value} —{" "}
+                  {option.count}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-field">
             <label htmlFor="audit-actor">Who</label>
             <select id="audit-actor" name="actor" defaultValue={params.actor ?? ""}>
               <option value="">Anyone</option>
@@ -126,17 +139,21 @@ export default async function AuditLogPage({
               ))}
             </select>
           </div>
-          <div className="form-field">
-            <label htmlFor="audit-category">What</label>
-            <select id="audit-category" name="category" defaultValue={params.category ?? ""}>
-              <option value="">Anything</option>
-              {categories.map((category) => (
-                <option key={category.value} value={category.value}>
-                  {category.label} — {category.count}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Sign-ins, Attendance and Dues are one area each, where this
+              would only ever offer the one choice. */}
+          {(categories.length > 1 || params.category) && (
+            <div className="form-field">
+              <label htmlFor="audit-category">What</label>
+              <select id="audit-category" name="category" defaultValue={params.category ?? ""}>
+                <option value="">Anything</option>
+                {categories.map((category) => (
+                  <option key={category.value} value={category.value}>
+                    {category.label} — {category.count}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {dens.length > 0 && (
             <div className="form-field">
               <label htmlFor="audit-den">Den</label>
