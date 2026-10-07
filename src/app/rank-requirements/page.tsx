@@ -128,6 +128,7 @@ export default function RankRequirementsPage() {
                 <FileExportButton
                   className="link"
                   href={rank.pdf}
+                  viewerOnPhone
                   label={`📄 Download ${rank.name} Adventure Requirements (PDF)`}
                   style={{ display: "inline-block", marginTop: 14, fontWeight: 700 }}
                 />

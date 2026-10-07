@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { saveBlob } from "@/lib/saveFile";
+import { useRef, useState } from "react";
+import { saveBlob, shareFileOnly, sharesOnTap } from "@/lib/saveFile";
 
 /*
  * A link to a file download (a PDF or CSV export), saved the way the receipt
@@ -13,6 +13,11 @@ import { saveBlob } from "@/lib/saveFile";
  * link. The filename comes from the response's Content-Disposition, so an
  * export route stays the one place that names its file; a static file in
  * /public has no such header and keeps the name it has in its URL.
+ *
+ * A PDF on a phone goes to the share sheet instead, with nothing but the file
+ * (shareFileOnly in saveFile.ts: the phone's viewer would tack a "blob:" line
+ * and a portal link onto anything shared from it). `viewerOnPhone` keeps the
+ * viewer — for documents people open to read rather than send.
  */
 
 function filenameFrom(res: Response, href: string) {
@@ -27,17 +32,30 @@ export default function FileExportButton({
   label,
   className,
   style,
+  viewerOnPhone = false,
 }: {
   href: string;
   label: string;
   className?: string;
   style?: React.CSSProperties;
+  viewerOnPhone?: boolean;
 }) {
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  // A PDF already fetched, waiting for the second tap the share sheet asked for.
+  const fileRef = useRef<File | null>(null);
 
   async function onClick(event: React.MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
     if (status === "loading") return;
+
+    // Second tap: the PDF is here, share it within this tap.
+    if (status === "ready" && fileRef.current) {
+      const file = fileRef.current;
+      if ((await shareFileOnly(file)) === "needs-tap") saveBlob(file, file.name);
+      setStatus("idle");
+      return;
+    }
+
     setStatus("loading");
     try {
       // Not followed: a redirect here means the session ran out (or the role
@@ -51,7 +69,17 @@ export default function FileExportButton({
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      saveBlob(await res.blob(), filenameFrom(res, href));
+      const blob = await res.blob();
+      const name = filenameFrom(res, href);
+      if (!viewerOnPhone && blob.type === "application/pdf" && sharesOnTap(blob.type)) {
+        const file = new File([blob], name, { type: blob.type });
+        fileRef.current = file;
+        // Phones only open the sheet within a moment of the tap, and the
+        // fetch can outlast that — if so, ask for one more tap.
+        setStatus((await shareFileOnly(file)) === "needs-tap" ? "ready" : "idle");
+        return;
+      }
+      saveBlob(blob, name);
       setStatus("idle");
     } catch {
       setStatus("error");
@@ -69,7 +97,13 @@ export default function FileExportButton({
       aria-live="polite"
       data-file-download=""
     >
-      {status === "loading" ? "Preparing…" : status === "error" ? "Couldn't download — Try Again" : label}
+      {status === "loading"
+        ? "Preparing…"
+        : status === "ready"
+          ? "Tap to Share PDF"
+          : status === "error"
+            ? "Couldn't download — Try Again"
+            : label}
     </a>
   );
 }
