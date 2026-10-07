@@ -3,6 +3,7 @@ import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import Linkify from "@/components/Linkify";
 import TripExpenseList from "@/components/TripExpenseList";
+import TripAffiliationSummary from "@/components/TripAffiliationSummary";
 import { paymentStatus, paymentRowClass, balanceClass } from "@/lib/paymentStatus";
 import {
   DAY_LABELS,
@@ -342,24 +343,9 @@ type Registrations = Awaited<ReturnType<typeof getTripRegistrations>>;
 
 /** One affiliation's families, each expandable to its contact info and payment history. */
 function FamilyDetailSection({ name, registrations }: { name: string; registrations: Registrations }) {
-  const adults = registrations.reduce((sum, r) => sum + r.payingCount, 0);
-  const kids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
-  const owed = registrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
-  const paid = registrations.reduce((sum, r) => sum + r.paidCents, 0);
-  const paidInFull = registrations.filter((r) => r.remainingCents <= 0).length;
-  // Every mixed text/value line is built as one plain string (not
-  // interleaved JSX text/expression children) because this toolchain's JSX
-  // transform was observed dropping the space that immediately follows a
-  // `{expr}` boundary when that boundary is followed directly by more
-  // literal text on the same line — reproducible and confirmed via the
-  // rendered DOM's child nodes, not a typo in the source.
+  // Built as plain strings for the same JSX-whitespace reason noted in
+  // TripAffiliationSummary.
   const heading = `${name} Families (${registrations.length})`;
-  const summaryHeading = `${name} Summary`;
-  const familiesSummary = `${registrations.length} famil${registrations.length === 1 ? "y" : "ies"} — ${adults} adult${
-    adults === 1 ? "" : "s"
-  }, ${kids} kid${kids === 1 ? "" : "s"} (4 and under)`;
-  const paidInFullSummary = `${paidInFull} of ${registrations.length} paid in full`;
-  const moneySummary = `Owed ${formatCents(owed)} · Paid ${formatCents(paid)} · Remaining ${formatCents(owed - paid)}`;
   const emptyText = `No ${name} registrations yet.`;
 
   return (
@@ -369,16 +355,7 @@ function FamilyDetailSection({ name, registrations }: { name: string; registrati
         <h2>{heading}</h2>
       </div>
 
-      <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>
-        <h3>{summaryHeading}</h3>
-        <p style={{ marginBottom: 8 }}>{familiesSummary}</p>
-        <p style={{ marginBottom: 8 }}>
-          {paidInFullSummary}
-        </p>
-        <p>
-          {moneySummary}
-        </p>
-      </div>
+      <TripAffiliationSummary name={name} registrations={registrations} style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }} />
 
       {registrations.length === 0 ? (
         <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>

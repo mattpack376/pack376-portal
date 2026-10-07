@@ -20,6 +20,7 @@ import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import EditPopover from "@/components/EditPopover";
 import TripExpenseList from "@/components/TripExpenseList";
+import TripAffiliationSummary from "@/components/TripAffiliationSummary";
 import CopyAddressesButton from "@/components/CopyAddressesButton";
 import {
   updateTripDetailsAction,
@@ -695,6 +696,20 @@ export default async function AdminCampConronPage({
             />
           </div>
         )}
+      </div>
+
+      {/* Both units side by side, whatever the filter below is set to. */}
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
+        <TripAffiliationSummary
+          name="Pack 376"
+          registrations={registrations.filter((r) => r.affiliation === "PACK")}
+          style={{ flex: "1 1 320px", maxWidth: CARD_WIDTH }}
+        />
+        <TripAffiliationSummary
+          name="Troop 376"
+          registrations={registrations.filter((r) => r.affiliation === "TROOP")}
+          style={{ flex: "1 1 320px", maxWidth: CARD_WIDTH }}
+        />
       </div>
 
       {registrations.length > 0 && (
