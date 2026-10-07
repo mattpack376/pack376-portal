@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { emailReceiptAction, generateReceiptAction } from "@/lib/actions/receipts";
-import { saveBase64Pdf } from "@/lib/savePdf";
+import { base64PdfFile, saveBase64Pdf } from "@/lib/savePdf";
+import SharePdfButton from "@/components/SharePdfButton";
 import {
   RECEIPT_KINDS,
   RECEIPT_KIND_INFO,
@@ -94,6 +95,20 @@ export default function ReceiptForm({
       saveBase64Pdf(result.pdfBase64, result.filename);
       setMessage({ kind: "ok", text: "Receipt downloaded and saved to the history below." });
     });
+
+  // Same as download — builds the PDF and saves it to the history — but hands
+  // the file to the share sheet instead of the phone's PDF viewer.
+  const shareFile = async () => {
+    setMessage(null);
+    const result = await generateReceiptAction(input(), savedId);
+    if (!result.ok) {
+      setMessage({ kind: "error", text: result.error });
+      return null;
+    }
+    setSavedId(result.id);
+    setMessage({ kind: "ok", text: "Receipt saved to the history below." });
+    return base64PdfFile(result.pdfBase64, result.filename);
+  };
 
   const email = () => {
     if (!window.confirm(`Email this receipt to ${emailTo.trim() || "the address entered"}? A copy also goes to ${recordsEmail}.`)) return;
@@ -203,6 +218,7 @@ export default function ReceiptForm({
         <button type="button" className="btn btn-primary" disabled={pending} onClick={download}>
           {pending ? "Working…" : "Download PDF"}
         </button>
+        <SharePdfButton className="btn btn-quiet" disabled={pending} getFile={shareFile} />
         <button type="button" className="btn btn-quiet" disabled={pending} onClick={email}>
           Email PDF
         </button>
