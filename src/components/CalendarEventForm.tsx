@@ -16,6 +16,13 @@ const COLOR_HINT: Record<string, string> = {
  * Fields only — the caller supplies the <form action>, the hidden id and the
  * buttons. Every control is uncontrolled (defaultValue), which survives
  * React 19's form reset on submit; a controlled select would not.
+ *
+ * The two <select>s are keyed on their saved value. React applies a select's
+ * defaultValue only when it mounts, so without the key a saved change snaps
+ * back on screen after the save (the form reset restores the option the
+ * select was first rendered with), and the next save of any other field then
+ * quietly writes the old choice back. A new key rebuilds the select with the
+ * new saved value. Text inputs and checkboxes don't have this problem.
  */
 export default function CalendarEventForm({
   event,
@@ -43,7 +50,7 @@ export default function CalendarEventForm({
       <div className="form-row">
         <div className="form-field">
           <label htmlFor={id("category")}>Category (sets the color)</label>
-          <select id={id("category")} name="category" defaultValue={event?.category ?? "general"}>
+          <select key={event?.category ?? "new"} id={id("category")} name="category" defaultValue={event?.category ?? "general"}>
             {CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -54,7 +61,7 @@ export default function CalendarEventForm({
         </div>
         <div className="form-field">
           <label htmlFor={id("audience")}>Who it&apos;s for</label>
-          <select id={id("audience")} name="audience" defaultValue={event?.audience ?? ""}>
+          <select key={event?.audience ?? "everyone"} id={id("audience")} name="audience" defaultValue={event?.audience ?? ""}>
             <option value="">Everyone</option>
             <option value="leaders">{AUDIENCE_LABELS.leaders}</option>
             <option value="all-hands">{AUDIENCE_LABELS["all-hands"]}</option>
