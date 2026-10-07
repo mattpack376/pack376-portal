@@ -95,10 +95,9 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/*
-        Both links are master-admin-only, so they live here rather than in the
-        nav: PortalNav is built from the session role alone, and telling a
-        master admin apart needs a username lookup the layout doesn't do on
-        every page. isMasterAdmin is already resolved above for this page.
+        Both links are master-admin-only. The Audit Log is in the nav as well
+        (the user wanted it in both places); Start a Fresh Year stays here
+        only, out of the way of a stray click.
       */}
       {isMasterAdmin && (
         <p style={{ marginTop: 16, display: "flex", gap: 20, flexWrap: "wrap" }}>

@@ -20,6 +20,7 @@ export default function PortalNav({
   role,
   hasLinkedScouts = false,
   hasDens = false,
+  isMasterAdmin = false,
   onNavigate,
 }: {
   role: Role;
@@ -27,6 +28,8 @@ export default function PortalNav({
   hasLinkedScouts?: boolean;
   /** Has at least one den assignment — gives a Committee Member their den's Family View. */
   hasDens?: boolean;
+  /** Master admin (src/lib/masterAdmins.ts) — adds the Audit Log link. */
+  isMasterAdmin?: boolean;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -80,6 +83,8 @@ export default function PortalNav({
               { href: "/portal/admin/albums", label: "Photo Albums" },
             ],
           },
+          // Master admin only; the page itself also checks.
+          ...(isMasterAdmin ? [{ href: "/portal/admin/audit", label: "Audit Log" }] : []),
         ];
       case "JUNIOR_ADMIN":
         // Same shape as ADMIN minus what they can't reach: Money is

@@ -12,11 +12,13 @@ export default function PortalHeaderNav({
   displayName,
   hasLinkedScouts = false,
   hasDens = false,
+  isMasterAdmin = false,
 }: {
   role: Role;
   displayName: string;
   hasLinkedScouts?: boolean;
   hasDens?: boolean;
+  isMasterAdmin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -30,7 +32,7 @@ export default function PortalHeaderNav({
         &#9776;
       </button>
       <div className={`portal-collapsible${open ? " open" : ""}`}>
-        <PortalNav role={role} hasLinkedScouts={hasLinkedScouts} hasDens={hasDens} onNavigate={() => setOpen(false)} />
+        <PortalNav role={role} hasLinkedScouts={hasLinkedScouts} hasDens={hasDens} isMasterAdmin={isMasterAdmin} onNavigate={() => setOpen(false)} />
         <div className="portal-user">
           <span className={`badge-pill ${ROLE_BADGE_CLASSES[role]}`}>{ROLE_LABELS[role]}</span>
           <span>{displayName}</span>

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
-import { requireSession, homeForRole } from "@/lib/authorize";
+import { requireSession, homeForRole, isMasterAdminSession } from "@/lib/authorize";
 import { getActiveSiteBanner } from "@/lib/siteBannerData";
 import PortalHeaderNav from "@/components/PortalHeaderNav";
 
@@ -9,6 +9,9 @@ export default async function AuthedPortalLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const [session, siteBanner] = await Promise.all([requireSession(), getActiveSiteBanner()]);
+  // Only shows the master-admin links in the nav; each of those pages still
+  // checks for itself. Returns early without a query for anyone but an ADMIN.
+  const isMasterAdmin = await isMasterAdminSession(session);
 
   return (
     <div className="portal-shell">
@@ -32,6 +35,7 @@ export default async function AuthedPortalLayout({
               displayName={session.displayName}
               hasLinkedScouts={session.scoutIds.length > 0}
               hasDens={session.denIds.length > 0}
+              isMasterAdmin={isMasterAdmin}
             />
           </Suspense>
         </div>
