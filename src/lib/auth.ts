@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import {
   SESSION_COOKIE,
-  SESSION_DURATION_SECONDS,
+  sessionCookieOptions,
   signSession,
   verifySessionToken,
   type SessionPayload,
@@ -22,19 +22,9 @@ export async function verifyPassword(password: string, hash: string) {
 }
 
 export async function createSessionCookie(payload: SessionPayload) {
-  const token = await signSession(payload);
+  const { token, maxAge } = await signSession(payload);
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    // Host-only: omitting `domain` scopes the session to the exact host that
-    // served the login (portal.pack376nyc.org) instead of every subdomain of
-    // pack376nyc.org. A vulnerable or abandoned sibling subdomain then can't
-    // receive the portal session cookie.
-    maxAge: SESSION_DURATION_SECONDS,
-  });
+  cookieStore.set(SESSION_COOKIE, token, sessionCookieOptions(maxAge));
 }
 
 export async function clearSessionCookie() {

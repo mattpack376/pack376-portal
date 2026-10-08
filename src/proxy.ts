@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { Role } from "@/generated/prisma/enums";
-import { SESSION_COOKIE, homeForRole, verifySessionToken } from "@/lib/session";
+import {
+  SESSION_COOKIE,
+  homeForRole,
+  renewSessionToken,
+  sessionCookieOptions,
+  verifySessionToken,
+} from "@/lib/session";
 
 const PORTAL_HOSTS = ["portal.pack376nyc.org", "portal.localhost:3000"];
 // Standalone public micro-site for the Camp Conron trip — no login involved,
@@ -159,9 +165,23 @@ export async function proxy(request: NextRequest) {
     }
 
     const rule = ROUTE_RULES.find((r) => r.test(internalPath));
-    if (rule && !rule.roles.includes(session.role)) {
-      return NextResponse.redirect(new URL(toPublic(homeForRole(session.role)), request.url));
+    const response =
+      rule && !rule.roles.includes(session.role)
+        ? NextResponse.redirect(new URL(toPublic(homeForRole(session.role)), request.url))
+        : internalPath === publicPath
+          ? NextResponse.next()
+          : rewriteTo(request, internalPath);
+
+    // This request is activity, so push the 2-day idle timeout back out (see
+    // SESSION_IDLE_TIMEOUT_SECONDS). GETs only — page loads, navigations and
+    // the refresh after every Server Action — and never on logout. Both the
+    // logout Server Action (a POST) and the /portal/logout route delete the
+    // cookie, and a renewed one set here would race that delete.
+    if (request.method === "GET" && internalPath !== "/portal/logout") {
+      const renewed = await renewSessionToken(session);
+      if (renewed) response.cookies.set(SESSION_COOKIE, renewed.token, sessionCookieOptions(renewed.maxAge));
     }
+    return response;
   }
 
   return internalPath === publicPath ? NextResponse.next() : rewriteTo(request, internalPath);
