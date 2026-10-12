@@ -5,14 +5,11 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-const CONRON_HREF = "https://conron.pack376nyc.org";
-
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/intro-to-scouting", label: "Intro to Scouting" },
   { href: "/volunteer", label: "Volunteer" },
   { href: "/activities", label: "Activities" },
-  { href: CONRON_HREF, label: "Camp Conron 2026", external: true },
   { href: "/calendar", label: "Calendar" },
   { href: "/rank-requirements", label: "Rank Requirements" },
   { href: "/parent-resources", label: "Parent Resources" },
@@ -28,17 +25,13 @@ const NAV_ITEMS = [
  * Conron trip micro-site on conron.pack376nyc.org). There, root-relative links
  * like "/activities" would keep the visitor on that subdomain, and "Home"
  * would just reload the micro-site's own root — so every same-site link is
- * pointed at the real site instead, and the "Camp Conron 2026" item is
- * dropped since it would link back to the page you're already on. Every other
- * page renders <Header /> with no prop and gets normal same-app links.
+ * pointed at the real site instead. Every other page renders <Header /> with
+ * no prop and gets normal same-app links.
  */
 export default function Header({ mainSiteOrigin }: { mainSiteOrigin?: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const navLinksRef = useRef<HTMLDivElement>(null);
-  const navItems = mainSiteOrigin
-    ? NAV_ITEMS.filter((link) => link.href !== CONRON_HREF)
-    : NAV_ITEMS;
 
   // Belt-and-suspenders against the mobile dropdown opening pre-scrolled to
   // its last item instead of the first (a scroll-anchoring quirk some mobile
@@ -74,7 +67,7 @@ export default function Header({ mainSiteOrigin }: { mainSiteOrigin?: string }) 
           &#9776;
         </button>
         <div ref={navLinksRef} className={`nav-links${open ? " open" : ""}`}>
-          {navItems.map((link) => {
+          {NAV_ITEMS.map((link) => {
             if (mainSiteOrigin && !link.external) {
               return (
                 <a key={link.href} href={`${mainSiteOrigin}${link.href}`}>
