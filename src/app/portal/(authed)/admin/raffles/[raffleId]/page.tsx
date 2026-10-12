@@ -138,11 +138,11 @@ export default async function AdminRafflePage({
             boxCount={raffle.boxCount}
             priceCents={raffle.priceCents}
             boxes={raffle.entries.flatMap((entry) =>
-              entry.boxNumbers.map((number) => ({ number, buyer: entry.name, paid: entry.remainingCents <= 0 }))
+              entry.boxNumbers.map((number) => ({ number, entryId: entry.id, buyer: entry.name, paid: entry.remainingCents <= 0 }))
             )}
             winningBox={raffle.winningBox}
             canAssign={canEdit && !boardLocked}
-            currentBuyers={raffle.entries.map((entry) => ({ name: entry.name, boxNumbers: entry.boxNumbers }))}
+            currentBuyers={raffle.entries.map((entry) => ({ id: entry.id, name: entry.name, boxNumbers: entry.boxNumbers }))}
             buyerNames={names.buyerNames}
             payerNames={names.payerNames}
           />

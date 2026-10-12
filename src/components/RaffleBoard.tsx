@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
-import { assignBoxesAction } from "@/lib/actions/raffles";
+import { useActionState, useRef, useState, useTransition } from "react";
+import { assignBoxesAction, changeEntryBoxesAction } from "@/lib/actions/raffles";
 import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, formatRaffleMoney } from "@/lib/raffleMath";
 
-export type RaffleBoardBox = { number: number; buyer: string; paid: boolean };
+export type RaffleBoardBox = { number: number; entryId: string; buyer: string; paid: boolean };
+export type RaffleBoardBuyer = { id: string; name: string; boxNumbers: number[] };
 
 type Props = {
   raffleId: string;
@@ -15,8 +16,8 @@ type Props = {
   winningBox: number | null;
   /** Admin, on an open raffle whose winner isn't recorded yet. Everyone else gets the board to look at. */
   canAssign: boolean;
-  /** Buyers already on this raffle with their boxes, so typing one of their names says "adding to…". */
-  currentBuyers: { name: string; boxNumbers: number[] }[];
+  /** Buyers already on this raffle with their boxes — to pick from, and so a typed name says "adding to…". */
+  currentBuyers: RaffleBoardBuyer[];
   /** Everyone who has bought in any raffle, offered while typing. */
   buyerNames: string[];
   payerNames: string[];
@@ -27,7 +28,8 @@ type AssignState = { error?: string; saved: number };
 /**
  * The numbered board. Tap open boxes to pick them, name the buyer, and they're
  * sold — with the payment recorded in the same step if the money changed
- * hands. Tapping a box that's taken shows whose it is.
+ * hands. Tapping a box that's taken shows whose it is and, for an Admin,
+ * offers to take it away from them or to give them more.
  */
 export default function RaffleBoard(props: Props) {
   const [state, formAction, pending] = useActionState(
@@ -51,6 +53,18 @@ export default function RaffleBoard(props: Props) {
   );
 }
 
+/** Buyers a half-typed or slightly different name probably means — "Peter" when "Peter W." is on the board. */
+function similarBuyers(typed: string, buyers: RaffleBoardBuyer[]) {
+  if (typed.length < 2) return [];
+  const firstWord = typed.split(/\s+/)[0];
+  return buyers
+    .filter((buyer) => {
+      const name = buyer.name.trim().toLowerCase();
+      return name.includes(typed) || typed.includes(name) || (firstWord.length >= 3 && name.split(/\s+/)[0] === firstWord);
+    })
+    .slice(0, 4);
+}
+
 function BoardFields({
   raffleId,
   boxCount,
@@ -67,6 +81,9 @@ function BoardFields({
   const [selected, setSelected] = useState<number[]>([]);
   const [focused, setFocused] = useState<number | null>(null);
   const [name, setName] = useState("");
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [isRemoving, startRemoving] = useTransition();
+  const sellRef = useRef<HTMLDivElement>(null);
 
   const taken = new Map(boxes.map((box) => [box.number, box]));
   const columns = boxCount <= 30 ? 5 : 10;
@@ -78,13 +95,34 @@ function BoardFields({
 
   const typed = name.trim().toLowerCase();
   const match = typed ? currentBuyers.find((buyer) => buyer.name.trim().toLowerCase() === typed) : undefined;
+  const lookalikes = match ? [] : similarBuyers(typed, currentBuyers);
   const suggestions = [...new Set([...currentBuyers.map((buyer) => buyer.name), ...buyerNames])];
 
   function toggle(number: number) {
     setFocused(null);
+    setRemoveError(null);
     setSelected((current) =>
       current.includes(number) ? current.filter((n) => n !== number) : [...current, number].sort((a, b) => a - b)
     );
+  }
+
+  /** Points the Sell Boxes form at someone already on the raffle, so the next boxes go on their line. */
+  function sellTo(buyerName: string) {
+    setName(buyerName);
+    setFocused(null);
+    sellRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  function takeAway(box: RaffleBoardBox) {
+    if (!window.confirm(`Take box ${box.number} away from ${box.buyer}? It will be open again.`)) return;
+    startRemoving(async () => {
+      const formData = new FormData();
+      formData.set("entryId", box.entryId);
+      formData.append("remove", String(box.number));
+      const result = await changeEntryBoxesAction(formData);
+      setRemoveError(result.error ?? null);
+      if (!result.error) setFocused(null);
+    });
   }
 
   return (
@@ -102,7 +140,10 @@ function BoardFields({
                 type="button"
                 className={`raffle-box ${box.paid ? "is-paid" : "is-owes"}${winner}${focused === number ? " is-focused" : ""}`}
                 aria-label={`Box ${number}, ${box.buyer}, ${box.paid ? "paid" : "not paid yet"}${winner ? ", winning box" : ""}`}
-                onClick={() => setFocused(focused === number ? null : number)}
+                onClick={() => {
+                  setRemoveError(null);
+                  setFocused(focused === number ? null : number);
+                }}
               >
                 {number}
               </button>
@@ -154,16 +195,43 @@ function BoardFields({
       </div>
 
       {focusedBox && (
-        <p className="raffle-selection" aria-live="polite">
-          Box {focusedBox.number}: {focusedBox.buyer} — {focusedBox.paid ? "paid" : "not paid yet"}.{" "}
-          <Link className="text-link" href={`/portal/admin/raffles/${raffleId}?tab=buyers&q=${focusedBox.number}`}>
-            Open this buyer →
-          </Link>
-        </p>
+        <div className="raffle-focus" aria-live="polite">
+          <p className="raffle-selection">
+            Box {focusedBox.number}: {focusedBox.buyer} — {focusedBox.paid ? "paid" : "not paid yet"}.
+          </p>
+          {removeError && (
+            <div className="form-error" role="alert">
+              {removeError}
+            </div>
+          )}
+          <div className="raffle-focus-actions">
+            {canAssign && (
+              <>
+                <button type="button" className="btn btn-quiet btn-small" onClick={() => sellTo(focusedBox.buyer)}>
+                  Add More Boxes to {focusedBox.buyer}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-small"
+                  disabled={isRemoving}
+                  onClick={() => takeAway(focusedBox)}
+                >
+                  {isRemoving ? "Removing…" : `Take Box ${focusedBox.number} Away`}
+                </button>
+              </>
+            )}
+            <Link
+              className="btn btn-quiet btn-small"
+              href={`/portal/admin/raffles/${raffleId}?tab=buyers&q=${focusedBox.number}`}
+            >
+              Open This Buyer
+            </Link>
+          </div>
+        </div>
       )}
 
       {canAssign && (
-        <div className="info-card">
+        <div className="info-card" ref={sellRef}>
           <h3>Sell Boxes</h3>
           {error && (
             <div className="form-error" role="alert">
@@ -176,6 +244,25 @@ function BoardFields({
               : `Picked: ${picks.join(", ")} — ${picks.length} × ${formatRaffleMoney(priceCents)} = ${formatRaffleMoney(picks.length * priceCents)}`}
           </p>
           <input type="hidden" name="boxes" value={picks.join(",")} />
+          {currentBuyers.length > 0 && (
+            <div className="form-field">
+              <label htmlFor="board-existing">Already on this raffle?</label>
+              {/*
+               * A picker, not a field: it has no name, always shows its
+               * prompt, and only fills in the Buyer box below. Being pinned
+               * to "" also keeps it clear of React's reset of a submitted
+               * form, which re-selects a controlled select's first option.
+               */}
+              <select id="board-existing" value="" onChange={(event) => event.target.value && sellTo(event.target.value)}>
+                <option value="">Pick them to add boxes to their line…</option>
+                {currentBuyers.map((buyer) => (
+                  <option key={buyer.id} value={buyer.name}>
+                    {buyer.name} — {buyer.boxNumbers.length === 1 ? "box" : "boxes"} {buyer.boxNumbers.join(", ")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="form-row">
             <div className="form-field">
               <label htmlFor="board-name">Buyer</label>
@@ -223,11 +310,24 @@ function BoardFields({
             </div>
           </div>
           {typed && (
-            <p className="form-note" style={{ marginTop: 0, marginBottom: 14 }}>
-              {match
-                ? `Adding to ${match.name}, who already has ${match.boxNumbers.length === 1 ? "box" : "boxes"} ${match.boxNumbers.join(", ")}.`
-                : "New buyer on this raffle."}
-            </p>
+            <div style={{ marginBottom: 14 }}>
+              <p className="form-note" style={{ marginTop: 0, marginBottom: lookalikes.length > 0 ? 8 : 0 }}>
+                {match
+                  ? `Adding to ${match.name}'s line — they already have ${match.boxNumbers.length === 1 ? "box" : "boxes"} ${match.boxNumbers.join(", ")}.`
+                  : lookalikes.length > 0
+                    ? "This will start a new line. If you meant someone already on the raffle, tap their name:"
+                    : "New buyer — this starts a new line."}
+              </p>
+              {lookalikes.length > 0 && (
+                <div className="raffle-focus-actions">
+                  {lookalikes.map((buyer) => (
+                    <button key={buyer.id} type="button" className="btn btn-quiet btn-small" onClick={() => sellTo(buyer.name)}>
+                      {buyer.name} ({buyer.boxNumbers.join(", ")})
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           <button type="submit" className="btn btn-primary" disabled={pending || picks.length === 0 || !typed}>
             {pending ? "Saving…" : picks.length > 1 ? `Sell ${picks.length} Boxes` : "Sell Box"}

@@ -2361,6 +2361,48 @@ button.raffle-box:focus-visible { outline: 3px solid var(--scout-blue-light); ou
   color: var(--scout-blue-dark);
   margin-bottom: 14px;
 }
+/* What a tapped, taken box belongs to, with what can be done about it. */
+.raffle-focus {
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  max-width: 620px;
+}
+.raffle-focus .raffle-selection { margin-bottom: 10px; }
+.raffle-focus-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/*
+ * A buyer's boxes as tick boxes (the Boxes popover): each number is its own
+ * thumb-sized label. The input rules reset what .form-field gives a text
+ * field, which a checkbox inherits by being an <input>.
+ */
+.raffle-ticks { display: flex; flex-wrap: wrap; gap: 8px; }
+.raffle-ticks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1.5px solid #c9d4e4;
+  border-radius: 8px;
+  background: var(--white);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--scout-blue-dark);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.raffle-ticks input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+  flex: none;
+  accent-color: var(--carnival-red);
+}
+.raffle-ticks label:has(input:checked) { border-color: var(--carnival-red-dark); color: var(--carnival-red-dark); text-decoration: line-through; }
 
 /* The money lines on a raffle's Payments tab: a label, then the figure flush right. */
 .raffle-ledger { margin: 0; }

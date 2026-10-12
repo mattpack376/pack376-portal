@@ -306,8 +306,50 @@ export async function assignBoxesAction(formData: FormData): Promise<RaffleFormR
   });
 }
 
-/** A buyer's name, notes and box numbers. Changing the boxes changes what they owe. */
+/** A buyer's name and notes. Their boxes change through changeEntryBoxesAction. */
 export async function updateEntryAction(formData: FormData): Promise<RaffleFormResult> {
+  const session = await adminSession();
+  return asResult(async () => {
+    const entry = await prisma.raffleEntry.findUnique({ where: { id: field(formData, "entryId") } });
+    if (!entry) throw new RaffleInputError("That buyer isn't on this raffle any more. Refresh and try again.");
+    const raffle = await openRaffle(entry.raffleId);
+
+    const name = field(formData, "name");
+    if (!name) throw new RaffleInputError("Enter the buyer's name.");
+    const notes = field(formData, "notes") || null;
+
+    // Selling by name finds the buyer by their name, so two buyers on one
+    // raffle can't share one.
+    const sameName = await prisma.raffleEntry.findFirst({
+      where: { raffleId: raffle.id, id: { not: entry.id }, name: { equals: name, mode: "insensitive" } },
+      select: { name: true },
+    });
+    if (sameName) {
+      throw new RaffleInputError(
+        `There is already a buyer named ${sameName.name} on this raffle. Add something to tell them apart, like a last initial.`
+      );
+    }
+
+    await prisma.raffleEntry.update({ where: { id: entry.id }, data: { name, notes } });
+
+    await recordAudit(session, {
+      action: "raffle.entry.update",
+      summary: `Edited ${name} on “${raffle.name}”`,
+      entityType: "RaffleEntry",
+      entityId: entry.id,
+      details: changedFields({ Name: [entry.name, name], Notes: [entry.notes, notes] }),
+    });
+    revalidateRaffle(raffle.id);
+  });
+}
+
+/**
+ * Changes which boxes one buyer holds, on their own line: takes away any
+ * picked in error ("remove", one value per box) and adds new ones ("add", as
+ * typed) — either or both in one save. The added boxes can be paid for in the
+ * same step. What the buyer owes follows from the boxes they end up with.
+ */
+export async function changeEntryBoxesAction(formData: FormData): Promise<RaffleFormResult> {
   const session = await adminSession();
   return asResult(async () => {
     const entry = await prisma.raffleEntry.findUnique({
@@ -316,27 +358,48 @@ export async function updateEntryAction(formData: FormData): Promise<RaffleFormR
     });
     if (!entry) throw new RaffleInputError("That buyer isn't on this raffle any more. Refresh and try again.");
     const raffle = await openRaffle(entry.raffleId);
-
-    const name = field(formData, "name");
-    if (!name) throw new RaffleInputError("Enter the buyer's name.");
-    const notes = field(formData, "notes") || null;
+    assertBoardUnlocked(raffle);
 
     const before = entry.boxes.map((box) => box.number);
-    const after = readBoxes(field(formData, "boxes"), raffle.boxCount);
-    if (after.length === 0) {
-      throw new RaffleInputError("A buyer needs at least one box. To take them off the raffle, use Remove instead.");
+    const asked = formData.getAll("remove").map((value) => Number(value));
+    const dropped = before.filter((number) => asked.includes(number));
+    const added = readBoxes(field(formData, "add"), raffle.boxCount).filter((number) => !before.includes(number));
+    if (dropped.length === 0 && added.length === 0) {
+      throw new RaffleInputError("Nothing to change — tick a box to take away, or type a box number to add.");
     }
-    const added = after.filter((number) => !before.includes(number));
-    const dropped = before.filter((number) => !after.includes(number));
-    if (added.length > 0 || dropped.length > 0) assertBoardUnlocked(raffle);
+
+    const after = [...before.filter((number) => !dropped.includes(number)), ...added].sort((a, b) => a - b);
+    if (after.length === 0) {
+      throw new RaffleInputError(
+        `That would leave ${entry.name} with no boxes. To take them off the raffle altogether, use Remove on the Buyers tab.`
+      );
+    }
+
+    const paid = field(formData, "paid");
+    const method = paid && added.length > 0 ? methodField(formData, "paid") : null;
+    const payerName = field(formData, "payerName") || null;
+    const paidCents = added.length * raffle.priceCents;
+
     if (added.length > 0) await assertBoxesFree(raffle.id, added, entry.id);
 
     try {
       await prisma.$transaction(async (tx) => {
-        await tx.raffleEntry.update({ where: { id: entry.id }, data: { name, notes } });
         if (dropped.length > 0) await tx.raffleBox.deleteMany({ where: { entryId: entry.id, number: { in: dropped } } });
         if (added.length > 0) {
           await tx.raffleBox.createMany({ data: added.map((number) => ({ raffleId: raffle.id, entryId: entry.id, number })) });
+        }
+        if (method) {
+          await tx.rafflePayment.create({
+            data: {
+              raffleId: raffle.id,
+              entryId: entry.id,
+              method,
+              amountCents: paidCents,
+              payerName,
+              receivedOn: parseDateOnlyString(todayDateOnlyString()),
+              recordedByUserId: session.userId,
+            },
+          });
         }
       });
     } catch (error) {
@@ -344,17 +407,23 @@ export async function updateEntryAction(formData: FormData): Promise<RaffleFormR
       throw error;
     }
 
+    const parts = [
+      ...(added.length > 0 ? [`added ${boxWord(added.length)} ${formatBoxNumbers(added)}`] : []),
+      ...(dropped.length > 0 ? [`took away ${boxWord(dropped.length)} ${formatBoxNumbers(dropped)}`] : []),
+    ];
     await recordAudit(session, {
-      action: "raffle.entry.update",
-      summary: `Edited ${name} on “${raffle.name}”`,
+      action: "raffle.entry.boxes",
+      summary: `Changed ${entry.name}'s boxes on “${raffle.name}”: ${parts.join(", ")}`,
       entityType: "RaffleEntry",
       entityId: entry.id,
-      details: changedFields({
-        Name: [entry.name, name],
-        Boxes: [formatBoxNumbers(before), formatBoxNumbers(after)],
-        Owes: [auditMoney(before.length * raffle.priceCents), auditMoney(after.length * raffle.priceCents)],
-        Notes: [entry.notes, notes],
-      }),
+      details: [
+        ...changedFields({
+          Boxes: [formatBoxNumbers(before), formatBoxNumbers(after)],
+          Owes: [auditMoney(before.length * raffle.priceCents), auditMoney(after.length * raffle.priceCents)],
+        }),
+        ...(method ? [{ label: "Paid", from: "—", to: `${auditMoney(paidCents)} ${RAFFLE_METHOD_LABELS[method]}` }] : []),
+        ...(method && payerName ? [{ label: "Paid by", from: "—", to: payerName }] : []),
+      ],
     });
     revalidateRaffle(raffle.id);
   });

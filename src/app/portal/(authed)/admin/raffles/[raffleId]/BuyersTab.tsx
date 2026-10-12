@@ -3,7 +3,8 @@ import ActionForm from "@/components/ActionForm";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import EditPopover from "@/components/EditPopover";
 import SubmitButton from "@/components/SubmitButton";
-import { assignBoxesAction, removeEntryAction, updateEntryAction } from "@/lib/actions/raffles";
+import RaffleBoxesSaveButton from "@/components/RaffleBoxesSaveButton";
+import { assignBoxesAction, changeEntryBoxesAction, removeEntryAction, updateEntryAction } from "@/lib/actions/raffles";
 import { formatCents } from "@/lib/duesData";
 import { paymentRowClass, paymentStatus } from "@/lib/paymentStatus";
 import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, formatBoxNumbers } from "@/lib/raffleMath";
@@ -48,6 +49,9 @@ export default function BuyersTab({
             (entry.notes ?? "").toLowerCase().includes(needle) ||
             entry.payments.some((payment) => (payment.payerName ?? "").toLowerCase().includes(needle))
       );
+
+  const taken = new Set(raffle.entries.flatMap((entry) => entry.boxNumbers));
+  const openBoxes = Array.from({ length: raffle.boxCount }, (_, index) => index + 1).filter((number) => !taken.has(number));
 
   return (
     <>
@@ -129,27 +133,59 @@ export default function BuyersTab({
                           idPrefix="buyer-pay"
                           payerListId={PAYER_LIST_ID}
                         />
+                        {!boardLocked && (
+                          <EditPopover action={changeEntryBoxesAction} label="Boxes">
+                            <input type="hidden" name="entryId" value={entry.id} />
+                            <div className="form-field">
+                              <label>Take away a box picked by mistake</label>
+                              <div className="raffle-ticks">
+                                {entry.boxNumbers.map((number) => (
+                                  <label key={number}>
+                                    <input type="checkbox" name="remove" value={number} />
+                                    {number}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="form-field">
+                              <label htmlFor={`entry-${entry.id}-add`}>Add boxes</label>
+                              <input
+                                id={`entry-${entry.id}-add`}
+                                name="add"
+                                inputMode="numeric"
+                                autoComplete="off"
+                                placeholder="e.g. 12, 15"
+                              />
+                              <p className="form-note" style={{ marginTop: 0 }}>
+                                {openBoxes.length === 0
+                                  ? "The board is sold out."
+                                  : openBoxes.length <= 30
+                                    ? `Open: ${formatBoxNumbers(openBoxes)}`
+                                    : `${openBoxes.length} boxes are open — see the Board tab.`}
+                              </p>
+                            </div>
+                            <div className="form-field">
+                              <label htmlFor={`entry-${entry.id}-paid`}>Paid for the added boxes?</label>
+                              <select id={`entry-${entry.id}-paid`} name="paid" defaultValue="">
+                                <option value="">Not yet — owes it</option>
+                                {RAFFLE_METHODS.map((method) => (
+                                  <option key={method} value={method}>
+                                    Yes — {RAFFLE_METHOD_LABELS[method]}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <p className="form-note" style={{ marginTop: 0 }}>
+                              What {entry.name} owes follows the boxes they end up with.
+                            </p>
+                            <RaffleBoxesSaveButton className="btn btn-primary btn-small" buyerName={entry.name} />
+                          </EditPopover>
+                        )}
                         <EditPopover action={updateEntryAction}>
                           <input type="hidden" name="entryId" value={entry.id} />
                           <div className="form-field">
                             <label htmlFor={`entry-${entry.id}-name`}>Name</label>
                             <input id={`entry-${entry.id}-name`} name="name" required defaultValue={entry.name} />
-                          </div>
-                          <div className="form-field">
-                            <label htmlFor={`entry-${entry.id}-boxes`}>Boxes</label>
-                            <input
-                              id={`entry-${entry.id}-boxes`}
-                              name="boxes"
-                              inputMode="numeric"
-                              required
-                              readOnly={boardLocked}
-                              defaultValue={formatBoxNumbers(entry.boxNumbers)}
-                            />
-                            <p className="form-note" style={{ marginTop: 0 }}>
-                              {boardLocked
-                                ? "Locked — the winner is recorded."
-                                : "Separate with commas. Adding or taking away a box changes what they owe."}
-                            </p>
                           </div>
                           <div className="form-field">
                             <label htmlFor={`entry-${entry.id}-notes`}>Notes (optional)</label>
@@ -184,16 +220,20 @@ export default function BuyersTab({
       {raffle.entries.length > 0 && (
         <p className="form-note" style={{ marginBottom: 28 }}>
           {q ? `Showing ${shown.length} of ${raffle.entries.length} buyers.` : `${raffle.entries.length} buyers.`}
-          {canEdit && " To take someone off the raffle, void their payments first (Payments tab), then Remove appears here."}
+          {canEdit &&
+            (boardLocked
+              ? " Boxes are locked because the winner is recorded. To change one, clear the winner on the Drawing & Close-Out tab first."
+              : " Use a buyer's Boxes button to add a box to their line or take away one picked by mistake. To take someone off the raffle, void their payments first (Payments tab), then Remove appears here.")}
         </p>
       )}
 
       {canEdit && !boardLocked && (
         <div className="info-card" style={{ maxWidth: 560 }}>
-          <h3>Add a Buyer by Box Number</h3>
+          <h3>Add a New Buyer by Box Number</h3>
           <p>
-            The same as picking boxes on the Board tab, for when it&apos;s quicker to type the numbers. A name
-            that&apos;s already on this raffle gets the extra boxes.
+            For someone who isn&apos;t on the list yet, when it&apos;s quicker to type the numbers than to pick them on
+            the Board tab. For someone already above, use their Boxes button instead — though a name typed here that
+            matches theirs goes onto their line too, not a second one.
           </p>
           <ActionForm action={assignBoxesAction}>
             <input type="hidden" name="raffleId" value={raffle.id} />
