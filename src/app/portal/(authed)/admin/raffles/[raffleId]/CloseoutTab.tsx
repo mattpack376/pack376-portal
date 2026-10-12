@@ -221,7 +221,8 @@ export default function CloseoutTab({
           ) : (
             <>
               <p style={{ marginBottom: 6 }}>Still open:</p>
-              <ul style={{ marginTop: 0 }}>
+              {/* The global reset zeroes list padding, which leaves the bullets hanging outside the card's text edge. */}
+              <ul style={{ margin: "0 0 1em", paddingLeft: 20 }}>
                 {loose.map((item) => (
                   <li key={item}>{item.charAt(0).toUpperCase() + item.slice(1)}.</li>
                 ))}
