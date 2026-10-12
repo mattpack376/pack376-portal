@@ -30,7 +30,7 @@ export default async function AdminResetPage() {
 
       <div className="info-card" style={{ maxWidth: 480, borderTop: "6px solid var(--carnival-red)" }}>
         {scoutingYears.length > 0 && (
-          <ul style={{ marginTop: 0 }}>
+          <ul style={{ margin: "0 0 16px", paddingLeft: 20 }}>
             {scoutingYears.map((year) => (
               <li key={year}>
                 <strong>{year}</strong>: {countsByYear.get(year)} scout{countsByYear.get(year) === 1 ? "" : "s"}

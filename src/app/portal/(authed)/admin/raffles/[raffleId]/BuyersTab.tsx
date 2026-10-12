@@ -152,11 +152,19 @@ export default function BuyersTab({
                               <input
                                 id={`entry-${entry.id}-add`}
                                 name="add"
-                                inputMode="numeric"
                                 autoComplete="off"
+                                autoCapitalize="off"
+                                autoCorrect="off"
+                                spellCheck={false}
                                 placeholder="e.g. 12, 15"
                               />
+                              {/*
+                               * No inputMode="numeric" on this field: an iPhone then shows the
+                               * digits-only keypad, which has no comma or space to put between
+                               * two box numbers.
+                               */}
                               <p className="form-note" style={{ marginTop: 0 }}>
+                                Separate more than one with a comma or a space.{" "}
                                 {openBoxes.length === 0
                                   ? "The board is sold out."
                                   : openBoxes.length <= 30
@@ -249,7 +257,16 @@ export default function BuyersTab({
               </div>
               <div className="form-field">
                 <label htmlFor="add-boxes">Boxes</label>
-                <input id="add-boxes" name="boxes" inputMode="numeric" required placeholder="e.g. 12, 15, 18" />
+                <input
+                  id="add-boxes"
+                  name="boxes"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  required
+                  placeholder="e.g. 12, 15, 18"
+                />
               </div>
             </div>
             <div className="form-row">
