@@ -29,6 +29,10 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  * Attendance Only, Photographer and Trip Viewer are narrower roles outside
  * this ladder; see their own guards below.
  *
+ * One permission is per person rather than per level: Raffle Helper, which an
+ * Admin switches on for a specific login of any level below Admin (a parent
+ * account included). See raffleAccessFor below.
+ *
  * The Committee & Leaders contact list is the one thing every staff level can
  * see — read-only for everyone but an Admin, who edits it (requireAdminSession
  * on the Manage page). Admin and Junior Admin can also export it (CSV, PDF,
@@ -383,16 +387,55 @@ export async function requireEventsViewSession(): Promise<SessionPayload> {
 }
 
 /**
- * For Server Components / pages: the 50/50 raffle pages — the same two roles
- * as event money. Admin runs a raffle (every action is assertAdmin); Junior
- * Admin reads the board, the buyers and the totals and changes nothing.
- * Committee Members and Den Leaders don't see raffles at all. Mirrors the
- * generic /portal/admin rule in src/proxy.ts.
+ * What a login may do on the 50/50 raffle pages:
+ *
+ *  - "admin": everything — start, import, close and reopen raffles, verify
+ *    and correct payments, record the winner, download the records.
+ *  - "helper": the Raffle Helper permission (User.raffleHelper), which an
+ *    Admin gives to particular people from the raffles page so they can work
+ *    a raffle without being Admins. A helper sees everything, sells boxes,
+ *    edits a buyer, takes away a box picked by mistake, and records a buyer's
+ *    payment. A helper can't start, change, close or delete a raffle, can't
+ *    verify, correct or void a payment, can't record the winner, and can't
+ *    download the records.
+ *  - "viewer": a Junior Admin without the permission — reads, changes nothing.
+ *
+ * Everyone else has no access at all. The permission is read from the
+ * database on every request rather than carried in the session, so giving or
+ * taking it away takes effect on the person's next click.
  */
-export async function requireRafflesViewSession(): Promise<SessionPayload> {
+export type RaffleAccess = "admin" | "helper" | "viewer";
+
+/**
+ * The levels that can hold the Raffle Helper permission: every individual
+ * login below Admin. Not Admin (already has everything) and not Trip Viewer,
+ * which is a shared login rather than a person. Mirrors the
+ * /portal/admin/raffles rule in src/proxy.ts.
+ */
+export const RAFFLE_HELPER_ROLES: SessionPayload["role"][] = [
+  "JUNIOR_ADMIN",
+  "COMMITTEE",
+  "DEN",
+  "ATTENDANCE_ADMIN",
+  "PHOTOGRAPHER",
+  "PARENT",
+];
+
+export async function raffleAccessFor(session: Session): Promise<RaffleAccess | null> {
+  if (session.role === "ADMIN") return "admin";
+  if (RAFFLE_HELPER_ROLES.includes(session.role)) {
+    const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { raffleHelper: true } });
+    if (user?.raffleHelper) return "helper";
+  }
+  return session.role === "JUNIOR_ADMIN" ? "viewer" : null;
+}
+
+/** For Server Components / pages: the 50/50 raffle pages — see raffleAccessFor. */
+export async function requireRaffleAccess(): Promise<{ session: SessionPayload; access: RaffleAccess }> {
   const session = await requireSession();
-  if (!canViewEventMoney(session)) redirect(homeForRole(session.role));
-  return session;
+  const access = await raffleAccessFor(session);
+  if (!access) redirect(homeForRole(session.role));
+  return { session, access };
 }
 
 /**

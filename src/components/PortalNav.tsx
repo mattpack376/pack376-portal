@@ -21,6 +21,7 @@ export default function PortalNav({
   hasLinkedScouts = false,
   hasDens = false,
   isMasterAdmin = false,
+  isRaffleHelper = false,
   onNavigate,
 }: {
   role: Role;
@@ -30,6 +31,8 @@ export default function PortalNav({
   hasDens?: boolean;
   /** Master admin (src/lib/masterAdmins.ts) — adds the Audit Log link. */
   isMasterAdmin?: boolean;
+  /** Has the per-person Raffle Helper permission — adds the 50/50 Raffles link for levels that don't already have it. */
+  isRaffleHelper?: boolean;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -168,6 +171,13 @@ export default function PortalNav({
    */
   if (hasLinkedScouts && role !== "PARENT") {
     items.push({ href: "/portal/my-family", label: "My Family" });
+  }
+
+  // Admin and Junior Admin already have the raffles under Money. Anyone else
+  // only reaches them with the Raffle Helper permission, so only then do they
+  // get the link.
+  if (isRaffleHelper && role !== "ADMIN" && role !== "JUNIOR_ADMIN") {
+    items.push({ href: "/portal/admin/raffles", label: "50/50 Raffles" });
   }
 
   // Longest matching href wins, so nested routes (e.g. /portal/den/attendance/xyz)

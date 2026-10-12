@@ -67,10 +67,19 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
   // Den leaders see no money. Mirrors requireEventsViewSession().
   { test: (p) => p.startsWith("/portal/admin/events"), roles: ["ADMIN", "JUNIOR_ADMIN"] },
   // Raffle CSV exports (buyer names and payments) are Admin-only, like the
-  // other exports. The raffle pages themselves fall to the generic
-  // /portal/admin rule at the bottom: Admin runs them, Junior Admin reads.
-  // Mirrors requireAdminSession() in the export route.
+  // other exports. Mirrors requireAdminSession() in the export route.
   { test: (p) => /^\/portal\/admin\/raffles\/[^/]+\/export$/.test(p), roles: ["ADMIN"] },
+  // The raffle pages: Admin, plus every level that can hold the per-person
+  // Raffle Helper permission. Whether a given login actually has it is in the
+  // database, which this cookie-only layer can't read — so this lets those
+  // levels through and requireRaffleAccess() on the page turns away anyone
+  // without it (a Junior Admin without it still reads). Checked before the
+  // generic /portal/admin rule below, which would stop all but two levels.
+  // Mirrors RAFFLE_HELPER_ROLES in authorize.ts.
+  {
+    test: (p) => p.startsWith("/portal/admin/raffles"),
+    roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE", "DEN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER", "PARENT"],
+  },
   { test: (p) => p.endsWith("/promote"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens/new"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens"), roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE"] },

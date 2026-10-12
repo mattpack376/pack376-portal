@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { isMasterAdminSession, requireRafflesViewSession } from "@/lib/authorize";
+import { isMasterAdminSession, requireRaffleAccess } from "@/lib/authorize";
 import { getPayerHistory, getRaffleDetail, getRaffleNameSuggestions } from "@/lib/raffleData";
 import { formatCents } from "@/lib/duesData";
 import { formatLongDate, todayDateOnlyString } from "@/lib/dateOnly";
@@ -28,9 +28,9 @@ export default async function AdminRafflePage({
   params: Promise<{ raffleId: string }>;
   searchParams: Promise<{ tab?: string; q?: string }>;
 }) {
-  // Junior Admin sees the board, the buyers and every total; the forms are Admin-only.
-  const session = await requireRafflesViewSession();
-  const isAdmin = session.role === "ADMIN";
+  // Admin, a Raffle Helper, or a Junior Admin who only reads — see raffleAccessFor.
+  const { session, access } = await requireRaffleAccess();
+  const isAdmin = access === "admin";
   const { raffleId } = await params;
   const { tab: requestedTab, q } = await searchParams;
 
@@ -39,14 +39,18 @@ export default async function AdminRafflePage({
 
   const tab: TabKey = TABS.find((t) => t.key === requestedTab)?.key ?? "board";
   const isOpen = raffle.status === "OPEN";
-  const canEdit = isAdmin && isOpen;
+  // Two levels of "can change this": a Raffle Helper sells and corrects boxes
+  // and records a buyer's payment; the rest (verifying, correcting money, the
+  // drawing, closing) is the Admin's. Both stop once the raffle is closed.
+  const canSell = (isAdmin || access === "helper") && isOpen;
+  const canManage = isAdmin && isOpen;
   const boardLocked = raffle.winningBox !== null;
   const s = raffle.summary;
   const base = `/portal/admin/raffles/${raffle.id}`;
   const today = todayDateOnlyString();
 
   // Suggestions only feed the forms, so a read-only view skips the queries.
-  const names = canEdit ? await getRaffleNameSuggestions() : { buyerNames: [], payerNames: [] };
+  const names = canSell ? await getRaffleNameSuggestions() : { buyerNames: [], payerNames: [] };
 
   return (
     <>
@@ -127,7 +131,7 @@ export default async function AdminRafflePage({
 
       {tab === "board" && (
         <>
-          {isAdmin && isOpen && boardLocked && (
+          {canSell && boardLocked && (
             <p className="form-note" style={{ marginTop: 0, marginBottom: 14, fontSize: 14 }}>
               The winner is recorded, so the board is locked. Payments can still be recorded on the Buyers and
               Payments tabs.
@@ -141,7 +145,7 @@ export default async function AdminRafflePage({
               entry.boxNumbers.map((number) => ({ number, entryId: entry.id, buyer: entry.name, paid: entry.remainingCents <= 0 }))
             )}
             winningBox={raffle.winningBox}
-            canAssign={canEdit && !boardLocked}
+            canAssign={canSell && !boardLocked}
             currentBuyers={raffle.entries.map((entry) => ({ id: entry.id, name: entry.name, boxNumbers: entry.boxNumbers }))}
             buyerNames={names.buyerNames}
             payerNames={names.payerNames}
@@ -152,7 +156,8 @@ export default async function AdminRafflePage({
       {tab === "buyers" && (
         <BuyersTab
           raffle={raffle}
-          canEdit={canEdit}
+          canEdit={canSell}
+          canVoid={canManage}
           boardLocked={boardLocked}
           query={q ?? ""}
           today={today}
@@ -164,7 +169,8 @@ export default async function AdminRafflePage({
       {tab === "payments" && (
         <PaymentsTab
           raffle={raffle}
-          canEdit={canEdit}
+          canRecord={canSell}
+          canManage={canManage}
           today={today}
           payerNames={names.payerNames}
           payerHistory={await getPayerHistory(

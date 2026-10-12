@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { summarizeRaffle, type RaffleSummary } from "@/lib/raffleMath";
+import { RAFFLE_HELPER_ROLES } from "@/lib/authorize";
 
 const NAME_SUGGESTION_LIMIT = 500;
 
@@ -155,4 +156,16 @@ export async function getPayerHistory(payerNames: string[]) {
     if (key && payment.entry && !history.has(key)) history.set(key, payment.entry.name);
   }
   return history;
+}
+
+/**
+ * Every login that can hold the Raffle Helper permission, with whether it
+ * does — for the Admin's picker on the raffles page. Sorted by name.
+ */
+export async function getRaffleHelperCandidates() {
+  return prisma.user.findMany({
+    where: { role: { in: RAFFLE_HELPER_ROLES } },
+    select: { id: true, username: true, displayName: true, role: true, raffleHelper: true },
+    orderBy: [{ displayName: "asc" }, { username: "asc" }],
+  });
 }

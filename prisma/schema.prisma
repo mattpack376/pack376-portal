@@ -104,6 +104,11 @@ model User {
   auditEntries             AuditLog[]
   receiptsIssued           Receipt[]
   rafflePaymentsLogged     RafflePayment[]
+  // A per-person permission an Admin switches on from the 50/50 Raffles page:
+  // this login can open the raffles, sell and correct boxes, and record a
+  // buyer's payment — and nothing else an Admin can do there. See
+  // raffleAccessFor() in src/lib/authorize.ts.
+  raffleHelper             Boolean                  @default(false)
   // The Leaders & Committee entry this login belongs to, if any.
   adultLeader              AdultLeader?
   householdId              String?

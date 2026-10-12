@@ -36,14 +36,17 @@ const VERIFY_HINT: Record<RaffleMethod, string> = {
  */
 export default function PaymentsTab({
   raffle,
-  canEdit,
+  canRecord,
+  canManage,
   today,
   payerNames,
   payerHistory,
 }: {
   raffle: RaffleDetail;
-  /** Admin on an open raffle. */
-  canEdit: boolean;
+  /** Admin or Raffle Helper on an open raffle: may record a buyer's payment. */
+  canRecord: boolean;
+  /** Admin on an open raffle: verifies, corrects and voids payments, and handles money not matched to a buyer. */
+  canManage: boolean;
   today: string;
   payerNames: string[];
   /** Lower-cased payer name -> the buyer their money was for last time. */
@@ -129,7 +132,7 @@ export default function PaymentsTab({
 
   return (
     <>
-      {canEdit && <PayerNameList id={PAYER_LIST_ID} names={payerNames} />}
+      {canRecord && <PayerNameList id={PAYER_LIST_ID} names={payerNames} />}
 
       <div className="card-row">
         <div className="info-card">
@@ -234,7 +237,7 @@ export default function PaymentsTab({
                 <th>Boxes</th>
                 <th>Paid</th>
                 <th>Still Owes</th>
-                {canEdit && <th></th>}
+                {canRecord && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -244,7 +247,7 @@ export default function PaymentsTab({
                   <td data-label="Boxes">{formatBoxNumbers(entry.boxNumbers)}</td>
                   <td data-label="Paid">{formatCents(entry.paidCents)}</td>
                   <td data-label="Still Owes">{formatCents(entry.remainingCents)}</td>
-                  {canEdit && (
+                  {canRecord && (
                     <td className="actions">
                       <RecordPaymentPopover
                         raffleId={raffle.id}
@@ -262,7 +265,7 @@ export default function PaymentsTab({
         </>
       )}
 
-      {(unmatched.length > 0 || canEdit) && <h3 style={{ fontSize: 17, margin: "0 0 6px" }}>Money Not Matched to a Buyer</h3>}
+      {(unmatched.length > 0 || canManage) && <h3 style={{ fontSize: 17, margin: "0 0 6px" }}>Money Not Matched to a Buyer</h3>}
       {unmatched.length > 0 && (
         <table className="data-table has-popovers" style={{ marginBottom: 16 }}>
           <thead>
@@ -272,7 +275,7 @@ export default function PaymentsTab({
               <th>How</th>
               <th>Received</th>
               <th>Last Time</th>
-              {canEdit && <th></th>}
+              {canManage && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -292,14 +295,14 @@ export default function PaymentsTab({
                   <td data-label="How">{RAFFLE_METHOD_LABELS[payment.method]}</td>
                   <td data-label="Received">{receivedLabel(payment.receivedOn)}</td>
                   <td data-label="Last Time">{lastFor ? `Was for ${lastFor}` : "—"}</td>
-                  {canEdit && <td className="actions">{paymentActions(payment, "Match to Buyer")}</td>}
+                  {canManage && <td className="actions">{paymentActions(payment, "Match to Buyer")}</td>}
                 </tr>
               );
             })}
           </tbody>
         </table>
       )}
-      {canEdit && (
+      {canManage && (
         <CollapsibleGroup label="Record Money You Can't Place Yet" defaultOpen={false}>
           <div className="info-card" style={{ maxWidth: 560, marginTop: 10 }}>
             <p>
@@ -356,10 +359,10 @@ export default function PaymentsTab({
                   <strong className={totals.unverifiedCents > 0 ? "balance-negative" : "balance-positive"}>
                     {formatCents(totals.unverifiedCents)} left to verify
                   </strong>
-                  {canEdit && pending > 0 && <> — {VERIFY_HINT[method]}</>}
+                  {canManage && pending > 0 && <> — {VERIFY_HINT[method]}</>}
                 </p>
               </div>
-              {canEdit && pending > 1 && (
+              {canManage && pending > 1 && (
                 <form action={verifyAllPaymentsAction}>
                   <input type="hidden" name="raffleId" value={raffle.id} />
                   <input type="hidden" name="method" value={method} />
@@ -381,7 +384,7 @@ export default function PaymentsTab({
                   <th>Paid By</th>
                   <th>Received</th>
                   <th>Verified</th>
-                  {canEdit && <th></th>}
+                  {canManage && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -410,7 +413,7 @@ export default function PaymentsTab({
                           <span className="badge-pill badge-pending">Not yet</span>
                         )}
                       </td>
-                      {canEdit && (
+                      {canManage && (
                         <td className="actions">
                           <form action={setPaymentVerifiedAction}>
                             <input type="hidden" name="paymentId" value={payment.id} />
@@ -448,7 +451,7 @@ export default function PaymentsTab({
                     <th>How</th>
                     <th>Voided</th>
                     <th>Why</th>
-                    {canEdit && <th></th>}
+                    {canManage && <th></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -469,7 +472,7 @@ export default function PaymentsTab({
                         {payment.voidedByName ? ` by ${payment.voidedByName}` : ""}
                       </td>
                       <td data-label="Why">{payment.voidReason ?? "—"}</td>
-                      {canEdit && (
+                      {canManage && (
                         <td className="actions">
                           <form action={restorePaymentAction}>
                             <input type="hidden" name="paymentId" value={payment.id} />

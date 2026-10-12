@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin, assertMasterAdmin } from "@/lib/authorize";
+import {
+  RAFFLE_HELPER_ROLES,
+  assertAdmin,
+  assertCanMutateUser,
+  assertMasterAdmin,
+  raffleAccessFor,
+} from "@/lib/authorize";
+import { ROLE_LABELS } from "@/lib/roleLabels";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import { dollarsToCents } from "@/lib/formValues";
 import { parseDateOnlyString, todayDateOnlyString } from "@/lib/dateOnly";
@@ -20,8 +27,17 @@ import {
 import { parseRaffleImport } from "@/lib/raffleImport";
 
 /*
- * Everything that changes a 50/50 raffle. Admin only, start to finish: Junior
- * Admin reads the pages (see requireRafflesViewSession) and changes nothing.
+ * Everything that changes a 50/50 raffle. Two levels may change one (see
+ * raffleAccessFor in authorize.ts):
+ *
+ *  - sellerSession(): an Admin, or someone with the Raffle Helper permission.
+ *    Selling boxes, editing a buyer, taking away a box picked by mistake,
+ *    removing a buyer who hasn't paid, and recording a buyer's payment.
+ *  - adminSession(): Admin only. Everything else — starting, changing,
+ *    closing and deleting raffles, verifying, correcting and voiding
+ *    payments, money not matched to a buyer, the winner and the prize.
+ *
+ * A Junior Admin without the permission reads the pages and changes nothing.
  *
  * Two kinds of action live here. The ones a careful admin can still get wrong
  * — typing a box that's taken, a winning number nobody bought — hand back
@@ -60,6 +76,15 @@ async function adminSession() {
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
   return session;
+}
+
+/** An Admin or a Raffle Helper — the people who work the board during a raffle. */
+async function sellerSession() {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  const access = await raffleAccessFor(session);
+  if (access !== "admin" && access !== "helper") throw new Error("Not authorized: raffle access required.");
+  return { session, isAdmin: access === "admin" };
 }
 
 function revalidateRaffle(raffleId: string) {
@@ -236,7 +261,7 @@ const TAKEN_MEANWHILE = "One of those boxes was taken a moment ago. Nothing was 
  * full price of the boxes in the same step.
  */
 export async function assignBoxesAction(formData: FormData): Promise<RaffleFormResult> {
-  const session = await adminSession();
+  const { session } = await sellerSession();
   return asResult(async () => {
     const raffle = await openRaffle(field(formData, "raffleId"));
     assertBoardUnlocked(raffle);
@@ -308,7 +333,7 @@ export async function assignBoxesAction(formData: FormData): Promise<RaffleFormR
 
 /** A buyer's name and notes. Their boxes change through changeEntryBoxesAction. */
 export async function updateEntryAction(formData: FormData): Promise<RaffleFormResult> {
-  const session = await adminSession();
+  const { session } = await sellerSession();
   return asResult(async () => {
     const entry = await prisma.raffleEntry.findUnique({ where: { id: field(formData, "entryId") } });
     if (!entry) throw new RaffleInputError("That buyer isn't on this raffle any more. Refresh and try again.");
@@ -350,7 +375,7 @@ export async function updateEntryAction(formData: FormData): Promise<RaffleFormR
  * same step. What the buyer owes follows from the boxes they end up with.
  */
 export async function changeEntryBoxesAction(formData: FormData): Promise<RaffleFormResult> {
-  const session = await adminSession();
+  const { session } = await sellerSession();
   return asResult(async () => {
     const entry = await prisma.raffleEntry.findUnique({
       where: { id: field(formData, "entryId") },
@@ -435,7 +460,7 @@ export async function changeEntryBoxesAction(formData: FormData): Promise<Raffle
  * so removing a name can never make a payment disappear.
  */
 export async function removeEntryAction(formData: FormData): Promise<RaffleFormResult> {
-  const session = await adminSession();
+  const { session } = await sellerSession();
   return asResult(async () => {
     const entry = await prisma.raffleEntry.findUnique({
       where: { id: field(formData, "entryId") },
@@ -489,11 +514,17 @@ function readPaymentAmount(formData: FormData) {
   return amountCents;
 }
 
+/**
+ * Money received from a buyer. A Raffle Helper can record it for a buyer;
+ * money that isn't matched to anyone yet (no buyer chosen) is bookkeeping from
+ * the bank statement, which stays with an Admin.
+ */
 export async function recordPaymentAction(formData: FormData): Promise<RaffleFormResult> {
-  const session = await adminSession();
+  const { session, isAdmin } = await sellerSession();
   return asResult(async () => {
     const raffle = await openRaffle(field(formData, "raffleId"));
     const entry = await entryForPayment(raffle.id, field(formData, "entryId"));
+    if (!entry && !isAdmin) throw new Error("Not authorized: admin only.");
     const amountCents = readPaymentAmount(formData);
     const method = methodField(formData, "method");
     const payerName = field(formData, "payerName") || null;
@@ -877,6 +908,45 @@ export async function deleteRaffleAction(formData: FormData) {
   });
   revalidatePath(LIST_PATH);
   redirect(LIST_PATH);
+}
+
+/**
+ * Gives one login the Raffle Helper permission, or takes it away
+ * (enabled = "true" / "false"). Admin only. Limited to the levels that can
+ * hold it — an Admin has no use for it, and the shared Trip Viewer login
+ * isn't a person.
+ */
+export async function setRaffleHelperAction(formData: FormData): Promise<RaffleFormResult> {
+  const session = await adminSession();
+  return asResult(async () => {
+    const enabled = field(formData, "enabled") === "true";
+    const userId = field(formData, "userId");
+    if (!userId) throw new RaffleInputError("Pick who to add.");
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true, displayName: true, role: true, raffleHelper: true },
+    });
+    if (!user) throw new RaffleInputError("That login no longer exists. Refresh and try again.");
+    await assertCanMutateUser(session, user);
+    if (enabled && !RAFFLE_HELPER_ROLES.includes(user.role)) {
+      throw new RaffleInputError(`${user.displayName} is ${ROLE_LABELS[user.role] ?? user.role}, which can't be a raffle helper.`);
+    }
+    if (user.raffleHelper === enabled) return;
+
+    await prisma.user.update({ where: { id: user.id }, data: { raffleHelper: enabled } });
+
+    await recordAudit(session, {
+      action: enabled ? "user.raffleHelper.grant" : "user.raffleHelper.revoke",
+      summary: enabled
+        ? `Made ${user.displayName} (${user.username}) a 50/50 raffle helper`
+        : `Removed ${user.displayName} (${user.username}) as a 50/50 raffle helper`,
+      entityType: "User",
+      entityId: user.id,
+      details: [{ label: "Raffle helper", from: enabled ? "No" : "Yes", to: enabled ? "Yes" : "No" }],
+    });
+    revalidatePath(LIST_PATH);
+  });
 }
 
 /** A raffle record file is a few kilobytes; anything far beyond that isn't one. */

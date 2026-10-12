@@ -20,6 +20,7 @@ const PAYER_LIST_ID = "buyers-payer-names";
 export default function BuyersTab({
   raffle,
   canEdit,
+  canVoid,
   boardLocked,
   query,
   today,
@@ -27,8 +28,10 @@ export default function BuyersTab({
   payerNames,
 }: {
   raffle: RaffleDetail;
-  /** Admin on an open raffle. */
+  /** Admin or Raffle Helper on an open raffle. */
   canEdit: boolean;
+  /** Admin on an open raffle — the only one who can void a payment, which is what frees a paid buyer to be removed. */
+  canVoid: boolean;
   /** The winner is recorded, so boxes can't change hands. */
   boardLocked: boolean;
   query: string;
@@ -231,7 +234,10 @@ export default function BuyersTab({
           {canEdit &&
             (boardLocked
               ? " Boxes are locked because the winner is recorded. To change one, clear the winner on the Drawing & Close-Out tab first."
-              : " Use a buyer's Boxes button to add a box to their line or take away one picked by mistake. To take someone off the raffle, void their payments first (Payments tab), then Remove appears here.")}
+              : " Use a buyer's Boxes button to add a box to their line or take away one picked by mistake. " +
+                (canVoid
+                  ? "To take someone off the raffle, void their payments first (Payments tab), then Remove appears here."
+                  : "Remove only shows for a buyer with no payments; an Admin has to take off anyone who has paid."))}
         </p>
       )}
 

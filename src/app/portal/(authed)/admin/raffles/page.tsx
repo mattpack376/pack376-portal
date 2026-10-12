@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { requireRafflesViewSession } from "@/lib/authorize";
-import { getRaffles, type RaffleListItem } from "@/lib/raffleData";
+import { RAFFLE_HELPER_ROLES, requireRaffleAccess } from "@/lib/authorize";
+import { getRaffleHelperCandidates, getRaffles, type RaffleListItem } from "@/lib/raffleData";
+import { ROLE_BADGE_CLASSES, ROLE_LABELS } from "@/lib/roleLabels";
 import { formatCents } from "@/lib/duesData";
 import { formatLongDate } from "@/lib/dateOnly";
 import { MAX_RAFFLE_BOXES } from "@/lib/raffleMath";
-import { createRaffleAction, importRaffleAction } from "@/lib/actions/raffles";
+import { createRaffleAction, importRaffleAction, setRaffleHelperAction } from "@/lib/actions/raffles";
 import ActionForm from "@/components/ActionForm";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import SubmitButton from "@/components/SubmitButton";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 
@@ -14,11 +16,16 @@ function drawingLabel(raffle: RaffleListItem) {
 }
 
 export default async function AdminRafflesPage() {
-  // Junior Admin reads every raffle; only an Admin starts, runs or imports one.
-  const session = await requireRafflesViewSession();
-  const canEdit = session.role === "ADMIN";
+  // Only an Admin starts or imports a raffle and decides who the helpers are.
+  // A Raffle Helper works the ones that are open; a Junior Admin just reads.
+  const { access } = await requireRaffleAccess();
+  const canEdit = access === "admin";
+  const openLabel = access === "admin" ? "Manage" : access === "helper" ? "Open" : "View";
 
   const raffles = await getRaffles();
+  const candidates = canEdit ? await getRaffleHelperCandidates() : [];
+  const helpers = candidates.filter((user) => user.raffleHelper);
+  const notHelpers = candidates.filter((user) => !user.raffleHelper);
   const open = raffles.filter((raffle) => raffle.status === "OPEN");
   const past = raffles.filter((raffle) => raffle.status === "CLOSED");
   const raisedCents = past.reduce((sum, raffle) => sum + raffle.summary.netCents, 0);
@@ -73,7 +80,7 @@ export default async function AdminRafflesPage() {
                   </td>
                   <td className="actions">
                     <Link className="btn btn-quiet btn-small" href={`/portal/admin/raffles/${raffle.id}`}>
-                      {canEdit ? "Manage" : "View"}
+                      {openLabel}
                     </Link>
                   </td>
                 </tr>
@@ -171,6 +178,92 @@ export default async function AdminRafflesPage() {
                 Start Raffle
               </SubmitButton>
             </ActionForm>
+          </div>
+
+          <div className="info-card" style={{ maxWidth: 620, marginBottom: 24 }}>
+            <h3>Raffle Helpers</h3>
+            <p>
+              People you want working a raffle with you, without making them Admins. A helper can open the raffles,
+              sell boxes, fix a buyer or take away a box picked by mistake, and mark a buyer as paid.
+            </p>
+            <p>
+              A helper can&apos;t start, close or delete a raffle, verify payments, change or void a payment, record
+              the winner, or download the records.
+            </p>
+            {helpers.length === 0 ? (
+              <p>
+                <strong>No helpers yet.</strong>
+              </p>
+            ) : (
+              <table className="data-table" style={{ marginBottom: 20, boxShadow: "none", border: "1.5px solid var(--cream-dark)" }}>
+                <thead>
+                  <tr>
+                    <th>Helper</th>
+                    <th>Login</th>
+                    <th>Level</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {helpers.map((user) => (
+                    <tr key={user.id}>
+                      <td>{user.displayName}</td>
+                      <td data-label="Login">{user.username}</td>
+                      <td data-label="Level">
+                        <span className={`badge-pill ${ROLE_BADGE_CLASSES[user.role]}`}>{ROLE_LABELS[user.role]}</span>
+                      </td>
+                      <td className="actions">
+                        <ActionForm action={setRaffleHelperAction}>
+                          <input type="hidden" name="userId" value={user.id} />
+                          <input type="hidden" name="enabled" value="false" />
+                          <ConfirmSubmitButton
+                            className="btn btn-danger btn-small"
+                            pendingLabel="Removing…"
+                            message={`Stop ${user.displayName} from helping with raffles? Their login and everything else they can do stays the same.`}
+                          >
+                            Remove
+                          </ConfirmSubmitButton>
+                        </ActionForm>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {notHelpers.length === 0 ? (
+              <p className="form-note">Every login that can be a helper already is one.</p>
+            ) : (
+              <ActionForm action={setRaffleHelperAction}>
+                <input type="hidden" name="enabled" value="true" />
+                <div className="form-field">
+                  <label htmlFor="helper-user">Add a helper</label>
+                  <select id="helper-user" name="userId" required defaultValue="">
+                    <option value="" disabled>
+                      Pick a login…
+                    </option>
+                    {RAFFLE_HELPER_ROLES.map((role) => {
+                      const users = notHelpers.filter((user) => user.role === role);
+                      if (users.length === 0) return null;
+                      return (
+                        <optgroup key={role} label={ROLE_LABELS[role]}>
+                          {users.map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {user.displayName} ({user.username})
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
+                  </select>
+                  <p className="form-note" style={{ marginTop: 0 }}>
+                    Anyone with a portal login below Admin, parents included. Admins already have full access.
+                  </p>
+                </div>
+                <SubmitButton className="btn btn-quiet" pendingLabel="Adding…">
+                  Add Helper
+                </SubmitButton>
+              </ActionForm>
+            )}
           </div>
 
           <CollapsibleGroup label="Import a Past Raffle" defaultOpen={false}>
