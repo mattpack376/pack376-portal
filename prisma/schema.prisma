@@ -103,6 +103,7 @@ model User {
   // so deleting a login leaves its history intact (see model AuditLog).
   auditEntries             AuditLog[]
   receiptsIssued           Receipt[]
+  rafflePaymentsLogged     RafflePayment[]
   // The Leaders & Committee entry this login belongs to, if any.
   adultLeader              AdultLeader?
   householdId              String?
@@ -952,4 +953,135 @@ model Receipt {
   createdByUser   User?     @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+}
+
+enum RaffleStatus {
+  OPEN
+  CLOSED
+}
+
+enum RafflePaymentMethod {
+  CASH
+  ZELLE
+  CHECK
+  OTHER
+}
+
+/**
+ * A 50/50 fundraiser run from /portal/admin/raffles: a numbered board of
+ * boxes sold at one price, with prizePercent of the sales going to whoever
+ * holds the drawn box and the rest to the pack. Each raffle keeps its own
+ * buyers, boxes and payments, so a closed one stays as a permanent record
+ * while the next starts from an empty board.
+ */
+model Raffle {
+  id           String       @id @default(cuid())
+  name         String
+  drawingDate  DateTime?    @db.Date
+  boxCount     Int
+  priceCents   Int
+  prizePercent Int          @default(50)
+  // CLOSED is the archive: every action that changes the raffle refuses until
+  // an Admin reopens it.
+  status       RaffleStatus @default(OPEN)
+  closedAt     DateTime?
+  notes        String?
+
+  // The drawing. All null until a winner is recorded.
+  winningBox      Int?
+  winnerName      String?
+  // The prize, fixed at the moment the winner is recorded (boxes sold x price
+  // x prizePercent) so a later correction to a box or payment can't quietly
+  // change what the winner was owed. Null means "not drawn yet"; the pages
+  // show a projected figure until then.
+  prizeCents      Int?
+  prizePaid       Boolean              @default(false)
+  prizePaidOn     DateTime?            @db.Date
+  prizePaidMethod RafflePaymentMethod?
+
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  entries   RaffleEntry[]
+  boxes     RaffleBox[]
+  payments  RafflePayment[]
+
+  @@index([status, drawingDate])
+}
+
+/**
+ * One buyer in one raffle. A free-text name rather than a link to a Parent or
+ * User: buyers are grandparents, neighbours and coworkers as often as pack
+ * families. What they owe is always boxes x the raffle's price, so it isn't
+ * stored.
+ */
+model RaffleEntry {
+  id        String          @id @default(cuid())
+  raffleId  String
+  raffle    Raffle          @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  name      String
+  notes     String?
+  createdAt DateTime        @default(now())
+  boxes     RaffleBox[]
+  payments  RafflePayment[]
+
+  @@index([raffleId])
+}
+
+/**
+ * A sold box. A row exists only while the box belongs to someone, so an
+ * available box is simply a number with no row. The unique index is what
+ * stops two buyers holding the same number, even if two admins assign it at
+ * the same moment.
+ */
+model RaffleBox {
+  id       String      @id @default(cuid())
+  raffleId String
+  raffle   Raffle      @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  entryId  String
+  entry    RaffleEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  number   Int
+
+  @@unique([raffleId, number])
+  @@index([entryId])
+}
+
+/**
+ * Money that actually arrived. An IOU is not a payment: a buyer who hasn't
+ * paid has boxes and no row here, so nothing is ever recorded as "cash" or
+ * "Zelle" before it exists. Received and verified are separate on purpose —
+ * verifiedAt is set when an Admin has counted the cash or found the Zelle on
+ * the bank statement.
+ * Payments are voided, never deleted, so a correction leaves the original
+ * line on the page with its reason.
+ */
+model RafflePayment {
+  id          String              @id @default(cuid())
+  raffleId    String
+  raffle      Raffle              @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  // Null while nobody knows whose money this is — a Zelle from a name that
+  // doesn't match any buyer. It still counts as collected.
+  entryId     String?
+  entry       RaffleEntry?        @relation(fields: [entryId], references: [id], onDelete: SetNull)
+  method      RafflePaymentMethod
+  amountCents Int
+  // Who the money came from when that isn't the buyer: the name on the Zelle,
+  // or a relative paying for someone else's boxes.
+  payerName   String?
+  // Null on imported historical payments whose date was never written down.
+  receivedOn  DateTime?           @db.Date
+  note        String?
+
+  verifiedAt     DateTime?
+  verifiedByName String?
+
+  voidedAt     DateTime?
+  voidedByName String?
+  voidReason   String?
+
+  createdAt        DateTime @default(now())
+  recordedByUserId String?
+  recordedByUser   User?    @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([raffleId])
+  @@index([entryId])
 }

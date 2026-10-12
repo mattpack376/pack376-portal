@@ -71,6 +71,7 @@ export default function PortalNav({
             children: [
               { href: "/portal/admin/dues", label: "Dues" },
               { href: "/portal/admin/events", label: "Events" },
+              { href: "/portal/admin/raffles", label: "50/50 Raffles" },
               { href: "/portal/admin/receipts", label: "Receipts" },
             ],
           },
@@ -109,6 +110,7 @@ export default function PortalNav({
             children: [
               { href: "/portal/admin/dues", label: "Dues" },
               { href: "/portal/admin/events", label: "Events" },
+              { href: "/portal/admin/raffles", label: "50/50 Raffles" },
             ],
           },
           { href: "/portal/admin/homepage-events", label: "Top Banner" },

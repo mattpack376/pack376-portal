@@ -15,7 +15,8 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  * - Junior Admin: advancement and attendance for every den; can add scouts
  *   to a den but not rename or remove them; reads dues and event balances
  *   without recording payments; posts the top banner (no homepage events);
- *   sends photo consent links; reads the Camp Conron page.
+ *   sends photo consent links; reads the Camp Conron page and the 50/50
+ *   raffles.
  * - Committee Member: advancement and attendance for every den; reads photo
  *   consent and dues. No event money, no parent contacts.
  * - Den Leader: advancement and attendance for their assigned den(s), plus
@@ -376,6 +377,19 @@ export async function requireDuesViewSession(): Promise<SessionPayload> {
 
 /** For Server Components / pages: the Events pages — see canViewEventMoney. Only Admin gets the edit forms. */
 export async function requireEventsViewSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (!canViewEventMoney(session)) redirect(homeForRole(session.role));
+  return session;
+}
+
+/**
+ * For Server Components / pages: the 50/50 raffle pages — the same two roles
+ * as event money. Admin runs a raffle (every action is assertAdmin); Junior
+ * Admin reads the board, the buyers and the totals and changes nothing.
+ * Committee Members and Den Leaders don't see raffles at all. Mirrors the
+ * generic /portal/admin rule in src/proxy.ts.
+ */
+export async function requireRafflesViewSession(): Promise<SessionPayload> {
   const session = await requireSession();
   if (!canViewEventMoney(session)) redirect(homeForRole(session.role));
   return session;

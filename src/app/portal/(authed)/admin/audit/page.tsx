@@ -19,8 +19,9 @@ import { AUDIT_RETENTION_MONTHS } from "@/lib/audit";
 
 /**
  * The full history of changes made through the portal, split into tabs by
- * type — Main, Sign-ins, Security, Attendance, Dues & Payments, Camp Conron, plus an
- * "All activity" list (see AUDIT_TABS in src/lib/auditLogData.ts).
+ * type — Main, Sign-ins, Security, Attendance, Dues & Payments, Camp Conron,
+ * 50/50 Raffles, plus an "All activity" list (see AUDIT_TABS in
+ * src/lib/auditLogData.ts).
  *
  * Master admins only (requireMasterAdminSession), matching the Danger Zone
  * reset page: a log that the people it records can edit their own way out of

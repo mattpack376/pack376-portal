@@ -68,13 +68,19 @@ const CLAIMING_TABS = {
     description: "Everything on the Camp Conron trip — details, pricing, registrations, payments, expenses, duties and activities.",
     categories: ["trip", "tripPayment", "tripRegistration"],
   },
+  raffles: {
+    label: "50/50 Raffles",
+    description:
+      "Everything on the 50/50 raffles — raffles started, closed or imported, boxes given out, payments recorded, corrected, verified and voided, and the winner and prize.",
+    categories: ["raffle"],
+  },
 } as const satisfies Record<string, AuditTabDef>;
 
 export const AUDIT_TABS = {
   main: {
     label: "Main",
     description:
-      "Everything that isn’t a sign-in, security, attendance, payment or Camp Conron entry — advancement, scouts, events, calendar, announcements and the rest.",
+      "Everything that isn’t a sign-in, security, attendance, payment, Camp Conron or raffle entry — advancement, scouts, events, calendar, announcements and the rest.",
   },
   ...CLAIMING_TABS,
   all: {
@@ -156,6 +162,7 @@ export const AUDIT_CATEGORY_LABELS: Record<string, string> = {
   household: "Households",
   parent: "Parent Contacts",
   photoConsent: "Photo Consent",
+  raffle: "50/50 Raffles",
   receipt: "Receipts",
   reset: "Season Reset",
   scout: "Scouts",

@@ -66,6 +66,11 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
   // Events, registrations and guest groups: Admin edits, Junior Admin reads.
   // Den leaders see no money. Mirrors requireEventsViewSession().
   { test: (p) => p.startsWith("/portal/admin/events"), roles: ["ADMIN", "JUNIOR_ADMIN"] },
+  // Raffle CSV exports (buyer names and payments) are Admin-only, like the
+  // other exports. The raffle pages themselves fall to the generic
+  // /portal/admin rule at the bottom: Admin runs them, Junior Admin reads.
+  // Mirrors requireAdminSession() in the export route.
+  { test: (p) => /^\/portal\/admin\/raffles\/[^/]+\/export$/.test(p), roles: ["ADMIN"] },
   { test: (p) => p.endsWith("/promote"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens/new"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens"), roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE"] },

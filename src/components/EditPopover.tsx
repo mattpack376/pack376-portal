@@ -13,19 +13,33 @@ import { useEffect, useRef, useState } from "react";
  * other. An open box also closes on a click outside it or Escape — it covers
  * the Edit buttons of the rows beneath it, so without that the only way to
  * reach the next person is to find the open one's own Edit button again.
+ *
+ * An action that can turn down what was entered returns { error } instead of
+ * throwing (the raffle pages: a box that's already taken). The box then stays
+ * open with the message above its fields. Such a form should use SubmitButton
+ * rather than SaveButton, whose "Saved ✓" would follow a refusal too.
  */
 export default function EditPopover({
   action,
   children,
+  label = "Edit",
 }: {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | { error?: string }>;
   children: React.ReactNode;
+  /** The trigger button's text, for a popover that isn't an edit ("Payment", "Void"). */
+  label?: string;
 }) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function saveAndClose(formData: FormData) {
-    await action(formData);
+    const result = await action(formData);
+    if (result?.error) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
     if (detailsRef.current) detailsRef.current.open = false;
   }
 
@@ -63,9 +77,16 @@ export default function EditPopover({
   return (
     <details className="edit-popover" ref={detailsRef} onToggle={handleToggle}>
       <summary className="btn btn-quiet btn-small" style={{ display: "inline-block", cursor: "pointer" }}>
-        Edit
+        {label}
       </summary>
-      <form action={saveAndClose}>{children}</form>
+      <form action={saveAndClose}>
+        {error && (
+          <div className="form-error" role="alert">
+            {error}
+          </div>
+        )}
+        {children}
+      </form>
     </details>
   );
 }

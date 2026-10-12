@@ -2273,6 +2273,132 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .dates-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .dates-dialog-foot { text-align: right; }
 
+/* ---------- 50/50 raffles (/portal/admin/raffles) ---------- */
+/*
+ * The four headline numbers above every raffle tab. A grid rather than
+ * .card-row: four full-width cards on a phone would push the board itself
+ * below the fold, so these stay two to a row there.
+ */
+.raffle-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.raffle-stat {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 16px 18px;
+  min-width: 0;
+}
+.raffle-stat-label {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.raffle-stat-value {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--scout-blue);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.raffle-stat-note { font-size: 13px; color: var(--ink-soft); line-height: 1.35; margin-top: 2px; }
+
+/*
+ * The numbered board. Square cells in a fixed number of columns (set inline:
+ * 10 for a full board, 5 for a small one), capped so they don't balloon on a
+ * desktop. Each state differs by more than color — open is outlined, owes is
+ * dashed, paid is solid — and every cell carries its state in its label.
+ */
+.raffle-board {
+  display: grid;
+  gap: 6px;
+  max-width: 620px;
+  margin-bottom: 14px;
+}
+.raffle-box {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 2px solid rgba(0, 63, 135, 0.28);
+  background: var(--white);
+  color: var(--scout-blue-dark);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+button.raffle-box { cursor: pointer; }
+button.raffle-box:focus-visible { outline: 3px solid var(--scout-blue-light); outline-offset: 2px; }
+.raffle-box.is-owes { background: var(--scout-gold); border: 2px dashed var(--scout-blue-dark); }
+.raffle-box.is-paid { background: var(--money-green); border-color: var(--money-green); color: var(--white); }
+.raffle-box.is-selected { background: var(--scout-blue); border-color: var(--scout-blue-dark); color: var(--white); }
+.raffle-box.is-focused { box-shadow: 0 0 0 3px var(--scout-blue-light); }
+.raffle-box.is-winner { box-shadow: 0 0 0 4px var(--carnival-red); }
+.raffle-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-bottom: 18px;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+.raffle-legend > span { display: inline-flex; align-items: center; gap: 7px; }
+.raffle-legend .raffle-box { width: 20px; border-radius: 6px; font-size: 0; }
+.raffle-selection {
+  font-weight: 600;
+  color: var(--scout-blue-dark);
+  margin-bottom: 14px;
+}
+
+/* The money lines on a raffle's Payments tab: a label, then the figure flush right. */
+.raffle-ledger { margin: 0; }
+.raffle-ledger > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--cream-dark);
+}
+.raffle-ledger > div:last-child { border-bottom: none; padding-bottom: 0; }
+.raffle-ledger dt { color: var(--ink-soft); font-size: 15px; }
+.raffle-ledger dt small { display: block; font-size: 12.5px; }
+.raffle-ledger dd {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.raffle-ledger .is-total dt,
+.raffle-ledger .is-total dd { font-size: 17px; color: var(--scout-blue-dark); font-weight: 700; }
+/* A struck-out payment keeps its line, visibly out of the count. */
+.data-table tr.raffle-voided > td { color: var(--ink-soft); }
+.data-table tr.raffle-voided > td.raffle-amount { text-decoration: line-through; }
+
+@media (max-width: 820px) {
+  .raffle-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .raffle-stat { padding: 12px 14px; }
+  .raffle-stat-value { font-size: 22px; }
+}
+@media (max-width: 640px) {
+  .raffle-board { gap: 4px; }
+  .raffle-box { border-radius: 8px; font-size: 13px; }
+}
+
 @media print {
   /* The cream page color would show under the shell on a last, part-filled page. */
   html,
