@@ -245,7 +245,7 @@ export async function assignBoxesAction(formData: FormData): Promise<RaffleFormR
     if (numbers.length === 0) throw new RaffleInputError("Pick at least one box.");
 
     // The name decides who gets the boxes: one that's already on this raffle
-    // (however it's capitalised) gets more boxes, anything else is a new
+    // (however it's capitalized) gets more boxes, anything else is a new
     // buyer. The forms say which it will be before the admin saves.
     const newName = field(formData, "name");
     if (!newName) throw new RaffleInputError("Enter the buyer's name.");

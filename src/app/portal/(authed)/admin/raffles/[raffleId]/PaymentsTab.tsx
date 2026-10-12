@@ -303,7 +303,7 @@ export default function PaymentsTab({
         <CollapsibleGroup label="Record Money You Can't Place Yet" defaultOpen={false}>
           <div className="info-card" style={{ maxWidth: 560, marginTop: 10 }}>
             <p>
-              For a Zelle from a name you don&apos;t recognise. It counts as collected straight away, and you match it
+              For a Zelle from a name you don&apos;t recognize. It counts as collected right away, and you match it
               to a buyer once you know whose boxes it&apos;s for.
             </p>
             <ActionForm action={recordPaymentAction}>
