@@ -394,10 +394,11 @@ export async function requireEventsViewSession(): Promise<SessionPayload> {
  *  - "helper": the Raffle Helper permission (User.raffleHelper), which an
  *    Admin gives to particular people from the raffles page so they can work
  *    a raffle without being Admins. A helper sees everything, sells boxes,
- *    edits a buyer, takes away a box picked by mistake, and records a buyer's
- *    payment. A helper can't start, change, close or delete a raffle, can't
- *    verify, correct or void a payment, can't record the winner, and can't
- *    download the records.
+ *    edits a buyer, takes away a box picked by mistake, records a buyer's
+ *    payment, and can void a payment they recorded themselves until an Admin
+ *    verifies it. A helper can't start, change, close or delete a raffle,
+ *    can't verify or correct a payment or void anyone else's, can't record
+ *    the winner, and can't download the records.
  *  - "viewer": a Junior Admin without the permission — reads, changes nothing.
  *
  * Everyone else has no access at all. The permission is read from the

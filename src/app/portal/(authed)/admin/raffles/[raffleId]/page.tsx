@@ -171,6 +171,7 @@ export default async function AdminRafflePage({
           raffle={raffle}
           canRecord={canSell}
           canManage={canManage}
+          helperUserId={access === "helper" && isOpen ? session.userId : null}
           today={today}
           payerNames={names.payerNames}
           payerHistory={await getPayerHistory(

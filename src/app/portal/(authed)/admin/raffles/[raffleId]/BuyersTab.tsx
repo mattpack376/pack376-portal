@@ -237,7 +237,7 @@ export default function BuyersTab({
               : " Use a buyer's Boxes button to add a box to their line or take away one picked by mistake. " +
                 (canVoid
                   ? "To take someone off the raffle, void their payments first (Payments tab), then Remove appears here."
-                  : "Remove only shows for a buyer with no payments; an Admin has to take off anyone who has paid."))}
+                  : "Remove only shows for a buyer with no payments. You can void a payment you recorded yourself on the Payments tab; an Admin handles the rest."))}
         </p>
       )}
 

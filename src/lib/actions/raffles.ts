@@ -32,9 +32,10 @@ import { parseRaffleImport } from "@/lib/raffleImport";
  *
  *  - sellerSession(): an Admin, or someone with the Raffle Helper permission.
  *    Selling boxes, editing a buyer, taking away a box picked by mistake,
- *    removing a buyer who hasn't paid, and recording a buyer's payment.
+ *    removing a buyer who hasn't paid, recording a buyer's payment, and
+ *    voiding a payment — for a helper, only their own unverified ones.
  *  - adminSession(): Admin only. Everything else — starting, changing,
- *    closing and deleting raffles, verifying, correcting and voiding
+ *    closing and deleting raffles, verifying, correcting and restoring
  *    payments, money not matched to a buyer, the winner and the prize.
  *
  * A Junior Admin without the permission reads the pages and changes nothing.
@@ -624,9 +625,14 @@ export async function updatePaymentAction(formData: FormData): Promise<RaffleFor
   });
 }
 
-/** Strikes a payment out without deleting it — it stops counting, and stays listed with the reason. */
+/**
+ * Strikes a payment out without deleting it — it stops counting, and stays
+ * listed with the reason. An Admin can void any payment; a Raffle Helper only
+ * one they recorded themselves that hasn't been verified yet. Restoring a
+ * voided payment is the Admin's.
+ */
 export async function voidPaymentAction(formData: FormData): Promise<RaffleFormResult> {
-  const session = await adminSession();
+  const { session, isAdmin } = await sellerSession();
   return asResult(async () => {
     const payment = await prisma.rafflePayment.findUnique({
       where: { id: field(formData, "paymentId") },
@@ -634,6 +640,17 @@ export async function voidPaymentAction(formData: FormData): Promise<RaffleFormR
     });
     if (!payment || payment.voidedAt) return;
     const raffle = await openRaffle(payment.raffleId);
+    // A Raffle Helper can take back an entry of their own — the wrong buyer
+    // marked paid — but not anyone else's, and not once an Admin has verified
+    // it: by then the money has been counted against that line.
+    if (!isAdmin) {
+      if (payment.recordedByUserId !== session.userId) {
+        throw new RaffleInputError("You can only void a payment you recorded yourself. Ask an Admin to void this one.");
+      }
+      if (payment.verifiedAt) {
+        throw new RaffleInputError("An Admin has already verified this payment, so only an Admin can void it now.");
+      }
+    }
     const reason = field(formData, "reason");
     if (!reason) throw new RaffleInputError("Say why this payment is being voided.");
 

@@ -184,11 +184,12 @@ export default async function AdminRafflesPage() {
             <h3>Raffle Helpers</h3>
             <p>
               People you want working a raffle with you, without making them Admins. A helper can open the raffles,
-              sell boxes, fix a buyer or take away a box picked by mistake, and mark a buyer as paid.
+              sell boxes, fix a buyer or take away a box picked by mistake, and mark a buyer as paid. If they mark the
+              wrong person paid, they can void that entry themselves until an Admin verifies it.
             </p>
             <p>
-              A helper can&apos;t start, close or delete a raffle, verify payments, change or void a payment, record
-              the winner, or download the records.
+              A helper can&apos;t start, close or delete a raffle, verify payments, change a payment or void someone
+              else&apos;s, record the winner, or download the records.
             </p>
             {helpers.length === 0 ? (
               <p>

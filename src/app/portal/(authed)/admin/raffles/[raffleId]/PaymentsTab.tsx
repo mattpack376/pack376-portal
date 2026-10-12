@@ -38,6 +38,7 @@ export default function PaymentsTab({
   raffle,
   canRecord,
   canManage,
+  helperUserId,
   today,
   payerNames,
   payerHistory,
@@ -47,6 +48,12 @@ export default function PaymentsTab({
   canRecord: boolean;
   /** Admin on an open raffle: verifies, corrects and voids payments, and handles money not matched to a buyer. */
   canManage: boolean;
+  /**
+   * The signed-in Raffle Helper's id on an open raffle, null for everyone
+   * else. A helper gets a Void button on the payments they recorded
+   * themselves, until an Admin verifies them — see voidPaymentAction.
+   */
+  helperUserId: string | null;
   today: string;
   payerNames: string[];
   /** Lower-cased payer name -> the buyer their money was for last time. */
@@ -59,7 +66,30 @@ export default function PaymentsTab({
   const owing = raffle.entries.filter((entry) => entry.remainingCents > 0);
   const methodsInUse = RAFFLE_METHODS.filter((method) => s.byMethod[method].receivedCents > 0);
 
-  /** The Edit and Void buttons on a payment's row. */
+  /** A helper may void only what they recorded themselves, and only while it's unverified. */
+  const helperCanVoid = (payment: RafflePaymentDetail) =>
+    helperUserId !== null && payment.recordedByUserId === helperUserId && !payment.verifiedAt;
+
+  function voidPopover(payment: RafflePaymentDetail) {
+    return (
+      <EditPopover action={voidPaymentAction} label="Void">
+        <input type="hidden" name="paymentId" value={payment.id} />
+        <p style={{ fontSize: 14.5 }}>
+          Voiding strikes out this {formatCents(payment.amountCents)} payment so it stops counting. It stays listed
+          under Voided Payments{canManage ? " and can be restored." : ", and an Admin can restore it."}
+        </p>
+        <div className="form-field">
+          <label htmlFor={`pay-${payment.id}-reason`}>Why?</label>
+          <input id={`pay-${payment.id}-reason`} name="reason" required placeholder="e.g. entered twice" />
+        </div>
+        <SubmitButton className="btn btn-danger btn-small" pendingLabel="Voiding…">
+          Void Payment
+        </SubmitButton>
+      </EditPopover>
+    );
+  }
+
+  /** The Edit and Void buttons on a payment's row, for an Admin. */
   function paymentActions(payment: RafflePaymentDetail, editLabel = "Edit") {
     const id = `pay-${payment.id}`;
     return (
@@ -112,20 +142,7 @@ export default function PaymentsTab({
             Save
           </SubmitButton>
         </EditPopover>
-        <EditPopover action={voidPaymentAction} label="Void">
-          <input type="hidden" name="paymentId" value={payment.id} />
-          <p style={{ fontSize: 14.5 }}>
-            Voiding strikes out this {formatCents(payment.amountCents)} payment so it stops counting. It stays listed
-            under Voided Payments and can be restored.
-          </p>
-          <div className="form-field">
-            <label htmlFor={`${id}-reason`}>Why?</label>
-            <input id={`${id}-reason`} name="reason" required placeholder="e.g. entered twice" />
-          </div>
-          <SubmitButton className="btn btn-danger btn-small" pendingLabel="Voiding…">
-            Void Payment
-          </SubmitButton>
-        </EditPopover>
+        {voidPopover(payment)}
       </>
     );
   }
@@ -360,6 +377,9 @@ export default function PaymentsTab({
                     {formatCents(totals.unverifiedCents)} left to verify
                   </strong>
                   {canManage && pending > 0 && <> — {VERIFY_HINT[method]}</>}
+                  {!canManage && rows.some(helperCanVoid) && (
+                    <> — Marked the wrong person paid? Use Void on a payment you recorded yourself, before an Admin verifies it.</>
+                  )}
                 </p>
               </div>
               {canManage && pending > 1 && (
@@ -384,7 +404,7 @@ export default function PaymentsTab({
                   <th>Paid By</th>
                   <th>Received</th>
                   <th>Verified</th>
-                  {canManage && <th></th>}
+                  {(canManage || helperUserId) && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -428,6 +448,10 @@ export default function PaymentsTab({
                           {paymentActions(payment)}
                         </td>
                       )}
+                      {/* A plain cell when there's no button: an empty flex "actions" cell isn't a table cell, so its border sits out of line with the row. */}
+                      {!canManage &&
+                        helperUserId &&
+                        (helperCanVoid(payment) ? <td className="actions">{voidPopover(payment)}</td> : <td />)}
                     </tr>
                   );
                 })}
