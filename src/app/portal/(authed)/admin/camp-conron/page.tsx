@@ -52,6 +52,9 @@ import SegmentedNav from "@/components/SegmentedNav";
 import FileExportButton from "@/components/FileExportButton";
 
 const CARD_WIDTH = 480;
+// Left inset for the rows inside a closed-by-default section, so they read as
+// its children rather than as more top-level rows.
+const NESTED_INDENT = 16;
 
 export default async function AdminCampConronPage({
   searchParams,
@@ -265,8 +268,9 @@ export default async function AdminCampConronPage({
         </CollapsibleGroup>
       </div>
 
-      {/* Set-up-once settings, closed by default so the page opens on the
-          money and the sections that change week to week. */}
+      {/* Everything below the money is closed by default: with the trip over,
+          expenses are the only part still being worked on. The set-up-once
+          settings and the weekend's menu, duties and schedule are a click away. */}
       <div style={{ marginBottom: 24 }}>
         <CollapsibleGroup defaultOpen={false} label="Event Details">
           <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
@@ -392,282 +396,277 @@ export default async function AdminCampConronPage({
             </form>
           </div>
         </CollapsibleGroup>
-      </div>
-
-      <div className="section-head">
-        <div className="eyebrow">Weekend Menu</div>
-        <h2>Menu</h2>
-        <p>Friday Dinner only, Saturday and Sunday all 3 meals, Monday Breakfast only.</p>
-      </div>
-      <div className="info-card" style={{ marginBottom: 24, maxWidth: 920 }}>
-        <form action={updateTripMealsAction}>
-          <div style={{ display: "flex", flexWrap: "wrap", columnGap: 24 }}>
-            {meals.map((meal) => (
-              <div key={meal.id} className="form-field" style={{ flex: "1 1 380px" }}>
-                <label htmlFor={`menuText-${meal.id}`}>
-                  {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
-                </label>
-                <input type="hidden" name="mealId" value={meal.id} />
-                <textarea
-                  id={`menuText-${meal.id}`}
-                  name={`menuText-${meal.id}`}
-                  rows={2}
-                  defaultValue={meal.menuText ?? ""}
-                  placeholder="What's being served"
-                />
+        <CollapsibleGroup defaultOpen={false} label="Menu">
+          <div className="info-card" style={{ marginTop: 8, maxWidth: 920 }}>
+            <p className="form-note" style={{ marginTop: 0 }}>
+              Friday Dinner only, Saturday and Sunday all 3 meals, Monday Breakfast only.
+            </p>
+            <form action={updateTripMealsAction}>
+              <div style={{ display: "flex", flexWrap: "wrap", columnGap: 24 }}>
+                {meals.map((meal) => (
+                  <div key={meal.id} className="form-field" style={{ flex: "1 1 380px" }}>
+                    <label htmlFor={`menuText-${meal.id}`}>
+                      {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
+                    </label>
+                    <input type="hidden" name="mealId" value={meal.id} />
+                    <textarea
+                      id={`menuText-${meal.id}`}
+                      name={`menuText-${meal.id}`}
+                      rows={2}
+                      defaultValue={meal.menuText ?? ""}
+                      placeholder="What's being served"
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+              <SaveButton className="btn btn-primary">Save Menu</SaveButton>
+            </form>
           </div>
-          <SaveButton className="btn btn-primary">Save Menu</SaveButton>
-        </form>
-      </div>
+        </CollapsibleGroup>
+        <CollapsibleGroup defaultOpen={false} label={`Duty Roster (${dutySlots.length})`}>
+          <p className="form-note" style={{ marginTop: 8, paddingLeft: NESTED_INDENT }}>
+            Assign helpers to a meal, or add a standalone duty (setup, breakdown, etc.) with no meal attached.
+          </p>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginTop: 8, paddingLeft: NESTED_INDENT }}>
+            <div style={{ flex: "2 1 480px" }}>
+              {dutySlots.length === 0 ? (
+                <div className="info-card">
+                  <p>No duty slots yet.</p>
+                </div>
+              ) : (
+                <div>
+                  {dutySlots.map((duty) => (
+                    <CollapsibleGroup
+                      key={duty.id}
+                      defaultOpen={false}
+                      label={`${duty.tripMeal ? `${DAY_LABELS[duty.tripMeal.day]} ${MEAL_TYPE_LABELS[duty.tripMeal.mealType]}` : "General"} — ${duty.label}${
+                        duty.assignedName ? ` · ${duty.assignedName}` : ""
+                      }${duty.arriveTime ? ` (${duty.arriveTime})` : ""}`}
+                    >
+                      <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
+                        <form action={updateDutySlotAction}>
+                          <input type="hidden" name="id" value={duty.id} />
+                          <div className="form-field">
+                            <label htmlFor={`duty-label-${duty.id}`}>Duty</label>
+                            <input id={`duty-label-${duty.id}`} name="label" required defaultValue={duty.label} />
+                          </div>
+                          <div className="form-field">
+                            <label htmlFor={`duty-meal-${duty.id}`}>Meal (optional)</label>
+                            {/*
+                              The key is load-bearing, not decoration. This <select> is
+                              uncontrolled, and saving a duty re-sorts this list (duties
+                              are ordered by their meal), so React moves the row's DOM
+                              node — and the moved <select> kept the option the server
+                              marked selected on first render instead of picking up the
+                              new defaultValue. The box then showed the OLD meal while
+                              the summary above it showed the newly saved one, which
+                              looks like the save was ignored. Worse, the next save from
+                              that row submitted the stale id and genuinely reverted the
+                              meal. Keying on the saved value remounts the select with
+                              fresh options whenever the meal actually changes, and
+                              leaves an unsaved in-progress choice alone.
+                            */}
+                            <select
+                              key={duty.tripMealId ?? "none"}
+                              id={`duty-meal-${duty.id}`}
+                              name="tripMealId"
+                              defaultValue={duty.tripMealId ?? ""}
+                            >
+                              <option value="">— General duty, no meal —</option>
+                              {meals.map((meal) => (
+                                <option key={meal.id} value={meal.id}>
+                                  {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="form-row">
+                            <div className="form-field">
+                              <label htmlFor={`duty-assigned-${duty.id}`}>Assigned To</label>
+                              <input id={`duty-assigned-${duty.id}`} name="assignedName" defaultValue={duty.assignedName ?? ""} placeholder="Name" />
+                            </div>
+                            <div className="form-field">
+                              <label htmlFor={`duty-arrive-${duty.id}`}>Arrive</label>
+                              <input
+                                id={`duty-arrive-${duty.id}`}
+                                name="arriveTime"
+                                defaultValue={duty.arriveTime ?? ""}
+                                placeholder="e.g. 4:00 PM Fri"
+                              />
+                            </div>
+                          </div>
+                          <div className="form-field">
+                            <label htmlFor={`duty-notes-${duty.id}`}>Notes (optional)</label>
+                            <input id={`duty-notes-${duty.id}`} name="notes" defaultValue={duty.notes ?? ""} />
+                          </div>
+                          <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
+                        </form>
+                        <form action={deleteDutySlotAction} style={{ marginTop: 12 }}>
+                          <input type="hidden" name="id" value={duty.id} />
+                          <ConfirmSubmitButton
+                            className="btn btn-danger btn-small"
+                            pendingLabel="Removing…"
+                            message={`Remove the duty “${duty.label}”${duty.assignedName ? ` (assigned to ${duty.assignedName})` : ""}? This can't be undone.`}
+                          >
+                            Remove
+                          </ConfirmSubmitButton>
+                        </form>
+                      </div>
+                    </CollapsibleGroup>
+                  ))}
+                </div>
+              )}
+            </div>
 
-      <div className="section-head">
-        <div className="eyebrow">Weekend Staffing</div>
-        <h2>Duty Roster</h2>
-        <p>Assign helpers to a meal, or add a standalone duty (setup, breakdown, etc.) with no meal attached.</p>
-      </div>
-
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 32 }}>
-      <div style={{ flex: "2 1 480px" }}>
-      {dutySlots.length === 0 ? (
-        <div className="info-card">
-          <p>No duty slots yet.</p>
-        </div>
-      ) : (
-        <div>
-          {dutySlots.map((duty) => (
-            <CollapsibleGroup
-              key={duty.id}
-              defaultOpen={false}
-              label={`${duty.tripMeal ? `${DAY_LABELS[duty.tripMeal.day]} ${MEAL_TYPE_LABELS[duty.tripMeal.mealType]}` : "General"} — ${duty.label}${
-                duty.assignedName ? ` · ${duty.assignedName}` : ""
-              }${duty.arriveTime ? ` (${duty.arriveTime})` : ""}`}
-            >
-              <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
-                <form action={updateDutySlotAction}>
-                  <input type="hidden" name="id" value={duty.id} />
+            <div className="info-card" style={{ flex: "1 1 360px" }}>
+              <h3>Add a Duty Slot</h3>
+              <form action={createDutySlotAction}>
+                <input type="hidden" name="tripPageId" value={trip.id} />
+                <div className="form-field">
+                  <label htmlFor="label">Duty</label>
+                  <input id="label" name="label" required placeholder="e.g. Head Cook, Setup Crew" />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="tripMealId">Meal (optional)</label>
+                  <select id="tripMealId" name="tripMealId" defaultValue="">
+                    <option value="">— General duty, no meal —</option>
+                    {meals.map((meal) => (
+                      <option key={meal.id} value={meal.id}>
+                        {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-row">
                   <div className="form-field">
-                    <label htmlFor={`duty-label-${duty.id}`}>Duty</label>
-                    <input id={`duty-label-${duty.id}`} name="label" required defaultValue={duty.label} />
+                    <label htmlFor="assignedName">Assigned To</label>
+                    <input id="assignedName" name="assignedName" placeholder="Name" />
                   </div>
                   <div className="form-field">
-                    <label htmlFor={`duty-meal-${duty.id}`}>Meal (optional)</label>
-                    {/*
-                      The key is load-bearing, not decoration. This <select> is
-                      uncontrolled, and saving a duty re-sorts this list (duties
-                      are ordered by their meal), so React moves the row's DOM
-                      node — and the moved <select> kept the option the server
-                      marked selected on first render instead of picking up the
-                      new defaultValue. The box then showed the OLD meal while
-                      the summary above it showed the newly saved one, which
-                      looks like the save was ignored. Worse, the next save from
-                      that row submitted the stale id and genuinely reverted the
-                      meal. Keying on the saved value remounts the select with
-                      fresh options whenever the meal actually changes, and
-                      leaves an unsaved in-progress choice alone.
-                    */}
-                    <select
-                      key={duty.tripMealId ?? "none"}
-                      id={`duty-meal-${duty.id}`}
-                      name="tripMealId"
-                      defaultValue={duty.tripMealId ?? ""}
+                    <label htmlFor="arriveTime">Arrive</label>
+                    <input id="arriveTime" name="arriveTime" placeholder="e.g. 4:00 PM Fri" />
+                  </div>
+                </div>
+                <div className="form-field">
+                  <label htmlFor="notes">Notes (optional)</label>
+                  <input id="notes" name="notes" />
+                </div>
+                <button type="submit" className="btn btn-primary">Add</button>
+              </form>
+            </div>
+          </div>
+        </CollapsibleGroup>
+        <CollapsibleGroup defaultOpen={false} label={`Activities Schedule (${activities.length})`}>
+          <p className="form-note" style={{ marginTop: 8, paddingLeft: NESTED_INDENT }}>
+            What&apos;s happening and when — shown to families on the public page.
+          </p>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginTop: 8, paddingLeft: NESTED_INDENT }}>
+            <div style={{ flex: "2 1 480px" }}>
+              {activities.length === 0 ? (
+                <div className="info-card">
+                  <p>No activities scheduled yet.</p>
+                </div>
+              ) : (
+                <div>
+                  {activities.map((activity) => (
+                    <CollapsibleGroup
+                      key={activity.id}
+                      defaultOpen={false}
+                      label={`${DAY_LABELS[activity.day]}${activity.time ? ` ${activity.time}` : ""} — ${activity.title}`}
                     >
-                      <option value="">— General duty, no meal —</option>
-                      {meals.map((meal) => (
-                        <option key={meal.id} value={meal.id}>
-                          {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
+                      <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
+                        <form action={updateActivityAction}>
+                          <input type="hidden" name="id" value={activity.id} />
+                          <div className="form-row">
+                            <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+                              <label htmlFor={`activity-day-${activity.id}`}>Day</label>
+                              {/* Keyed for the same reason as the duty meal select above:
+                                  the activity list re-sorts by day, so without this the
+                                  moved row's dropdown keeps showing the old day and the
+                                  next save from it puts the activity back. */}
+                              <select
+                                key={activity.day}
+                                id={`activity-day-${activity.id}`}
+                                name="day"
+                                defaultValue={activity.day}
+                              >
+                                {TRIP_DAY_ORDER.map((day) => (
+                                  <option key={day} value={day}>
+                                    {DAY_LABELS[day]}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+                              <label htmlFor={`activity-time-${activity.id}`}>Time</label>
+                              <input id={`activity-time-${activity.id}`} name="time" defaultValue={activity.time ?? ""} placeholder="e.g. 4:00 PM" />
+                            </div>
+                          </div>
+                          <div className="form-field">
+                            <label htmlFor={`activity-title-${activity.id}`}>Activity</label>
+                            <input id={`activity-title-${activity.id}`} name="title" required defaultValue={activity.title} />
+                          </div>
+                          <div className="form-field">
+                            <label htmlFor={`activity-description-${activity.id}`}>Description (optional)</label>
+                            <textarea
+                              id={`activity-description-${activity.id}`}
+                              name="description"
+                              rows={2}
+                              defaultValue={activity.description ?? ""}
+                            />
+                          </div>
+                          <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
+                        </form>
+                        <form action={deleteActivityAction} style={{ marginTop: 12 }}>
+                          <input type="hidden" name="id" value={activity.id} />
+                          <ConfirmSubmitButton
+                            className="btn btn-danger btn-small"
+                            pendingLabel="Removing…"
+                            message={`Remove the activity “${activity.title}”? This can't be undone.`}
+                          >
+                            Remove
+                          </ConfirmSubmitButton>
+                        </form>
+                      </div>
+                    </CollapsibleGroup>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="info-card" style={{ flex: "1 1 360px" }}>
+              <h3>Add an Activity</h3>
+              <form action={createActivityAction}>
+                <input type="hidden" name="tripPageId" value={trip.id} />
+                <div className="form-row">
+                  <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+                    <label htmlFor="activity-day">Day</label>
+                    <select id="activity-day" name="day" defaultValue={TRIP_DAY_ORDER[0]}>
+                      {TRIP_DAY_ORDER.map((day) => (
+                        <option key={day} value={day}>
+                          {DAY_LABELS[day]}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <div className="form-row">
-                    <div className="form-field">
-                      <label htmlFor={`duty-assigned-${duty.id}`}>Assigned To</label>
-                      <input id={`duty-assigned-${duty.id}`} name="assignedName" defaultValue={duty.assignedName ?? ""} placeholder="Name" />
-                    </div>
-                    <div className="form-field">
-                      <label htmlFor={`duty-arrive-${duty.id}`}>Arrive</label>
-                      <input
-                        id={`duty-arrive-${duty.id}`}
-                        name="arriveTime"
-                        defaultValue={duty.arriveTime ?? ""}
-                        placeholder="e.g. 4:00 PM Fri"
-                      />
-                    </div>
+                  <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+                    <label htmlFor="activity-time">Time</label>
+                    <input id="activity-time" name="time" placeholder="e.g. 4:00 PM" />
                   </div>
-                  <div className="form-field">
-                    <label htmlFor={`duty-notes-${duty.id}`}>Notes (optional)</label>
-                    <input id={`duty-notes-${duty.id}`} name="notes" defaultValue={duty.notes ?? ""} />
-                  </div>
-                  <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
-                </form>
-                <form action={deleteDutySlotAction} style={{ marginTop: 12 }}>
-                  <input type="hidden" name="id" value={duty.id} />
-                  <ConfirmSubmitButton
-                    className="btn btn-danger btn-small"
-                    pendingLabel="Removing…"
-                    message={`Remove the duty “${duty.label}”${duty.assignedName ? ` (assigned to ${duty.assignedName})` : ""}? This can't be undone.`}
-                  >
-                    Remove
-                  </ConfirmSubmitButton>
-                </form>
-              </div>
-            </CollapsibleGroup>
-          ))}
-        </div>
-      )}
-      </div>
-
-      <div className="info-card" style={{ flex: "1 1 360px" }}>
-        <h3>Add a Duty Slot</h3>
-        <form action={createDutySlotAction}>
-          <input type="hidden" name="tripPageId" value={trip.id} />
-          <div className="form-field">
-            <label htmlFor="label">Duty</label>
-            <input id="label" name="label" required placeholder="e.g. Head Cook, Setup Crew" />
-          </div>
-          <div className="form-field">
-            <label htmlFor="tripMealId">Meal (optional)</label>
-            <select id="tripMealId" name="tripMealId" defaultValue="">
-              <option value="">— General duty, no meal —</option>
-              {meals.map((meal) => (
-                <option key={meal.id} value={meal.id}>
-                  {DAY_LABELS[meal.day]} {MEAL_TYPE_LABELS[meal.mealType]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-row">
-            <div className="form-field">
-              <label htmlFor="assignedName">Assigned To</label>
-              <input id="assignedName" name="assignedName" placeholder="Name" />
-            </div>
-            <div className="form-field">
-              <label htmlFor="arriveTime">Arrive</label>
-              <input id="arriveTime" name="arriveTime" placeholder="e.g. 4:00 PM Fri" />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="activity-title">Activity</label>
+                  <input id="activity-title" name="title" required placeholder="e.g. Tent Decorating Contest" />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="activity-description">Description (optional)</label>
+                  <textarea id="activity-description" name="description" rows={2} placeholder="Bring your best decorations!" />
+                </div>
+                <button type="submit" className="btn btn-primary">Add</button>
+              </form>
             </div>
           </div>
-          <div className="form-field">
-            <label htmlFor="notes">Notes (optional)</label>
-            <input id="notes" name="notes" />
-          </div>
-          <button type="submit" className="btn btn-primary">Add</button>
-        </form>
-      </div>
-      </div>
-
-      <div className="section-head">
-        <div className="eyebrow">Weekend Itinerary</div>
-        <h2>Activities Schedule</h2>
-        <p>What&apos;s happening and when — shown to families on the public page.</p>
-      </div>
-
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 32 }}>
-      <div style={{ flex: "2 1 480px" }}>
-      {activities.length === 0 ? (
-        <div className="info-card">
-          <p>No activities scheduled yet.</p>
-        </div>
-      ) : (
-        <div>
-          {activities.map((activity) => (
-            <CollapsibleGroup
-              key={activity.id}
-              defaultOpen={false}
-              label={`${DAY_LABELS[activity.day]}${activity.time ? ` ${activity.time}` : ""} — ${activity.title}`}
-            >
-              <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
-                <form action={updateActivityAction}>
-                  <input type="hidden" name="id" value={activity.id} />
-                  <div className="form-row">
-                    <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
-                      <label htmlFor={`activity-day-${activity.id}`}>Day</label>
-                      {/* Keyed for the same reason as the duty meal select above:
-                          the activity list re-sorts by day, so without this the
-                          moved row's dropdown keeps showing the old day and the
-                          next save from it puts the activity back. */}
-                      <select
-                        key={activity.day}
-                        id={`activity-day-${activity.id}`}
-                        name="day"
-                        defaultValue={activity.day}
-                      >
-                        {TRIP_DAY_ORDER.map((day) => (
-                          <option key={day} value={day}>
-                            {DAY_LABELS[day]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
-                      <label htmlFor={`activity-time-${activity.id}`}>Time</label>
-                      <input id={`activity-time-${activity.id}`} name="time" defaultValue={activity.time ?? ""} placeholder="e.g. 4:00 PM" />
-                    </div>
-                  </div>
-                  <div className="form-field">
-                    <label htmlFor={`activity-title-${activity.id}`}>Activity</label>
-                    <input id={`activity-title-${activity.id}`} name="title" required defaultValue={activity.title} />
-                  </div>
-                  <div className="form-field">
-                    <label htmlFor={`activity-description-${activity.id}`}>Description (optional)</label>
-                    <textarea
-                      id={`activity-description-${activity.id}`}
-                      name="description"
-                      rows={2}
-                      defaultValue={activity.description ?? ""}
-                    />
-                  </div>
-                  <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
-                </form>
-                <form action={deleteActivityAction} style={{ marginTop: 12 }}>
-                  <input type="hidden" name="id" value={activity.id} />
-                  <ConfirmSubmitButton
-                    className="btn btn-danger btn-small"
-                    pendingLabel="Removing…"
-                    message={`Remove the activity “${activity.title}”? This can't be undone.`}
-                  >
-                    Remove
-                  </ConfirmSubmitButton>
-                </form>
-              </div>
-            </CollapsibleGroup>
-          ))}
-        </div>
-      )}
-      </div>
-
-      <div className="info-card" style={{ flex: "1 1 360px" }}>
-        <h3>Add an Activity</h3>
-        <form action={createActivityAction}>
-          <input type="hidden" name="tripPageId" value={trip.id} />
-          <div className="form-row">
-            <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
-              <label htmlFor="activity-day">Day</label>
-              <select id="activity-day" name="day" defaultValue={TRIP_DAY_ORDER[0]}>
-                {TRIP_DAY_ORDER.map((day) => (
-                  <option key={day} value={day}>
-                    {DAY_LABELS[day]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
-              <label htmlFor="activity-time">Time</label>
-              <input id="activity-time" name="time" placeholder="e.g. 4:00 PM" />
-            </div>
-          </div>
-          <div className="form-field">
-            <label htmlFor="activity-title">Activity</label>
-            <input id="activity-title" name="title" required placeholder="e.g. Tent Decorating Contest" />
-          </div>
-          <div className="form-field">
-            <label htmlFor="activity-description">Description (optional)</label>
-            <textarea id="activity-description" name="description" rows={2} placeholder="Bring your best decorations!" />
-          </div>
-          <button type="submit" className="btn btn-primary">Add</button>
-        </form>
-      </div>
+        </CollapsibleGroup>
       </div>
 
       <div
@@ -712,178 +711,184 @@ export default async function AdminCampConronPage({
         />
       </div>
 
-      {registrations.length > 0 && (
-        <SegmentedNav
-          active={affiliationFilter}
-          items={[
-            { key: "ALL", href: "/portal/admin/camp-conron?affiliation=ALL", label: "All" },
-            { key: "PACK", href: "/portal/admin/camp-conron?affiliation=PACK", label: "Pack 376" },
-            { key: "TROOP", href: "/portal/admin/camp-conron?affiliation=TROOP", label: "Troop 376" },
-          ]}
-        />
-      )}
+      {/* The family rows (each one an edit form and a payment entry) sit behind
+          one closed group; the totals above and the unit summaries stay in view. */}
+      <CollapsibleGroup defaultOpen={false} label={`Families & Payments (${visibleRegistrations.length})`}>
+        <div style={{ marginTop: 12, paddingLeft: NESTED_INDENT }}>
+          {registrations.length > 0 && (
+            <SegmentedNav
+              active={affiliationFilter}
+              items={[
+                { key: "ALL", href: "/portal/admin/camp-conron?affiliation=ALL", label: "All" },
+                { key: "PACK", href: "/portal/admin/camp-conron?affiliation=PACK", label: "Pack 376" },
+                { key: "TROOP", href: "/portal/admin/camp-conron?affiliation=TROOP", label: "Troop 376" },
+              ]}
+            />
+          )}
 
-      {visibleRegistrations.length === 0 ? (
-        <div className="info-card" style={{ maxWidth: CARD_WIDTH }}>
-          <p>{registrations.length === 0 ? "No registrations yet." : "No registrations match this filter."}</p>
-        </div>
-      ) : (
-        <div>
-          {visibleRegistrations.map((reg) => {
-            const status = paymentStatus(reg.remainingCents, reg.paidCents);
-            return (
-              <CollapsibleGroup
-                key={reg.id}
-                defaultOpen={false}
-                labelClassName={paymentRowClass(reg.remainingCents, reg.paidCents)}
-                label={`${reg.familyName} — ${reg.affiliation === "PACK" ? "Pack 376" : "Troop 376"} · Guest of ${reg.guestOfName} · ${reg.payingCount} paying${
-                  reg.freeCount ? `, ${reg.freeCount} free` : ""
-                } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}
-              >
-                <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
-                  <p>
-                    Owed {formatCents(reg.amountOwedCents)} · Paid {formatCents(reg.paidCents)} · Remaining {formatCents(reg.remainingCents)}
-                  </p>
-
-                  {isAdmin ? (
-                    <form action={updateTripRegistrationAction} style={{ marginBottom: 16 }}>
-                      <input type="hidden" name="id" value={reg.id} />
-                      <div className="form-row">
-                        <div className="form-field" style={{ flex: 1, minWidth: 180 }}>
-                          <label htmlFor={`familyName-${reg.id}`}>Family / Registrant Name</label>
-                          <input id={`familyName-${reg.id}`} name="familyName" required defaultValue={reg.familyName} />
-                        </div>
-                        <div className="form-field">
-                          <label htmlFor={`affiliation-${reg.id}`}>Affiliation</label>
-                          <select id={`affiliation-${reg.id}`} name="affiliation" defaultValue={reg.affiliation}>
-                            <option value="PACK">Pack 376</option>
-                            <option value="TROOP">Troop 376</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="form-field">
-                        <label htmlFor={`guestOfName-${reg.id}`}>Scout/Leader Guest Of</label>
-                        <input id={`guestOfName-${reg.id}`} name="guestOfName" required defaultValue={reg.guestOfName} />
-                      </div>
-                      <div className="form-row">
-                        <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
-                          <label htmlFor={`contactEmail-${reg.id}`}>Email</label>
-                          <input id={`contactEmail-${reg.id}`} name="contactEmail" type="email" required defaultValue={reg.contactEmail} />
-                        </div>
-                        <div className="form-field">
-                          <label htmlFor={`contactPhone-${reg.id}`}>Phone</label>
-                          <input
-                            id={`contactPhone-${reg.id}`}
-                            name="contactPhone"
-                            type="tel"
-                            required
-                            defaultValue={reg.contactPhone ?? ""}
-                            placeholder="(212)555-1234"
-                          />
-                        </div>
-                      </div>
-                      <TripRegistrationCountFields
-                        idPrefix={`reg-${reg.id}`}
-                        pricePerPersonCents={priceCents}
-                        defaultPayingCount={reg.payingCount}
-                        defaultFreeCount={reg.freeCount}
-                        defaultAmountOwedCents={reg.amountOwedCents}
-                      />
-                      <p className="form-note" style={{ marginTop: -8 }}>
-                        Registered {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}.
+          {visibleRegistrations.length === 0 ? (
+            <div className="info-card" style={{ maxWidth: CARD_WIDTH }}>
+              <p>{registrations.length === 0 ? "No registrations yet." : "No registrations match this filter."}</p>
+            </div>
+          ) : (
+            <div>
+              {visibleRegistrations.map((reg) => {
+                const status = paymentStatus(reg.remainingCents, reg.paidCents);
+                return (
+                  <CollapsibleGroup
+                    key={reg.id}
+                    defaultOpen={false}
+                    labelClassName={paymentRowClass(reg.remainingCents, reg.paidCents)}
+                    label={`${reg.familyName} — ${reg.affiliation === "PACK" ? "Pack 376" : "Troop 376"} · Guest of ${reg.guestOfName} · ${reg.payingCount} paying${
+                      reg.freeCount ? `, ${reg.freeCount} free` : ""
+                    } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}
+                  >
+                    <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
+                      <p>
+                        Owed {formatCents(reg.amountOwedCents)} · Paid {formatCents(reg.paidCents)} · Remaining {formatCents(reg.remainingCents)}
                       </p>
-                      <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
-                    </form>
-                  ) : (
-                    <p>
-                      {reg.contactEmail}
-                      {reg.contactPhone ? ` · ${reg.contactPhone}` : ""} · Guest of {reg.guestOfName} · Registered{" "}
-                      {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}
-                    </p>
-                  )}
 
-                  {reg.payments.length > 0 && (
-                    <div className="table-scroll" style={{ marginBottom: 16 }}>
-                      <table className="data-table" style={{ marginBottom: 0 }}>
-                        <thead>
-                          <tr>
-                            <th>Date</th>
-                            <th>Amount</th>
-                            <th>Note</th>
-                            {isAdmin && <th></th>}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {reg.payments.map((p) => (
-                            <tr key={p.id}>
-                              <td
-                                className="audit-hover"
-                                data-audit={formatAuditTooltip("Recorded", p.createdAt, p.recordedByUser?.username ?? null)}
-                              >
-                                {p.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}
-                              </td>
-                              <td data-label="Amount">{formatCents(p.amountCents)}</td>
-                              <td data-label="Note">{p.note || "—"}</td>
-                              {isAdmin && (
-                                <td className="actions">
-                                  <form action={deleteTripPaymentAction}>
-                                    <input type="hidden" name="paymentId" value={p.id} />
-                                    <ConfirmSubmitButton
-                                      className="btn btn-danger btn-small"
-                                      pendingLabel="Deleting…"
-                                      message={`Delete the ${formatCents(p.amountCents)} payment from ${p.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })} for ${reg.familyName}? This can't be undone.`}
-                                    >
-                                      Delete
-                                    </ConfirmSubmitButton>
-                                  </form>
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      {isAdmin ? (
+                        <form action={updateTripRegistrationAction} style={{ marginBottom: 16 }}>
+                          <input type="hidden" name="id" value={reg.id} />
+                          <div className="form-row">
+                            <div className="form-field" style={{ flex: 1, minWidth: 180 }}>
+                              <label htmlFor={`familyName-${reg.id}`}>Family / Registrant Name</label>
+                              <input id={`familyName-${reg.id}`} name="familyName" required defaultValue={reg.familyName} />
+                            </div>
+                            <div className="form-field">
+                              <label htmlFor={`affiliation-${reg.id}`}>Affiliation</label>
+                              <select id={`affiliation-${reg.id}`} name="affiliation" defaultValue={reg.affiliation}>
+                                <option value="PACK">Pack 376</option>
+                                <option value="TROOP">Troop 376</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="form-field">
+                            <label htmlFor={`guestOfName-${reg.id}`}>Scout/Leader Guest Of</label>
+                            <input id={`guestOfName-${reg.id}`} name="guestOfName" required defaultValue={reg.guestOfName} />
+                          </div>
+                          <div className="form-row">
+                            <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
+                              <label htmlFor={`contactEmail-${reg.id}`}>Email</label>
+                              <input id={`contactEmail-${reg.id}`} name="contactEmail" type="email" required defaultValue={reg.contactEmail} />
+                            </div>
+                            <div className="form-field">
+                              <label htmlFor={`contactPhone-${reg.id}`}>Phone</label>
+                              <input
+                                id={`contactPhone-${reg.id}`}
+                                name="contactPhone"
+                                type="tel"
+                                required
+                                defaultValue={reg.contactPhone ?? ""}
+                                placeholder="(212)555-1234"
+                              />
+                            </div>
+                          </div>
+                          <TripRegistrationCountFields
+                            idPrefix={`reg-${reg.id}`}
+                            pricePerPersonCents={priceCents}
+                            defaultPayingCount={reg.payingCount}
+                            defaultFreeCount={reg.freeCount}
+                            defaultAmountOwedCents={reg.amountOwedCents}
+                          />
+                          <p className="form-note" style={{ marginTop: -8 }}>
+                            Registered {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}.
+                          </p>
+                          <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
+                        </form>
+                      ) : (
+                        <p>
+                          {reg.contactEmail}
+                          {reg.contactPhone ? ` · ${reg.contactPhone}` : ""} · Guest of {reg.guestOfName} · Registered{" "}
+                          {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}
+                        </p>
+                      )}
+
+                      {reg.payments.length > 0 && (
+                        <div className="table-scroll" style={{ marginBottom: 16 }}>
+                          <table className="data-table" style={{ marginBottom: 0 }}>
+                            <thead>
+                              <tr>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Note</th>
+                                {isAdmin && <th></th>}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {reg.payments.map((p) => (
+                                <tr key={p.id}>
+                                  <td
+                                    className="audit-hover"
+                                    data-audit={formatAuditTooltip("Recorded", p.createdAt, p.recordedByUser?.username ?? null)}
+                                  >
+                                    {p.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}
+                                  </td>
+                                  <td data-label="Amount">{formatCents(p.amountCents)}</td>
+                                  <td data-label="Note">{p.note || "—"}</td>
+                                  {isAdmin && (
+                                    <td className="actions">
+                                      <form action={deleteTripPaymentAction}>
+                                        <input type="hidden" name="paymentId" value={p.id} />
+                                        <ConfirmSubmitButton
+                                          className="btn btn-danger btn-small"
+                                          pendingLabel="Deleting…"
+                                          message={`Delete the ${formatCents(p.amountCents)} payment from ${p.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })} for ${reg.familyName}? This can't be undone.`}
+                                        >
+                                          Delete
+                                        </ConfirmSubmitButton>
+                                      </form>
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {isAdmin && (
+                        <>
+                          <form
+                            action={addTripPaymentAction}
+                            style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 12 }}
+                          >
+                            <input type="hidden" name="tripRegistrationId" value={reg.id} />
+                            <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
+                              <label htmlFor={`amount-${reg.id}`}>Amount ($)</label>
+                              <input id={`amount-${reg.id}`} name="amount" type="number" min="0.01" step="0.01" required />
+                            </div>
+                            <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
+                              <label htmlFor={`paidOn-${reg.id}`}>Date</label>
+                              <input id={`paidOn-${reg.id}`} name="paidOn" type="date" defaultValue={todayDateOnlyString()} />
+                            </div>
+                            <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
+                              <label htmlFor={`note-${reg.id}`}>Note (optional)</label>
+                              <input id={`note-${reg.id}`} name="note" type="text" placeholder="Cash, Zelle…" />
+                            </div>
+                            <button type="submit" className="btn btn-primary">Add Payment</button>
+                          </form>
+                          <form action={deleteTripRegistrationAction}>
+                            <input type="hidden" name="id" value={reg.id} />
+                            <ConfirmSubmitButton
+                              className="btn btn-danger btn-small"
+                              pendingLabel="Removing…"
+                              message={`Remove the ${reg.familyName} registration?${reg.payments.length > 0 ? " Its recorded payments are deleted too." : ""} This can't be undone.`}
+                            >
+                              Remove Registration
+                            </ConfirmSubmitButton>
+                          </form>
+                        </>
+                      )}
                     </div>
-                  )}
-
-                  {isAdmin && (
-                    <>
-                      <form
-                        action={addTripPaymentAction}
-                        style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 12 }}
-                      >
-                        <input type="hidden" name="tripRegistrationId" value={reg.id} />
-                        <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
-                          <label htmlFor={`amount-${reg.id}`}>Amount ($)</label>
-                          <input id={`amount-${reg.id}`} name="amount" type="number" min="0.01" step="0.01" required />
-                        </div>
-                        <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
-                          <label htmlFor={`paidOn-${reg.id}`}>Date</label>
-                          <input id={`paidOn-${reg.id}`} name="paidOn" type="date" defaultValue={todayDateOnlyString()} />
-                        </div>
-                        <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
-                          <label htmlFor={`note-${reg.id}`}>Note (optional)</label>
-                          <input id={`note-${reg.id}`} name="note" type="text" placeholder="Cash, Zelle…" />
-                        </div>
-                        <button type="submit" className="btn btn-primary">Add Payment</button>
-                      </form>
-                      <form action={deleteTripRegistrationAction}>
-                        <input type="hidden" name="id" value={reg.id} />
-                        <ConfirmSubmitButton
-                          className="btn btn-danger btn-small"
-                          pendingLabel="Removing…"
-                          message={`Remove the ${reg.familyName} registration?${reg.payments.length > 0 ? " Its recorded payments are deleted too." : ""} This can't be undone.`}
-                        >
-                          Remove Registration
-                        </ConfirmSubmitButton>
-                      </form>
-                    </>
-                  )}
-                </div>
-              </CollapsibleGroup>
-            );
-          })}
+                  </CollapsibleGroup>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </CollapsibleGroup>
 
       {isAdmin && (
         <>
