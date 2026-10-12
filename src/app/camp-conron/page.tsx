@@ -37,12 +37,9 @@ export default async function CampConronPage() {
     return (
       <>
         <Header mainSiteOrigin="https://www.pack376nyc.org" />
-        <div className="site-banner">
-          ⚠️ This page is in testing — everything listed is a placeholder for visual purposes only and is not finalized yet.
-        </div>
         <section className="page-hero">
-          <h1>{trip.title}</h1>
-          <p>Details for this trip are coming soon — check back shortly.</p>
+          <h1>Thank You for Joining up for Camp Conron 2026!</h1>
+          <p>We look forward to next year&apos;s Columbus Day Weekend Event at Camp Conron!</p>
         </section>
         <Footer />
       </>
