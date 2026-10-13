@@ -2,6 +2,8 @@ import "server-only";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { isAllDensTestUsername } from "@/lib/denTestAccounts";
+import { RANK_ORDER } from "@/lib/rankConfig";
 import {
   SESSION_COOKIE,
   sessionCookieOptions,
@@ -57,14 +59,33 @@ export async function getSessionState(): Promise<{ session: SessionPayload | nul
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { sessionVersion: true },
+    select: { sessionVersion: true, username: true },
   });
   // User deleted, or the token's version is stale relative to the account.
   if (!user || user.sessionVersion !== payload.sv) {
     return { session: null, revoked: true };
   }
 
+  // A den test login (src/lib/denTestAccounts.ts) leads every den. Worked out
+  // here on each request instead of stored as den assignments, which are what
+  // list an account as a den's leader — and so a den created or removed later
+  // is picked up straight away rather than at the next sign-in.
+  if (payload.role === "DEN" && isAllDensTestUsername(user.username)) {
+    return { session: { ...payload, denIds: await allDenIds() }, revoked: false };
+  }
+
   return { session: payload, revoked: false };
+}
+
+/** Every den, newest scouting year first and youngest rank first — the order the den tabs show them in. */
+async function allDenIds() {
+  const dens = await prisma.den.findMany({ select: { id: true, rank: true, scoutingYear: true, label: true } });
+  dens.sort((a, b) => {
+    if (a.scoutingYear !== b.scoutingYear) return b.scoutingYear.localeCompare(a.scoutingYear);
+    if (a.rank !== b.rank) return RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
+    return a.label.localeCompare(b.label);
+  });
+  return dens.map((den) => den.id);
 }
 
 export async function getSession(): Promise<SessionPayload | null> {

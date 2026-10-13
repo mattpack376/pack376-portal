@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { denDisplayName } from "@/lib/rankConfig";
 import { isMasterAdminSession, requireAdminSession } from "@/lib/authorize";
 import { isMasterAdminUsername } from "@/lib/masterAdmins";
+import { isAllDensTestUsername } from "@/lib/denTestAccounts";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import { formatPhoneNumber } from "@/lib/phone";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
@@ -59,11 +60,13 @@ export default async function AdminUsersPage() {
               <td data-label="Display Name">{user.displayName}</td>
               <td data-label="Phone">{user.phone ? formatPhoneNumber(user.phone) : "—"}</td>
               <td data-label="Den">
-                {user.denAssignments.length > 0
-                  ? user.denAssignments
-                      .map((a) => denDisplayName(a.den.rank, a.den.scoutingYear, a.den.label))
-                      .join(", ")
-                  : "—"}
+                {user.role === "DEN" && isAllDensTestUsername(user.username)
+                  ? "Every den (test login)"
+                  : user.denAssignments.length > 0
+                    ? user.denAssignments
+                        .map((a) => denDisplayName(a.den.rank, a.den.scoutingYear, a.den.label))
+                        .join(", ")
+                    : "—"}
               </td>
               <td data-label="Status">
                 {user.lockedUntil && user.lockedUntil.getTime() > now ? "🔒 Locked" : "Active"}

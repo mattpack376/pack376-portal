@@ -29,6 +29,11 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  * Attendance Only, Photographer and Trip Viewer are narrower roles outside
  * this ladder; see their own guards below.
  *
+ * A Den Leader test login (src/lib/denTestAccounts.ts) is treated as leading
+ * every den without being assigned to — or listed under — any of them;
+ * getSessionState in auth.ts fills its dens in, so every check below that
+ * reads session.denIds covers it with no special case.
+ *
  * One permission is per person rather than per level: Raffle Helper, which an
  * Admin switches on for a specific login of any level below Admin (a parent
  * account included). See raffleAccessFor below.

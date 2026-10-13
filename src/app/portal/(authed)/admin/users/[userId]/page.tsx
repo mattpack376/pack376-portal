@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
 import { isMasterAdminSession, requireAdminSession } from "@/lib/authorize";
 import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
+import { isAllDensTestUsername } from "@/lib/denTestAccounts";
 import {
   updateUserDensAction,
   updateUserEmailAction,
@@ -51,6 +52,8 @@ export default async function ManageUserPage({
   const deletable = !protectedAccount && (user.role !== "ADMIN" || viewerIsMaster);
   const assignedDenIds = new Set(user.denAssignments.map((a) => a.denId));
   const canAssignDens = DEN_ASSIGNABLE_ROLES.includes(user.role as (typeof DEN_ASSIGNABLE_ROLES)[number]);
+  // Mirrors getSessionState in src/lib/auth.ts: a den test login reaches every den without being assigned to any.
+  const allDensTestLogin = user.role === "DEN" && isAllDensTestUsername(user.username);
 
   const allDens = canAssignDens ? await prisma.den.findMany() : [];
   allDens.sort((a, b) => {
@@ -176,6 +179,13 @@ export default async function ManageUserPage({
                 ? "Optional — for a committee member who also leads a den. Checking a den lists them as its leader and adds that den's Den Leader view: parent contacts, Family View, and sending photo consent links."
                 : "Optional — check any den(s) this account should be listed as a leader of on the dashboard and roster. Admins and Junior Admins already have access to every den regardless."}
           </p>
+          {allDensTestLogin && (
+            <p className="form-note">
+              Test login: this account already has Den Leader access to every den, without being listed as a
+              leader of any of them. Leave these unchecked — checking a den would list this account as that
+              den&apos;s leader on the dashboard and roster.
+            </p>
+          )}
           {allDens.length === 0 ? (
             <p style={{ marginBottom: 0 }}>No dens exist yet.</p>
           ) : (
