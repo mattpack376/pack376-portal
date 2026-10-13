@@ -2275,7 +2275,7 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 
 /* ---------- 50/50 raffle public page: unlisted design preview (/raffle-preview) ---------- */
 /*
- * Classes for the mock public raffle page (RafflePublicPreview.tsx). Prefixed
+ * Classes for the public raffle page preview (RafflePublicPreview.tsx). Prefixed
  * rp- and kept apart from the portal's .raffle-* board below: this one is
  * sized for a parent's thumb on a phone, with bigger boxes that drop from ten
  * to a row to five as the screen narrows, and its own box states.
@@ -2305,25 +2305,33 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 }
 .rp-preview-switch a[aria-current="page"] { background: var(--scout-gold); color: var(--scout-blue-dark); text-decoration: none; }
 
-.rp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 36px; }
-.rp-stat { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 16px 18px; min-width: 0; }
-.rp-stat-label {
+/* The one figure the page shows: what the prize stands at. */
+.rp-prize {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  border-top: 6px solid var(--scout-gold);
+  padding: 20px 24px 18px;
+  margin-bottom: 36px;
+  max-width: 420px;
+}
+.rp-prize-label {
   font-family: var(--font-display);
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-soft);
 }
-.rp-stat-value {
+.rp-prize-value {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 30px;
-  line-height: 1.15;
+  font-size: clamp(2.6rem, 9vw, 3.4rem);
+  line-height: 1.05;
   color: var(--scout-blue);
   font-variant-numeric: tabular-nums;
 }
-.rp-stat-note { font-size: 13.5px; color: var(--ink-soft); }
+.rp-prize p { margin: 4px 0 0; font-size: 15px; }
 
 /* Board beside the panel on a wide screen, above it on a phone. Ten boxes to
    a row like the paper board; on a phone five, so a row is still half a
@@ -2410,22 +2418,12 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   color: var(--scout-blue-dark);
   border-radius: var(--radius);
   padding: 22px 24px;
-  margin-bottom: 24px;
+  margin-bottom: 36px;
   max-width: 760px;
 }
 .rp-winner > div { flex: 1 1 240px; min-width: 0; }
 .rp-winner-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.7rem, 5vw, 2.4rem); line-height: 1.1; }
 .rp-winner p { color: var(--ink); margin: 6px 0 0; }
-.rp-finals > div {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--cream-dark);
-  color: var(--ink-soft);
-}
-.rp-finals strong { font-family: var(--font-display); font-weight: 800; font-size: 19px; color: var(--scout-blue-dark); white-space: nowrap; }
 .rp-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 16px; }
 .rp-step-num {
   width: 38px;

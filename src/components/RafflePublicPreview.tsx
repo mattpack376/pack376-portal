@@ -3,22 +3,32 @@
 import { useState } from "react";
 
 /*
- * The design preview of a public 50/50 raffle page (/raffle-preview). It is a
- * mock: the board is a fixed sample, and picking boxes and sending a request
- * only change what this page shows — nothing is saved, sent or reserved. It
- * exists so the layout can be judged on a real phone before a live version is
- * built on the portal's raffle data.
+ * The unlisted preview of a public 50/50 raffle page (/raffle-preview), drawn
+ * from a real raffle's board. The page hands this component only what a
+ * visitor may see: which box numbers are taken and whether they're paid for,
+ * the price, the winner's share, the drawing date and the winning number. No
+ * buyer names and no payment records ever reach the browser.
  *
- * The sample is the October 2026 board with no names: the 16 boxes that were
- * never sold, and the 11 that were promised but not yet paid partway through
- * the sale.
+ * What it shows is deliberately little: the board, the boxes you've picked,
+ * how you'll pay, and one figure — what the prize stands at. No pot, no
+ * count of boxes sold, nothing about what the pack takes in.
+ *
+ * Picking boxes and sending a request is still a mock: it changes only what
+ * this page shows. Nothing is saved, sent or held on the real raffle.
  */
 
-const PRICE = 10;
-const TOTAL = 100;
-const WINNER = 28;
-const NEVER_SOLD = [30, 34, 39, 59, 62, 64, 68, 70, 74, 89, 90, 91, 92, 93, 96, 97];
-const PROMISED = [3, 9, 15, 22, 27, 32, 69, 73, 76, 83, 94];
+export type RafflePublicBoard = {
+  boxCount: number;
+  priceCents: number;
+  prizePercent: number;
+  /** "Saturday, October 10, 2026", or null when no date is set. */
+  drawing: string | null;
+  taken: { number: number; paid: boolean }[];
+  winningBox: number | null;
+  /** The prize as fixed at the drawing; null before it. */
+  prizeCents: number | null;
+  prizePaid: boolean;
+};
 
 type Status = "open" | "picked" | "hold" | "sold" | "unsold" | "winner";
 
@@ -31,13 +41,18 @@ const STATUS_SAYS: Record<Status, string> = {
   winner: "the winning box",
 };
 
-const money = (dollars: number) => `$${dollars.toLocaleString("en-US")}`;
+/** Whole dollars read as "$420", anything else as "$12.50". */
+const money = (cents: number) =>
+  cents % 100 === 0
+    ? `$${(cents / 100).toLocaleString("en-US")}`
+    : (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+
 const listed = (numbers: number[]) =>
   numbers.length < 2 ? numbers.join("") : `${numbers.slice(0, -1).join(", ")} and ${numbers[numbers.length - 1]}`;
 
 type Sent = { boxes: number[]; buyer: string; pay: "cash" | "zelle" };
 
-export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
+export default function RafflePublicPreview({ board, drawn }: { board: RafflePublicBoard; drawn: boolean }) {
   const [picked, setPicked] = useState<number[]>([]);
   const [held, setHeld] = useState<number[]>([]);
   const [buyer, setBuyer] = useState("");
@@ -45,11 +60,14 @@ export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
   const [pay, setPay] = useState<"cash" | "zelle">("cash");
   const [sent, setSent] = useState<Sent | null>(null);
 
+  const taken = new Map(board.taken.map((box) => [box.number, box]));
+
   function statusOf(number: number): Status {
-    if (drawn) return number === WINNER ? "winner" : NEVER_SOLD.includes(number) ? "unsold" : "sold";
-    if (picked.includes(number)) return "picked";
-    if (held.includes(number) || PROMISED.includes(number)) return "hold";
-    return NEVER_SOLD.includes(number) ? "open" : "sold";
+    const box = taken.get(number);
+    if (drawn) return number === board.winningBox ? "winner" : box ? "sold" : "unsold";
+    if (box) return box.paid ? "sold" : "hold";
+    if (held.includes(number)) return "hold";
+    return picked.includes(number) ? "picked" : "open";
   }
 
   function toggle(number: number) {
@@ -58,21 +76,8 @@ export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
     );
   }
 
-  const left = NEVER_SOLD.filter((number) => !held.includes(number)).length;
-  const pot = (TOTAL - left) * PRICE;
-  const stats = drawn
-    ? [
-        { label: "Winning box", value: String(WINNER), note: "Drawn October 10, 2026" },
-        { label: "Boxes sold", value: "84", note: "Of 100. 16 were not sold" },
-        { label: "Final pot", value: "$840", note: "84 boxes at $10" },
-        { label: "Raised for the pack", value: "$420", note: "The other half of the pot" },
-      ]
-    : [
-        { label: "Price per box", value: money(PRICE), note: "Cash or Zelle" },
-        { label: "Boxes left", value: String(left), note: `Of ${TOTAL}, open right now` },
-        { label: "Pot so far", value: money(pot), note: "Grows with every box" },
-        { label: "Winner gets", value: money(pot / 2), note: "Half the pot" },
-      ];
+  // The winner's share of every box taken so far, the requests made on this page included.
+  const prizeNow = Math.round(((board.taken.length + held.length) * board.priceCents * board.prizePercent) / 100);
 
   const legend: { status: Status; text: string }[] = drawn
     ? [
@@ -103,7 +108,7 @@ export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
     <>
       <section style={{ paddingTop: 40, paddingBottom: 24 }}>
         <div className="container">
-          {drawn && (
+          {drawn ? (
             <div className="rp-winner">
               <svg
                 viewBox="0 0 24 24"
@@ -119,21 +124,22 @@ export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
                 <path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.9 6.6 19.8l1.1-6.1L3.2 9.4l6.1-.8z" />
               </svg>
               <div>
-                <div className="rp-winner-title">Box {WINNER} won $420</div>
-                <p>Drawn Saturday, October 10, 2026. The winner has been paid. Thank you to everyone who took a box.</p>
+                <div className="rp-winner-title">
+                  Box {board.winningBox} won {money(board.prizeCents ?? 0)}
+                </div>
+                <p>
+                  {board.drawing ? `Drawn ${board.drawing}. ` : ""}
+                  {board.prizePaid ? "The winner has been paid. " : ""}Thank you to everyone who took a box.
+                </p>
               </div>
             </div>
+          ) : (
+            <div className="rp-prize" aria-live="polite">
+              <div className="rp-prize-label">Total prize is now at</div>
+              <div className="rp-prize-value">{money(prizeNow)}</div>
+              <p>It grows every time a box is taken.</p>
+            </div>
           )}
-
-          <div className="rp-stats">
-            {stats.map((stat) => (
-              <div className="rp-stat" key={stat.label}>
-                <div className="rp-stat-label">{stat.label}</div>
-                <div className="rp-stat-value">{stat.value}</div>
-                <div className="rp-stat-note">{stat.note}</div>
-              </div>
-            ))}
-          </div>
 
           <div className="rp-layout">
             <div className="rp-board-col">
@@ -152,7 +158,7 @@ export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
                 ))}
               </div>
               <div className="rp-board">
-                {Array.from({ length: TOTAL }, (_, index) => {
+                {Array.from({ length: board.boxCount }, (_, index) => {
                   const number = index + 1;
                   const status = statusOf(number);
                   const canTap = status === "open" || status === "picked";
@@ -178,25 +184,7 @@ export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
                 {drawn ? (
                   <>
                     <h2>This Raffle Is Finished</h2>
-                    <div className="rp-finals">
-                      <div>
-                        <span>Boxes sold</span>
-                        <strong>84 of 100</strong>
-                      </div>
-                      <div>
-                        <span>Final pot</span>
-                        <strong>$840</strong>
-                      </div>
-                      <div>
-                        <span>Winner&apos;s prize</span>
-                        <strong>$420</strong>
-                      </div>
-                      <div>
-                        <span>Raised for the pack</span>
-                        <strong>$420</strong>
-                      </div>
-                    </div>
-                    <p className="rp-fine">The next raffle will show up here when it opens.</p>
+                    <p style={{ marginBottom: 0 }}>The next raffle will show up here when it opens.</p>
                   </>
                 ) : sent ? (
                   <div role="status">
@@ -222,8 +210,8 @@ export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
                     </p>
                     <p>
                       {sent.pay === "cash"
-                        ? `Bring ${money(sent.boxes.length * PRICE)} in cash to the next pack meeting. A leader will mark your boxes paid.`
-                        : `Send ${money(sent.boxes.length * PRICE)} by Zelle to the pack. A leader will mark your boxes paid once it arrives.`}
+                        ? `Bring ${money(sent.boxes.length * board.priceCents)} in cash to the next pack meeting. A leader will mark your boxes paid.`
+                        : `Send ${money(sent.boxes.length * board.priceCents)} by Zelle to the pack. A leader will mark your boxes paid once it arrives.`}
                     </p>
                     <button type="button" className="btn btn-quiet rp-wide" onClick={() => setSent(null)}>
                       Pick More Boxes
@@ -262,7 +250,7 @@ export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
                           ))}
                         </div>
                         <p className="rp-total">
-                          {picked.length} {picked.length === 1 ? "box" : "boxes"} · {money(picked.length * PRICE)}
+                          {picked.length} {picked.length === 1 ? "box" : "boxes"} · {money(picked.length * board.priceCents)}
                         </p>
                       </>
                     )}
@@ -311,7 +299,7 @@ export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
             <div className="info-card">
               <div className="rp-step-num">1</div>
               <h3>Pick your boxes</h3>
-              <p>Tap any open box. Each one is $10, and you can take as many as you like.</p>
+              <p>Tap any open box. Take as many as you like.</p>
             </div>
             <div className="info-card">
               <div className="rp-step-num">2</div>
@@ -321,7 +309,7 @@ export default function RafflePublicPreview({ drawn }: { drawn: boolean }) {
             <div className="info-card">
               <div className="rp-step-num">3</div>
               <h3>Watch the drawing</h3>
-              <p>One box is drawn on drawing day. The winner takes half the pot. The other half goes to the pack.</p>
+              <p>One box is drawn on drawing day. Whoever holds it wins the prize.</p>
             </div>
           </div>
         </div>
