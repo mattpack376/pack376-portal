@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RafflePublicPreview, { type RafflePublicBoard } from "@/components/RafflePublicPreview";
@@ -8,9 +9,15 @@ import { getRaffleDetail } from "@/lib/raffleData";
 import { formatCents } from "@/lib/duesData";
 
 /*
- * An unlisted preview of a public 50/50 raffle page, here so it can be looked
- * at on a real phone. It shows the real Camp Conron raffle's board, read from
- * the database on each visit. On purpose it is:
+ * TABLED. The public raffle page is on hold at the pack's request (October
+ * 12, 2026), so this address answers "page not found" for everyone — see
+ * PREVIEW_ENABLED below. The page and RafflePublicPreview are kept, and keep
+ * compiling, so the idea can be picked up where it was left: set the switch
+ * to true to look at it again.
+ *
+ * What it is when switched on: an unlisted preview of a public 50/50 raffle
+ * page, to be looked at on a real phone. It shows the real Camp Conron
+ * raffle's board, read from the database on each visit. On purpose it is:
  *
  *  - not linked from the menu, the footer, the portal or any other page;
  *  - left out of sitemap.ts, and marked noindex so search engines skip it
@@ -32,6 +39,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/**
+ * Off: the address is a 404 and nothing below runs. Typed as a plain boolean
+ * so the rest of the file is still checked like live code.
+ */
+const PREVIEW_ENABLED: boolean = false;
+
 /** The raffle the preview shows: the Camp Conron one, or failing that the newest. */
 async function previewRaffle() {
   const found =
@@ -44,6 +57,8 @@ async function previewRaffle() {
 }
 
 export default async function RafflePreviewPage({ searchParams }: { searchParams: Promise<{ stage?: string }> }) {
+  if (!PREVIEW_ENABLED) notFound();
+
   const { stage } = await searchParams;
   const raffle = await previewRaffle();
 

@@ -3,6 +3,9 @@
 import { useState } from "react";
 
 /*
+ * Tabled along with its page (see src/app/raffle-preview/page.tsx): nothing
+ * renders this while the page is switched off.
+ *
  * The unlisted preview of a public 50/50 raffle page (/raffle-preview), drawn
  * from a real raffle's board. The page hands this component only what a
  * visitor may see: which box numbers are taken and whether they're paid for,
