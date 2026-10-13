@@ -63,7 +63,7 @@ export default async function HomepageEventsAdminPage() {
               ticket list.
             </>
           ) : (
-            "Post an urgent notice across the top of the public homepage and the portal."
+            "Post an urgent notice across the top of every page of the public website and the portal."
           )}
         </p>
       </div>
@@ -71,7 +71,8 @@ export default async function HomepageEventsAdminPage() {
       <div className="info-card" style={{ maxWidth: 480, marginBottom: 20 }}>
         <h3>Top Banner</h3>
         <p className="form-note" style={{ marginTop: 0, marginBottom: 16 }}>
-          A short, urgent notice in a black bar with yellow text, shown just below the header. Give a banner a start
+          A short, urgent notice in a black bar with yellow text, shown just below the header on every page of the
+          public website and the portal. Give a banner a start
           and/or end time to pre-schedule it — it goes up and comes down automatically. Leave both blank to make it a
           default banner that shows whenever no scheduled banner is currently live.
         </p>

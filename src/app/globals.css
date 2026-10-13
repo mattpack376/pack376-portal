@@ -415,7 +415,7 @@ section { padding: 64px 0; }
 }
 .wave-divider svg { width: 100%; height: 100%; }
 
-/* ---------- Site banner (urgent notice atop the homepage) ---------- */
+/* ---------- Site banner (urgent notice atop every public page and the portal) ---------- */
 .site-banner {
   background: #000;
   color: var(--scout-gold);

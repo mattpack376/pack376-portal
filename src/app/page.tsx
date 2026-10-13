@@ -4,7 +4,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { getUpcomingHomepageEvents } from "@/lib/homepageEventsData";
-import { getActiveSiteBanner } from "@/lib/siteBannerData";
+import SiteBanner from "@/components/SiteBanner";
 
 // Statically prerendered (see next.config.ts), but the banner and events list
 // have time-based expiry (SiteBanner.startAt/endAt, HomepageEvent.sortDate)
@@ -90,10 +90,7 @@ const localOrgJsonLd = {
 };
 
 export default async function HomePage() {
-  const [homepageEvents, siteBanner] = await Promise.all([
-    getUpcomingHomepageEvents(),
-    getActiveSiteBanner(),
-  ]);
+  const homepageEvents = await getUpcomingHomepageEvents();
 
   return (
     <>
@@ -102,7 +99,7 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localOrgJsonLd) }}
       />
       <Header />
-      {siteBanner && <div className="site-banner">{siteBanner.message}</div>}
+      <SiteBanner />
 
       <section className="hero">
         <div className="hero-grid">

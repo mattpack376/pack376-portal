@@ -7,8 +7,13 @@ import { assertAdmin, assertSiteBannerAccess } from "@/lib/authorize";
 import { parsePackDateTimeLocal, formatPackDateTime } from "@/lib/bannerSchedule";
 import { recordAudit, changedFields } from "@/lib/audit";
 
-const HOMEPAGE_EVENTS_ADMIN_PATH = "/portal/admin/homepage-events";
-const HOME_PATH = "/";
+/**
+ * The banner sits on every public page and across the portal, so an edit has
+ * to refresh all of them: the root layout and every page under it.
+ */
+function revalidateBannerEverywhere() {
+  revalidatePath("/", "layout");
+}
 
 function parseSchedule(formData: FormData) {
   const startAtStr = String(formData.get("startAt") || "").trim();
@@ -42,8 +47,7 @@ export async function createSiteBannerAction(formData: FormData) {
     ],
   });
 
-  revalidatePath(HOMEPAGE_EVENTS_ADMIN_PATH);
-  revalidatePath(HOME_PATH);
+  revalidateBannerEverywhere();
 }
 
 export async function updateSiteBannerAction(formData: FormData) {
@@ -79,8 +83,7 @@ export async function updateSiteBannerAction(formData: FormData) {
     }),
   });
 
-  revalidatePath(HOMEPAGE_EVENTS_ADMIN_PATH);
-  revalidatePath(HOME_PATH);
+  revalidateBannerEverywhere();
 }
 
 export async function toggleSiteBannerAction(formData: FormData) {
@@ -102,8 +105,7 @@ export async function toggleSiteBannerAction(formData: FormData) {
     details: [{ label: "Active", from: active ? "Yes" : "No", to: banner.active ? "Yes" : "No" }],
   });
 
-  revalidatePath(HOMEPAGE_EVENTS_ADMIN_PATH);
-  revalidatePath(HOME_PATH);
+  revalidateBannerEverywhere();
 }
 
 export async function deleteSiteBannerAction(formData: FormData) {
@@ -124,6 +126,5 @@ export async function deleteSiteBannerAction(formData: FormData) {
     details: [{ label: "Message", from: banner.message, to: "—" }],
   });
 
-  revalidatePath(HOMEPAGE_EVENTS_ADMIN_PATH);
-  revalidatePath(HOME_PATH);
+  revalidateBannerEverywhere();
 }

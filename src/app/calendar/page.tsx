@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/Header";
+import SiteBanner from "@/components/SiteBanner";
 import Footer from "@/components/Footer";
 import CalendarView from "@/components/CalendarView";
 import { getPublicCalendar } from "@/lib/calendarEventsData";
@@ -110,6 +111,7 @@ export default async function CalendarPage() {
   return (
     <>
       <Header />
+      <SiteBanner />
 
       <section className="page-hero">
         <h1>{yearLabel} Calendar of Events</h1>

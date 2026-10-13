@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/Header";
+import SiteBanner from "@/components/SiteBanner";
 import Footer from "@/components/Footer";
+
+// For the top banner: it goes up and comes down on a schedule, which no admin
+// edit fires, so the page has to check again by itself. Same reasoning as the
+// homepage.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Volunteer With Us — Pack 376",
@@ -64,6 +70,7 @@ export default function VolunteerPage() {
   return (
     <>
       <Header />
+      <SiteBanner />
 
       <section className="page-hero">
         <div className="eyebrow" style={{ background: "rgba(255,255,255,0.15)", color: "var(--scout-gold)" }}>
