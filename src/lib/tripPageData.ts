@@ -151,13 +151,24 @@ export async function getTripRegistrations(tripPageId: string) {
   });
 }
 
-/** The trip's expenses in the order they were spent, oldest first. */
+/** The trip's expenses (and vendor credits/refunds) in the order they were spent, oldest first. */
 export async function getTripExpenses(tripPageId: string) {
   return prisma.tripExpense.findMany({
     where: { tripPageId },
     include: { recordedByUser: { select: { username: true } } },
     orderBy: [{ spentOn: "asc" }, { createdAt: "asc" }],
   });
+}
+
+/**
+ * Expense totals with vendor credits/refunds netted out: spentCents is what
+ * went out, creditCents what came back, and netCents the difference — the
+ * figure both "Available to Spend" lines subtract.
+ */
+export function tripExpenseTotals(expenses: { amountCents: number; isCredit: boolean }[]) {
+  const spentCents = expenses.reduce((sum, e) => sum + (e.isCredit ? 0 : e.amountCents), 0);
+  const creditCents = expenses.reduce((sum, e) => sum + (e.isCredit ? e.amountCents : 0), 0);
+  return { spentCents, creditCents, netCents: spentCents - creditCents };
 }
 
 /**

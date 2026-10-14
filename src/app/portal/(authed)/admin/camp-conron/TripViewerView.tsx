@@ -2,13 +2,14 @@ import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import Linkify from "@/components/Linkify";
-import TripExpenseList from "@/components/TripExpenseList";
+import TripExpenseList, { tripExpenseGroupLabel } from "@/components/TripExpenseList";
 import TripAffiliationSummary from "@/components/TripAffiliationSummary";
 import { paymentStatus, paymentRowClass, balanceClass } from "@/lib/paymentStatus";
 import {
   DAY_LABELS,
   MEAL_TYPE_LABELS,
   formatTripDate,
+  tripExpenseTotals,
   type getOrCreateTripPage,
   type getTripMeals,
   type getTripDutySlots,
@@ -57,7 +58,7 @@ export default function TripViewerView({
   registrations: Awaited<ReturnType<typeof getTripRegistrations>>;
   expenses: Awaited<ReturnType<typeof getTripExpenses>> | null;
 }) {
-  const totalExpenses = expenses?.reduce((sum, e) => sum + e.amountCents, 0) ?? 0;
+  const { spentCents, creditCents, netCents: netExpenses } = tripExpenseTotals(expenses ?? []);
   const totalAdults = registrations.reduce((sum, r) => sum + r.payingCount, 0);
   const totalKids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
   const troopRegistrations = registrations.filter((r) => r.affiliation === "TROOP");
@@ -131,13 +132,18 @@ export default function TripViewerView({
         {expenses && (
           <>
             <p style={{ marginBottom: 8 }}>
-              <strong>Expenses:</strong> {formatCents(totalExpenses)}
+              <strong>Expenses:</strong> {formatCents(spentCents)}
             </p>
-            <p className={balanceClass(moneyPaid - totalExpenses)} style={{ marginBottom: 8 }}>
-              <strong>Available to Spend (Collected So Far):</strong> {formatCents(moneyPaid - totalExpenses)}
+            {creditCents > 0 && (
+              <p className="balance-positive" style={{ marginBottom: 8 }}>
+                <strong>Credits &amp; Refunds:</strong> {formatCents(creditCents)}
+              </p>
+            )}
+            <p className={balanceClass(moneyPaid - netExpenses)} style={{ marginBottom: 8 }}>
+              <strong>Available to Spend (Collected So Far):</strong> {formatCents(moneyPaid - netExpenses)}
             </p>
-            <p className={balanceClass(moneyOwed - totalExpenses)}>
-              <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(moneyOwed - totalExpenses)}
+            <p className={balanceClass(moneyOwed - netExpenses)}>
+              <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(moneyOwed - netExpenses)}
             </p>
           </>
         )}
@@ -146,9 +152,7 @@ export default function TripViewerView({
 
       {expenses && (
         <div style={{ marginBottom: 24 }}>
-          <CollapsibleGroup
-            label={`Expenses — ${formatCents(totalExpenses)} (${expenses.length} item${expenses.length === 1 ? "" : "s"})`}
-          >
+          <CollapsibleGroup label={tripExpenseGroupLabel(expenses)}>
             <div className="info-card" style={{ marginTop: 8 }}>
               {expenses.length === 0 ? (
                 <p>No expenses recorded yet.</p>

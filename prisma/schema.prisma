@@ -779,6 +779,10 @@ model TripPayment {
  * groceries — so the admin page can show it against what families paid.
  * paidBy is free text (who fronted it, for reimbursement), not a User FK,
  * since that's often a parent with no portal login.
+ *
+ * isCredit marks money coming back instead — a vendor refund or credit. Its
+ * amountCents is still positive; tripExpenseTotals() subtracts it, and paidBy
+ * then means who received it.
  */
 model TripExpense {
   id               String   @id @default(cuid())
@@ -786,6 +790,7 @@ model TripExpense {
   tripPage         TripPage @relation(fields: [tripPageId], references: [id], onDelete: Cascade)
   description      String
   amountCents      Int
+  isCredit         Boolean  @default(false)
   spentOn          DateTime @db.Date
   paidBy           String?
   createdAt        DateTime @default(now())

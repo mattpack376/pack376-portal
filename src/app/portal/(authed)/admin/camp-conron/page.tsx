@@ -8,6 +8,7 @@ import {
   getTripActivities,
   getTripRegistrations,
   getTripExpenses,
+  tripExpenseTotals,
   currentTripPriceCents,
   CAMP_CONRON_SLUG,
   DAY_LABELS,
@@ -19,7 +20,7 @@ import { toDateOnlyString, todayDateOnlyString } from "@/lib/dateOnly";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import EditPopover from "@/components/EditPopover";
-import TripExpenseList from "@/components/TripExpenseList";
+import TripExpenseList, { tripExpenseGroupLabel } from "@/components/TripExpenseList";
 import TripAffiliationSummary from "@/components/TripAffiliationSummary";
 import CopyAddressesButton from "@/components/CopyAddressesButton";
 import {
@@ -96,7 +97,7 @@ export default async function AdminCampConronPage({
   const priceCents = currentTripPriceCents(trip);
   const totalOwed = registrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
   const totalPaid = registrations.reduce((sum, r) => sum + r.paidCents, 0);
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amountCents, 0);
+  const { spentCents, creditCents, netCents: netExpenses } = tripExpenseTotals(expenses);
 
   const totalAdults = registrations.reduce((sum, r) => sum + r.payingCount, 0);
   const totalKids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
@@ -167,21 +168,24 @@ export default async function AdminCampConronPage({
             <strong>Outstanding Payments:</strong> {formatCents(totalOwed - totalPaid)}
           </p>
           <p style={{ marginBottom: 8 }}>
-            <strong>Expenses:</strong> {formatCents(totalExpenses)}
+            <strong>Expenses:</strong> {formatCents(spentCents)}
           </p>
-          <p className={balanceClass(totalPaid - totalExpenses)} style={{ marginBottom: 8 }}>
-            <strong>Available to Spend (Collected So Far):</strong> {formatCents(totalPaid - totalExpenses)}
+          {creditCents > 0 && (
+            <p className="balance-positive" style={{ marginBottom: 8 }}>
+              <strong>Credits &amp; Refunds:</strong> {formatCents(creditCents)}
+            </p>
+          )}
+          <p className={balanceClass(totalPaid - netExpenses)} style={{ marginBottom: 8 }}>
+            <strong>Available to Spend (Collected So Far):</strong> {formatCents(totalPaid - netExpenses)}
           </p>
-          <p className={balanceClass(totalOwed - totalExpenses)}>
-            <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(totalOwed - totalExpenses)}
+          <p className={balanceClass(totalOwed - netExpenses)}>
+            <strong>Available to Spend (Everyone Paid in Full):</strong> {formatCents(totalOwed - netExpenses)}
           </p>
         </div>
       </div>
 
       <div style={{ marginBottom: 24 }}>
-        <CollapsibleGroup
-          label={`Expenses — ${formatCents(totalExpenses)} (${expenses.length} item${expenses.length === 1 ? "" : "s"})`}
-        >
+        <CollapsibleGroup label={tripExpenseGroupLabel(expenses)}>
           <div className="info-card" style={{ marginTop: 8 }}>
             {expenses.length === 0 ? (
               <p>No expenses recorded yet.</p>
@@ -194,7 +198,18 @@ export default async function AdminCampConronPage({
                       <EditPopover action={updateTripExpenseAction}>
                         <input type="hidden" name="id" value={e.id} />
                         <div className="form-field">
-                          <label htmlFor={`${idPrefix}expense-description-${e.id}`}>Expense</label>
+                          <label htmlFor={`${idPrefix}expense-kind-${e.id}`}>Type</label>
+                          <select
+                            id={`${idPrefix}expense-kind-${e.id}`}
+                            name="kind"
+                            defaultValue={e.isCredit ? "CREDIT" : "EXPENSE"}
+                          >
+                            <option value="EXPENSE">Expense</option>
+                            <option value="CREDIT">Credit / Refund</option>
+                          </select>
+                        </div>
+                        <div className="form-field">
+                          <label htmlFor={`${idPrefix}expense-description-${e.id}`}>Description</label>
                           <input id={`${idPrefix}expense-description-${e.id}`} name="description" required defaultValue={e.description} />
                         </div>
                         <div className="form-field">
@@ -220,7 +235,7 @@ export default async function AdminCampConronPage({
                           />
                         </div>
                         <div className="form-field">
-                          <label htmlFor={`${idPrefix}expense-paidBy-${e.id}`}>Paid By (optional)</label>
+                          <label htmlFor={`${idPrefix}expense-paidBy-${e.id}`}>Paid / Received By (optional)</label>
                           <input id={`${idPrefix}expense-paidBy-${e.id}`} name="paidBy" defaultValue={e.paidBy ?? ""} />
                         </div>
                         <SaveButton className="btn btn-primary btn-small">Save Changes</SaveButton>
@@ -230,7 +245,7 @@ export default async function AdminCampConronPage({
                         <ConfirmSubmitButton
                           className="btn btn-danger btn-small"
                           pendingLabel="Deleting…"
-                          message={`Delete the expense “${e.description}” (${formatCents(e.amountCents)})? This can't be undone.`}
+                          message={`Delete the ${e.isCredit ? "credit/refund" : "expense"} “${e.description}” (${formatCents(e.amountCents)})? This can't be undone.`}
                         >
                           Delete
                         </ConfirmSubmitButton>
@@ -241,14 +256,21 @@ export default async function AdminCampConronPage({
               </div>
             )}
 
+            {/* The two submit buttons send kind=EXPENSE or kind=CREDIT; Enter
+                in a field submits the first, so a plain expense stays the default. */}
             <form
               action={addTripExpenseAction}
               style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}
             >
               <input type="hidden" name="tripPageId" value={trip.id} />
               <div className="form-field" style={{ marginBottom: 0, flex: "2 1 200px" }}>
-                <label htmlFor="expense-description">Expense</label>
-                <input id="expense-description" name="description" required placeholder="Campsite, firewood, groceries…" />
+                <label htmlFor="expense-description">Description</label>
+                <input
+                  id="expense-description"
+                  name="description"
+                  required
+                  placeholder="Campsite, firewood, vendor refund…"
+                />
               </div>
               <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
                 <label htmlFor="expense-amount">Amount ($)</label>
@@ -259,10 +281,15 @@ export default async function AdminCampConronPage({
                 <input id="expense-spentOn" name="spentOn" type="date" defaultValue={todayDateOnlyString()} />
               </div>
               <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
-                <label htmlFor="expense-paidBy">Paid By (optional)</label>
-                <input id="expense-paidBy" name="paidBy" placeholder="Who fronted it" />
+                <label htmlFor="expense-paidBy">Paid / Received By (optional)</label>
+                <input id="expense-paidBy" name="paidBy" placeholder="Who paid or got it back" />
               </div>
-              <button type="submit" className="btn btn-primary">Add Expense</button>
+              <button type="submit" name="kind" value="EXPENSE" className="btn btn-primary">
+                Add Expense
+              </button>
+              <button type="submit" name="kind" value="CREDIT" className="btn btn-quiet">
+                Add Credit / Refund
+              </button>
             </form>
           </div>
         </CollapsibleGroup>

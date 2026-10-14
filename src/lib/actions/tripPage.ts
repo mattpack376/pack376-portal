@@ -484,6 +484,12 @@ export async function deleteActivityAction(formData: FormData) {
   revalidateTrip();
 }
 
+// A vendor credit/refund is a TripExpense with isCredit set — the add form's
+// "Add Credit / Refund" button and the edit popover's Type select send kind=CREDIT.
+function expenseKindLabel(isCredit: boolean) {
+  return isCredit ? "Credit / Refund" : "Expense";
+}
+
 // Expenses never appear on the public page, so these only revalidate the admin view.
 export async function addTripExpenseAction(formData: FormData) {
   const session = await getSession();
@@ -495,6 +501,7 @@ export async function addTripExpenseAction(formData: FormData) {
   const amountCents = dollarsToCents(String(formData.get("amount") || ""));
   const spentOnRaw = String(formData.get("spentOn") || "").trim();
   const paidBy = String(formData.get("paidBy") || "").trim() || null;
+  const isCredit = formData.get("kind") === "CREDIT";
   if (!tripPageId || !description) throw new Error("Describe what the expense was for.");
   if (amountCents === null || amountCents === 0) throw new Error("A valid expense amount is required.");
 
@@ -502,15 +509,18 @@ export async function addTripExpenseAction(formData: FormData) {
   if (Number.isNaN(spentOn.getTime())) throw new Error("Invalid expense date.");
 
   const expense = await prisma.tripExpense.create({
-    data: { tripPageId, description, amountCents, spentOn, paidBy, recordedByUserId: session.userId },
+    data: { tripPageId, description, amountCents, isCredit, spentOn, paidBy, recordedByUserId: session.userId },
   });
 
   await recordAudit(session, {
     action: "trip.expense.add",
-    summary: `Recorded a ${auditMoney(amountCents)} trip expense for “${description}”`,
+    summary: isCredit
+      ? `Recorded a ${auditMoney(amountCents)} trip credit/refund for “${description}”`
+      : `Recorded a ${auditMoney(amountCents)} trip expense for “${description}”`,
     entityType: "TripExpense",
     entityId: expense.id,
     details: [
+      ...(isCredit ? [{ label: "Type", from: "—", to: expenseKindLabel(true) }] : []),
       { label: "Expense", from: "—", to: description },
       { label: "Amount", from: "—", to: auditMoney(amountCents) },
       { label: "Date", from: "—", to: auditDate(spentOn) },
@@ -531,6 +541,7 @@ export async function updateTripExpenseAction(formData: FormData) {
   const amountCents = dollarsToCents(String(formData.get("amount") || ""));
   const spentOnRaw = String(formData.get("spentOn") || "").trim();
   const paidBy = String(formData.get("paidBy") || "").trim() || null;
+  const isCredit = formData.get("kind") === "CREDIT";
   if (!id || !description) throw new Error("Describe what the expense was for.");
   if (amountCents === null || amountCents === 0) throw new Error("A valid expense amount is required.");
   if (!spentOnRaw) throw new Error("An expense date is required.");
@@ -540,17 +551,20 @@ export async function updateTripExpenseAction(formData: FormData) {
 
   const before = await prisma.tripExpense.findUnique({
     where: { id },
-    select: { description: true, amountCents: true, spentOn: true, paidBy: true },
+    select: { description: true, amountCents: true, isCredit: true, spentOn: true, paidBy: true },
   });
 
-  await prisma.tripExpense.update({ where: { id }, data: { description, amountCents, spentOn, paidBy } });
+  await prisma.tripExpense.update({ where: { id }, data: { description, amountCents, isCredit, spentOn, paidBy } });
 
   await recordAudit(session, {
     action: "trip.expense.update",
-    summary: `Edited the trip expense “${description}” — now ${auditMoney(amountCents)}`,
+    summary: isCredit
+      ? `Edited the trip credit/refund “${description}” — now ${auditMoney(amountCents)}`
+      : `Edited the trip expense “${description}” — now ${auditMoney(amountCents)}`,
     entityType: "TripExpense",
     entityId: id,
     details: changedFields({
+      Type: [before ? expenseKindLabel(before.isCredit) : null, expenseKindLabel(isCredit)],
       Expense: [before?.description, description],
       Amount: [before ? auditMoney(before.amountCents) : null, auditMoney(amountCents)],
       Date: [before?.spentOn, spentOn],
@@ -573,10 +587,13 @@ export async function deleteTripExpenseAction(formData: FormData) {
 
   await recordAudit(session, {
     action: "trip.expense.delete",
-    summary: `Deleted the ${auditMoney(expense.amountCents)} trip expense for “${expense.description}”`,
+    summary: expense.isCredit
+      ? `Deleted the ${auditMoney(expense.amountCents)} trip credit/refund for “${expense.description}”`
+      : `Deleted the ${auditMoney(expense.amountCents)} trip expense for “${expense.description}”`,
     entityType: "TripExpense",
     entityId: id,
     details: [
+      ...(expense.isCredit ? [{ label: "Type", from: expenseKindLabel(true), to: "—" }] : []),
       { label: "Expense", from: expense.description, to: "—" },
       { label: "Amount", from: auditMoney(expense.amountCents), to: "—" },
       { label: "Date", from: auditDate(expense.spentOn), to: "—" },
