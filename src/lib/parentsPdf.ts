@@ -103,7 +103,7 @@ export function wrap(text: string, font: PDFFont, size: number, maxWidth: number
   return lines.length ? lines : [""];
 }
 
-/** Same download headers as the parent-contact CSV routes: private, uncached, saved as a file. Also used by leadersPdf.ts. */
+/** Same download headers as the parent-contact CSV routes: private, uncached, saved as a file. Also used by the leaders and trip-expense PDFs. */
 export function parentsPdfResponse(bytes: Uint8Array, filename: string): Response {
   return new Response(Buffer.from(bytes), {
     headers: {

@@ -191,11 +191,16 @@ export default async function AdminCampConronPage({
               <p>No expenses recorded yet.</p>
             ) : (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                   <FileExportButton
                     className="btn btn-quiet btn-small"
                     href="/portal/admin/camp-conron/export/expenses"
                     label="Export CSV"
+                  />
+                  <FileExportButton
+                    className="btn btn-quiet btn-small"
+                    href="/portal/admin/camp-conron/export/expenses/pdf"
+                    label="Export PDF"
                   />
                 </div>
                 <TripExpenseList
