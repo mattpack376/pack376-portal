@@ -8,9 +8,13 @@ import "server-only";
  * quotes) whenever it contains a comma, quote, or newline. Shared by every
  * CSV builder in this app (parentsCsv.ts, attendanceCsv.ts) so this guard
  * can't drift/get missed in a new one again.
+ *
+ * A cell that is nothing but a negative number ("-12.50", a refund) is left
+ * alone: it can't carry a formula, and the apostrophe would turn it into
+ * text that a spreadsheet won't add up.
  */
 export function escapeCsvField(value: string): string {
-  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  const safe = /^[=+\-@\t\r]/.test(value) && !/^-\d+(\.\d+)?$/.test(value) ? `'${value}` : value;
   if (/[",\n\r]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`;
   return safe;
 }
