@@ -92,13 +92,13 @@ export default function PortalNav({
         ];
       case "JUNIOR_ADMIN":
         // Same shape as ADMIN minus what they can't reach: Money is
-        // read-only for them, and Homepage Content is the top banner alone.
+        // read-only for them, Homepage Content is the top banner alone, and
+        // there's no Camp Conron Trip (requireTripPageSession turns them away).
         // The calendar is view-only for them, as for every role below Admin.
         return [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/roster/family-view", label: "Family View" },
-          { href: "/portal/admin/camp-conron", label: "Camp Conron Trip" },
           // The read-only view of the Committee & Leaders list (an Admin edits
           // it from the Manage page, linked from People for them).
           {

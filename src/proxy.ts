@@ -88,7 +88,8 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
   // would otherwise also match this path but for ADMIN/JUNIOR_ADMIN only.
   // Deliberately an exact match, not a prefix: the CSV export route
   // (/portal/admin/camp-conron/export) stays admin-only via the rule below.
-  { test: (p) => p === "/portal/admin/camp-conron", roles: ["ADMIN", "JUNIOR_ADMIN", "TRIP_VIEWER"] },
+  // Junior Admin is left out on purpose (2026-10-14); mirrors requireTripPageSession().
+  { test: (p) => p === "/portal/admin/camp-conron", roles: ["ADMIN", "TRIP_VIEWER"] },
   { test: (p) => p.startsWith("/portal/admin/camp-conron"), roles: ["ADMIN"] },
   // The calendar list is readable by every staff level, view-only; adding or
   // editing an event (the pages under it) is Admin-only. Checked before the

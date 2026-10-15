@@ -76,10 +76,11 @@ export default async function AdminCampConronPage({
     getTripExpenses(trip.id),
   ]);
 
-  // Everyone but Admin — TRIP_VIEWER (e.g. a shared Troop376 login) and
-  // Junior Admin — gets a completely separate, form-free read-only render;
-  // see TripViewerView.tsx for why this isn't done as inline conditionals
-  // throughout the rest of this component.
+  // Everyone but Admin — now just TRIP_VIEWER (e.g. a shared Troop376 login),
+  // since Junior Admin can't reach this page as of 2026-10-14 — gets a
+  // completely separate, form-free read-only render; see TripViewerView.tsx
+  // for why this isn't done as inline conditionals throughout the rest of
+  // this component.
   if (!isAdmin) {
     return (
       <TripViewerView

@@ -34,7 +34,9 @@ const CARD_WIDTH = 480;
  *   Headcount card, and Pack 376 appears only as a family/headcount summary
  *   with no dollar amounts — since this login is shared outside the Pack.
  * - "pack" (Junior Admin): Pack staff, so both Pack and Troop families are
- *   listed in full.
+ *   listed in full. Unused since 2026-10-14, when Junior Admin lost the trip
+ *   page; kept so it can be given back by re-adding the role to
+ *   requireTripPageSession, the proxy.ts rule and PortalNav.
  *
  * Expenses are Pack-only: the admin page passes `expenses={null}` for the
  * Troop login, which hides the Expenses line, both Available to Spend lines

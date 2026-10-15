@@ -15,8 +15,8 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  * - Junior Admin: advancement and attendance for every den; can add scouts
  *   to a den but not rename or remove them; reads dues and event balances
  *   without recording payments; posts the top banner (no homepage events);
- *   sends photo consent links; reads the Camp Conron page and the 50/50
- *   raffles.
+ *   sends photo consent links; reads the 50/50 raffles. No Camp Conron
+ *   trip page (removed 2026-10-14).
  * - Committee Member: advancement and attendance for every den; reads photo
  *   consent and dues. No event money, no parent contacts.
  * - Den Leader: advancement and attendance for their assigned den(s), plus
@@ -350,14 +350,16 @@ export function assertCalendarEditAccess(session: SessionPayload) {
 
 /**
  * For Server Components / pages: gates the whole /portal/admin/camp-conron
- * page — Admin (editable), Junior Admin and TRIP_VIEWER (both read-only; the
- * page renders a separate form-free view for them). Every edit action on the
- * page is admin-only via assertAdmin. The public conron.pack376nyc.org page
- * needs no session at all.
+ * page — Admin (editable) and TRIP_VIEWER (read-only; the page renders a
+ * separate form-free view for it). Junior Admin had the same read-only view
+ * until 2026-10-14 and is now turned away; the rule in proxy.ts and the nav
+ * link in PortalNav.tsx went with it. Every edit action on the page is
+ * admin-only via assertAdmin. The public conron.pack376nyc.org page needs no
+ * session at all.
  */
 export async function requireTripPageSession(): Promise<SessionPayload> {
   const session = await requireSession();
-  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "TRIP_VIEWER") {
+  if (session.role !== "ADMIN" && session.role !== "TRIP_VIEWER") {
     redirect(homeForRole(session.role));
   }
   return session;
