@@ -1848,6 +1848,33 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .meeting-row .meeting-summary { font-size: 13px; color: var(--ink-soft); }
 .meeting-row .badge-pill.badge-cancelled { background: var(--cream-dark); color: var(--carnival-red); }
 
+/*
+ * MeetingTimeline: dates that have passed roll up into the "Past Meetings" bar
+ * on top, and the date to take attendance for is ringed in gold with its tag.
+ */
+.meeting-past > .den-toggle {
+  display: block;
+  padding: 12px 18px;
+  font-size: 13.5px;
+  background: var(--cream-dark);
+  border-radius: var(--radius);
+}
+.meeting-past > .meeting-list { margin-top: 10px; }
+.meeting-current { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 4px 0 6px; }
+.meeting-current-tag {
+  align-self: flex-start;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--scout-blue-dark);
+  background: var(--scout-gold);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.meeting-current > .meeting-row { box-shadow: 0 0 0 3px var(--scout-gold), var(--shadow-card); padding: 18px 20px; }
+.meeting-current > .meeting-row .meeting-date-label { font-size: 17px; }
+
 /* The "Label for this date" field + Save beside a meeting's attendance. */
 .meeting-label-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 18px; }
 .meeting-label-form .form-field { margin-bottom: 0; flex: 1 1 240px; max-width: 420px; }

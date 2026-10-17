@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { canAccessLeaderAttendance } from "@/lib/authorize";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import FileExportButton from "@/components/FileExportButton";
+import MeetingTimeline from "@/components/MeetingTimeline";
 
 export default async function AdminAttendancePage({
   searchParams,
@@ -62,8 +63,9 @@ export default async function AdminAttendancePage({
         />
       </div>
 
-      <div className="meeting-list">
-        {dates.map((m) =>
+      <MeetingTimeline
+        dates={dates}
+        renderRow={(m) =>
           m.status === "NO_MEETING" ? (
             <Link className="meeting-row no-meeting" href={`/portal/admin/attendance/${m.id}`} key={m.id}>
               <span className="meeting-date-label">{formatMeetingDate(m.date, m.eventLabel)}</span>
@@ -77,8 +79,8 @@ export default async function AdminAttendancePage({
               </span>
             </Link>
           )
-        )}
-      </div>
+        }
+      />
     </>
   );
 }

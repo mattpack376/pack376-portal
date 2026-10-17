@@ -55,3 +55,29 @@ export function attendanceLockLabel(meetingDate: Date): string {
 
 export const ATTENDANCE_LOCKED_MESSAGE =
   "This meeting's attendance is locked. Only an Admin can make changes now.";
+
+/**
+ * Splits a season's dates (oldest first) for the attendance lists. A date
+ * "passes" when its attendance locks, so Friday stays up top through Saturday
+ * morning. `current` is the first scheduled date that hasn't passed — the one
+ * to take attendance for — and `upcoming` is everything still ahead in date
+ * order, current included, so a No Meeting night just before it still shows.
+ */
+export function splitMeetingTimeline<T extends { date: Date; status: string }>(
+  dates: T[],
+  now: Date = new Date()
+): { past: T[]; upcoming: T[]; current: T | null } {
+  const past = dates.filter((d) => isAttendanceLocked(d.date, now));
+  const upcoming = dates.filter((d) => !isAttendanceLocked(d.date, now));
+  const current = upcoming.find((d) => d.status === "SCHEDULED") ?? null;
+  return { past, upcoming, current };
+}
+
+/** What the highlighted date is: tonight's meeting, the next one, or one still open from yesterday. */
+export function currentMeetingTag(meetingDate: Date, now: Date = new Date()): string {
+  const day = toDateOnlyString(meetingDate);
+  const today = todayDateOnlyString(now);
+  if (day === today) return "Today";
+  if (day > today) return "Up Next";
+  return `Still open until ${attendanceLockLabel(meetingDate)}`;
+}

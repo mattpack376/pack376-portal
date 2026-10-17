@@ -6,6 +6,7 @@ import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { denDisplayName } from "@/lib/rankConfig";
 import DenSwitcher from "@/components/DenSwitcher";
 import FileExportButton from "@/components/FileExportButton";
+import MeetingTimeline from "@/components/MeetingTimeline";
 
 export default async function DenAttendancePage({
   searchParams,
@@ -52,8 +53,9 @@ export default async function DenAttendancePage({
         />
       </div>
 
-      <div className="meeting-list">
-        {dates.map((m) =>
+      <MeetingTimeline
+        dates={dates}
+        renderRow={(m) =>
           m.status === "NO_MEETING" ? (
             <div className="meeting-row no-meeting" key={m.id}>
               <span className="meeting-date-label">{formatMeetingDate(m.date, m.eventLabel)}</span>
@@ -69,8 +71,8 @@ export default async function DenAttendancePage({
               </span>
             </Link>
           )
-        )}
-      </div>
+        }
+      />
     </>
   );
 }
