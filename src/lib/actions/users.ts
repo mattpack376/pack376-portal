@@ -10,12 +10,13 @@ import {
   assertCanMutateUser,
   assertMasterAdmin,
   isDenScopedRole,
+  isMasterAdminSession,
   isReservedUsername,
 } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
 import { issueInviteToken, issueResetToken } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
-import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
+import { canSetUserActive, isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
 import { ASSIGNABLE_ROLES, DEN_ASSIGNABLE_ROLES, ROLE_LABELS, type AssignableRole } from "@/lib/roleLabels";
 import { sendAccountLinkEmail } from "@/lib/email";
 import { formatPhoneNumber } from "@/lib/phone";
@@ -409,6 +410,69 @@ export async function updateUserDensAction(formData: FormData) {
 
   revalidatePath(`/portal/admin/users/${userId}`);
   revalidatePath("/portal/admin");
+}
+
+/**
+ * Marks a staff login inactive (or active again) without deleting it. While
+ * inactive it can't sign in, isn't listed as a den's leader and is left out of
+ * Email Everyone; its den assignments stay, so switching it back on restores
+ * all of that. A Leaders & Committee entry linked to the login follows it, so
+ * the person drops off (and returns to) the leader attendance list too.
+ */
+export async function setUserActiveAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const userId = String(formData.get("userId") || "");
+  const active = String(formData.get("active") || "") === "true";
+  if (!userId) throw new Error("Missing user id.");
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, username: true, displayName: true, role: true, active: true },
+  });
+  if (!user) throw new Error("User not found.");
+
+  const viewerIsMaster = await isMasterAdminSession(session);
+  if (!canSetUserActive({ userId: session.userId, isMaster: viewerIsMaster }, user)) {
+    throw new Error("This account can't be switched from here.");
+  }
+  if (user.active === active) return;
+
+  const linkedLeader = await prisma.adultLeader.findUnique({
+    where: { userId },
+    select: { id: true, active: true },
+  });
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      // Switching off also revokes any session they're signed in with right
+      // now; the sign-in check keeps them out afterwards.
+      data: active ? { active } : { active, sessionVersion: { increment: 1 } },
+    }),
+    ...(linkedLeader && linkedLeader.active !== active
+      ? [prisma.adultLeader.update({ where: { id: linkedLeader.id }, data: { active } })]
+      : []),
+  ]);
+
+  const who = `“${user.username}” (${user.displayName})`;
+  await recordAudit(session, {
+    action: active ? "user.reactivate" : "user.deactivate",
+    summary: active
+      ? `Marked the ${ROLE_LABELS[user.role] ?? user.role} login ${who} active again`
+      : `Marked the ${ROLE_LABELS[user.role] ?? user.role} login ${who} inactive — it can't sign in and is hidden from rosters`,
+    entityType: "User",
+    entityId: userId,
+    details: [
+      { label: "Active", from: user.active ? "Yes" : "No", to: active ? "Yes" : "No" },
+      ...(linkedLeader && linkedLeader.active !== active
+        ? [{ label: "On the leader & committee list", from: linkedLeader.active ? "Yes" : "No", to: active ? "Yes" : "No" }]
+        : []),
+    ],
+  });
+
+  revalidatePath("/portal", "layout");
 }
 
 export async function deleteUserAction(userId: string) {

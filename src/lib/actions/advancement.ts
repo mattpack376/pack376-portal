@@ -23,9 +23,10 @@ export async function applyAdventureChangesAction(scoutId: string, changes: Adve
 
   const scout = await prisma.scout.findUnique({
     where: { id: scoutId },
-    select: { denId: true, firstName: true, lastName: true },
+    select: { denId: true, firstName: true, lastName: true, active: true },
   });
   if (!scout) return { ok: false as const, error: "Scout not found." };
+  if (!scout.active) return { ok: false as const, error: `${scout.firstName} is inactive — make them active to update advancement.` };
 
   try {
     assertAdvancementDenAccess(session, scout.denId);

@@ -371,14 +371,24 @@ export async function getAllRegistrations() {
  * Every scout (grouped by den) and every non-parent staff account — used to
  * populate the "Guest Of" picker on the admin add/edit guest group forms, so
  * a guest can be linked to the scout or leader/admin they're attending with.
+ * Inactive scouts and logins aren't offered — except the one a guest group
+ * being edited is already linked to (`keep`), so saving it doesn't drop them.
  */
-export async function getGuestOfOptions() {
+export async function getGuestOfOptions(keep: { scoutId?: string | null; userId?: string | null } = {}) {
   const [dens, staff] = await Promise.all([
     prisma.den.findMany({
-      include: { scouts: { orderBy: [{ lastName: "asc" }, { firstName: "asc" }] } },
+      include: {
+        scouts: {
+          where: { OR: [{ active: true }, ...(keep.scoutId ? [{ id: keep.scoutId }] : [])] },
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        },
+      },
     }),
     prisma.user.findMany({
-      where: { role: { not: "PARENT" } },
+      where: {
+        role: { not: "PARENT" },
+        OR: [{ active: true }, ...(keep.userId ? [{ id: keep.userId }] : [])],
+      },
       select: { id: true, displayName: true, role: true },
       orderBy: [{ role: "asc" }, { displayName: "asc" }],
     }),

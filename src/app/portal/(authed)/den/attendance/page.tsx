@@ -33,7 +33,7 @@ export default async function DenAttendancePage({
     return <div className="info-card">Your den could not be found. Contact an admin.</div>;
   }
 
-  const { den, totalScouts, dates } = data;
+  const { den, dates } = data;
 
   return (
     <>
@@ -65,9 +65,9 @@ export default async function DenAttendancePage({
             <Link className="meeting-row" href={`/portal/den/attendance/${m.id}?denId=${denId}`} key={m.id}>
               <span className="meeting-date-label">{formatMeetingDate(m.date, m.eventLabel)}</span>
               <span className="meeting-summary">
-                {totalScouts === 0
+                {m.listedCount === 0
                   ? "No scouts on roster"
-                  : `${m.presentCount}/${totalScouts} present`}
+                  : `${m.presentCount}/${m.listedCount} present`}
               </span>
             </Link>
           )

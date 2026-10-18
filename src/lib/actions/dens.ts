@@ -268,6 +268,9 @@ export async function promoteDenAction(
           registrationExpiresOn: s.registrationExpiresOn,
           notes: s.notes,
           householdId: s.householdId,
+          // Someone on leave is carried to the next rank still on leave, so
+          // switching them back on later puts them in the right den.
+          active: s.active,
           parents: {
             create: s.parents.map((p) => ({ name: p.name, email: p.email, phone: p.phone, userId: p.userId })),
           },

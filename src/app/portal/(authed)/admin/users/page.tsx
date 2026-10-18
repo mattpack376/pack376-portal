@@ -69,7 +69,13 @@ export default async function AdminUsersPage() {
                     : "—"}
               </td>
               <td data-label="Status">
-                {user.lockedUntil && user.lockedUntil.getTime() > now ? "🔒 Locked" : "Active"}
+                {!user.active ? (
+                  <span className="badge-pill badge-pending">Inactive</span>
+                ) : user.lockedUntil && user.lockedUntil.getTime() > now ? (
+                  "🔒 Locked"
+                ) : (
+                  "Active"
+                )}
               </td>
               <td className="actions">
                 {/* A master admin's password is only a master admin's to reset. */}

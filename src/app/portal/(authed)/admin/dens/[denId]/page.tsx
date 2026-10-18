@@ -8,6 +8,7 @@ import { canAddScoutsToDens } from "@/lib/authorize";
 import { getDenChecklist } from "@/lib/denData";
 import { denDisplayName, nextRank } from "@/lib/rankConfig";
 import { addScoutAction, removeScoutAction, updateScoutNameAction } from "@/lib/actions/dens";
+import { setScoutActiveAction } from "@/lib/actions/scouts";
 import ScoutChecklist from "@/components/ScoutChecklist";
 
 export default async function AdminDenDetailPage({
@@ -24,9 +25,9 @@ export default async function AdminDenDetailPage({
   // Junior Admin can add a scout; renaming and removing stay Admin-only.
   const canAddScouts = !!session && canAddScoutsToDens(session);
 
-  const { den, scouts } = data;
+  const { den, scouts, inactiveScouts } = data;
   const assignments = await prisma.denAssignment.findMany({
-    where: { denId },
+    where: { denId, user: { active: true } },
     include: { user: { select: { id: true, username: true, displayName: true } } },
   });
   const canPromote = isFullAdmin && nextRank(den.rank) !== null;
@@ -137,6 +138,17 @@ export default async function AdminDenDetailPage({
                   </td>
                   {isFullAdmin && (
                     <td className="actions">
+                      <form action={setScoutActiveAction}>
+                        <input type="hidden" name="scoutId" value={scout.id} />
+                        <input type="hidden" name="active" value="false" />
+                        <ConfirmSubmitButton
+                          className="btn btn-quiet btn-small"
+                          pendingLabel="Saving…"
+                          message={`Mark ${scout.firstName} ${scout.lastName} inactive? They'll be hidden from this roster, advancement and attendance until you mark them active again. Nothing is deleted.`}
+                        >
+                          Mark Inactive
+                        </ConfirmSubmitButton>
+                      </form>
                       <form action={removeScoutAction}>
                         <input type="hidden" name="scoutId" value={scout.id} />
                         <input type="hidden" name="denId" value={den.id} />
@@ -155,6 +167,33 @@ export default async function AdminDenDetailPage({
             </tbody>
           </table>
           </div>
+        )}
+
+        {isFullAdmin && inactiveScouts.length > 0 && (
+          <details style={{ marginBottom: 20 }}>
+            <summary className="den-toggle">Inactive Scouts ({inactiveScouts.length})</summary>
+            <p className="form-note" style={{ margin: "8px 0 12px" }}>
+              Hidden from this roster, advancement and attendance. Everything they&apos;ve earned and been marked for
+              is still on file — mark them active to put them back.
+            </p>
+            {inactiveScouts.map((scout) => (
+              <div
+                key={scout.id}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}
+              >
+                <span>
+                  {scout.firstName} {scout.lastName}
+                </span>
+                <form action={setScoutActiveAction}>
+                  <input type="hidden" name="scoutId" value={scout.id} />
+                  <input type="hidden" name="active" value="true" />
+                  <button type="submit" className="btn btn-quiet btn-small">
+                    Mark Active
+                  </button>
+                </form>
+              </div>
+            ))}
+          </details>
         )}
 
         {canAddScouts && (

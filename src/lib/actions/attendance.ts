@@ -16,7 +16,7 @@ export async function setAttendanceAction(scoutId: string, meetingDateId: string
 
   const scout = await prisma.scout.findUnique({
     where: { id: scoutId },
-    select: { denId: true, firstName: true, lastName: true },
+    select: { denId: true, firstName: true, lastName: true, active: true },
   });
   if (!scout) return { ok: false as const };
 
@@ -38,6 +38,12 @@ export async function setAttendanceAction(scoutId: string, meetingDateId: string
     where: { scoutId_meetingDateId: { scoutId, meetingDateId } },
     select: { present: true },
   });
+
+  // An inactive scout only still appears on the meetings they were already
+  // marked for (see scoutsListedForMeeting) — never start a new record for them.
+  if (!scout.active && !before) {
+    return { ok: false as const, error: `${scout.firstName} ${scout.lastName} is inactive.` };
+  }
 
   await prisma.attendance.upsert({
     where: { scoutId_meetingDateId: { scoutId, meetingDateId } },
@@ -88,7 +94,8 @@ export async function markDenPresentAction(denId: string, meetingDateId: string)
     return { ok: false as const, error: "This meeting has been cancelled." };
   }
 
-  const scouts = await prisma.scout.findMany({ where: { denId }, select: { id: true } });
+  // Active scouts only: an inactive scout's old marks are left as they were.
+  const scouts = await prisma.scout.findMany({ where: { denId, active: true }, select: { id: true } });
   await prisma.$transaction(
     scouts.map((scout) =>
       prisma.attendance.upsert({

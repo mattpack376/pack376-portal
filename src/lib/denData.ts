@@ -88,12 +88,20 @@ export async function getDenChecklist(denId: string) {
     where: { id: denId },
     include: {
       scouts: {
+        // Inactive scouts drop off the checklist; their records stay on file.
+        where: { active: true },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         include: { records: { include: { updatedByUser: { select: { username: true } } } } },
       },
     },
   });
   if (!den) return null;
+
+  const inactiveScouts = await prisma.scout.findMany({
+    where: { denId, active: false },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    select: { id: true, firstName: true, lastName: true },
+  });
 
   const adventures = await prisma.adventure.findMany({
     where: { rank: den.rank },
@@ -102,7 +110,7 @@ export async function getDenChecklist(denId: string) {
 
   const scouts: ChecklistScout[] = den.scouts.map((scout) => toChecklistScout(scout, adventures));
 
-  return { den, scouts };
+  return { den, scouts, inactiveScouts };
 }
 
 /** Read-only advancement checklist for an arbitrary set of scouts (e.g. a parent's linked kids), which may span more than one den/rank. */
@@ -110,7 +118,7 @@ export async function getScoutsAdvancementByIds(scoutIds: string[]): Promise<Che
   if (scoutIds.length === 0) return [];
 
   const scouts = await prisma.scout.findMany({
-    where: { id: { in: scoutIds } },
+    where: { id: { in: scoutIds }, active: true },
     orderBy: [{ firstName: "asc" }],
     include: { den: true, records: { include: { updatedByUser: { select: { username: true } } } } },
   });

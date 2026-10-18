@@ -413,8 +413,8 @@ export async function updateAdultLeaderAction(formData: FormData) {
 }
 
 /**
- * "Remove" takes someone off the list going forward without touching the
- * meetings they were already marked for; "Restore" puts them back.
+ * "Mark Inactive" takes someone off the list going forward without touching the
+ * meetings they were already marked for; "Mark Active" puts them back.
  */
 export async function setAdultLeaderActiveAction(formData: FormData) {
   const session = await getSession();
@@ -434,8 +434,8 @@ export async function setAdultLeaderActiveAction(formData: FormData) {
   await recordAudit(session, {
     action: active ? "adultLeader.restore" : "adultLeader.remove",
     summary: active
-      ? `Put ${before.name} back on the leader & committee attendance list`
-      : `Took ${before.name} off the leader & committee attendance list`,
+      ? `Marked ${before.name} active again on the leader & committee attendance list`
+      : `Marked ${before.name} inactive — off the leader & committee attendance list`,
     entityType: "AdultLeader",
     entityId: id,
     details: [{ label: "On the list", from: before.active ? "Yes" : "No", to: active ? "Yes" : "No" }],
@@ -458,7 +458,7 @@ export async function deleteAdultLeaderAction(formData: FormData) {
     select: { name: true, active: true, _count: { select: { attendances: true } } },
   });
   if (!leader) throw new Error("That person is no longer on the list.");
-  if (leader.active) throw new Error("Remove them from the list before deleting them.");
+  if (leader.active) throw new Error("Mark them inactive before deleting them.");
 
   await prisma.adultLeader.delete({ where: { id } });
 

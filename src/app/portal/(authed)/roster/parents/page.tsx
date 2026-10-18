@@ -45,6 +45,7 @@ export default async function ParentContactsPage({
     where: isDenScoped ? { id: { in: session.denIds } } : undefined,
     include: {
       scouts: {
+        where: { active: true },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         include: {
           parents: { orderBy: { createdAt: "asc" } },

@@ -22,8 +22,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   const dates = await meetingDatesForYear(den.scoutingYear, { scheduledOnly: true });
 
+  // Inactive scouts stay in the export only for the meetings they were marked
+  // on, so a season's record doesn't lose someone who left partway through.
   const scouts = await prisma.scout.findMany({
-    where: { denId },
+    where: {
+      denId,
+      OR: [{ active: true }, { attendances: { some: { meetingDateId: { in: dates.map((d) => d.id) } } } }],
+    },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     include: { attendances: { where: { meetingDateId: { in: dates.map((d) => d.id) } } } },
   });

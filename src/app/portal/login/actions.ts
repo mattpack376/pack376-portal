@@ -123,6 +123,19 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       : { error: "Invalid username or password." };
   }
 
+  // Checked only after the password is right, so a wrong guess can't be used
+  // to learn which usernames exist and are switched off.
+  if (!user.active) {
+    await recordAuditAs(actor, {
+      action: "auth.blocked",
+      summary: `Sign-in attempt for “${user.username}” while the account was inactive`,
+      entityType: "User",
+      entityId: user.id,
+      ipAddress,
+    });
+    return { error: "This account is inactive. Ask an admin to make it active again." };
+  }
+
   await prisma.user.update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null } });
   const [denAssignments, parentContacts] = await Promise.all([
     prisma.denAssignment.findMany({ where: { userId: user.id }, select: { denId: true } }),

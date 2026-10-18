@@ -20,6 +20,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     where: { id: denId },
     include: {
       scouts: {
+        where: { active: true },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         include: { parents: { orderBy: { createdAt: "asc" } } },
       },

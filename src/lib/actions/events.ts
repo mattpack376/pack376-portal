@@ -301,6 +301,7 @@ export async function registerScoutForEventAction(formData: FormData) {
   if (!eventId || scoutIds.length === 0 || amountOwedCents === null) {
     throw new Error("At least one scout and a valid amount owed are required.");
   }
+  await assertScoutsActive(scoutIds);
 
   const existing = await prisma.eventRegistration.findMany({
     where: { eventId, scoutId: { in: scoutIds } },
@@ -471,6 +472,12 @@ export async function addEventPaymentAction(formData: FormData) {
   revalidatePath("/portal/admin/events");
 }
 
+/** New sign-ups are for active scouts only; the pickers don't offer anyone else, this stops a hand-built request. */
+async function assertScoutsActive(scoutIds: string[]) {
+  const inactive = await prisma.scout.count({ where: { id: { in: scoutIds }, active: false } });
+  if (inactive > 0) throw new Error("One or more of those scouts is inactive.");
+}
+
 export async function registerMyScoutsForEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
@@ -484,6 +491,7 @@ export async function registerMyScoutsForEventAction(formData: FormData) {
   if (!scoutIds.every((id) => allowedScoutIds.has(id))) {
     throw new Error("Not authorized for one or more of those scouts.");
   }
+  await assertScoutsActive(scoutIds);
 
   const event = await prisma.event.findFirst({
     where: { id: eventId, ...upcomingVisibleEventWhere() },

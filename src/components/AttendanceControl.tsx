@@ -13,6 +13,7 @@ export default function AttendanceControl({
   updatedAt,
   updatedByUsername,
   locked = false,
+  inactive = false,
 }: {
   scoutId: string;
   meetingDateId: string;
@@ -23,6 +24,8 @@ export default function AttendanceControl({
   updatedByUsername?: string | null;
   /** Past the lock and not an Admin: shown, but not editable. */
   locked?: boolean;
+  /** Marked inactive since; only listed because they were marked on this meeting. */
+  inactive?: boolean;
 }) {
   const [present, setPresent] = useState<boolean | null>(initialPresent);
   const [isPending, startTransition] = useTransition();
@@ -52,6 +55,11 @@ export default function AttendanceControl({
     <div className="attendance-row audit-hover" data-audit={tooltip ?? undefined}>
       <span className="attendance-name">
         {firstName} {lastName}
+        {inactive && (
+          <span className="badge-pill badge-pending" style={{ marginLeft: 8 }}>
+            Inactive
+          </span>
+        )}
       </span>
       <div className={`attendance-buttons${locked ? " att-locked" : ""}`}>
         <button

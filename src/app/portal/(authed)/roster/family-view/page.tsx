@@ -47,12 +47,12 @@ export default async function FamilyViewPage({
       : session.denIds[0]
     : undefined;
 
-  const den = denId ? await prisma.den.findUnique({ where: { id: denId }, include: { scouts: { select: { id: true } } } }) : null;
+  const den = denId ? await prisma.den.findUnique({ where: { id: denId }, include: { scouts: { where: { active: true }, select: { id: true } } } }) : null;
   if (denId && !den) {
     return <div className="info-card">Your den could not be found. Contact an admin.</div>;
   }
 
-  const scoutIds = den ? den.scouts.map((s) => s.id) : (await prisma.scout.findMany({ select: { id: true } })).map((s) => s.id);
+  const scoutIds = den ? den.scouts.map((s) => s.id) : (await prisma.scout.findMany({ where: { active: true }, select: { id: true } })).map((s) => s.id);
 
   /*
    * Parent Dashboard preview. Scoped to the same scouts this session can

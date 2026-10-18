@@ -29,7 +29,7 @@ export default async function AdminAttendancePage({
     );
   }
 
-  const { totalScouts, dates } = await getAdminMeetingOverview(scoutingYear);
+  const { dates } = await getAdminMeetingOverview(scoutingYear);
 
   return (
     <>
@@ -75,7 +75,7 @@ export default async function AdminAttendancePage({
             <Link className="meeting-row" href={`/portal/admin/attendance/${m.id}`} key={m.id}>
               <span className="meeting-date-label">{formatMeetingDate(m.date, m.eventLabel)}</span>
               <span className="meeting-summary">
-                {totalScouts === 0 ? "No scouts yet" : `${m.presentCount}/${totalScouts} present`}
+                {m.listedCount === 0 ? "No scouts yet" : `${m.presentCount}/${m.listedCount} present`}
               </span>
             </Link>
           )

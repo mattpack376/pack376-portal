@@ -36,6 +36,7 @@ export default async function PhotoConsentPage({
     where: session.role === "DEN" ? { id: { in: session.denIds } } : undefined,
     include: {
       scouts: {
+        where: { active: true },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         include: { photoConsent: true, parents: { orderBy: { createdAt: "asc" } } },
       },

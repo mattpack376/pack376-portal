@@ -24,6 +24,10 @@ export async function GET(request: NextRequest) {
     where: { scoutingYear },
     include: {
       scouts: {
+        // Inactive scouts stay in the export only if they were marked on one of these dates.
+        where: {
+          OR: [{ active: true }, { attendances: { some: { meetingDateId: { in: dates.map((d) => d.id) } } } }],
+        },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         include: { attendances: { where: { meetingDateId: { in: dates.map((d) => d.id) } } } },
       },

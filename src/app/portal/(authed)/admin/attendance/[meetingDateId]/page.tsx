@@ -100,6 +100,7 @@ export default async function AdminMeetingAttendancePage({
                       updatedAt={scout.updatedAt}
                       updatedByUsername={scout.updatedByUsername}
                       locked={!canEdit}
+                      inactive={!scout.active}
                     />
                   ))}
                 </div>

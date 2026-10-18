@@ -177,7 +177,7 @@ export default async function ManageAdultLeadersPage({
       orderBy: { displayName: "asc" },
     }),
   ]);
-  const removed = roster.filter((l) => !l.active);
+  const inactive = roster.filter((l) => !l.active);
 
   return (
     <>
@@ -275,7 +275,7 @@ export default async function ManageAdultLeadersPage({
                           <input type="hidden" name="id" value={leader.id} />
                           <input type="hidden" name="active" value="false" />
                           <button type="submit" className="btn btn-quiet btn-small">
-                            Remove
+                            Mark Inactive
                           </button>
                         </form>
                       </td>
@@ -289,16 +289,16 @@ export default async function ManageAdultLeadersPage({
         );
       })}
 
-      {removed.length > 0 && (
+      {inactive.length > 0 && (
         <div className="attendance-group">
           <div className="attendance-group-head">
-            <h3 style={{ marginBottom: 0 }}>Removed</h3>
+            <h3 style={{ marginBottom: 0 }}>Inactive</h3>
           </div>
           <p className="form-note" style={{ marginTop: 0, marginBottom: 12 }}>
-            Off the tracker going forward, but still shown on the meetings they were already marked for.
+            Off the tracker and the contact list going forward, but still shown on the meetings they were already marked for. Mark them active to put them back.
           </p>
           <div className="attendance-card">
-            {removed.map((leader) => (
+            {inactive.map((leader) => (
               <div className="attendance-row" key={leader.id}>
                 <div>
                   <span className="attendance-name">{leader.name}</span>
@@ -312,7 +312,7 @@ export default async function ManageAdultLeadersPage({
                     <input type="hidden" name="id" value={leader.id} />
                     <input type="hidden" name="active" value="true" />
                     <button type="submit" className="btn btn-quiet btn-small">
-                      Restore
+                      Mark Active
                     </button>
                   </form>
                   <DeleteAdultLeaderButton

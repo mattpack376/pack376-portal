@@ -12,8 +12,9 @@ export default async function RosterPage() {
 
   const dens = await prisma.den.findMany({
     include: {
-      scouts: { orderBy: [{ lastName: "asc" }, { firstName: "asc" }] },
-      denAssignments: { include: { user: { select: { displayName: true } } } },
+      scouts: { where: { active: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] },
+      // An inactive leader's assignments are kept, just not listed.
+      denAssignments: { where: { user: { active: true } }, include: { user: { select: { displayName: true } } } },
     },
   });
   dens.sort((a, b) => {

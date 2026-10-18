@@ -13,6 +13,7 @@ export async function GET() {
   const dens = await prisma.den.findMany({
     include: {
       scouts: {
+        where: { active: true },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         include: { parents: { orderBy: { createdAt: "asc" } } },
       },

@@ -59,7 +59,7 @@ export default function LeaderAttendanceControl({
         <span className="attendance-name">{name}</span>
         {!active && (
           <span className="badge-pill badge-pending" style={{ marginLeft: 8 }}>
-            Removed from list
+            Inactive
           </span>
         )}
         {positions.length > 0 && <span className="attendance-detail">{formatPositions(positions)}</span>}

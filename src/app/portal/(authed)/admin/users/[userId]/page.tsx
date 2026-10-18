@@ -4,19 +4,21 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
 import { isMasterAdminSession, requireAdminSession } from "@/lib/authorize";
-import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
+import { canSetUserActive, isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
 import { isAllDensTestUsername } from "@/lib/denTestAccounts";
 import {
   updateUserDensAction,
   updateUserEmailAction,
   updateUserDisplayNameAction,
   updateUserPhoneAction,
+  setUserActiveAction,
 } from "@/lib/actions/users";
 import { DEN_ASSIGNABLE_ROLES, ROLE_LABELS, type AssignableRole } from "@/lib/roleLabels";
 import type { Rank } from "@/generated/prisma/enums";
 import ResetPasswordButton from "@/components/ResetPasswordButton";
 import DeleteUserButton from "@/components/DeleteUserButton";
 import ManageUserRoleForm from "@/components/ManageUserRoleForm";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import UnlinkParentScoutButton from "@/components/UnlinkParentScoutButton";
 import { attachParentToScoutAction } from "@/lib/actions/parents";
 
@@ -50,6 +52,8 @@ export default async function ManageUserPage({
   const roleEditable = !masterAccount && (user.role !== "ADMIN" || viewerIsMaster);
   const detailsEditable = !masterAccount || viewerIsMaster;
   const deletable = !protectedAccount && (user.role !== "ADMIN" || viewerIsMaster);
+  // Mirrors setUserActiveAction: the switch is only drawn where it would go through.
+  const activeSwitchable = canSetUserActive({ userId: session.userId, isMaster: viewerIsMaster }, user);
   const assignedDenIds = new Set(user.denAssignments.map((a) => a.denId));
   const canAssignDens = DEN_ASSIGNABLE_ROLES.includes(user.role as (typeof DEN_ASSIGNABLE_ROLES)[number]);
   // Mirrors getSessionState in src/lib/auth.ts: a den test login reaches every den without being assigned to any.
@@ -83,6 +87,7 @@ export default async function ManageUserPage({
         <h2>{user.username}</h2>
         <p>
           {user.displayName}
+          {!user.active && <span className="badge-pill badge-pending" style={{ marginLeft: 10 }}>Inactive</span>}
           {user.denAssignments.length > 0
             ? ` · ${user.denAssignments
                 .map((a) => denDisplayName(a.den.rank, a.den.scoutingYear, a.den.label))
@@ -166,6 +171,40 @@ export default async function ManageUserPage({
           <p>
             {user.email ?? "No email on file"} · {user.phone ?? "No phone on file"}
           </p>
+        </div>
+      )}
+
+      {(activeSwitchable || !user.active) && (
+        <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
+          <h3>{user.active ? "Active Account" : "Inactive Account"}</h3>
+          <p>
+            {user.active
+              ? "Marking an account inactive signs it out and stops it signing in, takes it off the den rosters and leader attendance list, and leaves it out of Email Everyone. Nothing is deleted — den assignments and everything else are kept, and marking it active again restores them."
+              : "This account can't sign in, and it's hidden from den rosters, the leader attendance list and Email Everyone. Its den assignments are kept — mark it active to restore all of that."}
+          </p>
+          {activeSwitchable ? (
+            <form action={setUserActiveAction}>
+              <input type="hidden" name="userId" value={user.id} />
+              <input type="hidden" name="active" value={String(!user.active)} />
+              {user.active ? (
+                <ConfirmSubmitButton
+                  className="btn btn-quiet"
+                  pendingLabel="Saving…"
+                  message={`Mark “${user.username}” (${user.displayName}) inactive? They'll be signed out and won't be able to sign in until you mark the account active again. Nothing is deleted.`}
+                >
+                  Mark Inactive
+                </ConfirmSubmitButton>
+              ) : (
+                <button type="submit" className="btn btn-primary">
+                  Mark Active
+                </button>
+              )}
+            </form>
+          ) : (
+            <p className="form-note" style={{ marginBottom: 0 }}>
+              Only the master admin can change an Admin account&apos;s status.
+            </p>
+          )}
         </div>
       )}
 

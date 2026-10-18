@@ -5,13 +5,24 @@ import { requireAdminSession } from "@/lib/authorize";
 import { registrationStatus } from "@/lib/scoutRegistration";
 import type { Rank } from "@/generated/prisma/enums";
 import UsersSubNav from "@/components/UsersSubNav";
+import SegmentedNav from "@/components/SegmentedNav";
 
-export default async function AdminScoutsPage() {
+export default async function AdminScoutsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   await requireAdminSession();
+  const { view } = await searchParams;
+  const showInactive = view === "inactive";
 
-  const scouts = await prisma.scout.findMany({
-    include: { den: true },
-  });
+  const [scouts, inactiveCount] = await Promise.all([
+    prisma.scout.findMany({
+      where: { active: !showInactive },
+      include: { den: true },
+    }),
+    prisma.scout.count({ where: { active: false } }),
+  ]);
   scouts.sort((a, b) => {
     if (a.den.scoutingYear !== b.den.scoutingYear) return b.den.scoutingYear.localeCompare(a.den.scoutingYear);
     const rankDiff = RANK_ORDER.indexOf(a.den.rank as Rank) - RANK_ORDER.indexOf(b.den.rank as Rank);
@@ -25,10 +36,23 @@ export default async function AdminScoutsPage() {
       <div className="section-head">
         <div className="eyebrow">Admin</div>
         <h2>Accounts</h2>
-        <p>Every scout on the roster. Add or remove scouts from a den&apos;s page — edit their details here.</p>
+        <p>
+          {showInactive
+            ? "Scouts marked inactive. They're hidden from rosters, advancement and attendance, but everything on file is kept — open one to make them active again."
+            : "Every scout on the roster. Add or remove scouts from a den's page — edit their details here."}
+        </p>
       </div>
 
       <UsersSubNav active="scouts" />
+
+      <SegmentedNav
+        active={showInactive ? "inactive" : "active"}
+        noPrint
+        items={[
+          { key: "active", href: "/portal/admin/users/scouts", label: "Active" },
+          { key: "inactive", href: "/portal/admin/users/scouts?view=inactive", label: `Inactive (${inactiveCount})` },
+        ]}
+      />
 
       <div className="table-scroll">
         <table className="data-table">
@@ -38,14 +62,16 @@ export default async function AdminScoutsPage() {
               <th>Den</th>
               <th>Registration Expires</th>
               <th>Scouter ID#</th>
-              <th>Status</th>
+              <th>Registration</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {scouts.length === 0 && (
               <tr>
-                <td colSpan={6}>No scouts yet — add one from a den&apos;s page.</td>
+                <td colSpan={6}>
+                  {showInactive ? "No inactive scouts." : "No scouts yet — add one from a den's page."}
+                </td>
               </tr>
             )}
             {scouts.map((scout) => {
@@ -60,7 +86,7 @@ export default async function AdminScoutsPage() {
                       : "—"}
                   </td>
                   <td data-label="Scouter ID#">{scout.scouterId || "—"}</td>
-                  <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
+                  <td data-label="Registration"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                   <td className="actions">
                     <Link
                       className="btn btn-quiet btn-small"

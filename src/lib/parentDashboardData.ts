@@ -13,6 +13,13 @@ import {
   getUpcomingVisibleEvents,
 } from "@/lib/eventsData";
 
+/** The given scouts that are still active — inactive ones drop off a family's dashboard. */
+export async function activeScoutIdsOf(scoutIds: string[]) {
+  if (scoutIds.length === 0) return [];
+  const scouts = await prisma.scout.findMany({ where: { id: { in: scoutIds }, active: true }, select: { id: true } });
+  return scouts.map((s) => s.id);
+}
+
 export async function getParentDashboardData(scoutIds: string[], userId: string) {
   const today = todayDateOnly();
 

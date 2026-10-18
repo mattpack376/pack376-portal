@@ -77,6 +77,7 @@ export default async function DenMeetingAttendancePage({
                 updatedAt={scout.updatedAt}
                 updatedByUsername={scout.updatedByUsername}
                 locked={!canEdit}
+                inactive={!scout.active}
               />
             ))}
           </div>

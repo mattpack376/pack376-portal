@@ -1,6 +1,6 @@
 import Link from "next/link";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
-import { getParentDashboardData } from "@/lib/parentDashboardData";
+import { activeScoutIdsOf, getParentDashboardData } from "@/lib/parentDashboardData";
 import { getScoutsAdvancementByIds } from "@/lib/denData";
 import { formatCents } from "@/lib/duesData";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
@@ -62,6 +62,10 @@ export default async function ParentDashboardView({
   hideDues?: boolean;
   hideEventPayments?: boolean;
 }) {
+  // A scout marked inactive drops off the family's dashboard (balances,
+  // advancement, sign-ups) until they're made active again.
+  const activeScoutIds = await activeScoutIdsOf(scoutIds);
+
   const [
     {
       scouts,
@@ -76,8 +80,8 @@ export default async function ParentDashboardView({
     },
     advancement,
   ] = await Promise.all([
-    getParentDashboardData(scoutIds, userId),
-    getScoutsAdvancementByIds(scoutIds),
+    getParentDashboardData(activeScoutIds, userId),
+    getScoutsAdvancementByIds(activeScoutIds),
   ]);
 
   const scoutNames = scouts.map((s) => s.firstName).join(" & ") || null;
@@ -133,7 +137,7 @@ export default async function ParentDashboardView({
         <h2>Welcome, {displayName}</h2>
         <p>
           {scouts.length === 0
-            ? "No scouts are linked to your account yet — contact an admin if that doesn't look right."
+            ? "No active scouts are linked to your account — contact an admin if that doesn't look right."
             : `Following ${scoutNames} — ${scouts
                 .map((s) => denDisplayName(s.den.rank, s.den.scoutingYear, s.den.label))
                 .join(", ")}.`}

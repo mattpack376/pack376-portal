@@ -31,7 +31,7 @@ export default async function AdminGuestGroupPage({
   const group = await getGuestGroupDetail(guestGroupId);
   if (!group || group.event.id !== eventId) notFound();
 
-  const guestOfOptions = await getGuestOfOptions();
+  const guestOfOptions = await getGuestOfOptions({ scoutId: group.guestOfScoutId, userId: group.guestOfUserId });
   const guestOfDefault = group.guestOfScoutId ? `scout:${group.guestOfScoutId}` : group.guestOfUserId ? `user:${group.guestOfUserId}` : "";
 
   return (

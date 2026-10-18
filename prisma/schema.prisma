@@ -109,6 +109,12 @@ model User {
   // buyer's payment — and nothing else an Admin can do there. See
   // raffleAccessFor() in src/lib/authorize.ts.
   raffleHelper             Boolean                  @default(false)
+  // false = on leave from the pack, not deleted. An inactive login can't sign
+  // in, isn't listed as a den's leader and is left out of Email Everyone; its
+  // den assignments are kept, so switching it back on restores all of that.
+  // Only offered for staff logins (the Parent Portal's own accounts never get
+  // the switch). See setUserActiveAction in src/lib/actions/users.ts.
+  active                   Boolean                  @default(true)
   // The Leaders & Committee entry this login belongs to, if any.
   adultLeader              AdultLeader?
   householdId              String?
@@ -194,6 +200,13 @@ model Scout {
   // season since Scout rows are deleted on season reset.
   duesOverrideCents     Int?
   notes                 String?
+  // false = not currently with the pack, but not deleted. Inactive scouts drop
+  // out of the den roster, advancement, attendance, parent contacts, photo
+  // consent and every sign-up list, while their advancement, attendance, dues
+  // and parent contacts stay on file — so switching them back on restores them
+  // to their den exactly as they were. Money records (dues, event payments)
+  // stay visible. Set from Users → Scouts or the den page.
+  active                Boolean             @default(true)
   createdAt             DateTime            @default(now())
   records               AdvancementRecord[]
   attendances           Attendance[]

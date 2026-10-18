@@ -46,6 +46,13 @@ export async function completeResetAction(
     return { error: "This link is invalid, expired, or has already been used. Ask an admin to send a new one." };
   }
 
+  // A link can outlive the account being switched off. It's spent either way;
+  // an admin sends a fresh one once the account is active again.
+  const redeemedUser = await prisma.user.findUnique({ where: { id: redeemed.userId }, select: { active: true } });
+  if (!redeemedUser?.active) {
+    return { error: "This account is inactive. Ask an admin to make it active again, then request a new link." };
+  }
+
   const user = await prisma.user.update({
     where: { id: redeemed.userId },
     data: {

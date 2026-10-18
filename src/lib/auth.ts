@@ -59,10 +59,12 @@ export async function getSessionState(): Promise<{ session: SessionPayload | nul
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { sessionVersion: true, username: true },
+    select: { sessionVersion: true, username: true, active: true },
   });
-  // User deleted, or the token's version is stale relative to the account.
-  if (!user || user.sessionVersion !== payload.sv) {
+  // User deleted, switched inactive, or the token's version is stale relative
+  // to the account. (Going inactive also bumps sessionVersion; checking the
+  // flag too keeps it from depending on that.)
+  if (!user || !user.active || user.sessionVersion !== payload.sv) {
     return { session: null, revoked: true };
   }
 

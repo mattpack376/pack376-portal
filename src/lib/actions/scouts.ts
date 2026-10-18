@@ -88,6 +88,48 @@ export async function updateScoutAction(formData: FormData) {
   revalidatePath("/portal/roster");
 }
 
+/**
+ * Marks a scout inactive (or active again) without deleting anything. Inactive
+ * scouts drop out of the den roster, advancement, attendance, parent contacts,
+ * photo consent and the sign-up lists; every record stays on file, so switching
+ * them back on puts them back in their den as they were. Admin-only, like
+ * renaming or removing a scout.
+ */
+export async function setScoutActiveAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  const scoutId = String(formData.get("scoutId") || "");
+  const active = String(formData.get("active") || "") === "true";
+  if (!scoutId) throw new Error("Missing scout id.");
+
+  const before = await prisma.scout.findUnique({
+    where: { id: scoutId },
+    select: { firstName: true, lastName: true, denId: true, active: true },
+  });
+  if (!before) throw new Error("Scout not found.");
+  if (before.active === active) return;
+
+  await prisma.scout.update({ where: { id: scoutId }, data: { active } });
+
+  const name = `${before.firstName} ${before.lastName}`;
+  await recordAudit(session, {
+    action: active ? "scout.reactivate" : "scout.deactivate",
+    summary: active
+      ? `Marked scout ${name} active again — back on their den's roster, advancement and attendance`
+      : `Marked scout ${name} inactive — hidden from the roster, advancement and attendance until they're made active again`,
+    entityType: "Scout",
+    entityId: scoutId,
+    denId: before.denId,
+    details: [{ label: "Active", from: before.active ? "Yes" : "No", to: active ? "Yes" : "No" }],
+  });
+
+  // Scouts show up across the whole portal (rosters, attendance, parent
+  // dashboards, exports), so refresh all of it rather than listing each page.
+  revalidatePath("/portal", "layout");
+}
+
 export async function deleteScoutAction(scoutId: string) {
   const session = await getSession();
   if (!session) return { ok: false as const, error: "Not authorized." };

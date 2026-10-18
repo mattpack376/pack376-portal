@@ -68,8 +68,9 @@ export default async function AdminEventDetailPage({
     });
   }
 
+  // Inactive scouts aren't offered for new sign-ups; ones already registered stay listed above.
   const dens = await prisma.den.findMany({
-    include: { scouts: { orderBy: [{ lastName: "asc" }, { firstName: "asc" }] } },
+    include: { scouts: { where: { active: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] } },
   });
   dens.sort((a, b) => {
     if (a.scoutingYear !== b.scoutingYear) return b.scoutingYear.localeCompare(a.scoutingYear);

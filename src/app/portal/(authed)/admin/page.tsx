@@ -10,17 +10,18 @@ export default async function AdminDashboardPage() {
 
   const dens = await prisma.den.findMany({
     include: {
-      _count: { select: { scouts: true } },
-      denAssignments: { include: { user: { select: { displayName: true } } } },
+      _count: { select: { scouts: { where: { active: true } } } },
+      denAssignments: { where: { user: { active: true } }, include: { user: { select: { displayName: true } } } },
     },
   });
 
-  // Removed leaders/committee members are off the list going forward, so they
+  // Inactive leaders/committee members are off the list going forward, so they
   // aren't emailed either; their address stays on file if they're restored.
   const [parentEmails, userEmails, leaderEmails] = session.role === "ADMIN"
     ? await Promise.all([
-        prisma.parent.findMany({ where: { email: { not: null } }, select: { email: true } }),
-        prisma.user.findMany({ where: { email: { not: null } }, select: { email: true } }),
+        // Parents of an inactive scout and inactive logins are left out too.
+        prisma.parent.findMany({ where: { email: { not: null }, scout: { active: true } }, select: { email: true } }),
+        prisma.user.findMany({ where: { email: { not: null }, active: true }, select: { email: true } }),
         // Linked entries are skipped: their address is the login's, already counted above.
         prisma.adultLeader.findMany({
           where: { active: true, userId: null, email: { not: null } },

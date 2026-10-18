@@ -214,7 +214,7 @@ export async function emailAllUnansweredConsentLinksAction(): Promise<EmailAllCo
   if (denIds.length === 0) return { error: "Not authorized for any den." };
 
   const scouts = await prisma.scout.findMany({
-    where: { denId: { in: denIds } },
+    where: { denId: { in: denIds }, active: true },
     select: {
       id: true,
       denId: true,
