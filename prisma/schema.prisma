@@ -936,13 +936,14 @@ model AuditLog {
   ipAddress String?
 
   /**
-   * What the client looked like and roughly where it was — sign-ins and failed
-   * sign-ins only ("auth.*"); null on every other entry, which the master
-   * admins asked not to carry either. `deviceInfo` is a short label built from
-   * the User-Agent ("Phone · iOS · Safari"), never the raw header; `location`
-   * is the city/region/country the host's edge resolved from the address
-   * ("Brooklyn, NY, US"). Both are approximate and null when the host offered
-   * nothing (local dev). Same personal-data handling as `ipAddress`.
+   * What the client looked like and roughly where it was, on every entry —
+   * read off the current request by recordAuditAs alongside `ipAddress`.
+   * `deviceInfo` is a short label built from the User-Agent ("Phone · iOS ·
+   * Safari"), never the raw header; `location` is the city/region/country the
+   * host's edge resolved from the address ("Brooklyn, NY, US"). Both are
+   * approximate and null when the host offered nothing (local dev), and on
+   * entries written before 2026-10-24. Same personal-data handling as
+   * `ipAddress`.
    */
   deviceInfo String?
   location   String?

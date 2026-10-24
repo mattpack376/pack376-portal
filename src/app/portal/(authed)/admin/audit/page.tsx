@@ -304,10 +304,10 @@ export default async function AuditLogPage({
                           {entry.ipAddress}
                         </Link>
                       )}
-                      {/* Sign-ins and failed sign-ins only; every other entry
-                          has neither, so these lines never appear there. The
-                          place is where the address resolves, which a VPN or
-                          a phone carrier can put in the wrong city. */}
+                      {/* Entries from before these were recorded have
+                          neither, so the lines are simply absent. The place is
+                          where the address resolves, which a VPN or a phone
+                          carrier can put in the wrong city. */}
                       {entry.deviceInfo && (
                         <span className="form-note" style={{ marginTop: 0 }}>
                           {entry.deviceInfo}

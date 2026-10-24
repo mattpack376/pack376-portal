@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/session";
 import type { Role } from "@/generated/prisma/enums";
+import { clientDeviceFromHeaders, clientLocationFromHeaders } from "@/lib/clientInfo";
 
 /**
  * One field that changed, already formatted for display. `from` and `to` are
@@ -26,16 +27,14 @@ export type AuditEntry = {
   denId?: string | null;
   details?: AuditDetail[] | null;
   /**
-   * Left unset by nearly every caller: recordAuditAs reads the address off the
-   * current request itself. Set it explicitly only to override that — the
-   * sign-in path does, because it already has the header list in hand.
+   * The client address, device label and rough place (see
+   * src/lib/clientInfo.ts). Left unset by nearly every caller: recordAuditAs
+   * reads all three off the current request itself, so no call site can forget
+   * them. Set one explicitly only to override that — the sign-in path does,
+   * because it already has the header list in hand. An explicit null is a
+   * decision and is left alone.
    */
   ipAddress?: string | null;
-  /**
-   * Device label and rough place (see src/lib/clientInfo.ts). Only the sign-in
-   * path passes these: every other entry leaves them null, by request, and
-   * unlike the address they are never read off the request by default.
-   */
   deviceInfo?: string | null;
   location?: string | null;
 };
@@ -105,6 +104,7 @@ export type AuditActor = {
  */
 export async function recordAuditAs(actor: AuditActor, entry: AuditEntry) {
   try {
+    const request = await currentRequestClient();
     await prisma.auditLog.create({
       data: {
         actorUserId: actor.userId,
@@ -120,9 +120,9 @@ export async function recordAuditAs(actor: AuditActor, entry: AuditEntry) {
         details: entry.details && entry.details.length > 0 ? entry.details : undefined,
         // `undefined` means the caller didn't decide, so fall back to the
         // request. An explicit null is a decision and is left alone.
-        ipAddress: entry.ipAddress !== undefined ? entry.ipAddress : await currentRequestIp(),
-        deviceInfo: entry.deviceInfo ?? null,
-        location: entry.location ?? null,
+        ipAddress: entry.ipAddress !== undefined ? entry.ipAddress : request.ipAddress,
+        deviceInfo: entry.deviceInfo !== undefined ? entry.deviceInfo : request.deviceInfo,
+        location: entry.location !== undefined ? entry.location : request.location,
       },
     });
   } catch (error) {
@@ -180,18 +180,28 @@ export function clientIpFromHeaders(headerList: { get(name: string): string | nu
 }
 
 /**
- * The address behind the request currently being handled.
+ * Where the request currently being handled came from: its address, a device
+ * label and a rough place.
  *
  * Every writer is a Server Action (see the callers of recordAudit), so the
  * request context is always there in practice. It's still guarded: headers()
  * throws outside a request, and a future caller from a script or a background
- * job should get an entry with no address rather than no entry at all.
+ * job should get an entry with no client details rather than no entry at all.
  */
-async function currentRequestIp(): Promise<string | null> {
+async function currentRequestClient(): Promise<{
+  ipAddress: string | null;
+  deviceInfo: string | null;
+  location: string | null;
+}> {
   try {
-    return clientIpFromHeaders(await headers());
+    const headerList = await headers();
+    return {
+      ipAddress: clientIpFromHeaders(headerList),
+      deviceInfo: clientDeviceFromHeaders(headerList),
+      location: clientLocationFromHeaders(headerList),
+    };
   } catch {
-    return null;
+    return { ipAddress: null, deviceInfo: null, location: null };
   }
 }
 
