@@ -31,6 +31,13 @@ export type AuditEntry = {
    * sign-in path does, because it already has the header list in hand.
    */
   ipAddress?: string | null;
+  /**
+   * Device label and rough place (see src/lib/clientInfo.ts). Only the sign-in
+   * path passes these: every other entry leaves them null, by request, and
+   * unlike the address they are never read off the request by default.
+   */
+  deviceInfo?: string | null;
+  location?: string | null;
 };
 
 /** Placeholder for "no value" in a before/after pair. */
@@ -114,6 +121,8 @@ export async function recordAuditAs(actor: AuditActor, entry: AuditEntry) {
         // `undefined` means the caller didn't decide, so fall back to the
         // request. An explicit null is a decision and is left alone.
         ipAddress: entry.ipAddress !== undefined ? entry.ipAddress : await currentRequestIp(),
+        deviceInfo: entry.deviceInfo ?? null,
+        location: entry.location ?? null,
       },
     });
   } catch (error) {

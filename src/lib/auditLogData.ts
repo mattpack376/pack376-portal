@@ -35,8 +35,14 @@ const CLAIMING_TABS = {
   signins: {
     label: "Sign-ins",
     description:
-      "Every sign-in and failed sign-in attempt. Failed attempts for usernames that match no account show as “No account”.",
-    categories: ["auth"],
+      "Every successful sign-in, with the device it came from and an approximate location. Wrong passwords and blocked attempts are on the Failed Sign-ins tab.",
+    actions: ["auth.signIn"],
+  },
+  failedSignins: {
+    label: "Failed Sign-ins",
+    description:
+      "Every wrong password and every attempt on a locked or inactive account, so a run of guesses stands out from ordinary sign-ins. Each shows the device and an approximate location (worked out from the IP address, so a VPN or mobile carrier can show a different city). Attempts on usernames that match no account show as “No account”; click an address to see everything from it.",
+    actions: ["auth.failed", "auth.blocked"],
   },
   security: {
     label: "Security",
@@ -80,7 +86,7 @@ export const AUDIT_TABS = {
   main: {
     label: "Main",
     description:
-      "Everything that isn’t a sign-in, security, attendance, payment, Camp Conron or raffle entry — advancement, scouts, events, calendar, announcements and the rest.",
+      "Everything that isn’t a sign-in, failed sign-in, security, attendance, payment, Camp Conron or raffle entry — advancement, scouts, events, calendar, announcements and the rest.",
   },
   ...CLAIMING_TABS,
   all: {

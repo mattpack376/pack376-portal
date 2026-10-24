@@ -19,8 +19,8 @@ import { AUDIT_RETENTION_MONTHS } from "@/lib/audit";
 
 /**
  * The full history of changes made through the portal, split into tabs by
- * type — Main, Sign-ins, Security, Attendance, Dues & Payments, Camp Conron,
- * 50/50 Raffles, plus an "All activity" list (see AUDIT_TABS in
+ * type — Main, Sign-ins, Failed Sign-ins, Security, Attendance, Dues & Payments,
+ * Camp Conron, 50/50 Raffles, plus an "All activity" list (see AUDIT_TABS in
  * src/lib/auditLogData.ts).
  *
  * Master admins only (requireMasterAdminSession), matching the Danger Zone
@@ -156,7 +156,7 @@ export default async function AuditLogPage({
               ))}
             </select>
           </div>
-          {/* Sign-ins, Attendance and Dues are one area each, where this
+          {/* Sign-ins, Failed Sign-ins, Attendance and Dues are one area each, where this
               would only ever offer the one choice. */}
           {(categories.length > 1 || params.category) && (
             <div className="form-field">
@@ -303,6 +303,24 @@ export default async function AuditLogPage({
                         >
                           {entry.ipAddress}
                         </Link>
+                      )}
+                      {/* Sign-ins and failed sign-ins only; every other entry
+                          has neither, so these lines never appear there. The
+                          place is where the address resolves, which a VPN or
+                          a phone carrier can put in the wrong city. */}
+                      {entry.deviceInfo && (
+                        <span className="form-note" style={{ marginTop: 0 }}>
+                          {entry.deviceInfo}
+                        </span>
+                      )}
+                      {entry.location && (
+                        <span
+                          className="form-note"
+                          style={{ marginTop: 0 }}
+                          title="Approximate — worked out from the IP address, so a VPN or mobile carrier can show a different city"
+                        >
+                          {entry.location}
+                        </span>
                       )}
                     </div>
                   </td>

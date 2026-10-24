@@ -6,6 +6,7 @@ import { checkRateLimit } from "@vercel/firewall";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionCookie, isLockedOut, lockedUntilForCount } from "@/lib/auth";
 import { recordAuditAs, clientIpFromHeaders, UNKNOWN_ACCOUNT_ACTOR, type AuditActor } from "@/lib/audit";
+import { clientDeviceFromHeaders, clientLocationFromHeaders } from "@/lib/clientInfo";
 
 export type LoginState = { error?: string };
 
@@ -36,8 +37,14 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   }
 
   // Captured once and attached to every sign-in outcome below, so a run of
-  // failures can be read as "all from one address" or "from several".
-  const ipAddress = clientIpFromHeaders(headerList);
+  // failures can be read as "all from one address" or "from several". Device
+  // and place are recorded here and nowhere else in the audit log — they're
+  // wanted for sign-ins and failed attempts only.
+  const clientInfo = {
+    ipAddress: clientIpFromHeaders(headerList),
+    deviceInfo: clientDeviceFromHeaders(headerList),
+    location: clientLocationFromHeaders(headerList),
+  };
 
   const username = String(formData.get("username") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
@@ -53,7 +60,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     await recordAuditAs(UNKNOWN_ACCOUNT_ACTOR, {
       action: "auth.failed",
       summary: "Failed sign-in for a username that doesn't match any account",
-      ipAddress,
+      ...clientInfo,
     });
     return { error: "Invalid username or password." };
   }
@@ -75,7 +82,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       summary: `Sign-in attempt for “${user.username}” while the account was locked out`,
       entityType: "User",
       entityId: user.id,
-      ipAddress,
+      ...clientInfo,
     });
     return { error: "Too many failed attempts. Try again in about 15 minutes." };
   }
@@ -115,7 +122,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
         : `Wrong password for “${user.username}” (${failedLoginCount} failed attempt${failedLoginCount === 1 ? "" : "s"} in a row)`,
       entityType: "User",
       entityId: user.id,
-      ipAddress,
+      ...clientInfo,
       details: [{ label: "Consecutive failures", from: String(failedLoginCount - 1), to: String(failedLoginCount) }],
     });
     return lockedUntil
@@ -131,7 +138,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       summary: `Sign-in attempt for “${user.username}” while the account was inactive`,
       entityType: "User",
       entityId: user.id,
-      ipAddress,
+      ...clientInfo,
     });
     return { error: "This account is inactive. Ask an admin to make it active again." };
   }
@@ -159,7 +166,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     summary: `Signed in as “${user.username}” (${user.displayName})`,
     entityType: "User",
     entityId: user.id,
-    ipAddress,
+    ...clientInfo,
     // Worth surfacing: a success straight after failures is the ordinary
     // "mistyped it twice" story, and its absence is what makes a run of
     // failures with no success interesting.
