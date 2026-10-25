@@ -11,6 +11,7 @@ import { generatePhotoConsentLinkAction } from "@/lib/actions/photoConsent";
 import { CopyConsentLinkButton, RegenerateConsentLinkButton } from "@/components/PhotoConsentLinkControls";
 import EmailConsentLinkButton from "@/components/EmailConsentLinkButton";
 import SegmentedNav from "@/components/SegmentedNav";
+import FileExportButton from "@/components/FileExportButton";
 import EmailAllConsentLinksButton from "@/components/EmailAllConsentLinksButton";
 import { consentGroup, type ConsentGroup } from "@/lib/photoConsentGroups";
 
@@ -69,6 +70,7 @@ export default async function PhotoConsentPage({
     }))
     .filter((d) => view === "all" || d.scouts.length > 0);
   const years = Array.from(new Set(shownDens.map((d) => d.scoutingYear)));
+  const exportQuery = view === "all" ? "" : `?view=${view}`;
   const baseUrl = getPublicBaseUrl();
   // Read-only viewers (Photographer, Committee Member outside their own den)
   // see status only — the link itself is what lets a parent sign.
@@ -96,6 +98,21 @@ export default async function PhotoConsentPage({
       </div>
 
       {dens.length > 0 && <SegmentedNav items={tabs} active={view} />}
+      {shownDens.length > 0 && (
+        // Exports follow the selected tab. They list status only — never the consent links — so every role that can open this page gets them.
+        <p style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+          <FileExportButton
+            href={`/api/photo-consent/export${exportQuery}`}
+            label="Export CSV"
+            className="btn btn-quiet btn-small"
+          />
+          <FileExportButton
+            href={`/api/photo-consent/export/pdf${exportQuery}`}
+            label="Export PDF"
+            className="btn btn-quiet btn-small"
+          />
+        </p>
+      )}
       {view === "unanswered" && canManageAny && emailAllScouts.length > 0 && (
         <EmailAllConsentLinksButton count={emailAllCount} noEmailCount={emailAllScouts.length - emailAllCount} />
       )}
