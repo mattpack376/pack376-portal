@@ -143,7 +143,10 @@ async function submitTripRegistration(formData: FormData): Promise<RegisterForTr
   }
 
   const normalizedEmail = contactEmail.toLowerCase();
-  const amountOwedCents = payingCount * currentTripPriceCents(trip);
+  // While the price is unreleased nothing can be owed yet: the row is saved
+  // pending (amount 0) and filled in when an admin posts the price.
+  const owedPending = trip.priceTbd;
+  const amountOwedCents = owedPending ? 0 : payingCount * currentTripPriceCents(trip);
 
   // The replay check and the per-email cap are both read-then-write, so two
   // submissions arriving together could each read "nothing yet" and both
@@ -179,6 +182,7 @@ async function submitTripRegistration(formData: FormData): Promise<RegisterForTr
         payingCount,
         freeCount,
         amountOwedCents,
+        owedPending,
       },
     });
     return "created" as const;
@@ -227,9 +231,11 @@ export async function addTripRegistrationAction(formData: FormData) {
   if (!trip) throw new Error("Trip not found.");
 
   // Priced the same way the public form prices it, so a late addition costs
-  // what the tier in effect today costs. Edit the amount afterwards if this
-  // family was promised the early-bird rate.
-  const amountOwedCents = payingCount * currentTripPriceCents(trip);
+  // what the tier in effect today costs (or stays pending while the price is
+  // TBD). Edit the amount afterwards if this family was promised the
+  // early-bird rate.
+  const owedPending = trip.priceTbd;
+  const amountOwedCents = owedPending ? 0 : payingCount * currentTripPriceCents(trip);
 
   const created = await prisma.tripRegistration.create({
     data: {
@@ -242,6 +248,7 @@ export async function addTripRegistrationAction(formData: FormData) {
       payingCount,
       freeCount,
       amountOwedCents,
+      owedPending,
     },
   });
 
@@ -256,7 +263,7 @@ export async function addTripRegistrationAction(formData: FormData) {
       { label: "Family name", from: "—", to: familyName },
       { label: "Email", from: "—", to: contactEmail },
       { label: "Attendees", from: "—", to: `${payingCount} paying, ${freeCount} free` },
-      { label: "Amount owed", from: "—", to: auditMoney(amountOwedCents) },
+      { label: "Amount owed", from: "—", to: owedPending ? "TBD (price not released)" : auditMoney(amountOwedCents) },
     ],
   });
 
@@ -277,7 +284,7 @@ export async function updateTripRegistrationAction(formData: FormData) {
   const affiliationRaw = String(formData.get("affiliation") || "");
   const payingCount = parseCount(formData.get("payingCount"));
   const freeCount = parseCount(formData.get("freeCount"));
-  const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
+  const amountOwedRaw = String(formData.get("amountOwed") || "").trim();
 
   if (!id || !familyName || !contactEmail || !contactPhone || !guestOfName) {
     throw new Error("Name, email, phone, and guest-of are required.");
@@ -286,7 +293,6 @@ export async function updateTripRegistrationAction(formData: FormData) {
   if (affiliationRaw !== "PACK" && affiliationRaw !== "TROOP") throw new Error("Choose Pack 376 or Troop 376.");
   if (payingCount === null || freeCount === null) throw new Error("Invalid attendee counts.");
   if (payingCount + freeCount === 0) throw new Error("Enter at least one attendee.");
-  if (amountOwedCents === null) throw new Error("A valid amount owed is required.");
 
   const before = await prisma.tripRegistration.findUnique({
     where: { id },
@@ -299,8 +305,16 @@ export async function updateTripRegistrationAction(formData: FormData) {
       payingCount: true,
       freeCount: true,
       amountOwedCents: true,
+      owedPending: true,
     },
   });
+
+  // A registration still awaiting the price can be saved with the amount left
+  // blank (the form leaves it blank), and then stays pending; typing an amount
+  // sets it and ends the wait. Any other registration needs an amount.
+  const stayPending = !!before?.owedPending && amountOwedRaw === "";
+  const amountOwedCents = stayPending ? 0 : dollarsToCents(amountOwedRaw);
+  if (amountOwedCents === null) throw new Error("A valid amount owed is required.");
 
   await prisma.tripRegistration.update({
     where: { id },
@@ -313,6 +327,7 @@ export async function updateTripRegistrationAction(formData: FormData) {
       payingCount,
       freeCount,
       amountOwedCents,
+      ...(stayPending ? {} : { owedPending: false }),
     },
   });
 
@@ -330,8 +345,8 @@ export async function updateTripRegistrationAction(formData: FormData) {
       "Paying attendees": [before?.payingCount, payingCount],
       "Free attendees": [before?.freeCount, freeCount],
       "Amount owed": [
-        before ? auditMoney(before.amountOwedCents) : null,
-        auditMoney(amountOwedCents),
+        before?.owedPending ? "TBD" : before ? auditMoney(before.amountOwedCents) : null,
+        stayPending ? "TBD" : auditMoney(amountOwedCents),
       ],
     }),
   });

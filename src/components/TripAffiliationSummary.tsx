@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { formatCents } from "@/lib/duesData";
-import type { getTripRegistrations } from "@/lib/tripPageData";
+import { isPaidInFull, type getTripRegistrations } from "@/lib/tripPageData";
 import { describeHeadcount, type TripSite } from "@/lib/tripSites";
 
 /**
@@ -26,7 +26,8 @@ export default function TripAffiliationSummary({
   const kids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
   const owed = registrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
   const paid = registrations.reduce((sum, r) => sum + r.paidCents, 0);
-  const paidInFull = registrations.filter((r) => r.remainingCents <= 0).length;
+  const paidInFull = registrations.filter(isPaidInFull).length;
+  const awaitingPrice = registrations.filter((r) => r.owedPending).length;
   // Every mixed text/value line is built as one plain string (not
   // interleaved JSX text/expression children) because this toolchain's JSX
   // transform was observed dropping the space that immediately follows a
@@ -42,6 +43,7 @@ export default function TripAffiliationSummary({
     "and",
   )}`;
   const paidInFullSummary = `${paidInFull} of ${registrations.length} paid in full`;
+  const awaitingPriceNote = `${awaitingPrice} awaiting the price — not counted in Owed or Remaining`;
   const moneySummary = `Owed ${formatCents(owed)} · Paid ${formatCents(paid)} · Remaining ${formatCents(owed - paid)}`;
 
   return (
@@ -49,7 +51,8 @@ export default function TripAffiliationSummary({
       <h3>{summaryHeading}</h3>
       <p style={{ marginBottom: 8 }}>{familiesSummary}</p>
       <p style={{ marginBottom: 8 }}>{paidInFullSummary}</p>
-      <p>{moneySummary}</p>
+      <p style={awaitingPrice > 0 ? { marginBottom: 8 } : undefined}>{moneySummary}</p>
+      {awaitingPrice > 0 && <p className="form-note" style={{ marginBottom: 0 }}>{awaitingPriceNote}</p>}
     </div>
   );
 }

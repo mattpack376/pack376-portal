@@ -9,6 +9,11 @@ import {
   getTripExpenses,
   tripExpenseTotals,
   currentTripPriceCents,
+  isPaidInFull,
+  tripPaymentStatus,
+  tripPaymentRowClass,
+  tripRemainingText,
+  tripBalanceLine,
   none,
   DAY_LABELS,
   MEAL_TYPE_LABELS,
@@ -49,7 +54,7 @@ import {
 } from "@/lib/actions/tripRegistration";
 import TripRegistrationCountFields from "@/components/TripRegistrationCountFields";
 import TripViewerView from "@/components/TripViewerView";
-import { paymentStatus, paymentRowClass, balanceClass } from "@/lib/paymentStatus";
+import { balanceClass } from "@/lib/paymentStatus";
 import SegmentedNav from "@/components/SegmentedNav";
 import FileExportButton from "@/components/FileExportButton";
 
@@ -116,7 +121,8 @@ export default async function TripAdminView({
 
   const totalAdults = registrations.reduce((sum, r) => sum + r.payingCount, 0);
   const totalKids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
-  const paidRegistrations = registrations.filter((r) => r.remainingCents <= 0);
+  const paidRegistrations = registrations.filter(isPaidInFull);
+  const awaitingPrice = registrations.filter((r) => r.owedPending).length;
   const paidAdults = paidRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
   const paidKids = paidRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
 
@@ -143,6 +149,11 @@ export default async function TripAdminView({
           <span className={`badge-pill ${trip.published ? "badge-attendance" : "badge-pending"}`}>
             {trip.published ? "Live to the public" : "Not published yet"}
           </span>
+          {trip.priceTbd && (
+            <span className="badge-pill badge-pending" style={{ marginLeft: 8 }}>
+              Price TBD
+            </span>
+          )}
         </div>
         {isAdmin && (
           <form action={toggleTripPublishedAction}>
@@ -174,6 +185,11 @@ export default async function TripAdminView({
           <p style={{ marginBottom: 8 }}>
             <strong>Anticipated Money to be Collected:</strong> {formatCents(totalOwed)}
           </p>
+          {awaitingPrice > 0 && (
+            <p className="form-note" style={{ marginTop: -4, marginBottom: 8 }}>
+              {`Not counting ${awaitingPrice} registration${awaitingPrice === 1 ? "" : "s"} still awaiting the price.`}
+            </p>
+          )}
           <p style={{ marginBottom: 8 }}>
             <strong>Collected So Far:</strong> {formatCents(totalPaid)}
           </p>
@@ -380,10 +396,31 @@ export default async function TripAdminView({
         <CollapsibleGroup defaultOpen={groupsOpen} label="Price Structure">
           <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
             <p className="form-note" style={{ marginTop: 0 }}>
-              Current price: <strong>{formatCents(priceCents)}</strong>/person.
+              {trip.priceTbd ? (
+                <>
+                  The public page shows <strong>{site.priceTbdMessage}</strong> instead of a price.
+                </>
+              ) : (
+                <>
+                  Current price: <strong>{formatCents(priceCents)}</strong>/person.
+                </>
+              )}
             </p>
             <form action={updateTripPricingAction}>
               <input type="hidden" name="id" value={trip.id} />
+              {site.priceTbdMessage && (
+                <div className="form-field">
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                    <input type="checkbox" name="priceTbd" value="true" defaultChecked={trip.priceTbd} style={{ width: "auto" }} />
+                    Price not released yet — show “{site.priceTbdMessage}” on the public page
+                  </label>
+                  <p className="form-note" style={{ marginBottom: 0 }}>
+                    To post the price: enter it below (it must be more than $0.00), uncheck this, and save. Registrations
+                    made while it is checked have their amount owed filled in then (attendees × price), and the public
+                    page switches to the price.
+                  </p>
+                </div>
+              )}
               <div className="form-row">
                 <div className="form-field">
                   <label htmlFor="regularPrice">Regular Price ($/person)</label>
@@ -800,20 +837,18 @@ export default async function TripAdminView({
           ) : (
             <div>
               {visibleRegistrations.map((reg) => {
-                const status = paymentStatus(reg.remainingCents, reg.paidCents);
+                const status = tripPaymentStatus(reg);
                 return (
                   <CollapsibleGroup
                     key={reg.id}
                     defaultOpen={false}
-                    labelClassName={paymentRowClass(reg.remainingCents, reg.paidCents)}
+                    labelClassName={tripPaymentRowClass(reg)}
                     label={`${reg.familyName} — ${reg.affiliation === "PACK" ? "Pack 376" : "Troop 376"} · Guest of ${reg.guestOfName} · ${reg.payingCount} paying${
                       reg.freeCount ? `, ${reg.freeCount} free` : ""
-                    } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}
+                    } · ${status.label} (${tripRemainingText(reg)})`}
                   >
                     <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
-                      <p>
-                        Owed {formatCents(reg.amountOwedCents)} · Paid {formatCents(reg.paidCents)} · Remaining {formatCents(reg.remainingCents)}
-                      </p>
+                      <p>{tripBalanceLine(reg)}</p>
 
                       {isAdmin ? (
                         <form action={updateTripRegistrationAction} style={{ marginBottom: 16 }}>
@@ -858,6 +893,7 @@ export default async function TripAdminView({
                             defaultPayingCount={reg.payingCount}
                             defaultFreeCount={reg.freeCount}
                             defaultAmountOwedCents={reg.amountOwedCents}
+                            owedPending={reg.owedPending}
                             freeAgeAndUnder={trip.freeAgeAndUnder}
                           />
                           <p className="form-note" style={{ marginTop: -8 }}>
@@ -971,8 +1007,10 @@ export default async function TripAdminView({
             <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
               <p>
                 For a family who called, paid on paper, or signed up after the public form closed. The public form
-                stops accepting submissions once the RSVP deadline passes; this doesn&apos;t. The amount owed is
-                calculated at today&apos;s price — edit it afterwards if they were promised the early-bird rate.
+                stops accepting submissions once the RSVP deadline passes; this doesn&apos;t.{" "}
+                {trip.priceTbd
+                  ? "The price isn't released yet, so the amount owed stays pending until you post it."
+                  : "The amount owed is calculated at today's price — edit it afterwards if they were promised the early-bird rate."}
               </p>
               <form action={addTripRegistrationAction}>
                 <input type="hidden" name="tripPageId" value={trip.id} />

@@ -1,8 +1,13 @@
 import "server-only";
-import { getOrCreateTripPage, getTripExpenses, getTripRegistrations, tripExpenseTotals } from "@/lib/tripPageData";
+import {
+  getOrCreateTripPage,
+  getTripExpenses,
+  getTripRegistrations,
+  tripExpenseTotals,
+  tripPaymentStatus,
+} from "@/lib/tripPageData";
 import { toCsv, centsToDollarsString, csvResponse } from "@/lib/csv";
 import { toDateOnlyString } from "@/lib/dateOnly";
-import { paymentStatusLabel } from "@/lib/paymentStatus";
 import { buildTripExpensesPdf } from "@/lib/tripExpensesPdf";
 import { parentsPdfResponse } from "@/lib/parentsPdf";
 import type { TripSite } from "@/lib/tripSites";
@@ -36,10 +41,11 @@ export async function registrationsCsvResponse(site: TripSite, affiliationParam:
       reg.affiliation === "PACK" ? "Pack 376" : "Troop 376",
       reg.payingCount,
       reg.freeCount,
-      centsToDollarsString(reg.amountOwedCents),
+      // "TBD" while the price is unreleased: the stored $0 is a placeholder.
+      reg.owedPending ? "TBD" : centsToDollarsString(reg.amountOwedCents),
       centsToDollarsString(reg.paidCents),
-      centsToDollarsString(reg.remainingCents),
-      paymentStatusLabel(reg.remainingCents, reg.paidCents),
+      reg.remainingCents === null ? "TBD" : centsToDollarsString(reg.remainingCents),
+      tripPaymentStatus(reg).label,
       reg.createdAt.toISOString().slice(0, 10),
     ]),
   ];

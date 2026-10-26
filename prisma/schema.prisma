@@ -734,6 +734,10 @@ model TripPage {
   flyerUrl                 String?
   detailsHtml              String?
   regularPriceCents        Int                @default(0)
+  // True while the price hasn't been released: the public page shows the
+  // site's priceTbdMessage (tripSites.ts) instead of a price, and registrations
+  // made meanwhile are left owedPending until the admin posts the price.
+  priceTbd                 Boolean            @default(false)
   earlyBirdPriceCents      Int?
   earlyBirdDeadline        DateTime?          @db.Date
   rsvpDeadline             DateTime?          @db.Date
@@ -773,6 +777,10 @@ model TripRegistration {
   payingCount     Int             @default(0)
   freeCount       Int             @default(0)
   amountOwedCents Int
+  // Registered while the trip's price was TBD, so amountOwedCents (0) is a
+  // placeholder, not "owes nothing". Posting the price fills it in and clears
+  // this, as does an admin typing an amount.
+  owedPending     Boolean         @default(false)
   createdAt       DateTime        @default(now())
   payments        TripPayment[]
 }

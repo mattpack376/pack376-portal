@@ -55,6 +55,8 @@ export default async function TripPublicView({ site }: { site: TripSite }) {
     site.sections.schedule ? getTripActivities(trip.id) : none<typeof getTripActivities>(),
   ]);
 
+  // Only a site with a TBD message can hold its price back.
+  const priceTbd = trip.priceTbd && site.priceTbdMessage !== null;
   const priceCents = currentTripPriceCents(trip);
   const isEarlyBird = trip.earlyBirdPriceCents !== null && priceCents === trip.earlyBirdPriceCents;
 
@@ -130,6 +132,12 @@ export default async function TripPublicView({ site }: { site: TripSite }) {
 
             <div className="info-card" style={{ flex: "1 1 200px" }}>
               <h3 style={{ marginTop: 0 }}>Price</h3>
+              {priceTbd ? (
+                <p style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.3, color: "var(--scout-blue-dark)", margin: 0 }}>
+                  {site.priceTbdMessage}
+                </p>
+              ) : (
+              <>
               <p style={{ fontSize: 28, fontWeight: 800, color: "var(--scout-blue-dark)", margin: "0 0 4px" }}>
                 {formatCents(trip.regularPriceCents)} <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-soft)" }}>per person</span>
               </p>
@@ -144,6 +152,8 @@ export default async function TripPublicView({ site }: { site: TripSite }) {
                 <p style={{ marginBottom: 0 }}>
                   Age {trip.freeAgeAndUnder} and under: <strong>free</strong>.
                 </p>
+              )}
+              </>
               )}
             </div>
             </div>
@@ -287,6 +297,7 @@ export default async function TripPublicView({ site }: { site: TripSite }) {
                 rsvpDeadlineLabel={trip.rsvpDeadline ? formatTripDate(trip.rsvpDeadline) : null}
                 registeredFor={site.registeredFor}
                 freeAgeAndUnder={trip.freeAgeAndUnder}
+                priceTbd={priceTbd}
               />
             )}
           </div>

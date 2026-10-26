@@ -20,6 +20,7 @@ export default function TripRegistrationForm({
   rsvpDeadlineLabel,
   registeredFor,
   freeAgeAndUnder,
+  priceTbd,
 }: {
   tripPageId: string;
   currentPriceCents: number;
@@ -30,6 +31,8 @@ export default function TripRegistrationForm({
   registeredFor: string;
   /** Null when the event has no free tier — the free-attendees field is then left off. */
   freeAgeAndUnder: number | null;
+  /** The price isn't released: no total is shown, and the confirmation says it will be posted. */
+  priceTbd: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(registerForTripAction, {});
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -71,6 +74,7 @@ export default function TripRegistrationForm({
           packPaymentInstructions={packPaymentInstructions}
           troopPaymentInstructions={troopPaymentInstructions}
           freeAgeAndUnder={freeAgeAndUnder}
+          priceTbd={priceTbd}
           isPending={isPending}
         />
       </form>
@@ -79,8 +83,12 @@ export default function TripRegistrationForm({
         <p style={{ fontSize: 32, margin: "0 0 8px" }}>🎉</p>
         <h3>Registration Submitted!</h3>
         <p>Thanks — your family is registered for {registeredFor}.</p>
-        {rsvpDeadlineLabel && (
-          <p style={{ fontWeight: 700 }}>Please remember to make payment by {rsvpDeadlineLabel}!</p>
+        {priceTbd ? (
+          <p style={{ fontWeight: 700 }}>
+            The price hasn&apos;t been released yet — we&apos;ll post it on this page, and your total will be filled in then.
+          </p>
+        ) : (
+          rsvpDeadlineLabel && <p style={{ fontWeight: 700 }}>Please remember to make payment by {rsvpDeadlineLabel}!</p>
         )}
         <button
           type="button"
@@ -106,12 +114,14 @@ function TripRegistrationFields({
   packPaymentInstructions,
   troopPaymentInstructions,
   freeAgeAndUnder,
+  priceTbd,
   isPending,
 }: {
   currentPriceCents: number;
   packPaymentInstructions: string | null;
   troopPaymentInstructions: string | null;
   freeAgeAndUnder: number | null;
+  priceTbd: boolean;
   isPending: boolean;
 }) {
   const [affiliation, setAffiliation] = useState("");
@@ -209,7 +219,9 @@ function TripRegistrationFields({
       </div>
 
       <p className="form-note" style={{ fontSize: 15, fontWeight: 700, color: "var(--scout-blue-dark)" }}>
-        Total due: {(totalCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })}
+        {priceTbd
+          ? "Total due: TBD (price not released yet)"
+          : `Total due: ${(totalCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })}`}
       </p>
 
       <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={isPending}>

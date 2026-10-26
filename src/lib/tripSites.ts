@@ -31,6 +31,12 @@ export type TripSite = {
   eyebrow: string;
   /** The notice bar under the public header, if the event has one. */
   publicBanner: string | null;
+  /**
+   * What the public page shows in place of the price while TripPage.priceTbd is
+   * on. Null for an event that never has an unreleased price — its admin page
+   * then has no TBD toggle at all.
+   */
+  priceTbdMessage: string | null;
   /** What the public page shows while the TripPage is unpublished. */
   unpublished: { banner: string | null; heading: string; body: string };
   /** What attendees are called in headcounts: paying / free ones when the event has a free tier, anyone otherwise. */
@@ -52,6 +58,7 @@ export const CAMP_CONRON_SITE: TripSite = {
   noun: "trip",
   fileStem: "camp-conron",
   eyebrow: "Pack 376 & Troop 376 Joint Trip",
+  priceTbdMessage: null,
   publicBanner:
     "📣 The menu and activity schedule are now posted. The duty roster is still being worked on as families continue to register, and the activity schedule is subject to change.",
   unpublished: {
@@ -77,6 +84,7 @@ export const CYCLONES_SITE: TripSite = {
   noun: "event",
   fileStem: "cyclones",
   eyebrow: "Pack 376 & Troop 376 Joint Event",
+  priceTbdMessage: "TBD — Pending release from the Brooklyn Cyclones Box Office",
   publicBanner: null,
   unpublished: {
     banner: null,

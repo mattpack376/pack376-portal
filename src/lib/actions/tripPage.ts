@@ -9,6 +9,8 @@ import { uploadFlyer } from "@/lib/flyerUpload";
 import { dollarsToCents } from "@/lib/formValues";
 import { todayDateOnlyString } from "@/lib/dateOnly";
 import { revalidateTripAdminPages, revalidateTripPages } from "@/lib/tripRevalidate";
+import { currentTripPriceCents } from "@/lib/tripPageData";
+import { tripSiteBySlug } from "@/lib/tripSites";
 import type { TripDay, TripMealType } from "@/generated/prisma/enums";
 
 /** "SATURDAY" -> "Saturday", "HOT_BREAKFAST" -> "Hot breakfast" — enums in audit text. */
@@ -125,6 +127,7 @@ export async function updateTripPricingAction(formData: FormData) {
   const earlyBirdDeadlineRaw = String(formData.get("earlyBirdDeadline") || "").trim();
   const rsvpDeadlineRaw = String(formData.get("rsvpDeadline") || "").trim();
   const freeAgeRaw = String(formData.get("freeAgeAndUnder") || "").trim();
+  const priceTbdRequested = String(formData.get("priceTbd") || "") === "true";
   if (!id) throw new Error("Missing trip page id.");
 
   const regularPriceCents = dollarsToCents(regularPriceRaw);
@@ -147,6 +150,8 @@ export async function updateTripPricingAction(formData: FormData) {
     where: { id },
     select: {
       title: true,
+      slug: true,
+      priceTbd: true,
       regularPriceCents: true,
       earlyBirdPriceCents: true,
       earlyBirdDeadline: true,
@@ -155,31 +160,68 @@ export async function updateTripPricingAction(formData: FormData) {
     },
   });
 
-  await prisma.tripPage.update({
-    where: { id },
-    data: { regularPriceCents, earlyBirdPriceCents, earlyBirdDeadline, rsvpDeadline, freeAgeAndUnder },
+  // Only an event whose site has a TBD message has the toggle on its form, so
+  // for any other this is always false.
+  const priceTbd = !!before && !!tripSiteBySlug(before.slug)?.priceTbdMessage && priceTbdRequested;
+  // Turning TBD off is what posts the price, and a $0 one is almost certainly
+  // a form saved before the price was typed in.
+  const postingPrice = !!before?.priceTbd && !priceTbd;
+  if (postingPrice && regularPriceCents === 0) {
+    throw new Error("Enter the regular price before posting it — it is still $0.00.");
+  }
+
+  // Posting the price also settles every registration that was waiting for
+  // it, in the same transaction so a family is never left half-updated.
+  const priced = await prisma.$transaction(async (tx) => {
+    const updated = await tx.tripPage.update({
+      where: { id },
+      data: { regularPriceCents, priceTbd, earlyBirdPriceCents, earlyBirdDeadline, rsvpDeadline, freeAgeAndUnder },
+    });
+    if (!postingPrice) return [];
+
+    const pricePerPerson = currentTripPriceCents(updated);
+    const waiting = await tx.tripRegistration.findMany({
+      where: { tripPageId: id, owedPending: true },
+      select: { id: true, familyName: true, payingCount: true },
+    });
+    const settled = waiting.map((reg) => ({ ...reg, amountOwedCents: reg.payingCount * pricePerPerson }));
+    for (const reg of settled) {
+      await tx.tripRegistration.update({
+        where: { id: reg.id },
+        data: { amountOwedCents: reg.amountOwedCents, owedPending: false },
+      });
+    }
+    return settled;
   });
 
   await recordAudit(session, {
     action: "trip.updatePricing",
-    summary: `Changed the pricing for “${before?.title ?? "the trip"}” — regular ${auditMoney(regularPriceCents)}`,
+    summary: postingPrice
+      ? `Posted the price for “${before?.title ?? "the trip"}” — regular ${auditMoney(regularPriceCents)}${
+          priced.length > 0 ? `; set the amount owed on ${priced.length} waiting registration${priced.length === 1 ? "" : "s"}` : ""
+        }`
+      : `Changed the pricing for “${before?.title ?? "the trip"}” — regular ${auditMoney(regularPriceCents)}`,
     entityType: "TripPage",
     entityId: id,
-    details: changedFields({
-      "Regular price": [
-        before ? auditMoney(before.regularPriceCents) : null,
-        auditMoney(regularPriceCents),
-      ],
-      "Early-bird price": [
-        before?.earlyBirdPriceCents === null || before?.earlyBirdPriceCents === undefined
-          ? null
-          : auditMoney(before.earlyBirdPriceCents),
-        earlyBirdPriceCents === null ? null : auditMoney(earlyBirdPriceCents),
-      ],
-      "Early-bird deadline": [before?.earlyBirdDeadline, earlyBirdDeadline],
-      "RSVP deadline": [before?.rsvpDeadline, rsvpDeadline],
-      "Free age and under": [before?.freeAgeAndUnder, freeAgeAndUnder],
-    }),
+    details: [
+      ...changedFields({
+        "Price TBD": [before?.priceTbd, priceTbd],
+        "Regular price": [
+          before ? auditMoney(before.regularPriceCents) : null,
+          auditMoney(regularPriceCents),
+        ],
+        "Early-bird price": [
+          before?.earlyBirdPriceCents === null || before?.earlyBirdPriceCents === undefined
+            ? null
+            : auditMoney(before.earlyBirdPriceCents),
+          earlyBirdPriceCents === null ? null : auditMoney(earlyBirdPriceCents),
+        ],
+        "Early-bird deadline": [before?.earlyBirdDeadline, earlyBirdDeadline],
+        "RSVP deadline": [before?.rsvpDeadline, rsvpDeadline],
+        "Free age and under": [before?.freeAgeAndUnder, freeAgeAndUnder],
+      }),
+      ...priced.map((reg) => ({ label: `${reg.familyName} owes`, from: "TBD", to: auditMoney(reg.amountOwedCents) })),
+    ],
   });
 
   revalidateTripPages();

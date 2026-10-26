@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import type { TripDay, TripMealType } from "@/generated/prisma/enums";
 import { CAMP_CONRON_SITE, CYCLONES_SITE, tripSiteBySlug } from "@/lib/tripSites";
+import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
+import { formatCents } from "@/lib/duesData";
 
 /** Every lookup below is keyed by slug, so each event's micro-site (see TRIP_SITES in tripSites.ts) reuses this same model without a schema change. */
 export const CAMP_CONRON_SLUG = CAMP_CONRON_SITE.slug;
@@ -91,6 +93,7 @@ const TRIP_SEEDS: Record<string, Omit<Prisma.TripPageUncheckedCreateInput, "slug
     timeLabel: "6:40 PM",
     detailsHtml: "A joint overnight for Pack 376 and Troop 376 at Maimonides Park with the Brooklyn Cyclones.",
     regularPriceCents: 0,
+    priceTbd: true,
     packPaymentInstructions: "Payments to Dianaliz or Matt by Cash or Zelle.",
     troopPaymentInstructions: "Payments to Andrew, or any adult leader designated by the Troop.",
     published: false,
@@ -193,8 +196,39 @@ export async function getTripRegistrations(tripPageId: string) {
 
   return registrations.map((reg) => {
     const paidCents = reg.payments.reduce((sum, p) => sum + p.amountCents, 0);
-    return { ...reg, paidCents, remainingCents: reg.amountOwedCents - paidCents };
+    // null, not owed − paid, while the price is unreleased: amountOwedCents is
+    // a $0 placeholder then, and "remaining" has to read as not-set (the same
+    // null paymentStatus() already treats as "Fee Not Set"), never as paid.
+    return { ...reg, paidCents, remainingCents: reg.owedPending ? null : reg.amountOwedCents - paidCents };
   });
+}
+
+type RegistrationBalance = { owedPending: boolean; remainingCents: number | null; paidCents: number };
+
+/** Settled in full — never true for a registration still awaiting the price. */
+export function isPaidInFull(reg: Pick<RegistrationBalance, "remainingCents">) {
+  return reg.remainingCents !== null && reg.remainingCents <= 0;
+}
+
+/** The registration's status badge; "Price TBD" while its amount owed isn't set yet. */
+export function tripPaymentStatus(reg: RegistrationBalance) {
+  return reg.owedPending ? { label: "Price TBD", cls: "badge-pending" } : paymentStatus(reg.remainingCents, reg.paidCents);
+}
+
+/** paymentRowClass() for a trip registration: uncolored while the price is TBD. */
+export function tripPaymentRowClass(reg: RegistrationBalance) {
+  return reg.owedPending ? undefined : paymentRowClass(reg.remainingCents, reg.paidCents);
+}
+
+/** "$35.00 remaining" — or "amount owed TBD" while the price is unreleased. */
+export function tripRemainingText(reg: RegistrationBalance) {
+  return reg.remainingCents === null ? "amount owed TBD" : `${formatCents(reg.remainingCents)} remaining`;
+}
+
+/** "Owed $90.00 · Paid $90.00 · Remaining $0.00" — or "Owed TBD · Paid $90.00" while the price is unreleased. */
+export function tripBalanceLine(reg: RegistrationBalance & { amountOwedCents: number }) {
+  if (reg.remainingCents === null) return `Owed TBD (price not released yet) · Paid ${formatCents(reg.paidCents)}`;
+  return `Owed ${formatCents(reg.amountOwedCents)} · Paid ${formatCents(reg.paidCents)} · Remaining ${formatCents(reg.remainingCents)}`;
 }
 
 /** The trip's expenses (and vendor credits/refunds) in the order they were spent, oldest first. */

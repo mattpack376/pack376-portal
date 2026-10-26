@@ -4,13 +4,18 @@ import CollapsibleGroup from "@/components/CollapsibleGroup";
 import Linkify from "@/components/Linkify";
 import TripExpenseList, { tripExpenseGroupLabel } from "@/components/TripExpenseList";
 import TripAffiliationSummary from "@/components/TripAffiliationSummary";
-import { paymentStatus, paymentRowClass, balanceClass } from "@/lib/paymentStatus";
+import { balanceClass } from "@/lib/paymentStatus";
 import { describeHeadcount, describeHeadcountWithTotal, type TripSite } from "@/lib/tripSites";
 import {
   DAY_LABELS,
   MEAL_TYPE_LABELS,
   formatTripDate,
   formatTripWhen,
+  isPaidInFull,
+  tripPaymentStatus,
+  tripPaymentRowClass,
+  tripRemainingText,
+  tripBalanceLine,
   tripExpenseTotals,
   type getOrCreateTripPage,
   type getTripMeals,
@@ -75,7 +80,8 @@ export default function TripViewerView({
   const moneyRegistrations = audience === "troop" ? troopRegistrations : registrations;
   const moneyOwed = moneyRegistrations.reduce((sum, r) => sum + r.amountOwedCents, 0);
   const moneyPaid = moneyRegistrations.reduce((sum, r) => sum + r.paidCents, 0);
-  const paidRegistrations = registrations.filter((r) => r.remainingCents <= 0);
+  const paidRegistrations = registrations.filter(isPaidInFull);
+  const awaitingPrice = moneyRegistrations.filter((r) => r.owedPending).length;
   const paidAdults = paidRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
   const paidKids = paidRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
 
@@ -125,6 +131,11 @@ export default function TripViewerView({
         <p style={{ marginBottom: 8 }}>
           <strong>Anticipated Money to be Collected:</strong> {formatCents(moneyOwed)}
         </p>
+        {awaitingPrice > 0 && (
+          <p className="form-note" style={{ marginTop: -4, marginBottom: 8 }}>
+            {`Not counting ${awaitingPrice} registration${awaitingPrice === 1 ? "" : "s"} still awaiting the price.`}
+          </p>
+        )}
         <p style={{ marginBottom: 8 }}>
           <strong>Collected So Far:</strong> {formatCents(moneyPaid)}
         </p>
@@ -189,10 +200,13 @@ export default function TripViewerView({
 
       <div className="info-card" style={{ flex: "1 1 400px" }}>
         <h3>Price Structure</h3>
+        {trip.priceTbd && <p><strong>{site.priceTbdMessage}</strong></p>}
+        {!trip.priceTbd && (
         <p>
           <strong>Regular:</strong> {formatCents(trip.regularPriceCents)}/person
         </p>
-        {trip.earlyBirdPriceCents !== null && (
+        )}
+        {!trip.priceTbd && trip.earlyBirdPriceCents !== null && (
           <p>
             <strong>Early-Bird:</strong> {formatCents(trip.earlyBirdPriceCents)}/person
             {trip.earlyBirdDeadline && ` if paid in full by ${formatTripDate(trip.earlyBirdDeadline)}`}
@@ -400,15 +414,15 @@ function FamilyDetailSection({
       ) : (
         <div style={{ marginBottom: 24 }}>
           {registrations.map((reg) => {
-            const status = paymentStatus(reg.remainingCents, reg.paidCents);
+            const status = tripPaymentStatus(reg);
             return (
               <CollapsibleGroup
                 key={reg.id}
                 defaultOpen={false}
-                labelClassName={paymentRowClass(reg.remainingCents, reg.paidCents)}
+                labelClassName={tripPaymentRowClass(reg)}
                 label={`${reg.familyName} · Guest of ${reg.guestOfName} · ${reg.payingCount} paying${
                   reg.freeCount ? `, ${reg.freeCount} free` : ""
-                } · ${status.label} (${formatCents(reg.remainingCents)} remaining)`}
+                } · ${status.label} (${tripRemainingText(reg)})`}
               >
                 <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
                   <p>
@@ -416,9 +430,7 @@ function FamilyDetailSection({
                     {reg.contactPhone ? ` · ${reg.contactPhone}` : ""} · Registered{" "}
                     {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}
                   </p>
-                  <p>
-                    Owed {formatCents(reg.amountOwedCents)} · Paid {formatCents(reg.paidCents)} · Remaining {formatCents(reg.remainingCents)}
-                  </p>
+                  <p>{tripBalanceLine(reg)}</p>
                   {reg.payments.length > 0 && (
                     <div className="table-scroll">
                       <table className="data-table" style={{ marginBottom: 0 }}>

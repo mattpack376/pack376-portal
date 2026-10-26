@@ -9,6 +9,7 @@ export default function TripRegistrationCountFields({
   defaultPayingCount,
   defaultFreeCount,
   defaultAmountOwedCents,
+  owedPending,
   freeAgeAndUnder,
 }: {
   idPrefix: string;
@@ -16,6 +17,8 @@ export default function TripRegistrationCountFields({
   defaultPayingCount: number;
   defaultFreeCount: number;
   defaultAmountOwedCents: number;
+  /** Registered while the price was TBD: the amount is left blank (and stays pending) until the price is posted or one is typed here. */
+  owedPending: boolean;
   /** The event's free age; null when it has no free tier (the free field then only shows for a registration that already has free attendees). */
   freeAgeAndUnder: number | null;
 }) {
@@ -26,7 +29,7 @@ export default function TripRegistrationCountFields({
   // (inputMode) does support selection, letting a tap-and-type replace it.
   const [payingCount, setPayingCount] = useState(String(defaultPayingCount));
   const [freeCount, setFreeCount] = useState(String(defaultFreeCount));
-  const [amount, setAmount] = useState((defaultAmountOwedCents / 100).toFixed(2));
+  const [amount, setAmount] = useState(owedPending ? "" : (defaultAmountOwedCents / 100).toFixed(2));
   const showFree = freeAgeAndUnder !== null || defaultFreeCount > 0;
 
   return (
@@ -45,7 +48,8 @@ export default function TripRegistrationCountFields({
             onChange={(e) => {
               const next = e.target.value.replace(/\D/g, "");
               setPayingCount(next);
-              setAmount(((Number(next || 0) * pricePerPersonCents) / 100).toFixed(2));
+              // Nothing to multiply by while the price is unreleased.
+              if (!owedPending) setAmount(((Number(next || 0) * pricePerPersonCents) / 100).toFixed(2));
             }}
             onFocus={(e) => e.target.select()}
           />
@@ -79,12 +83,15 @@ export default function TripRegistrationCountFields({
           type="number"
           min="0"
           step="0.01"
-          required
+          required={!owedPending}
+          placeholder={owedPending ? "Pending price" : undefined}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
         <p className="form-note" style={{ marginTop: 4, marginBottom: 0 }}>
-          Auto-filled from paying count × the current price (${(pricePerPersonCents / 100).toFixed(2)}/person) — edit freely.
+          {owedPending
+            ? "Waiting for the price — it fills in (attendees × price) when you post it. Type an amount to set it now."
+            : `Auto-filled from paying count × the current price ($${(pricePerPersonCents / 100).toFixed(2)}/person) — edit freely.`}
         </p>
       </div>
     </>
