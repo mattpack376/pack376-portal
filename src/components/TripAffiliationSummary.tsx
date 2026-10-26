@@ -1,18 +1,23 @@
 import type { CSSProperties } from "react";
 import { formatCents } from "@/lib/duesData";
 import type { getTripRegistrations } from "@/lib/tripPageData";
+import { describeHeadcount, type TripSite } from "@/lib/tripSites";
 
 /**
- * One unit's (Pack 376 or Troop 376) Camp Conron totals: families and
+ * One unit's (Pack 376 or Troop 376) totals for an event: families and
  * headcount, how many are paid in full, and owed/paid/remaining. Shown on
  * the admin page for both units side by side, and on the read-only view
  * above each unit's family list. Pass only that unit's registrations.
  */
 export default function TripAffiliationSummary({
+  site,
+  freeAgeAndUnder,
   name,
   registrations,
   style,
 }: {
+  site: TripSite;
+  freeAgeAndUnder: number | null;
   name: string;
   registrations: Awaited<ReturnType<typeof getTripRegistrations>>;
   style?: CSSProperties;
@@ -29,9 +34,13 @@ export default function TripAffiliationSummary({
   // literal text on the same line — reproducible and confirmed via the
   // rendered DOM's child nodes, not a typo in the source.
   const summaryHeading = `${name} Summary`;
-  const familiesSummary = `${registrations.length} famil${registrations.length === 1 ? "y" : "ies"} — ${adults} adult${
-    adults === 1 ? "" : "s"
-  }, ${kids} kid${kids === 1 ? "" : "s"} (4 and under)`;
+  const familiesSummary = `${registrations.length} famil${registrations.length === 1 ? "y" : "ies"} — ${describeHeadcount(
+    site,
+    freeAgeAndUnder,
+    adults,
+    kids,
+    "and",
+  )}`;
   const paidInFullSummary = `${paidInFull} of ${registrations.length} paid in full`;
   const moneySummary = `Owed ${formatCents(owed)} · Paid ${formatCents(paid)} · Remaining ${formatCents(owed - paid)}`;
 

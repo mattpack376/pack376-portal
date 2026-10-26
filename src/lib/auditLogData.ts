@@ -65,13 +65,14 @@ const CLAIMING_TABS = {
   dues: {
     label: "Dues & Payments",
     description:
-      "Dues payments, per-scout dues amounts and the dues settings, event payments from scouts and guest groups, changes to what a scout owes for an event, and receipts generated, emailed or deleted. Camp Conron payments are on the Camp Conron tab.",
+      "Dues payments, per-scout dues amounts and the dues settings, event payments from scouts and guest groups, changes to what a scout owes for an event, and receipts generated, emailed or deleted. Camp Conron and Cyclones payments are on the Trips tab.",
     categories: ["dues", "eventPayment", "guestGroupPayment", "receipt"],
     actions: ["eventRegistration.updateAmount"],
   },
   conron: {
-    label: "Camp Conron",
-    description: "Everything on the Camp Conron trip — details, pricing, registrations, payments, expenses, duties and activities.",
+    label: "Trips",
+    description:
+      "Everything on the Camp Conron and Cyclones Overnight pages — details, pricing, registrations, payments, expenses, duties and activities.",
     categories: ["trip", "tripPayment", "tripRegistration"],
   },
   raffles: {
@@ -86,7 +87,7 @@ export const AUDIT_TABS = {
   main: {
     label: "Main",
     description:
-      "Everything that isn’t a sign-in, failed sign-in, security, attendance, payment, Camp Conron or raffle entry — advancement, scouts, events, calendar, announcements and the rest.",
+      "Everything that isn’t a sign-in, failed sign-in, security, attendance, payment, trip or raffle entry — advancement, scouts, events, calendar, announcements and the rest.",
   },
   ...CLAIMING_TABS,
   all: {
@@ -172,7 +173,7 @@ export const AUDIT_CATEGORY_LABELS: Record<string, string> = {
   receipt: "Receipts",
   reset: "Season Reset",
   scout: "Scouts",
-  trip: "Camp Conron Trip",
+  trip: "Trip Page",
   tripPayment: "Trip Payments",
   tripRegistration: "Trip Registrations",
   user: "Logins & Roles",

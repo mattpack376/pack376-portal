@@ -41,7 +41,7 @@ export const ROLE_DESCRIPTIONS: Record<AssignableRole, string> = {
   DEN: "advancement & attendance for their assigned den(s), no money",
   ATTENDANCE_ADMIN: "attendance for all dens",
   PHOTOGRAPHER: "add/edit albums only (no delete)",
-  TRIP_VIEWER: "view only, Camp Conron trip page only",
+  TRIP_VIEWER: "view only, event pages only (Camp Conron, Cyclones Overnight)",
 };
 
 export const ROLE_BADGE_CLASSES: Record<string, string> = {

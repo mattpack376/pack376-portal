@@ -9,12 +9,15 @@ export default function TripRegistrationCountFields({
   defaultPayingCount,
   defaultFreeCount,
   defaultAmountOwedCents,
+  freeAgeAndUnder,
 }: {
   idPrefix: string;
   pricePerPersonCents: number;
   defaultPayingCount: number;
   defaultFreeCount: number;
   defaultAmountOwedCents: number;
+  /** The event's free age; null when it has no free tier (the free field then only shows for a registration that already has free attendees). */
+  freeAgeAndUnder: number | null;
 }) {
   // Kept as strings (not numbers) so the field can go genuinely empty while
   // typing on mobile — type="number" inputs don't support .select()/select-
@@ -24,6 +27,7 @@ export default function TripRegistrationCountFields({
   const [payingCount, setPayingCount] = useState(String(defaultPayingCount));
   const [freeCount, setFreeCount] = useState(String(defaultFreeCount));
   const [amount, setAmount] = useState((defaultAmountOwedCents / 100).toFixed(2));
+  const showFree = freeAgeAndUnder !== null || defaultFreeCount > 0;
 
   return (
     <>
@@ -46,20 +50,26 @@ export default function TripRegistrationCountFields({
             onFocus={(e) => e.target.select()}
           />
         </div>
-        <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
-          <label htmlFor={`${idPrefix}-freeCount`}>Attendees (4 &amp; under, free)</label>
-          <input
-            id={`${idPrefix}-freeCount`}
-            name="freeCount"
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            required
-            value={freeCount}
-            onChange={(e) => setFreeCount(e.target.value.replace(/\D/g, ""))}
-            onFocus={(e) => e.target.select()}
-          />
-        </div>
+        {showFree ? (
+          <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+            <label htmlFor={`${idPrefix}-freeCount`}>
+              {freeAgeAndUnder === null ? "Attendees (free)" : `Attendees (${freeAgeAndUnder} & under, free)`}
+            </label>
+            <input
+              id={`${idPrefix}-freeCount`}
+              name="freeCount"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              required
+              value={freeCount}
+              onChange={(e) => setFreeCount(e.target.value.replace(/\D/g, ""))}
+              onFocus={(e) => e.target.select()}
+            />
+          </div>
+        ) : (
+          <input type="hidden" name="freeCount" value="0" />
+        )}
       </div>
       <div className="form-field" style={{ maxWidth: 160 }}>
         <label htmlFor={`${idPrefix}-amountOwed`}>Amount Owed ($)</label>

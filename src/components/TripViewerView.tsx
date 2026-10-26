@@ -5,10 +5,12 @@ import Linkify from "@/components/Linkify";
 import TripExpenseList, { tripExpenseGroupLabel } from "@/components/TripExpenseList";
 import TripAffiliationSummary from "@/components/TripAffiliationSummary";
 import { paymentStatus, paymentRowClass, balanceClass } from "@/lib/paymentStatus";
+import { describeHeadcount, describeHeadcountWithTotal, type TripSite } from "@/lib/tripSites";
 import {
   DAY_LABELS,
   MEAL_TYPE_LABELS,
   formatTripDate,
+  formatTripWhen,
   tripExpenseTotals,
   type getOrCreateTripPage,
   type getTripMeals,
@@ -21,7 +23,7 @@ import {
 const CARD_WIDTH = 480;
 
 /**
- * Read-only rendering of the trip page — no forms, no buttons, nothing
+ * Read-only rendering of an event's admin page — no forms, no buttons, nothing
  * mutable anywhere in this tree. Kept as a completely separate component from
  * the editable admin view rather than threading a "can this role edit" check
  * through every section of that page, so there's no section here that could
@@ -44,6 +46,7 @@ const CARD_WIDTH = 480;
  * the expense list.
  */
 export default function TripViewerView({
+  site,
   trip,
   meals,
   dutySlots,
@@ -52,6 +55,7 @@ export default function TripViewerView({
   expenses,
   audience,
 }: {
+  site: TripSite;
   audience: "troop" | "pack";
   trip: Awaited<ReturnType<typeof getOrCreateTripPage>>;
   meals: Awaited<ReturnType<typeof getTripMeals>>;
@@ -75,6 +79,7 @@ export default function TripViewerView({
   const paidAdults = paidRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
   const paidKids = paidRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
 
+  const { menu: hasMenu, dutyRoster: hasDutyRoster, schedule: hasSchedule } = site.sections;
   const generalDuties = dutySlots.filter((d) => !d.tripMealId);
   const dutyByMeal = new Map<string, typeof dutySlots>();
   for (const duty of dutySlots) {
@@ -97,7 +102,7 @@ export default function TripViewerView({
     <>
       <div className="section-head">
         <div className="eyebrow">{audience === "troop" ? "Troop 376 — View Only" : "View Only"}</div>
-        <h2>Camp Conron Trip</h2>
+        <h2>{site.navLabel}</h2>
         <p>Read-only — questions or changes go through a Pack 376 admin.</p>
       </div>
 
@@ -106,12 +111,10 @@ export default function TripViewerView({
       <div className="info-card" style={{ flex: "1 1 320px" }}>
         <h3>Headcount</h3>
         <p style={{ marginBottom: 8 }}>
-          <strong>Registered:</strong> {totalAdults} adult{totalAdults === 1 ? "" : "s"}, {totalKids} kid
-          {totalKids === 1 ? "" : "s"} (4 &amp; under) — {totalAdults + totalKids} total
+          <strong>Registered:</strong> {describeHeadcountWithTotal(site, trip.freeAgeAndUnder, totalAdults, totalKids)}
         </p>
         <p>
-          <strong>Paid in Full:</strong> {paidAdults} adult{paidAdults === 1 ? "" : "s"}, {paidKids} kid
-          {paidKids === 1 ? "" : "s"} (4 &amp; under) — {paidAdults + paidKids} total
+          <strong>Paid in Full:</strong> {describeHeadcountWithTotal(site, trip.freeAgeAndUnder, paidAdults, paidKids)}
         </p>
       </div>
       )}
@@ -173,11 +176,7 @@ export default function TripViewerView({
           <strong>{trip.title}</strong>
           {trip.location && <> — {trip.location}</>}
         </p>
-        {trip.startDate && trip.endDate && (
-          <p>
-            {formatTripDate(trip.startDate)} – {formatTripDate(trip.endDate)}
-          </p>
-        )}
+        {trip.startDate && <p>{formatTripWhen(trip)}</p>}
         {trip.detailsHtml && <p>{trip.detailsHtml}</p>}
         {trip.flyerUrl && (
           <p style={{ marginBottom: 0 }}>
@@ -208,6 +207,8 @@ export default function TripViewerView({
       </div>
       </div>
 
+      {hasMenu && (
+      <>
       <div className="section-head">
         <div className="eyebrow">Weekend Menu</div>
         <h2>Menu</h2>
@@ -234,8 +235,12 @@ export default function TripViewerView({
           </table>
         </div>
       </div>
+      </>
+      )}
 
+      {(hasDutyRoster || hasSchedule) && (
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 24 }}>
+      {hasDutyRoster && (
       <div style={{ flex: "1 1 400px" }}>
       <div className="section-head">
         <div className="eyebrow">Weekend Staffing</div>
@@ -294,7 +299,9 @@ export default function TripViewerView({
         )}
       </div>
       </div>
+      )}
 
+      {hasSchedule && (
       <div style={{ flex: "1 1 400px" }}>
       <div className="section-head">
         <div className="eyebrow">Weekend Itinerary</div>
@@ -326,18 +333,25 @@ export default function TripViewerView({
         )}
       </div>
       </div>
+      )}
       </div>
+      )}
 
-      {audience === "pack" && <FamilyDetailSection name="Pack 376" registrations={packRegistrations} />}
-      <FamilyDetailSection name="Troop 376" registrations={troopRegistrations} />
+      {audience === "pack" && (
+        <FamilyDetailSection site={site} freeAgeAndUnder={trip.freeAgeAndUnder} name="Pack 376" registrations={packRegistrations} />
+      )}
+      <FamilyDetailSection site={site} freeAgeAndUnder={trip.freeAgeAndUnder} name="Troop 376" registrations={troopRegistrations} />
 
       {audience === "troop" && (
       <div className="info-card" style={{ maxWidth: CARD_WIDTH }}>
         <h3>Pack 376 (Summary Only)</h3>
         <p>
-          {`${packRegistrations.length} famil${packRegistrations.length === 1 ? "y" : "ies"} registered — ${packAdults} adult${
-            packAdults === 1 ? "" : "s"
-          }, ${packKids} kid${packKids === 1 ? "" : "s"} (4 & under).`}
+          {`${packRegistrations.length} famil${packRegistrations.length === 1 ? "y" : "ies"} registered — ${describeHeadcount(
+            site,
+            trip.freeAgeAndUnder,
+            packAdults,
+            packKids,
+          )}.`}
         </p>
       </div>
       )}
@@ -348,7 +362,17 @@ export default function TripViewerView({
 type Registrations = Awaited<ReturnType<typeof getTripRegistrations>>;
 
 /** One affiliation's families, each expandable to its contact info and payment history. */
-function FamilyDetailSection({ name, registrations }: { name: string; registrations: Registrations }) {
+function FamilyDetailSection({
+  site,
+  freeAgeAndUnder,
+  name,
+  registrations,
+}: {
+  site: TripSite;
+  freeAgeAndUnder: number | null;
+  name: string;
+  registrations: Registrations;
+}) {
   // Built as plain strings for the same JSX-whitespace reason noted in
   // TripAffiliationSummary.
   const heading = `${name} Families (${registrations.length})`;
@@ -361,7 +385,13 @@ function FamilyDetailSection({ name, registrations }: { name: string; registrati
         <h2>{heading}</h2>
       </div>
 
-      <TripAffiliationSummary name={name} registrations={registrations} style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }} />
+      <TripAffiliationSummary
+        site={site}
+        freeAgeAndUnder={freeAgeAndUnder}
+        name={name}
+        registrations={registrations}
+        style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}
+      />
 
       {registrations.length === 0 ? (
         <div className="info-card" style={{ maxWidth: CARD_WIDTH, marginBottom: 24 }}>

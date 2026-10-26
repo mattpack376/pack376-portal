@@ -8,11 +8,12 @@ import {
   sessionCookieOptions,
   verifySessionToken,
 } from "@/lib/session";
+import { TRIP_SITES, tripSiteByHost } from "@/lib/tripSites";
 
 const PORTAL_HOSTS = ["portal.pack376nyc.org", "portal.localhost:3000"];
-// Standalone public micro-site for the Camp Conron trip — no login involved,
-// masked onto /camp-conron the same way PORTAL_HOSTS masks /portal below.
-const CONRON_HOSTS = ["conron.pack376nyc.org", "conron.localhost:3000"];
+// The event micro-sites (Camp Conron, Cyclones Overnight) have their own
+// hosts — no login involved, each masked onto its public route the same way
+// PORTAL_HOSTS masks /portal below. See TRIP_SITES in src/lib/tripSites.ts.
 
 /** Signature and expiry only — revocation needs the database, which the pages check. */
 async function readSession(request: NextRequest) {
@@ -83,14 +84,17 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
   { test: (p) => p.endsWith("/promote"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens/new"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/dens"), roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE"] },
-  // TRIP_VIEWER (e.g. a shared Troop376 login) only reaches this exact page,
-  // read-only — checked before the generic "/portal/admin" rule below, which
-  // would otherwise also match this path but for ADMIN/JUNIOR_ADMIN only.
-  // Deliberately an exact match, not a prefix: the CSV export route
-  // (/portal/admin/camp-conron/export) stays admin-only via the rule below.
+  // Each event page (Camp Conron, Cyclones Overnight — TRIP_SITES): TRIP_VIEWER
+  // (e.g. a shared Troop376 login) only reaches the exact page, read-only —
+  // checked before the generic "/portal/admin" rule below, which would
+  // otherwise also match these paths but for ADMIN/JUNIOR_ADMIN only.
+  // Deliberately an exact match, not a prefix: the CSV/PDF export routes
+  // (/portal/admin/camp-conron/export, …) stay admin-only via the second rule.
   // Junior Admin is left out on purpose (2026-10-14); mirrors requireTripPageSession().
-  { test: (p) => p === "/portal/admin/camp-conron", roles: ["ADMIN", "TRIP_VIEWER"] },
-  { test: (p) => p.startsWith("/portal/admin/camp-conron"), roles: ["ADMIN"] },
+  ...TRIP_SITES.flatMap((site) => [
+    { test: (p: string) => p === site.adminPath, roles: ["ADMIN", "TRIP_VIEWER"] as Role[] },
+    { test: (p: string) => p.startsWith(site.adminPath), roles: ["ADMIN"] as Role[] },
+  ]),
   // The calendar list is readable by every staff level, view-only; adding or
   // editing an event (the pages under it) is Admin-only. Checked before the
   // generic /portal/admin rule below, which would otherwise let in only Admin
@@ -108,9 +112,9 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
 ];
 
 /**
- * portal.pack376nyc.org and conron.pack376nyc.org are both served by this
- * same deployment, each masked onto an internal prefix (/portal, /camp-conron)
- * via rewrite so visitors never see that prefix in the URL bar. `internalPath`
+ * portal.pack376nyc.org and each event's subdomain (conron.pack376nyc.org, …)
+ * are all served by this same deployment, each masked onto an internal prefix
+ * (/portal, /camp-conron, …) via rewrite so visitors never see that prefix in the URL bar. `internalPath`
  * is what the rest of this function (and the app's router) sees; `toPublic`
  * translates an internal path back to what the visitor should see in a
  * redirect — prefix-free on that subdomain.
@@ -118,7 +122,7 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
 function resolvePaths(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const isPortalSubdomain = PORTAL_HOSTS.includes(host);
-  const isConronSubdomain = CONRON_HOSTS.includes(host);
+  const tripSite = tripSiteByHost(host);
   const publicPath = request.nextUrl.pathname;
   const isAsset = publicPath.startsWith("/api") || publicPath.startsWith("/_next") || publicPath.includes(".");
 
@@ -127,16 +131,20 @@ function resolvePaths(request: NextRequest) {
     return { publicPath, internalPath, toPublic: (path: string) => path.replace(/^\/portal/, "") || "/" };
   }
 
-  // conron.pack376nyc.org serves exactly one page (the Camp Conron trip
-  // micro-site) at its root — unlike the portal subdomain above, which hosts
-  // many nested routes, this only rewrites "/" itself. Every other path here
-  // (nav links like /activities, /contact, /gallery, etc., all of which the
-  // shared site Header renders as root-relative links) falls through to the
-  // final return below and resolves normally against the same route tree
-  // every other host uses — rewriting them under /camp-conron would 404
+  // An event's subdomain (conron.pack376nyc.org, …) serves exactly one page —
+  // its micro-site — at its root. Unlike the portal subdomain above, which
+  // hosts many nested routes, this only rewrites "/" itself. Every other path
+  // here (nav links like /activities, /contact, /gallery, etc., all of which
+  // the shared site Header renders as root-relative links) falls through to
+  // the final return below and resolves normally against the same route tree
+  // every other host uses — rewriting them under the event's route would 404
   // since no such nested routes exist.
-  if (isConronSubdomain && !isAsset && publicPath === "/") {
-    return { publicPath, internalPath: "/camp-conron", toPublic: (path: string) => (path === "/camp-conron" ? "/" : path) };
+  if (tripSite && !isAsset && publicPath === "/") {
+    return {
+      publicPath,
+      internalPath: tripSite.publicPath,
+      toPublic: (path: string) => (path === tripSite.publicPath ? "/" : path),
+    };
   }
 
   return { publicPath, internalPath: publicPath, toPublic: (path: string) => path };

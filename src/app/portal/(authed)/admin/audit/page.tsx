@@ -20,7 +20,7 @@ import { AUDIT_RETENTION_MONTHS } from "@/lib/audit";
 /**
  * The full history of changes made through the portal, split into tabs by
  * type — Main, Sign-ins, Failed Sign-ins, Security, Attendance, Dues & Payments,
- * Camp Conron, 50/50 Raffles, plus an "All activity" list (see AUDIT_TABS in
+ * Trips (Camp Conron, Cyclones Overnight), 50/50 Raffles, plus an "All activity" list (see AUDIT_TABS in
  * src/lib/auditLogData.ts).
  *
  * Master admins only (requireMasterAdminSession), matching the Danger Zone

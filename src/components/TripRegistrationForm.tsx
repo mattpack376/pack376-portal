@@ -18,12 +18,18 @@ export default function TripRegistrationForm({
   packPaymentInstructions,
   troopPaymentInstructions,
   rsvpDeadlineLabel,
+  registeredFor,
+  freeAgeAndUnder,
 }: {
   tripPageId: string;
   currentPriceCents: number;
   packPaymentInstructions: string | null;
   troopPaymentInstructions: string | null;
   rsvpDeadlineLabel: string | null;
+  /** What the confirmation popup says the family registered for ("Camp Conron"). */
+  registeredFor: string;
+  /** Null when the event has no free tier — the free-attendees field is then left off. */
+  freeAgeAndUnder: number | null;
 }) {
   const [state, formAction, isPending] = useActionState(registerForTripAction, {});
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -64,6 +70,7 @@ export default function TripRegistrationForm({
           currentPriceCents={currentPriceCents}
           packPaymentInstructions={packPaymentInstructions}
           troopPaymentInstructions={troopPaymentInstructions}
+          freeAgeAndUnder={freeAgeAndUnder}
           isPending={isPending}
         />
       </form>
@@ -71,7 +78,7 @@ export default function TripRegistrationForm({
       <dialog ref={dialogRef} className="confirm-dialog">
         <p style={{ fontSize: 32, margin: "0 0 8px" }}>🎉</p>
         <h3>Registration Submitted!</h3>
-        <p>Thanks — your family is registered for Camp Conron.</p>
+        <p>Thanks — your family is registered for {registeredFor}.</p>
         {rsvpDeadlineLabel && (
           <p style={{ fontWeight: 700 }}>Please remember to make payment by {rsvpDeadlineLabel}!</p>
         )}
@@ -98,11 +105,13 @@ function TripRegistrationFields({
   currentPriceCents,
   packPaymentInstructions,
   troopPaymentInstructions,
+  freeAgeAndUnder,
   isPending,
 }: {
   currentPriceCents: number;
   packPaymentInstructions: string | null;
   troopPaymentInstructions: string | null;
+  freeAgeAndUnder: number | null;
   isPending: boolean;
 }) {
   const [affiliation, setAffiliation] = useState("");
@@ -179,20 +188,24 @@ function TripRegistrationFields({
             onFocus={(e) => e.target.select()}
           />
         </div>
-        <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
-          <label htmlFor="freeCount">Attendees (4 &amp; under, free)</label>
-          <input
-            id="freeCount"
-            name="freeCount"
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            required
-            value={freeCount}
-            onChange={(e) => setFreeCount(e.target.value.replace(/\D/g, ""))}
-            onFocus={(e) => e.target.select()}
-          />
-        </div>
+        {freeAgeAndUnder !== null ? (
+          <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
+            <label htmlFor="freeCount">Attendees ({freeAgeAndUnder} &amp; under, free)</label>
+            <input
+              id="freeCount"
+              name="freeCount"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              required
+              value={freeCount}
+              onChange={(e) => setFreeCount(e.target.value.replace(/\D/g, ""))}
+              onFocus={(e) => e.target.select()}
+            />
+          </div>
+        ) : (
+          <input type="hidden" name="freeCount" value="0" />
+        )}
       </div>
 
       <p className="form-note" style={{ fontSize: 15, fontWeight: 700, color: "var(--scout-blue-dark)" }}>

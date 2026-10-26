@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
@@ -9,15 +8,8 @@ import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import { uploadFlyer } from "@/lib/flyerUpload";
 import { dollarsToCents } from "@/lib/formValues";
 import { todayDateOnlyString } from "@/lib/dateOnly";
+import { revalidateTripAdminPages, revalidateTripPages } from "@/lib/tripRevalidate";
 import type { TripDay, TripMealType } from "@/generated/prisma/enums";
-
-const ADMIN_PATH = "/portal/admin/camp-conron";
-const PUBLIC_PATH = "/camp-conron";
-
-function revalidateTrip() {
-  revalidatePath(ADMIN_PATH);
-  revalidatePath(PUBLIC_PATH);
-}
 
 /** "SATURDAY" -> "Saturday", "HOT_BREAKFAST" -> "Hot breakfast" — enums in audit text. */
 function titleCase(value: string): string {
@@ -35,6 +27,7 @@ export async function updateTripDetailsAction(formData: FormData) {
   const location = String(formData.get("location") || "").trim();
   const startDateRaw = String(formData.get("startDate") || "").trim();
   const endDateRaw = String(formData.get("endDate") || "").trim();
+  const timeLabel = String(formData.get("timeLabel") || "").trim();
   const detailsHtml = String(formData.get("detailsHtml") || "").trim();
   if (!id || !title) throw new Error("Title is required.");
 
@@ -55,7 +48,7 @@ export async function updateTripDetailsAction(formData: FormData) {
     where: { id },
     // flyerUrl so a flyer that's been replaced or removed can be deleted from
     // Blob storage below rather than left public at its original URL.
-    select: { title: true, location: true, startDate: true, endDate: true, detailsHtml: true, flyerUrl: true },
+    select: { title: true, location: true, startDate: true, endDate: true, timeLabel: true, detailsHtml: true, flyerUrl: true },
   });
 
   await prisma.tripPage.update({
@@ -65,6 +58,7 @@ export async function updateTripDetailsAction(formData: FormData) {
       location: location || null,
       startDate,
       endDate,
+      timeLabel: timeLabel || null,
       detailsHtml: detailsHtml || null,
       ...(flyerUrl !== undefined ? { flyerUrl } : {}),
     },
@@ -86,6 +80,7 @@ export async function updateTripDetailsAction(formData: FormData) {
         Location: [before?.location, location || null],
         "Start date": [before?.startDate, startDate],
         "End date": [before?.endDate, endDate],
+        Time: [before?.timeLabel, timeLabel || null],
         Details: [before?.detailsHtml, detailsHtml || null],
       }),
       ...(flyerUrl === undefined
@@ -94,7 +89,7 @@ export async function updateTripDetailsAction(formData: FormData) {
     ],
   });
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 export async function toggleTripPublishedAction(formData: FormData) {
@@ -116,7 +111,7 @@ export async function toggleTripPublishedAction(formData: FormData) {
     details: [{ label: "Published", from: published ? "Yes" : "No", to: trip.published ? "Yes" : "No" }],
   });
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 export async function updateTripPricingAction(formData: FormData) {
@@ -187,7 +182,7 @@ export async function updateTripPricingAction(formData: FormData) {
     }),
   });
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 export async function updateTripPaymentInstructionsAction(formData: FormData) {
@@ -224,7 +219,7 @@ export async function updateTripPaymentInstructionsAction(formData: FormData) {
     }),
   });
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 export async function updateTripMealsAction(formData: FormData) {
@@ -269,7 +264,7 @@ export async function updateTripMealsAction(formData: FormData) {
     });
   }
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 export async function createDutySlotAction(formData: FormData) {
@@ -309,7 +304,7 @@ export async function createDutySlotAction(formData: FormData) {
     ],
   });
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 export async function updateDutySlotAction(formData: FormData) {
@@ -360,7 +355,7 @@ export async function updateDutySlotAction(formData: FormData) {
     }),
   });
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 export async function deleteDutySlotAction(formData: FormData) {
@@ -384,7 +379,7 @@ export async function deleteDutySlotAction(formData: FormData) {
     ],
   });
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 export async function createActivityAction(formData: FormData) {
@@ -419,7 +414,7 @@ export async function createActivityAction(formData: FormData) {
     ],
   });
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 export async function updateActivityAction(formData: FormData) {
@@ -460,7 +455,7 @@ export async function updateActivityAction(formData: FormData) {
     }),
   });
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 export async function deleteActivityAction(formData: FormData) {
@@ -481,7 +476,7 @@ export async function deleteActivityAction(formData: FormData) {
     details: [{ label: "Activity", from: activity.title, to: "—" }],
   });
 
-  revalidateTrip();
+  revalidateTripPages();
 }
 
 // A vendor credit/refund is a TripExpense with isCredit set — the add form's
@@ -528,7 +523,7 @@ export async function addTripExpenseAction(formData: FormData) {
     ],
   });
 
-  revalidatePath(ADMIN_PATH);
+  revalidateTripAdminPages();
 }
 
 export async function updateTripExpenseAction(formData: FormData) {
@@ -572,7 +567,7 @@ export async function updateTripExpenseAction(formData: FormData) {
     }),
   });
 
-  revalidatePath(ADMIN_PATH);
+  revalidateTripAdminPages();
 }
 
 export async function deleteTripExpenseAction(formData: FormData) {
@@ -601,5 +596,5 @@ export async function deleteTripExpenseAction(formData: FormData) {
     ],
   });
 
-  revalidatePath(ADMIN_PATH);
+  revalidateTripAdminPages();
 }

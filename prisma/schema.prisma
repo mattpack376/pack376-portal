@@ -729,6 +729,8 @@ model TripPage {
   location                 String?
   startDate                DateTime?          @db.Date
   endDate                  DateTime?          @db.Date
+  // Free text ("6:40 PM") — the dates above carry no time of day.
+  timeLabel                String?
   flyerUrl                 String?
   detailsHtml              String?
   regularPriceCents        Int                @default(0)

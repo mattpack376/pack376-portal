@@ -1,10 +1,13 @@
 import "server-only";
 import { dateOnlyHasPassed } from "@/lib/dateOnly";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import type { TripDay, TripMealType } from "@/generated/prisma/enums";
+import { CAMP_CONRON_SITE, CYCLONES_SITE, tripSiteBySlug } from "@/lib/tripSites";
 
-/** Only one trip page exists today (Camp Conron), but every lookup below is keyed by slug so a future trip's micro-site can reuse this same model without a schema change. */
-export const CAMP_CONRON_SLUG = "camp-conron";
+/** Every lookup below is keyed by slug, so each event's micro-site (see TRIP_SITES in tripSites.ts) reuses this same model without a schema change. */
+export const CAMP_CONRON_SLUG = CAMP_CONRON_SITE.slug;
+export const CYCLONES_SLUG = CYCLONES_SITE.slug;
 
 const MEAL_SLOTS: { day: TripDay; mealType: TripMealType; sortOrder: number }[] = [
   { day: "FRIDAY", mealType: "DINNER", sortOrder: 0 },
@@ -16,6 +19,11 @@ const MEAL_SLOTS: { day: TripDay; mealType: TripMealType; sortOrder: number }[] 
   { day: "SUNDAY", mealType: "DINNER", sortOrder: 6 },
   { day: "MONDAY", mealType: "BREAKFAST", sortOrder: 7 },
 ];
+
+/** A typed empty result, for a section an event doesn't have — skips its query without widening the list's type to never[]. */
+export function none<Fetch extends (...args: never[]) => Promise<unknown[]>>(): Awaited<ReturnType<Fetch>> {
+  return [] as unknown as Awaited<ReturnType<Fetch>>;
+}
 
 export const DAY_LABELS: Record<TripDay, string> = {
   FRIDAY: "Friday",
@@ -42,32 +50,70 @@ export function formatTripDate(date: Date | null) {
 }
 
 /**
- * Fetches the singleton TripPage row for `slug`, creating it — seeded with
- * the Camp Conron Halloween Weekend flyer's details and the 8 fixed meal
- * slots — the first time it's requested. Every field is editable afterward
- * from /portal/admin/camp-conron.
+ * When an event is, as one line: "Fri, Oct 9, 2026 – Mon, Oct 12, 2026" for a
+ * multi-day trip, just the start for a one-day event, then " · 6:40 PM" if a
+ * time is set. Null when there's no start date to show.
+ */
+export function formatTripWhen(trip: { startDate: Date | null; endDate: Date | null; timeLabel: string | null }) {
+  if (!trip.startDate) return null;
+  const dates = trip.endDate
+    ? `${formatTripDate(trip.startDate)} – ${formatTripDate(trip.endDate)}`
+    : formatTripDate(trip.startDate);
+  return trip.timeLabel ? `${dates} · ${trip.timeLabel}` : dates;
+}
+
+/**
+ * The content a site's TripPage row starts with, the first time its page is
+ * requested. Every field is editable afterward from the site's admin page, so
+ * these are only a starting point — the Cyclones one is deliberately
+ * unpublished with a $0 price until the flyer's real details are entered.
+ */
+const TRIP_SEEDS: Record<string, Omit<Prisma.TripPageUncheckedCreateInput, "slug">> = {
+  [CAMP_CONRON_SLUG]: {
+    title: "Camp Conron Halloween Weekend",
+    location: "Holmes, NY",
+    startDate: new Date("2026-10-09T00:00:00Z"),
+    endDate: new Date("2026-10-12T00:00:00Z"),
+    detailsHtml:
+      "A joint camping weekend for Pack 376 and Troop 376 at Camp Conron. Bring your best tent decorations for the Halloween tent decorating contest!",
+    regularPriceCents: 5500,
+    earlyBirdPriceCents: 4500,
+    earlyBirdDeadline: new Date("2026-09-25T00:00:00Z"),
+    rsvpDeadline: new Date("2026-10-02T00:00:00Z"),
+    freeAgeAndUnder: 4,
+    packPaymentInstructions: "Payments to Dianaliz or Matt by Cash or Zelle.",
+    troopPaymentInstructions: "Payments to Andrew, or any adult leader designated by the Troop.",
+  },
+  [CYCLONES_SLUG]: {
+    title: "Brooklyn Cyclones Overnight",
+    location: "Maimonides Park, Brooklyn, NY",
+    startDate: new Date("2027-04-23T00:00:00Z"),
+    timeLabel: "6:40 PM",
+    detailsHtml: "A joint overnight for Pack 376 and Troop 376 at Maimonides Park with the Brooklyn Cyclones.",
+    regularPriceCents: 0,
+    packPaymentInstructions: "Payments to Dianaliz or Matt by Cash or Zelle.",
+    troopPaymentInstructions: "Payments to Andrew, or any adult leader designated by the Troop.",
+    published: false,
+  },
+};
+
+/**
+ * Fetches the singleton TripPage row for `slug`, creating it from TRIP_SEEDS
+ * — plus the 8 fixed meal slots, for a site that has a menu — the first time
+ * it's requested. Every field is editable afterward from the site's admin page.
  */
 export async function getOrCreateTripPage(slug: string) {
   const existing = await prisma.tripPage.findUnique({ where: { slug } });
   if (existing) return existing;
 
+  const seed = TRIP_SEEDS[slug];
+  if (!seed) throw new Error(`No trip page is set up for “${slug}”.`);
+
   return prisma.tripPage.create({
     data: {
       slug,
-      title: "Camp Conron Halloween Weekend",
-      location: "Holmes, NY",
-      startDate: new Date("2026-10-09T00:00:00Z"),
-      endDate: new Date("2026-10-12T00:00:00Z"),
-      detailsHtml:
-        "A joint camping weekend for Pack 376 and Troop 376 at Camp Conron. Bring your best tent decorations for the Halloween tent decorating contest!",
-      regularPriceCents: 5500,
-      earlyBirdPriceCents: 4500,
-      earlyBirdDeadline: new Date("2026-09-25T00:00:00Z"),
-      rsvpDeadline: new Date("2026-10-02T00:00:00Z"),
-      freeAgeAndUnder: 4,
-      packPaymentInstructions: "Payments to Dianaliz or Matt by Cash or Zelle.",
-      troopPaymentInstructions: "Payments to Andrew, or any adult leader designated by the Troop.",
-      meals: { create: MEAL_SLOTS },
+      ...seed,
+      ...(tripSiteBySlug(slug)?.sections.menu ? { meals: { create: MEAL_SLOTS } } : {}),
     },
   });
 }

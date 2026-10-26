@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { Role } from "@/generated/prisma/enums";
+import { TRIP_SITES } from "@/lib/tripSites";
 
 
 /** Public site host (no "portal." prefix) — matches getPublicBaseUrl() in src/lib/appUrl.ts,
@@ -50,16 +51,17 @@ export default function PortalNav({
        * Grouping follows what the pages do rather than where they sit in the
        * routes — Dues and Events both track what families owe, Roster and
        * Users are both views of who is in the pack. The exceptions are the
-       * two reached often enough that a menu would just be in the way:
-       * Family View and Camp Conron stay top level even though they'd
-       * otherwise sit under People and Money.
+       * one reached often enough that a menu would just be in the way:
+       * Family View stays top level even though it'd otherwise sit under
+       * People. The event pages (Camp Conron, Cyclones Overnight) share one
+       * Trips menu, so the next event is a new entry in it, not a new tab.
        */
       case "ADMIN":
         return [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
           { href: "/portal/roster/family-view", label: "Family View" },
-          { href: "/portal/admin/camp-conron", label: "Camp Conron Trip" },
+          { label: "Trips", children: TRIP_SITES.map((site) => ({ href: site.adminPath, label: site.navLabel })) },
           {
             label: "People",
             children: [
@@ -93,7 +95,7 @@ export default function PortalNav({
       case "JUNIOR_ADMIN":
         // Same shape as ADMIN minus what they can't reach: Money is
         // read-only for them, Homepage Content is the top banner alone, and
-        // there's no Camp Conron Trip (requireTripPageSession turns them away).
+        // there are no event pages (requireTripPageSession turns them away).
         // The calendar is view-only for them, as for every role below Admin.
         return [
           { href: "/portal/admin", label: "Dashboard" },
@@ -148,7 +150,7 @@ export default function PortalNav({
       case "PARENT":
         return [{ href: "/portal/parent", label: "Dashboard" }];
       case "TRIP_VIEWER":
-        return [{ href: "/portal/admin/camp-conron", label: "Camp Conron Trip" }];
+        return TRIP_SITES.map((site) => ({ href: site.adminPath, label: site.navLabel }));
       default:
         // Preserves the currently selected den (for leaders assigned to more
         // than one) when switching between "My Den" and "Attendance" tabs.

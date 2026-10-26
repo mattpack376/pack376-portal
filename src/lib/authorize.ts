@@ -349,13 +349,13 @@ export function assertCalendarEditAccess(session: SessionPayload) {
 }
 
 /**
- * For Server Components / pages: gates the whole /portal/admin/camp-conron
- * page — Admin (editable) and TRIP_VIEWER (read-only; the page renders a
+ * For Server Components / pages: gates each event's admin page
+ * (/portal/admin/camp-conron, /portal/admin/cyclones — TRIP_SITES) — Admin (editable) and TRIP_VIEWER (read-only; the page renders a
  * separate form-free view for it). Junior Admin had the same read-only view
  * until 2026-10-14 and is now turned away; the rule in proxy.ts and the nav
  * link in PortalNav.tsx went with it. Every edit action on the page is
- * admin-only via assertAdmin. The public conron.pack376nyc.org page needs no
- * session at all.
+ * admin-only via assertAdmin. The public event pages (conron.pack376nyc.org, …)
+ * need no session at all.
  */
 export async function requireTripPageSession(): Promise<SessionPayload> {
   const session = await requireSession();

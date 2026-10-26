@@ -1,20 +1,18 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { checkRateLimit } from "@vercel/firewall";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { currentTripPriceCents, registrationClosed } from "@/lib/tripPageData";
+import { tripSiteBySlug } from "@/lib/tripSites";
+import { revalidateTripAdminPages, revalidateTripPages } from "@/lib/tripRevalidate";
 import { formatPhoneNumber } from "@/lib/phone";
 import { dollarsToCents, parseCount } from "@/lib/formValues";
 import { todayDateOnlyString } from "@/lib/dateOnly";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import type { TripAffiliation } from "@/generated/prisma/enums";
-
-const ADMIN_PATH = "/portal/admin/camp-conron";
-const PUBLIC_PATH = "/camp-conron";
 
 /*
  * Bounds for the public form below. Nothing here is a business rule — these
@@ -54,7 +52,7 @@ export type RegisterForTripState = {
 };
 
 /**
- * Public, unauthenticated registration for conron.pack376nyc.org — anyone
+ * Public, unauthenticated registration for an event's micro-site (conron.pack376nyc.org, …) — anyone
  * can submit this, no portal account involved. `website` is a hidden
  * honeypot field real visitors never see or fill; a bot that fills every
  * field on the form trips it and the submission is silently dropped (empty
@@ -133,10 +131,15 @@ async function submitTripRegistration(formData: FormData): Promise<RegisterForTr
   // that isn't published, and a trip past its RSVP deadline all get the same
   // message. The id comes straight from the form, so this check is what keeps
   // an unpublished draft or a closed trip out of reach. An admin can still add
-  // a late family by hand from the Camp Conron admin page
+  // a late family by hand from the event's admin page
   // (addTripRegistrationAction below).
+  const noun = (trip && tripSiteBySlug(trip.slug)?.noun) || "trip";
   if (!trip || !trip.published || registrationClosed(trip)) {
-    return { error: "Registration for this trip is closed. Please contact us and we'll help you out." };
+    return { error: `Registration for this ${noun} is closed. Please contact us and we'll help you out.` };
+  }
+  // An event with no free age has no free tier, and the form doesn't offer one.
+  if (trip.freeAgeAndUnder === null && freeCount > 0) {
+    return { error: `This ${noun} has no free-attendee option. Please enter everyone as a paying attendee.` };
   }
 
   const normalizedEmail = contactEmail.toLowerCase();
@@ -182,11 +185,10 @@ async function submitTripRegistration(formData: FormData): Promise<RegisterForTr
   });
   if (result === "replay") return { success: true };
   if (result === "capped") {
-    return { error: "This email already has several registrations for this trip. Please contact us to add more." };
+    return { error: `This email already has several registrations for this ${noun}. Please contact us to add more.` };
   }
 
-  revalidatePath(ADMIN_PATH);
-  revalidatePath(PUBLIC_PATH);
+  revalidateTripPages();
   return { success: true };
 }
 
@@ -258,8 +260,7 @@ export async function addTripRegistrationAction(formData: FormData) {
     ],
   });
 
-  revalidatePath(ADMIN_PATH);
-  revalidatePath(PUBLIC_PATH);
+  revalidateTripPages();
 }
 
 /** Admin-only, same population as the payment actions below — junior admin can view registrations but not edit them. */
@@ -335,8 +336,7 @@ export async function updateTripRegistrationAction(formData: FormData) {
     }),
   });
 
-  revalidatePath(ADMIN_PATH);
-  revalidatePath(PUBLIC_PATH);
+  revalidateTripPages();
 }
 
 /** Admin-only, same convention as requireEventPaymentSession — junior admin can view registrations but not record money. */
@@ -376,7 +376,7 @@ export async function addTripPaymentAction(formData: FormData) {
     ],
   });
 
-  revalidatePath(ADMIN_PATH);
+  revalidateTripAdminPages();
 }
 
 export async function deleteTripPaymentAction(formData: FormData) {
@@ -411,7 +411,7 @@ export async function deleteTripPaymentAction(formData: FormData) {
       : null,
   });
 
-  revalidatePath(ADMIN_PATH);
+  revalidateTripAdminPages();
 }
 
 export async function deleteTripRegistrationAction(formData: FormData) {
@@ -455,5 +455,5 @@ export async function deleteTripRegistrationAction(formData: FormData) {
       : null,
   });
 
-  revalidatePath(ADMIN_PATH);
+  revalidateTripAdminPages();
 }
