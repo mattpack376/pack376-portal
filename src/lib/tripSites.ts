@@ -71,7 +71,7 @@ export const CYCLONES_SITE: TripSite = {
   publicHosts: ["cyclones.pack376nyc.org", "cyclones.localhost:3000"],
   // The path on the main site, which works as-is. cyclones.pack376nyc.org also
   // resolves once that domain is added to the Vercel project (publicHosts above).
-  publicUrl: "https://www.pack376nyc.org/cyclones",
+  publicUrl: "https://pack376nyc.org/cyclones",
   navLabel: "Cyclones Overnight",
   registeredFor: "the Brooklyn Cyclones Overnight",
   noun: "event",
