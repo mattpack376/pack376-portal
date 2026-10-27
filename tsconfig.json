@@ -30,5 +30,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // Local, untracked review evidence (never committed); each harness that
+    // needs type-checking has its own tsconfig, e.g.
+    // security-review-2026-10-03/verify/tsconfig.json.
+    "security-review-*"
+  ]
 }
