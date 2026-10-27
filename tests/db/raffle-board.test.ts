@@ -14,6 +14,7 @@ import { openTransaction, withTestDatabase } from "../support/db";
 import { form, runAs } from "../support/context";
 import { editEntryForm, newId, raffleTestKit, type RaffleActions, type TestUser } from "./raffle-support";
 import { prizeForSales } from "@/lib/raffleMath";
+import { raffleTermsVersion } from "@/lib/raffleEditVersion";
 
 const db = withTestDatabase("raffle_board");
 const kit = raffleTestKit(db);
@@ -287,10 +288,10 @@ describe("term changes vs sales", () => {
     const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Ann", "15", "CASH")));
     await kit.waitForWaiters(1);
     const editing = kit.act(admin, () =>
-      raffles.updateRaffleAction(form({ raffleId: raffle.id, name: raffle.name, boxCount: 10, price: "10", prizePercent: 50 })),
+      raffles.updateRaffleAction(form({ raffleId: raffle.id, name: raffle.name, boxCount: 10, price: "10", prizePercent: 50, version: raffleTermsVersion(raffle) })),
     );
     const repricing = kit.act(admin, () =>
-      raffles.updateRaffleAction(form({ raffleId: raffle.id, name: raffle.name, boxCount: 20, price: "20", prizePercent: 50 })),
+      raffles.updateRaffleAction(form({ raffleId: raffle.id, name: raffle.name, boxCount: 20, price: "20", prizePercent: 50, version: raffleTermsVersion(raffle) })),
     );
     await kit.waitForWaiters(3);
     await paused.commit();
@@ -309,7 +310,7 @@ describe("term changes vs sales", () => {
         kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Ann", "15, 16", "CASH")))),
         kit.resultOf(
           kit.act(admin, () =>
-            raffles.updateRaffleAction(form({ raffleId: raffle.id, name: raffle.name, boxCount: 10, price: "20", prizePercent: 50 })),
+            raffles.updateRaffleAction(form({ raffleId: raffle.id, name: raffle.name, boxCount: 10, price: "20", prizePercent: 50, version: raffleTermsVersion(raffle) })),
           ),
         ),
       ]);
