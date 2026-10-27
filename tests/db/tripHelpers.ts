@@ -12,12 +12,18 @@ import { asAnonymous, form, runAs, type SessionUser } from "../support/context";
 export type TripActions = {
   registration: typeof import("@/lib/actions/tripRegistration");
   page: typeof import("@/lib/actions/tripPage");
+  /** The fingerprints the admin page's edit forms carry of what they were filled in with. */
+  versions: typeof import("@/lib/tripEditVersion");
+  /** The app's own Prisma client, for reading a row the way the admin page does when it renders a form. */
+  prisma: typeof import("@/lib/prisma").prisma;
 };
 
 export async function loadTripActions(): Promise<TripActions> {
   return {
     registration: await import("@/lib/actions/tripRegistration"),
     page: await import("@/lib/actions/tripPage"),
+    versions: await import("@/lib/tripEditVersion"),
+    prisma: (await import("@/lib/prisma")).prisma,
   };
 }
 
@@ -88,17 +94,33 @@ export async function register(actions: TripActions, values: Record<string, stri
   return result;
 }
 
-/** Saves the Price Structure form as `admin`. `priceTbd: true` keeps (or puts) the price back to TBD. */
+/**
+ * Saves the Price Structure form as `admin`. `priceTbd: true` keeps (or puts)
+ * the price back to TBD. The form carries the fingerprint of the pricing it
+ * was loaded with: by default the trip as it stands when this is called (a
+ * page loaded just now); pass `version` for a form loaded earlier
+ * (pricingVersionOf), or "" for one with none.
+ */
 export async function savePricing(
   actions: TripActions,
   admin: SessionUser,
   tripPageId: string,
-  values: { regularPrice: string; priceTbd?: boolean; earlyBirdPrice?: string; earlyBirdDeadline?: string; rsvpDeadline?: string; freeAgeAndUnder?: string },
+  values: {
+    regularPrice: string;
+    priceTbd?: boolean;
+    earlyBirdPrice?: string;
+    earlyBirdDeadline?: string;
+    rsvpDeadline?: string;
+    freeAgeAndUnder?: string;
+    version?: string;
+  },
 ) {
+  const version = values.version ?? (await pricingVersionOf(actions, tripPageId));
   return runAs(admin, () =>
     actions.page.updateTripPricingAction(
       form({
         id: tripPageId,
+        version,
         regularPrice: values.regularPrice,
         earlyBirdPrice: values.earlyBirdPrice ?? "",
         earlyBirdDeadline: values.earlyBirdDeadline ?? "",
@@ -110,12 +132,25 @@ export async function savePricing(
   );
 }
 
+/** The fingerprint a Price Structure form rendered now would carry; "" if the trip is gone. */
+export async function pricingVersionOf(actions: TripActions, tripPageId: string) {
+  const trip = await actions.prisma.tripPage.findUnique({ where: { id: tripPageId } });
+  return trip ? actions.versions.tripPricingVersion(trip) : "";
+}
+
 /** The admin "add a family by hand" form. */
 export async function addByHand(actions: TripActions, admin: SessionUser, values: Record<string, string | number>) {
   return runAs(admin, () => actions.registration.addTripRegistrationAction(form(values)));
 }
 
-/** The admin edit form for one registration; `amountOwed: ""` is the blank amount a waiting registration shows. */
+/**
+ * The admin edit form for one registration, filled in from `registration` —
+ * the row as the page loaded it, so passing a row read before some other
+ * change is a form from an out-of-date page. It carries that row's
+ * fingerprint unless `changes` gives a `version`. Amount Owed starts as the
+ * form fills it in: blank for a registration waiting for a price, the stored
+ * amount otherwise.
+ */
 export async function editRegistration(
   actions: TripActions,
   admin: SessionUser,
@@ -128,6 +163,8 @@ export async function editRegistration(
     affiliation: string;
     payingCount: number;
     freeCount: number;
+    amountOwedCents: number;
+    owedPending: boolean;
   },
   changes: Record<string, string | number>,
 ) {
@@ -135,6 +172,7 @@ export async function editRegistration(
     actions.registration.updateTripRegistrationAction(
       form({
         id: registration.id,
+        version: actions.versions.tripRegistrationEditVersion(registration),
         familyName: registration.familyName,
         contactEmail: registration.contactEmail,
         contactPhone: registration.contactPhone ?? "",
@@ -142,7 +180,7 @@ export async function editRegistration(
         affiliation: registration.affiliation,
         payingCount: registration.payingCount,
         freeCount: registration.freeCount,
-        amountOwed: "",
+        amountOwed: registration.owedPending ? "" : (registration.amountOwedCents / 100).toFixed(2),
         ...changes,
       }),
     ),
