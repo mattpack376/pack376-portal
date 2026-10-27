@@ -52,6 +52,21 @@ export function parseBoxNumbers(raw: string): number[] | null {
   return [...numbers].sort((a, b) => a - b);
 }
 
+/**
+ * What decides that two typed names are the same buyer on one raffle (see the
+ * note at the top of src/lib/actions/raffles.ts): equal once spaces at either
+ * end are dropped, letters are lower-cased — accented ones too, "JOSÉ" is
+ * "josé" — and an accent typed as a separate mark is joined to its letter
+ * (some phones and copied text send "é" as "e" plus an accent). The board's
+ * "Adding to …'s line" hint, the server's check and the record importer all
+ * use this one function, so the hint can't promise something the save won't
+ * do. It runs in JavaScript rather than as Postgres's lower(), which on a
+ * database created with the "C" locale only lower-cases A–Z.
+ */
+export function buyerNameKey(name: string): string {
+  return name.normalize("NFC").trim().toLowerCase();
+}
+
 /** [3, 9, 32] -> "3, 9, 32". */
 export function formatBoxNumbers(numbers: number[]): string {
   return [...numbers].sort((a, b) => a - b).join(", ");

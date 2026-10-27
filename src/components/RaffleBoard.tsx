@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useActionState, useRef, useState, useTransition } from "react";
 import { assignBoxesAction, changeEntryBoxesAction } from "@/lib/actions/raffles";
-import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, formatRaffleMoney } from "@/lib/raffleMath";
+import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, buyerNameKey, formatRaffleMoney } from "@/lib/raffleMath";
+import { MAX_NAME_LENGTH } from "@/lib/formValues";
 
 export type RaffleBoardBox = { number: number; entryId: string; buyer: string; paid: boolean };
 export type RaffleBoardBuyer = { id: string; name: string; boxNumbers: number[] };
@@ -59,7 +60,7 @@ function similarBuyers(typed: string, buyers: RaffleBoardBuyer[]) {
   const firstWord = typed.split(/\s+/)[0];
   return buyers
     .filter((buyer) => {
-      const name = buyer.name.trim().toLowerCase();
+      const name = buyerNameKey(buyer.name);
       return name.includes(typed) || typed.includes(name) || (firstWord.length >= 3 && name.split(/\s+/)[0] === firstWord);
     })
     .slice(0, 4);
@@ -93,8 +94,9 @@ function BoardFields({
   // the refreshed board then shows it taken, and it drops out of the picks.
   const picks = selected.filter((number) => !taken.has(number));
 
-  const typed = name.trim().toLowerCase();
-  const match = typed ? currentBuyers.find((buyer) => buyer.name.trim().toLowerCase() === typed) : undefined;
+  // The same comparison the save makes (buyerNameKey), so "Adding to …'s line" is a promise.
+  const typed = buyerNameKey(name);
+  const match = typed ? currentBuyers.find((buyer) => buyerNameKey(buyer.name) === typed) : undefined;
   const lookalikes = match ? [] : similarBuyers(typed, currentBuyers);
   const suggestions = [...new Set([...currentBuyers.map((buyer) => buyer.name), ...buyerNames])];
 
@@ -244,6 +246,8 @@ function BoardFields({
               : `Picked: ${picks.join(", ")} — ${picks.length} × ${formatRaffleMoney(priceCents)} = ${formatRaffleMoney(picks.length * priceCents)}`}
           </p>
           <input type="hidden" name="boxes" value={picks.join(",")} />
+          {/* The price shown above: a paid sale is refused if the raffle's price has changed since (assignBoxesAction). */}
+          <input type="hidden" name="priceCents" value={priceCents} />
           {currentBuyers.length > 0 && (
             <div className="form-field">
               <label htmlFor="board-existing">Already on this raffle?</label>
@@ -272,6 +276,7 @@ function BoardFields({
                 list="board-buyer-names"
                 autoComplete="off"
                 required
+                maxLength={MAX_NAME_LENGTH}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Name"
@@ -300,6 +305,7 @@ function BoardFields({
                 name="payerName"
                 list="board-payer-names"
                 autoComplete="off"
+                maxLength={MAX_NAME_LENGTH}
                 placeholder="Name on the Zelle"
               />
               <datalist id="board-payer-names">
@@ -313,7 +319,7 @@ function BoardFields({
             <div style={{ marginBottom: 14 }}>
               <p className="form-note" style={{ marginTop: 0, marginBottom: lookalikes.length > 0 ? 8 : 0 }}>
                 {match
-                  ? `Adding to ${match.name}'s line — they already have ${match.boxNumbers.length === 1 ? "box" : "boxes"} ${match.boxNumbers.join(", ")}.`
+                  ? `Adding to ${match.name}'s line — they already have ${match.boxNumbers.length === 1 ? "box" : "boxes"} ${match.boxNumbers.join(", ")}. A different person with the same name? Add a last name or initial to tell them apart.`
                   : lookalikes.length > 0
                     ? "This will start a new line. If you meant someone already on the raffle, tap their name:"
                     : "New buyer — this starts a new line."}

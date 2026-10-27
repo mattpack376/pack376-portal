@@ -14,6 +14,7 @@ import {
 import { auditDate } from "@/lib/audit";
 import { toDateOnlyString } from "@/lib/dateOnly";
 import { formatCents } from "@/lib/duesData";
+import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { MAX_RAFFLE_BOXES, RAFFLE_METHOD_LABELS } from "@/lib/raffleMath";
 import type { RaffleDetail } from "@/lib/raffleData";
 import { MethodSelect } from "./parts";
@@ -64,7 +65,7 @@ export default function CloseoutTab({
                 Prize: <strong>{formatCents(s.prizeCents)}</strong> ({raffle.prizePercent}% of {s.soldBoxes} boxes sold)
               </p>
               {canEdit && (
-                <form action={clearWinnerAction}>
+                <ActionForm action={clearWinnerAction}>
                   <input type="hidden" name="raffleId" value={raffle.id} />
                   <ConfirmSubmitButton
                     className="btn btn-quiet btn-small"
@@ -73,7 +74,7 @@ export default function CloseoutTab({
                   >
                     Clear Winner
                   </ConfirmSubmitButton>
-                </form>
+                </ActionForm>
               )}
             </>
           ) : (
@@ -98,7 +99,7 @@ export default function CloseoutTab({
                     </div>
                     <div className="form-field">
                       <label htmlFor="winnerName">Winner&apos;s Name (optional)</label>
-                      <input id="winnerName" name="winnerName" placeholder="Blank = the box's buyer" />
+                      <input id="winnerName" name="winnerName" maxLength={MAX_NAME_LENGTH} placeholder="Blank = the box's buyer" />
                     </div>
                   </div>
                   <p className="form-note" style={{ marginTop: 0, marginBottom: 14 }}>
@@ -233,7 +234,7 @@ export default function CloseoutTab({
             Closing moves the raffle to Past Raffles and makes it read-only, so the record can&apos;t be changed by
             accident. An Admin can reopen it.
           </p>
-          <form action={closeRaffleAction}>
+          <ActionForm action={closeRaffleAction}>
             <input type="hidden" name="raffleId" value={raffle.id} />
             <ConfirmSubmitButton
               className="btn btn-primary"
@@ -246,7 +247,7 @@ export default function CloseoutTab({
             >
               Close Raffle
             </ConfirmSubmitButton>
-          </form>
+          </ActionForm>
         </div>
       )}
 
@@ -257,7 +258,7 @@ export default function CloseoutTab({
               <input type="hidden" name="raffleId" value={raffle.id} />
               <div className="form-field">
                 <label htmlFor="edit-name">Name</label>
-                <input id="edit-name" name="name" required defaultValue={raffle.name} />
+                <input id="edit-name" name="name" required maxLength={MAX_NAME_LENGTH} defaultValue={raffle.name} />
               </div>
               <div className="form-row">
                 <div className="form-field">
@@ -290,7 +291,7 @@ export default function CloseoutTab({
               </div>
               <div className="form-field">
                 <label htmlFor="edit-notes">Notes (optional)</label>
-                <textarea id="edit-notes" name="notes" rows={3} defaultValue={raffle.notes ?? ""} />
+                <textarea id="edit-notes" name="notes" rows={3} maxLength={MAX_NOTE_LENGTH} defaultValue={raffle.notes ?? ""} />
               </div>
               <p className="form-note" style={{ marginTop: 0, marginBottom: 14 }}>
                 The price can&apos;t change once a payment is recorded, and neither it nor the winner&apos;s share can
@@ -311,7 +312,7 @@ export default function CloseoutTab({
               Deletes the raffle with every buyer, box and payment in it. Only for one created by mistake — a finished
               raffle should be closed, not deleted.
             </p>
-            <form action={deleteRaffleAction}>
+            <ActionForm action={deleteRaffleAction}>
               <input type="hidden" name="raffleId" value={raffle.id} />
               <ConfirmSubmitButton
                 className="btn btn-danger btn-small"
@@ -320,7 +321,7 @@ export default function CloseoutTab({
               >
                 Delete Raffle
               </ConfirmSubmitButton>
-            </form>
+            </ActionForm>
           </div>
         </CollapsibleGroup>
       )}

@@ -5,6 +5,7 @@ import { ROLE_BADGE_CLASSES, ROLE_LABELS } from "@/lib/roleLabels";
 import { formatCents } from "@/lib/duesData";
 import { formatLongDate } from "@/lib/dateOnly";
 import { MAX_RAFFLE_BOXES } from "@/lib/raffleMath";
+import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { createRaffleAction, importRaffleAction, setRaffleHelperAction } from "@/lib/actions/raffles";
 import ActionForm from "@/components/ActionForm";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
@@ -148,7 +149,7 @@ export default async function AdminRafflesPage() {
             <ActionForm action={createRaffleAction}>
               <div className="form-field">
                 <label htmlFor="name">Name</label>
-                <input id="name" name="name" required placeholder="e.g. Blue & Gold 50/50" />
+                <input id="name" name="name" required maxLength={MAX_NAME_LENGTH} placeholder="e.g. Blue & Gold 50/50" />
               </div>
               <div className="form-row">
                 <div className="form-field">
@@ -172,7 +173,7 @@ export default async function AdminRafflesPage() {
               </div>
               <div className="form-field">
                 <label htmlFor="notes">Notes (optional)</label>
-                <textarea id="notes" name="notes" rows={2} />
+                <textarea id="notes" name="notes" rows={2} maxLength={MAX_NOTE_LENGTH} />
               </div>
               <SubmitButton className="btn btn-primary" pendingLabel="Starting…">
                 Start Raffle

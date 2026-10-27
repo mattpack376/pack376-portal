@@ -14,7 +14,9 @@ import {
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { PACK_TIME_ZONE, toDateOnlyString } from "@/lib/dateOnly";
 import { formatCents } from "@/lib/duesData";
-import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, formatBoxNumbers, type RaffleMethod } from "@/lib/raffleMath";
+import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
+import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, buyerNameKey, formatBoxNumbers, type RaffleMethod } from "@/lib/raffleMath";
+import { paymentEditVersion } from "@/lib/raffleEditVersion";
 import type { RaffleDetail, RafflePaymentDetail } from "@/lib/raffleData";
 import { MethodSelect, PayerNameList, RecordPaymentPopover, receivedLabel } from "./parts";
 
@@ -56,7 +58,7 @@ export default function PaymentsTab({
   helperUserId: string | null;
   today: string;
   payerNames: string[];
-  /** Lower-cased payer name -> the buyer their money was for last time. */
+  /** buyerNameKey of a payer name -> the buyer their money was for last time. */
   payerHistory: Map<string, string>;
 }) {
   const s = raffle.summary;
@@ -80,7 +82,7 @@ export default function PaymentsTab({
         </p>
         <div className="form-field">
           <label htmlFor={`pay-${payment.id}-reason`}>Why?</label>
-          <input id={`pay-${payment.id}-reason`} name="reason" required placeholder="e.g. entered twice" />
+          <input id={`pay-${payment.id}-reason`} name="reason" required maxLength={MAX_NOTE_LENGTH} placeholder="e.g. entered twice" />
         </div>
         <SubmitButton className="btn btn-danger btn-small" pendingLabel="Voiding…">
           Void Payment
@@ -96,6 +98,8 @@ export default function PaymentsTab({
       <>
         <EditPopover action={updatePaymentAction} label={editLabel}>
           <input type="hidden" name="paymentId" value={payment.id} />
+          {/* What this form was filled in with: refused if another Admin corrects the payment meanwhile. */}
+          <input type="hidden" name="version" value={paymentEditVersion(payment)} />
           <div className="form-field">
             <label htmlFor={`${id}-entry`}>For</label>
             <select id={`${id}-entry`} name="entryId" defaultValue={payment.entryId ?? ""}>
@@ -125,7 +129,14 @@ export default function PaymentsTab({
           </div>
           <div className="form-field">
             <label htmlFor={`${id}-payer`}>Paid by (if not the buyer)</label>
-            <input id={`${id}-payer`} name="payerName" list={PAYER_LIST_ID} autoComplete="off" defaultValue={payment.payerName ?? ""} />
+            <input
+              id={`${id}-payer`}
+              name="payerName"
+              list={PAYER_LIST_ID}
+              autoComplete="off"
+              maxLength={MAX_NAME_LENGTH}
+              defaultValue={payment.payerName ?? ""}
+            />
           </div>
           <div className="form-field">
             <label htmlFor={`${id}-received`}>Received</label>
@@ -133,7 +144,7 @@ export default function PaymentsTab({
           </div>
           <div className="form-field">
             <label htmlFor={`${id}-note`}>Note (optional)</label>
-            <input id={`${id}-note`} name="note" defaultValue={payment.note ?? ""} />
+            <input id={`${id}-note`} name="note" maxLength={MAX_NOTE_LENGTH} defaultValue={payment.note ?? ""} />
           </div>
           <p className="form-note" style={{ marginTop: 0 }}>
             Changing the amount or how it was paid clears its Verified tick.
@@ -297,7 +308,7 @@ export default function PaymentsTab({
           </thead>
           <tbody>
             {unmatched.map((payment) => {
-              const lastFor = payerHistory.get((payment.payerName ?? "").trim().toLowerCase());
+              const lastFor = payerHistory.get(buyerNameKey(payment.payerName ?? ""));
               return (
                 <tr key={payment.id} className="status-owing">
                   <td className="audit-hover" data-audit={formatAuditTooltip("Recorded", payment.createdAt, payment.recordedByUsername)}>
@@ -332,7 +343,15 @@ export default function PaymentsTab({
               <div className="form-row">
                 <div className="form-field">
                   <label htmlFor="loose-payer">Came from</label>
-                  <input id="loose-payer" name="payerName" list={PAYER_LIST_ID} autoComplete="off" required placeholder="Name on the Zelle" />
+                  <input
+                    id="loose-payer"
+                    name="payerName"
+                    list={PAYER_LIST_ID}
+                    autoComplete="off"
+                    required
+                    maxLength={MAX_NAME_LENGTH}
+                    placeholder="Name on the Zelle"
+                  />
                 </div>
                 <div className="form-field">
                   <label htmlFor="loose-amount">Amount ($)</label>
@@ -351,7 +370,7 @@ export default function PaymentsTab({
               </div>
               <div className="form-field">
                 <label htmlFor="loose-note">Note (optional)</label>
-                <input id="loose-note" name="note" />
+                <input id="loose-note" name="note" maxLength={MAX_NOTE_LENGTH} />
               </div>
               <SubmitButton className="btn btn-primary" pendingLabel="Saving…">
                 Record Payment
@@ -365,7 +384,8 @@ export default function PaymentsTab({
         const totals = s.byMethod[method];
         const rows = live.filter((payment) => payment.method === method);
         const label = RAFFLE_METHOD_LABELS[method];
-        const pending = rows.filter((payment) => !payment.verifiedAt).length;
+        const unverified = rows.filter((payment) => !payment.verifiedAt);
+        const pending = unverified.length;
         return (
           <section key={method} style={{ marginTop: 28 }}>
             <div className="page-head" style={{ marginBottom: 12 }}>
@@ -383,9 +403,17 @@ export default function PaymentsTab({
                 </p>
               </div>
               {canManage && pending > 1 && (
-                <form action={verifyAllPaymentsAction}>
+                <ActionForm action={verifyAllPaymentsAction}>
                   <input type="hidden" name="raffleId" value={raffle.id} />
                   <input type="hidden" name="method" value={method} />
+                  {/*
+                   * The exact list (and amounts) this total was added up from:
+                   * only these are verified, and only while each still matches
+                   * — see verifyAllPaymentsAction.
+                   */}
+                  {unverified.map((payment) => (
+                    <input key={payment.id} type="hidden" name="reviewed" value={`${payment.id}:${payment.amountCents}`} />
+                  ))}
                   <ConfirmSubmitButton
                     className="btn btn-quiet btn-small"
                     pendingLabel="Verifying…"
@@ -393,7 +421,7 @@ export default function PaymentsTab({
                   >
                     Verify All {pending}
                   </ConfirmSubmitButton>
-                </form>
+                </ActionForm>
               )}
             </div>
             <table className="data-table has-popovers">
@@ -435,16 +463,19 @@ export default function PaymentsTab({
                       </td>
                       {canManage && (
                         <td className="actions">
-                          <form action={setPaymentVerifiedAction}>
+                          <ActionForm action={setPaymentVerifiedAction}>
                             <input type="hidden" name="paymentId" value={payment.id} />
                             <input type="hidden" name="verified" value={String(!payment.verifiedAt)} />
+                            {/* What this row showed: a payment corrected since then isn't ticked off. */}
+                            <input type="hidden" name="amountCents" value={payment.amountCents} />
+                            <input type="hidden" name="method" value={payment.method} />
                             <SubmitButton
                               className={payment.verifiedAt ? "btn btn-quiet btn-small" : "btn btn-primary btn-small"}
                               pendingLabel="Saving…"
                             >
                               {payment.verifiedAt ? "Undo Verify" : "Verify"}
                             </SubmitButton>
-                          </form>
+                          </ActionForm>
                           {paymentActions(payment)}
                         </td>
                       )}
@@ -498,7 +529,7 @@ export default function PaymentsTab({
                       <td data-label="Why">{payment.voidReason ?? "—"}</td>
                       {canManage && (
                         <td className="actions">
-                          <form action={restorePaymentAction}>
+                          <ActionForm action={restorePaymentAction}>
                             <input type="hidden" name="paymentId" value={payment.id} />
                             <ConfirmSubmitButton
                               className="btn btn-quiet btn-small"
@@ -507,7 +538,7 @@ export default function PaymentsTab({
                             >
                               Restore
                             </ConfirmSubmitButton>
-                          </form>
+                          </ActionForm>
                         </td>
                       )}
                     </tr>
