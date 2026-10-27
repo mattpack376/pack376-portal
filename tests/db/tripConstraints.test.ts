@@ -3,6 +3,8 @@
  * present after migrating, refusing bad rows, and — since the migration
  * runs against production rows nobody has looked at — skipped with a notice
  * rather than failing the deploy when an existing row already breaks one.
+ * `prisma migrate deploy` doesn't print notices, so the migration's header
+ * gives a query to run after deploying; that query is checked here too.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -14,6 +16,18 @@ import { freshTrip } from "./tripHelpers";
 const db = withTestDatabase("trip_constraints");
 const MIGRATION = readFileSync(join(process.cwd(), "prisma/migrations/20261027140000_trip_money_checks/migration.sql"), "utf8");
 const CONSTRAINTS = ["TripRegistration_pending_owes_nothing", "TripRegistration_amounts_nonnegative", "TripPage_prices_nonnegative"];
+
+/** The post-deploy check the migration's header comment tells the admin to run, taken from the comment itself. */
+const DOCUMENTED_CHECK = (() => {
+  const found = /--\s+(SELECT conname FROM pg_constraint[\s\S]*?;)/.exec(MIGRATION);
+  assert.ok(found, "the migration's header documents the post-deploy query");
+  return found[1].replace(/\n--/g, "\n");
+})();
+
+async function documentedCheck() {
+  const { rows } = await db.pool.query(DOCUMENTED_CHECK);
+  return rows.map((r) => r.conname as string).sort();
+}
 
 before(async () => {
   await db.ready;
@@ -49,6 +63,7 @@ const insertRegistration = (tripPageId: string, values: { owedPending: boolean; 
 describe("trip money constraints", () => {
   it("are in place after migrating, and refuse rows the actions never write", async () => {
     assert.deepEqual(await present(), [...CONSTRAINTS].sort());
+    assert.deepEqual(await documentedCheck(), [...CONSTRAINTS].sort(), "the documented check finds all three");
     const trip = await freshTrip(db.prisma);
 
     await assert.rejects(insertRegistration(trip.id, { owedPending: true, amountOwedCents: 500 }), /TripRegistration_pending_owes_nothing/);
@@ -76,10 +91,12 @@ describe("trip money constraints", () => {
     const notices = await runMigration();
     assert.ok(notices.some((n) => n.includes("Skipped TripRegistration_pending_owes_nothing")), notices.join("\n"));
     assert.deepEqual(await present(), ["TripPage_prices_nonnegative", "TripRegistration_amounts_nonnegative"]);
+    assert.deepEqual(await documentedCheck(), await present(), "the documented check shows which one is missing");
 
     // Fixed by hand, the same block adds it — and leaves the others alone.
     await db.pool.query(`UPDATE "TripRegistration" SET "amountOwedCents" = 0 WHERE "id" = $1`, [rows[0].id]);
     assert.deepEqual(await runMigration(), []);
     assert.deepEqual(await present(), [...CONSTRAINTS].sort());
+    assert.deepEqual(await documentedCheck(), [...CONSTRAINTS].sort());
   });
 });

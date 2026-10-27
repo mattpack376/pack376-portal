@@ -5,10 +5,22 @@
 --
 -- Nothing in the app has ever written such a row, but this runs against
 -- existing production data it hasn't seen: each constraint is added only if
--- no current row breaks it. If one does, the constraint is skipped with a
--- NOTICE in the deploy log rather than failing the deploy, and the row can be
--- fixed by hand and this block run again (it skips constraints already
--- there). Additive only; no data is changed.
+-- no current row breaks it. If one does, that constraint is skipped rather
+-- than failing the deploy, and the migration is still recorded as applied.
+-- The RAISE NOTICE below says which, but only where notices are shown (psql,
+-- say) — `prisma migrate deploy` prints none, so a skip is silent in the
+-- Vercel build log. After deploying, check that all three exist:
+--
+--   SELECT conname FROM pg_constraint
+--    WHERE conname IN ('TripRegistration_pending_owes_nothing',
+--                      'TripRegistration_amounts_nonnegative',
+--                      'TripPage_prices_nonnegative');
+--
+-- Three rows means all were added. For any missing, find the row with the
+-- matching query in the block below, fix it by hand, and run this DO block
+-- again (it skips constraints already there). The app doesn't depend on the
+-- constraints; they guard the rules its code already keeps. Additive only;
+-- no data is changed.
 
 DO $$
 BEGIN
