@@ -316,4 +316,71 @@ describe("album actions", () => {
     const refused = await runAs(tripViewer, () => albums.toggleAlbumVisibilityAction(album.id, true));
     assert.deepEqual(refused, { ok: false, error: "Not authorized." });
   });
+
+  it("the album forms give the browser the same length limits the save enforces", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { ALBUM_FIELD_LIMITS } = await import("@/lib/albumFields");
+    const { default: EditAlbumForm } = await import("@/components/EditAlbumForm");
+    const { default: NewAlbumPage } = await import("@/app/portal/(authed)/admin/albums/new/page");
+    assert.deepEqual({ ...ALBUM_FIELD_LIMITS }, { title: 120, description: 2000, photoAlbumUrl: 2048 });
+
+    const album = await makeAlbum(null);
+    for (const html of [renderToStaticMarkup(createElement(EditAlbumForm, { album })), renderToStaticMarkup(createElement(NewAlbumPage))]) {
+      for (const [id, limit] of Object.entries(ALBUM_FIELD_LIMITS)) {
+        const field = new RegExp(`<(input|textarea)[^>]*\\bid="${id}"[^>]*>`).exec(html)?.[0];
+        assert.ok(field, `no ${id} field`);
+        assert.match(field, new RegExp(`\\bmaxLength="${limit}"`, "i"), `${id} has no maxLength of ${limit}`);
+      }
+    }
+
+    // Exactly at each limit is accepted; one over is refused.
+    const link = "https://photos.example.org/s/";
+    const atLimits = await outcome(
+      runAs(admin, () =>
+        albums.createAlbumAction(
+          {},
+          albumForm({ title: "T".repeat(120), photoAlbumUrl: link + "a".repeat(2048 - link.length) }),
+        ),
+      ),
+    );
+    assert.equal(atLimits, "redirect");
+    const longLink = await outcome(
+      runAs(admin, () => albums.createAlbumAction({}, albumForm({ photoAlbumUrl: link + "a".repeat(2049 - link.length) }))),
+    );
+    assert.deepEqual(longLink, { error: "Enter a valid photo album link starting with https://" });
+
+    // A description the browser counts as 2,000 characters arrives longer,
+    // because each line break is sent as CRLF; it's accepted and stored with LF.
+    // Nine 199-character lines and one of 200, with nine line breaks between them.
+    const browserCounted = Array(9).fill("x".repeat(199)).join("\n") + "\n" + "y".repeat(200);
+    assert.equal(browserCounted.length, 2000);
+    const sent = browserCounted.replace(/\n/g, "\r\n");
+    assert.ok(sent.length > 2000);
+    const saved = await outcome(
+      runAs(admin, () => albums.createAlbumAction({}, albumForm({ title: "Long description", description: sent }))),
+    );
+    assert.equal(saved, "redirect");
+    const stored = await db.prisma.photoAlbum.findFirstOrThrow({ where: { title: "Long description" } });
+    assert.equal(stored.description, browserCounted);
+    const tooLong = await outcome(
+      runAs(admin, () => albums.createAlbumAction({}, albumForm({ description: browserCounted + "z" }))),
+    );
+    assert.deepEqual(tooLong, { error: "Keep the description to 2,000 characters or fewer." });
+
+    // An older description saved with CRLF isn't logged as edited when only the line endings change.
+    await db.prisma.photoAlbum.update({ where: { id: album.id }, data: { description: "Line one\r\nLine two" } });
+    const resaved = await outcome(
+      runAs(admin, () =>
+        albums.updateAlbumAction(
+          {},
+          albumForm({ albumId: album.id, title: "Fall Campout", eventDate: "2026-10-10", photoAlbumUrl: "https://photos.example.org/s/x", description: "Line one\r\nLine two" }),
+        ),
+      ),
+    );
+    assert.equal(resaved, "redirect");
+    assert.equal((await db.prisma.photoAlbum.findUniqueOrThrow({ where: { id: album.id } })).description, "Line one\nLine two");
+    const entry = await db.prisma.auditLog.findFirstOrThrow({ where: { action: "album.update", entityId: album.id } });
+    assert.doesNotMatch(JSON.stringify(entry.details), /Description/);
+  });
 });

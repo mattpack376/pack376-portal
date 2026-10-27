@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createAlbumAction, type AlbumActionState } from "@/lib/actions/albums";
+import { ALBUM_FIELD_LIMITS } from "@/lib/albumFields";
 
 const initialState: AlbumActionState = {};
 
@@ -20,7 +21,14 @@ export default function NewAlbumPage() {
         <form action={formAction}>
           <div className="form-field">
             <label htmlFor="title">Event Title</label>
-            <input id="title" name="title" type="text" placeholder="Camp Conron Weekend" required />
+            <input
+              id="title"
+              name="title"
+              type="text"
+              placeholder="Camp Conron Weekend"
+              maxLength={ALBUM_FIELD_LIMITS.title}
+              required
+            />
           </div>
           <div className="form-field">
             <label htmlFor="eventDate">Event Date</label>
@@ -28,7 +36,13 @@ export default function NewAlbumPage() {
           </div>
           <div className="form-field">
             <label htmlFor="description">Description (optional)</label>
-            <textarea id="description" name="description" rows={3} placeholder="A few sentences about the event." />
+            <textarea
+              id="description"
+              name="description"
+              rows={3}
+              placeholder="A few sentences about the event."
+              maxLength={ALBUM_FIELD_LIMITS.description}
+            />
           </div>
           <div className="form-field">
             <label htmlFor="coverImage">Cover Image (optional)</label>
@@ -41,7 +55,14 @@ export default function NewAlbumPage() {
           </div>
           <div className="form-field">
             <label htmlFor="photoAlbumUrl">Photo Album Link</label>
-            <input id="photoAlbumUrl" name="photoAlbumUrl" type="url" placeholder="https://photos.pack376nyc.org/s/…" required />
+            <input
+              id="photoAlbumUrl"
+              name="photoAlbumUrl"
+              type="url"
+              placeholder="https://photos.pack376nyc.org/s/…"
+              maxLength={ALBUM_FIELD_LIMITS.photoAlbumUrl}
+              required
+            />
           </div>
           {state?.error && (
             <p className="form-error" role="alert">

@@ -9,13 +9,12 @@ import { assertAdmin, assertAlbumEditAccess } from "@/lib/authorize";
 import { recordAudit, recordAuditInTransaction, changedFields, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob, discardUnsavedUpload, processPendingBlobDeletions } from "@/lib/blobCleanup";
 import { isDateOnlyString } from "@/lib/dateOnly";
-import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH, textField } from "@/lib/formValues";
+import { textField } from "@/lib/formValues";
+import { ALBUM_FIELD_LIMITS, normalizeLineBreaks } from "@/lib/albumFields";
 import { IMAGE_MEDIA_TYPES, UploadRejectedError, prepareUpload } from "@/lib/uploadValidation";
 
 export type AlbumActionState = { error?: string };
 
-/** Longest album link accepted; real share links are well under 200 characters. */
-const MAX_ALBUM_URL_LENGTH = 2048;
 /**
  * Covers are stored no bigger than this on either side. The gallery shows them
  * as cards, so a full 48-megapixel phone photo would only cost storage and
@@ -50,22 +49,24 @@ type AlbumFields = { title: string; eventDate: Date; description: string; photoA
 function readAlbumFields(formData: FormData): AlbumFields | { error: string } {
   const title = textField(formData.get("title"));
   const eventDateRaw = textField(formData.get("eventDate"));
-  const description = textField(formData.get("description"));
+  const description = normalizeLineBreaks(textField(formData.get("description")));
   const photoAlbumUrl = textField(formData.get("photoAlbumUrl"));
 
   if (!title || !eventDateRaw || !photoAlbumUrl) {
     return { error: "Title, event date, and photo album link are required." };
   }
-  if (title.length > MAX_NAME_LENGTH) {
-    return { error: `Keep the title to ${MAX_NAME_LENGTH} characters or fewer.` };
+  if (title.length > ALBUM_FIELD_LIMITS.title) {
+    return { error: `Keep the title to ${ALBUM_FIELD_LIMITS.title} characters or fewer.` };
   }
-  if (description.length > MAX_NOTE_LENGTH) {
-    return { error: `Keep the description to ${MAX_NOTE_LENGTH.toLocaleString("en-US")} characters or fewer.` };
+  if (description.length > ALBUM_FIELD_LIMITS.description) {
+    return {
+      error: `Keep the description to ${ALBUM_FIELD_LIMITS.description.toLocaleString("en-US")} characters or fewer.`,
+    };
   }
   if (!isDateOnlyString(eventDateRaw)) {
     return { error: "Enter a valid event date." };
   }
-  if (photoAlbumUrl.length > MAX_ALBUM_URL_LENGTH || !isSafeHttpUrl(photoAlbumUrl)) {
+  if (photoAlbumUrl.length > ALBUM_FIELD_LIMITS.photoAlbumUrl || !isSafeHttpUrl(photoAlbumUrl)) {
     return { error: "Enter a valid photo album link starting with https://" };
   }
   return { title, eventDate: new Date(`${eventDateRaw}T00:00:00.000Z`), description, photoAlbumUrl };
@@ -235,7 +236,9 @@ export async function updateAlbumAction(
           ...changedFields({
             Title: [before.title, fields.title],
             "Event date": [before.eventDate, fields.eventDate],
-            Description: [before.description, fields.description || null],
+            // Compared with plain LF line breaks, so an older description saved
+            // with CRLF doesn't show up as edited when only that changed.
+            Description: [before.description && normalizeLineBreaks(before.description), fields.description || null],
             "Album link": [before.photoAlbumUrl, fields.photoAlbumUrl],
           }),
           // The old blob URL isn't worth keeping; that a new file replaced it is.
