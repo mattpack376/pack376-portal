@@ -7,6 +7,8 @@
  */
 import assert from "node:assert/strict";
 import { before, beforeEach, describe, it, type TestContext } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import bcrypt from "bcryptjs";
 import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
 import { asAnonymous, form, gate, resetTestState, runAs, settle, testState } from "../support/context";
@@ -16,12 +18,16 @@ const db = withTestDatabase("password_reset");
 let reset: typeof import("@/lib/actions/passwordReset");
 let users: typeof import("@/lib/actions/users");
 let tokens: typeof import("@/lib/resetTokens");
+let resetPage: typeof import("@/app/portal/reset/[token]/page");
+let resetForm: typeof import("@/components/SetPasswordForm");
 
 before(async () => {
   await db.ready;
   reset = await import("@/lib/actions/passwordReset");
   users = await import("@/lib/actions/users");
   tokens = await import("@/lib/resetTokens");
+  resetPage = await import("@/app/portal/reset/[token]/page");
+  resetForm = await import("@/components/SetPasswordForm");
 });
 
 beforeEach(() => resetTestState());
@@ -158,6 +164,16 @@ async function failInsertsWhen(t: TestContext, table: string, condition: string)
   return lift;
 }
 
+/** The text of every <h1> in some rendered markup. */
+function headings(html: string) {
+  return [...html.matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map((m) => m[1]);
+}
+
+/** The reset page exactly as a visitor's browser first receives it. */
+async function renderResetPage(token: string) {
+  return renderToStaticMarkup(await resetPage.default({ params: Promise.resolve({ token }) }));
+}
+
 // Prisma keeps DateTime columns as UTC in "timestamp without time zone", and
 // the test server's sessions may run in another zone, so SQL here spells out
 // "now" in UTC to agree with the app's clock.
@@ -253,9 +269,9 @@ describe("finishing a reset link", () => {
     assert.equal((await complete(live, "brand-new-password")).kind, "redirect");
   });
 
-  it("marks a dead link so the form can offer the recovery path", async () => {
+  it("marks a dead link, and why, so the form can offer the recovery path", async () => {
     const outcome = await complete("A".repeat(43), "brand-new-password");
-    assert.equal(outcome.kind === "state" && outcome.state.linkDead, true);
+    assert.equal(outcome.kind === "state" && outcome.state.linkDead, "invalid");
     assert.match(errorOf(outcome), /Ask an admin to send you a new one/);
     const user = await makeUser();
     const token = await tokens.issueResetToken(user.id);
@@ -268,9 +284,70 @@ describe("finishing a reset link", () => {
     const user = await makeUser({ role: "DEN", active: false });
     const token = await tokens.issueInviteToken(user.id);
     const counts = countBcrypt();
-    assert.match(errorOf(await complete(token, "brand-new-password")), /inactive/);
+    const outcome = await complete(token, "brand-new-password");
+    assert.match(errorOf(outcome), /inactive/);
+    assert.equal(outcome.kind === "state" && outcome.state.linkDead, "inactive");
     assert.equal(counts.hash, 0);
     assert.equal((await userRow(user.id)).passwordHash, ORIGINAL_HASH);
+  });
+
+  it("the page's heading matches the link's state on first load", async () => {
+    const user = await makeUser();
+    const token = await tokens.issueResetToken(user.id);
+    const usable = await renderResetPage(token);
+    assert.deepEqual(headings(usable), ["Set Your Password"]);
+    assert.match(usable, /<form/);
+    assert.doesNotMatch(usable, /role="alert"/);
+
+    const invalid = await renderResetPage("A".repeat(43));
+    assert.deepEqual(headings(invalid), ["Link Invalid"]);
+    assert.match(invalid, /role="alert"[^>]*>This link is invalid, expired, or has already been used/);
+    assert.match(invalid, /href="\/portal\/login"/);
+    assert.doesNotMatch(invalid, /<form|Choose a password/);
+
+    await db.prisma.user.update({ where: { id: user.id }, data: { active: false } });
+    const inactive = await renderResetPage(token);
+    assert.deepEqual(headings(inactive), ["Account Inactive"]);
+    assert.match(inactive, /role="alert"[^>]*>This account is inactive/);
+    assert.doesNotMatch(inactive, /<form|Choose a password/);
+  });
+
+  it("after a submit finds the link dead, the form shows the same view as the page, heading included", async () => {
+    const noop = () => {};
+    const render = (state: import("@/lib/actions/passwordReset").CompleteResetState) =>
+      renderToStaticMarkup(createElement(resetForm.SetPasswordView, { token: "A".repeat(43), state, formAction: noop, pending: false }));
+
+    // A link that is spent between the page loading and the submit.
+    const user = await makeUser();
+    const token = await tokens.issueResetToken(user.id);
+    const pageHtml = await renderResetPage(token);
+    assert.deepEqual(headings(pageHtml), ["Set Your Password"]);
+    assert.equal((await complete(token, "brand-new-password")).kind, "redirect");
+    const spent = await complete(token, "another-password");
+    assert.equal(spent.kind, "state");
+    const afterSpent = render(spent.kind === "state" ? spent.state : {});
+    assert.deepEqual(headings(afterSpent), ["Link Invalid"], "no \"Set Your Password\" above a dead link");
+    assert.doesNotMatch(afterSpent, /Set Your Password|Choose a password|<form|type="password"/);
+    assert.ok(
+      (await renderResetPage(token)).includes(afterSpent),
+      "exactly what the page shows when it loads that link now",
+    );
+
+    // An account switched off between the page loading and the submit.
+    const denUser = await makeUser({ role: "DEN" });
+    const invite = await tokens.issueInviteToken(denUser.id);
+    await db.prisma.user.update({ where: { id: denUser.id }, data: { active: false } });
+    const inactive = await complete(invite, "brand-new-password");
+    const afterInactive = render(inactive.kind === "state" ? inactive.state : {});
+    assert.deepEqual(headings(afterInactive), ["Account Inactive"]);
+    assert.doesNotMatch(afterInactive, /Set Your Password|<form/);
+
+    // A refusal that isn't about the link keeps the form and its heading.
+    const fresh = await tokens.issueResetToken(user.id);
+    const mismatch = await complete(fresh, "brand-new-password", "different-password");
+    const afterMismatch = render(mismatch.kind === "state" ? mismatch.state : {});
+    assert.deepEqual(headings(afterMismatch), ["Set Your Password"]);
+    assert.match(afterMismatch, /<form/);
   });
 
   it("refuses everything while the firewall rate-limits this connection", async () => {

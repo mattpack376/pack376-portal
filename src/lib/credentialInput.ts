@@ -31,6 +31,24 @@ export function isWellFormedResetToken(token: unknown): token is string {
   return typeof token === "string" && RESET_TOKEN_PATTERN.test(token);
 }
 
+/**
+ * Why a reset/invite link can't be finished, and how the page says so. The
+ * reset page uses this when it first loads a dead link, and the form uses the
+ * same words when a submit finds the link dead, so both views match.
+ */
+export const DEAD_LINK_TEXT = {
+  invalid: {
+    heading: "Link Invalid",
+    message: "This link is invalid, expired, or has already been used. Ask an admin to send you a new one.",
+  },
+  inactive: {
+    heading: "Account Inactive",
+    message: "This account is inactive. Ask an admin to make it active again, then request a new link.",
+  },
+} as const;
+
+export type DeadLinkReason = keyof typeof DEAD_LINK_TEXT;
+
 /** UTF-8 length, the way bcrypt counts a password. */
 export function utf8ByteLength(value: string) {
   return new TextEncoder().encode(value).byteLength;

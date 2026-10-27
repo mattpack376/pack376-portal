@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { checkRateLimit } from "@vercel/firewall";
 import { hashPassword, createSessionCookie } from "@/lib/auth";
-import { isWellFormedResetToken, newPasswordProblem } from "@/lib/credentialInput";
+import { DEAD_LINK_TEXT, isWellFormedResetToken, newPasswordProblem, type DeadLinkReason } from "@/lib/credentialInput";
 import { redeemResetToken, resetLinkStatus } from "@/lib/resetTokens";
 import { recordAuditInTransaction } from "@/lib/audit";
 
@@ -12,13 +12,17 @@ export type CompleteResetState = {
   error?: string;
   /** The field the error is about, so the form can mark it. */
   field?: "password" | "confirmPassword";
-  /** The link itself can't be used; trying again won't help, a new link will. */
-  linkDead?: boolean;
+  /**
+   * Set when the link itself can't be used, and why: trying again won't help,
+   * a new link will. The form then shows the same view the page shows for a
+   * dead link on first load.
+   */
+  linkDead?: DeadLinkReason;
 };
 
-const LINK_INVALID =
-  "This link is invalid, expired, or has already been used. Ask an admin to send you a new one.";
-const ACCOUNT_INACTIVE = "This account is inactive. Ask an admin to make it active again, then request a new link.";
+function deadLink(reason: DeadLinkReason): CompleteResetState {
+  return { error: DEAD_LINK_TEXT[reason].message, linkDead: reason };
+}
 
 /**
  * Redeems a one-time invite/reset link, lets the account holder set their own
@@ -58,13 +62,12 @@ export async function completeResetAction(
   const password = typeof rawPassword === "string" ? rawPassword : "";
   const confirmPassword = typeof rawConfirm === "string" ? rawConfirm : "";
 
-  if (!isWellFormedResetToken(token)) return { error: LINK_INVALID, linkDead: true };
+  if (!isWellFormedResetToken(token)) return deadLink("invalid");
   const problem = newPasswordProblem(password, confirmPassword);
   if (problem) return problem;
 
   const status = await resetLinkStatus(token);
-  if (status === "invalid") return { error: LINK_INVALID, linkDead: true };
-  if (status === "inactive") return { error: ACCOUNT_INACTIVE, linkDead: true };
+  if (status !== "usable") return deadLink(status);
 
   const passwordHash = await hashPassword(password);
 
@@ -102,9 +105,7 @@ export async function completeResetAction(
     return { error: "Your new password couldn't be saved. Please try again in a moment." };
   }
 
-  if (result.status !== "redeemed") {
-    return { error: result.status === "inactive" ? ACCOUNT_INACTIVE : LINK_INVALID, linkDead: true };
-  }
+  if (result.status !== "redeemed") return deadLink(result.status);
 
   // Signed with the session version this change committed, so it's the one
   // live session; anything that bumps the version later revokes it as usual.
