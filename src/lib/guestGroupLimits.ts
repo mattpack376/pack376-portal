@@ -30,6 +30,16 @@ export const SELF_SERVICE_GUEST_GROUPS_PER_EVENT = 5;
 export const ADMIN_GUEST_GROUP_MAX_PEOPLE = 200;
 
 /**
+ * The most people an Admin's edit can leave in an existing group. Normally
+ * ADMIN_GUEST_GROUP_MAX_PEOPLE; a group saved bigger than that before the
+ * limit existed can keep its size or shrink, but not grow, so it can still be
+ * edited (its amount owed corrected, say) without first being split.
+ */
+export function adminGuestGroupEditMaxPeople(savedPeople: number): number {
+  return Math.max(ADMIN_GUEST_GROUP_MAX_PEOPLE, savedPeople);
+}
+
+/**
  * A fresh key for one rendering of a sign-up form, sent back in a hidden
  * field. The action stores it on the group it creates, so the same form sent
  * twice (a double tap, a retried request) makes one group, while the next

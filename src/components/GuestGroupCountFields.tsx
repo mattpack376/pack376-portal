@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { centsFieldText } from "@/lib/savedFormValues";
 
 /** Adults/Kids/Amount Owed fields for a guest group — Amount Owed auto-fills from the counts times the event's per-head fees, and stays editable afterward (recalculated whenever a count changes). `maxPeople` is only a hint to the browser; the Server Action enforces the real limit. */
 export default function GuestGroupCountFields({
@@ -23,8 +24,10 @@ export default function GuestGroupCountFields({
   const [adultCount, setAdultCount] = useState(defaultAdultCount);
   const [childCount, setChildCount] = useState(defaultChildCount);
   const [amount, setAmount] = useState(
+    // The saved amount exactly as the action compares it, so one saved above
+    // today's ceiling can still be sent back unchanged.
     defaultAmountOwedCents !== undefined
-      ? (defaultAmountOwedCents / 100).toFixed(2)
+      ? centsFieldText(defaultAmountOwedCents)
       : (
           (defaultAdultCount * (adultFeeCents ?? 0) + defaultChildCount * (guestChildFeeCents ?? 0)) /
           100

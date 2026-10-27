@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { before, beforeEach, describe, it } from "node:test";
-import { withTestDatabase } from "../support/db";
+import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
 import { form, resetTestState, runAs, settle, testState, type SessionUser } from "../support/context";
 import { packFixtures } from "./fixtures/pack";
 
@@ -127,6 +127,31 @@ describe("event flyers", () => {
     );
     assert.deepEqual(cleanupCalls(), [saved.flyerUrl]);
     assert.equal((await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } })).flyerUrl, null);
+  });
+
+  it("deletes the replacement when the edit is refused under the event lock", async (t) => {
+    // An event saved before titles were limited, edited with its long title
+    // left as is, while another Admin shortens the title: the edit's check
+    // against the locked row refuses it after the new flyer was uploaded.
+    const longTitle = `Spring Campout ${"and more ".repeat(20)}`.trim();
+    const old = "https://example.test/event-flyers/old-3.png";
+    const event = await fx.event({ title: longTitle, flyerUrl: old });
+    const holder = await openTransaction(db.pool);
+    t.after(() => holder.rollback());
+    await holder.query(`UPDATE "Event" SET title = 'Spring Campout' WHERE id = $1`, [event.id]);
+
+    const pending = settle(runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: longTitle }, png()))));
+    await waitForLockWait(db.pool);
+    await holder.commit();
+
+    const outcome = await pending;
+    assert.equal(outcome.ok, false);
+    assert.match(outcome.ok ? "" : outcome.error.message, /title to 120 characters/);
+    assert.equal(testState.blobPuts.length, 1);
+    assert.deepEqual(cleanupCalls(), [testState.blobPuts[0].url]);
+    const saved = await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    assert.equal(saved.title, "Spring Campout");
+    assert.equal(saved.flyerUrl, old);
   });
 
   it("uploads nothing for an event that no longer exists", async () => {

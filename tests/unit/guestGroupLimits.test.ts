@@ -4,6 +4,7 @@ import {
   ADMIN_GUEST_GROUP_MAX_PEOPLE,
   SELF_SERVICE_GUEST_GROUP_MAX_PEOPLE,
   SELF_SERVICE_GUEST_GROUPS_PER_EVENT,
+  adminGuestGroupEditMaxPeople,
   isSubmissionKey,
   newSubmissionKey,
 } from "@/lib/guestGroupLimits";
@@ -13,6 +14,12 @@ describe("guest group limits", () => {
     assert.equal(SELF_SERVICE_GUEST_GROUP_MAX_PEOPLE, 10);
     assert.equal(SELF_SERVICE_GUEST_GROUPS_PER_EVENT, 5);
     assert.equal(ADMIN_GUEST_GROUP_MAX_PEOPLE, 200);
+  });
+
+  it("let an Admin's edit keep an older, bigger group's size, but no more", () => {
+    assert.equal(adminGuestGroupEditMaxPeople(3), 200);
+    assert.equal(adminGuestGroupEditMaxPeople(200), 200);
+    assert.equal(adminGuestGroupEditMaxPeople(280), 280);
   });
 });
 

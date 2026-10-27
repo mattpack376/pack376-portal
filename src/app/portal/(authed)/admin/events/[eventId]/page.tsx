@@ -30,6 +30,7 @@ import ActionForm from "@/components/ActionForm";
 import SubmitButton from "@/components/SubmitButton";
 import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { ADMIN_GUEST_GROUP_MAX_PEOPLE, newSubmissionKey } from "@/lib/guestGroupLimits";
+import { centsFieldText, textLengthAsTyped } from "@/lib/savedFormValues";
 
 export default async function AdminEventDetailPage({
   params,
@@ -48,6 +49,11 @@ export default async function AdminEventDetailPage({
   if (!event) notFound();
 
   const sortedGuestGroups = sortGuestGroups(event.guestGroups, guestSort);
+
+  // Saved before the edit form's limits existed: the form says so, and the
+  // action accepts the value as long as it comes back unchanged.
+  const titleOverLimit = event.title.length > MAX_NAME_LENGTH;
+  const descriptionOverLimit = textLengthAsTyped(event.description ?? "") > MAX_NOTE_LENGTH;
 
   const registeredScoutIds = new Set(event.registrations.map((r) => r.scout.id));
 
@@ -135,6 +141,12 @@ export default async function AdminEventDetailPage({
           <div className="form-field">
             <label htmlFor="edit-title">Title</label>
             <input id="edit-title" name="title" required maxLength={MAX_NAME_LENGTH} defaultValue={event.title} />
+            {titleOverLimit && (
+              <p className="form-note">
+                Saved before titles were limited to {MAX_NAME_LENGTH} characters. It can stay as it is; a changed
+                title has to fit.
+              </p>
+            )}
           </div>
           <div className="form-row">
             <div className="form-field">
@@ -159,7 +171,7 @@ export default async function AdminEventDetailPage({
                 type="number"
                 min="0"
                 step="0.01"
-                defaultValue={event.feeCents !== null ? (event.feeCents / 100).toFixed(2) : undefined}
+                defaultValue={event.feeCents !== null ? centsFieldText(event.feeCents) : undefined}
                 placeholder="Also required for parent self-signup"
               />
             </div>
@@ -171,7 +183,7 @@ export default async function AdminEventDetailPage({
                 type="number"
                 min="0"
                 step="0.01"
-                defaultValue={event.adultFeeCents !== null ? (event.adultFeeCents / 100).toFixed(2) : undefined}
+                defaultValue={event.adultFeeCents !== null ? centsFieldText(event.adultFeeCents) : undefined}
                 placeholder="Also required for guest self-signup"
               />
             </div>
@@ -183,7 +195,7 @@ export default async function AdminEventDetailPage({
                 type="number"
                 min="0"
                 step="0.01"
-                defaultValue={event.guestChildFeeCents !== null ? (event.guestChildFeeCents / 100).toFixed(2) : undefined}
+                defaultValue={event.guestChildFeeCents !== null ? centsFieldText(event.guestChildFeeCents) : undefined}
                 placeholder="Also required for guest self-signup"
               />
             </div>
@@ -191,6 +203,12 @@ export default async function AdminEventDetailPage({
           <div className="form-field">
             <label htmlFor="edit-description">Description (optional)</label>
             <textarea id="edit-description" name="description" rows={2} maxLength={MAX_NOTE_LENGTH} defaultValue={event.description ?? ""} />
+            {descriptionOverLimit && (
+              <p className="form-note">
+                Saved before descriptions were limited to {MAX_NOTE_LENGTH.toLocaleString("en-US")} characters. It can
+                stay as it is; a changed description has to fit.
+              </p>
+            )}
           </div>
           <div className="form-field">
             <label htmlFor="edit-flyer">Flyer (optional)</label>

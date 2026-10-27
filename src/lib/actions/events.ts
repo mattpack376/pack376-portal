@@ -25,8 +25,10 @@ import {
   ADMIN_GUEST_GROUP_MAX_PEOPLE,
   SELF_SERVICE_GUEST_GROUP_MAX_PEOPLE,
   SELF_SERVICE_GUEST_GROUPS_PER_EVENT,
+  adminGuestGroupEditMaxPeople,
   isSubmissionKey,
 } from "@/lib/guestGroupLimits";
+import { centsFieldText, isUnchangedText, textLengthAsTyped } from "@/lib/savedFormValues";
 import type { Prisma } from "@/generated/prisma/client";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 import type { SessionPayload } from "@/lib/session";
@@ -116,28 +118,69 @@ async function registrationContext(registrationId: string) {
 // ---------------------------------------------------------------------------
 // Reading form fields. Every limit is checked here, on the server, before
 // anything is written: the browser's max/maxLength hints are only hints.
+//
+// The limits are newer than some saved rows (see src/lib/savedFormValues.ts).
+// The edit actions pass in the row as it's saved, and a value saved before a
+// limit is accepted when it comes back unchanged, so an old event or group
+// can still be edited; anything new or changed has to fit.
 // ---------------------------------------------------------------------------
 
 function isDeadlineCategory(value: string): value is DeadlineCategory {
   return Object.hasOwn(DEADLINE_CATEGORY_LABELS, value);
 }
 
+/**
+ * A dollars field, or null if it isn't a valid amount. `saved` is the amount
+ * the edit form was loaded with: one above MAX_CENTS, saved before that
+ * ceiling, is still accepted when sent back exactly as the form showed it.
+ */
+function readCents(text: string, saved: number | null | undefined): number | null {
+  const cents = dollarsToCents(text);
+  if (cents !== null) return cents;
+  if (saved !== null && saved !== undefined && text === centsFieldText(saved)) return saved;
+  return null;
+}
+
 /** An optional fee field: blank is null (no default fee). */
-function optionalCents(raw: FormDataEntryValue | null, label: string): number | null {
+function optionalCents(raw: FormDataEntryValue | null, label: string, saved?: number | null): number | null {
   const text = textField(raw);
   if (!text) return null;
-  const cents = dollarsToCents(text);
+  const cents = readCents(text, saved);
   if (cents === null) {
     throw new EventInputError(`${label} isn't a valid amount. Use dollars and cents, up to ${MAX_AMOUNT_TEXT}.`);
   }
   return cents;
 }
 
-/** Title, category, date, description and default fees from the create/edit event forms. */
-function readEventFields(formData: FormData) {
+/** The fields of a saved event its edit form sends back and readEventFields checks against. */
+type SavedEventFields = {
+  title: string;
+  description: string | null;
+  feeCents: number | null;
+  adultFeeCents: number | null;
+  guestChildFeeCents: number | null;
+};
+
+/** What updateEventAction reads of the saved event: the fields above, plus what its audit entry compares. */
+const SAVED_EVENT_SELECT = {
+  title: true,
+  category: true,
+  eventDate: true,
+  description: true,
+  feeCents: true,
+  adultFeeCents: true,
+  guestChildFeeCents: true,
+  flyerUrl: true,
+} as const;
+
+/**
+ * Title, category, date, description and default fees from the create/edit
+ * event forms. `saved` (edit only) is the event as it's saved now.
+ */
+function readEventFields(formData: FormData, saved?: SavedEventFields) {
   const title = textField(formData.get("title"));
   if (!title) throw new EventInputError("Enter a title.");
-  if (title.length > MAX_NAME_LENGTH) {
+  if (title.length > MAX_NAME_LENGTH && !isUnchangedText(title, saved?.title)) {
     throw new EventInputError(`Keep the title to ${MAX_NAME_LENGTH} characters or fewer.`);
   }
 
@@ -148,8 +191,10 @@ function readEventFields(formData: FormData) {
   if (eventDate.error !== undefined) throw new EventInputError(eventDate.error);
   if (!eventDate.date) throw new EventInputError("Enter the event date.");
 
+  // Counted the way the textarea's maxLength counts it (a line break is one
+  // character), so whatever the browser let through fits here too.
   const description = textField(formData.get("description"));
-  if (description.length > MAX_NOTE_LENGTH) {
+  if (textLengthAsTyped(description) > MAX_NOTE_LENGTH && !isUnchangedText(description, saved?.description)) {
     throw new EventInputError(`Keep the description to ${MAX_NOTE_LENGTH} characters or fewer.`);
   }
 
@@ -158,9 +203,9 @@ function readEventFields(formData: FormData) {
     category,
     eventDate: eventDate.date,
     description: description || null,
-    feeCents: optionalCents(formData.get("fee"), "The fee per scout"),
-    adultFeeCents: optionalCents(formData.get("adultFee"), "The fee per adult"),
-    guestChildFeeCents: optionalCents(formData.get("guestChildFee"), "The fee per guest child"),
+    feeCents: optionalCents(formData.get("fee"), "The fee per scout", saved?.feeCents),
+    adultFeeCents: optionalCents(formData.get("adultFee"), "The fee per adult", saved?.adultFeeCents),
+    guestChildFeeCents: optionalCents(formData.get("guestChildFee"), "The fee per guest child", saved?.guestChildFeeCents),
   };
 }
 
@@ -186,11 +231,11 @@ function checkedScoutIds(formData: FormData): string[] {
   return ids;
 }
 
-/** A guest group's "Family Name / Guest Name". */
-function readGroupName(formData: FormData): string {
+/** A guest group's "Family Name / Guest Name". `saved` (edit only) is the name as it's saved now. */
+function readGroupName(formData: FormData, saved?: string): string {
   const name = textField(formData.get("familyName"));
   if (!name) throw new EventInputError("Enter a family or guest name.");
-  if (name.length > MAX_NAME_LENGTH) {
+  if (name.length > MAX_NAME_LENGTH && !isUnchangedText(name, saved)) {
     throw new EventInputError(`Keep the name to ${MAX_NAME_LENGTH} characters or fewer.`);
   }
   return name;
@@ -225,9 +270,26 @@ const ADMIN_TOO_MANY =
   `A guest group can have at most ${ADMIN_GUEST_GROUP_MAX_PEOPLE} people. ` +
   "Split a bigger group into more than one.";
 
-/** The amount owed an Admin types for a guest group. */
-function readAmountOwed(formData: FormData): number {
-  const cents = dollarsToCents(textField(formData.get("amountOwed")));
+/**
+ * Adults and kids from an Admin's edit of a saved group: up to the Admin
+ * ceiling, or, for a group saved bigger than that before the ceiling existed,
+ * up to its saved size (adminGuestGroupEditMaxPeople).
+ */
+function readEditedHeadcounts(formData: FormData, saved: { adultCount: number; childCount: number }) {
+  const savedPeople = saved.adultCount + saved.childCount;
+  const maxPeople = adminGuestGroupEditMaxPeople(savedPeople);
+  if (maxPeople === ADMIN_GUEST_GROUP_MAX_PEOPLE) return readHeadcounts(formData, maxPeople, ADMIN_TOO_MANY);
+  return readHeadcounts(
+    formData,
+    maxPeople,
+    `This group was saved with ${savedPeople} people, more than the ${ADMIN_GUEST_GROUP_MAX_PEOPLE} a group can ` +
+      "have now. It can keep that many or fewer, but not more.",
+  );
+}
+
+/** The amount owed an Admin types for a guest group. `saved` (edit only) is the amount saved now. */
+function readAmountOwed(formData: FormData, saved?: number): number {
+  const cents = readCents(textField(formData.get("amountOwed")), saved);
   if (cents === null) {
     throw new EventInputError(`Enter the amount owed in dollars and cents, up to ${MAX_AMOUNT_TEXT}.`);
   }
@@ -366,43 +428,35 @@ export async function updateEventAction(formData: FormData) {
 
   const id = idField(formData.get("id"));
   if (!id) throw new Error("Missing event id.");
-  const fields = readEventFields(formData);
   const removeFlyer = textField(formData.get("removeFlyer")) === "true";
 
-  // Turned away before anything is uploaded for it.
-  if (!(await prisma.event.findUnique({ where: { id }, select: { id: true } }))) {
-    throw new Error("Event not found.");
-  }
+  // Turned away, and the fields checked against the event as saved, before
+  // anything is uploaded for it.
+  const saved = await prisma.event.findUnique({ where: { id }, select: SAVED_EVENT_SELECT });
+  if (!saved) throw new Error("Event not found.");
+  readEventFields(formData, saved);
 
   // Only touch flyerUrl when a new file was uploaded or "remove" was checked,
   // so leaving both alone keeps whatever flyer is already saved.
   const uploadedUrl = await uploadEventFlyer(formData.get("flyer"));
   const flyerUrl: string | null | undefined = uploadedUrl ?? (removeFlyer ? null : undefined);
 
-  const before = await writeWithFlyer(uploadedUrl, () =>
+  const { before, fields } = await writeWithFlyer(uploadedUrl, () =>
     prisma.$transaction(async (tx) => {
       // Re-read under the lock, so the flyer this replaces is the one saved
       // right now: two Admins replacing it at once would otherwise both
       // delete the same old file and leave one of the new uploads behind.
       if (!(await lockEvent(tx, id))) throw new Error("Event not found.");
-      const previous = await tx.event.findUniqueOrThrow({
-        where: { id },
-        select: {
-          title: true,
-          category: true,
-          eventDate: true,
-          description: true,
-          feeCents: true,
-          adultFeeCents: true,
-          guestChildFeeCents: true,
-          flyerUrl: true,
-        },
-      });
+      const previous = await tx.event.findUniqueOrThrow({ where: { id }, select: SAVED_EVENT_SELECT });
+      // Checked again against the locked row: an over-limit title kept "as
+      // is" has to still be the saved one, not one another Admin has just
+      // replaced.
+      const fields = readEventFields(formData, previous);
       await tx.event.update({
         where: { id },
         data: { ...fields, ...(flyerUrl !== undefined ? { flyerUrl } : {}) },
       });
-      return previous;
+      return { before: previous, fields };
     }, TX),
   );
 
@@ -1122,10 +1176,7 @@ export async function updateGuestGroupAction(formData: FormData) {
   const guestGroupId = idField(formData.get("guestGroupId"));
   const eventId = idField(formData.get("eventId"));
   if (!guestGroupId) throw new Error("Missing guest group id.");
-  const familyName = readGroupName(formData);
   const guestOf = readGuestOf(formData.get("guestOf"));
-  const { adultCount, childCount } = readHeadcounts(formData, ADMIN_GUEST_GROUP_MAX_PEOPLE, ADMIN_TOO_MANY);
-  const amountOwedCents = readAmountOwed(formData);
 
   await prisma.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<{ id: string }[]>`
@@ -1135,6 +1186,12 @@ export async function updateGuestGroupAction(formData: FormData) {
       where: { id: guestGroupId },
       select: { familyName: true, adultCount: true, childCount: true, amountOwedCents: true, eventId: true },
     });
+    // Checked against the group as it's saved now, under the lock, so a name,
+    // size or amount saved before the limits can stay as it is (see "Reading
+    // form fields" above). A refusal here writes nothing.
+    const familyName = readGroupName(formData, existing.familyName);
+    const { adultCount, childCount } = readEditedHeadcounts(formData, existing);
+    const amountOwedCents = readAmountOwed(formData, existing.amountOwedCents);
     await assertGuestOfExists(tx, guestOf);
 
     await tx.eventGuestGroup.update({
