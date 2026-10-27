@@ -31,13 +31,10 @@ export default function ReceiptDownloadButton({ id, archived }: { id: string; ar
   return (
     <>
       <PdfDownloadButton className="btn btn-quiet btn-small" disabled={pending} getFile={buildPdf} />
+      {/* Visible text, not a tooltip, so touch, keyboard and screen-reader users get the reason too. */}
       {!archived && (
-        <span
-          className="form-note"
-          style={{ margin: 0, fontSize: 12 }}
-          title="Saved before issued PDFs were kept, so the download is rebuilt from the saved details with today's layout."
-        >
-          Rebuilt copy
+        <span className="form-note" style={{ margin: 0, fontSize: 12 }}>
+          Rebuilt copy (today&apos;s layout): saved before issued PDFs were kept
         </span>
       )}
       {error && (
