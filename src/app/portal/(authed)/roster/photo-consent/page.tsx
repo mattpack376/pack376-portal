@@ -14,7 +14,7 @@ import SegmentedNav from "@/components/SegmentedNav";
 import FileExportButton from "@/components/FileExportButton";
 import EmailAllConsentLinksButton from "@/components/EmailAllConsentLinksButton";
 import { consentGroup, type ConsentGroup } from "@/lib/photoConsentGroups";
-import { consentLinkRecipient } from "@/lib/photoConsentRecipients";
+import { consentLinkRecipient, noConsentRecipientNote } from "@/lib/photoConsentRecipients";
 
 type ConsentView = "all" | ConsentGroup;
 
@@ -211,7 +211,7 @@ export default async function PhotoConsentPage({
                                     <EmailConsentLinkButton scoutId={scout.id} parentEmail={parentEmail} />
                                   ) : (
                                     <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-                                      No parent email on file — copy the link above instead.
+                                      {noConsentRecipientNote(scout.parents)}
                                     </span>
                                   )}
                                 </div>

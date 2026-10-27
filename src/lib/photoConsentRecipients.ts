@@ -16,6 +16,18 @@ export function consentLinkRecipient(parents: { email: string | null }[]): strin
 }
 
 /**
+ * What the Photo Consent page shows in place of the Email Link button when
+ * consentLinkRecipient found no address to use: either no parent email is on
+ * file, or what is on file can't be emailed (a list, a name with the address,
+ * a typo), which someone needs to fix rather than think is missing.
+ */
+export function noConsentRecipientNote(parents: { email: string | null }[]): string {
+  return parents.some((parent) => parent.email?.trim())
+    ? "The parent email on file isn't a single valid address, so the link can't be emailed. Copy the link above instead, and have the address corrected in Parent Contacts."
+    : "No parent email on file — copy the link above instead.";
+}
+
+/**
  * The parent email on file for this scout that `requested` names (matched
  * without regard to case or surrounding spaces), as stored — or null when no
  * parent of the scout has that address, or it isn't one plain address.
