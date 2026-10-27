@@ -14,16 +14,23 @@ import {
   isReservedUsername,
 } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
-import { issueInviteToken, issueResetToken } from "@/lib/resetTokens";
+import { CREDENTIAL_TRANSACTION, issueTokenInTransaction, lockUserRow } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { canSetUserActive, isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
 import { ASSIGNABLE_ROLES, DEN_ASSIGNABLE_ROLES, ROLE_LABELS, type AssignableRole } from "@/lib/roleLabels";
 import { sendAccountLinkEmail } from "@/lib/email";
 import { formatPhoneNumber } from "@/lib/phone";
 import { denDisplayName } from "@/lib/rankConfig";
-import { recordAudit, changedFields } from "@/lib/audit";
+import { recordAudit, recordAuditInTransaction, changedFields } from "@/lib/audit";
+import { isValidEmail, MAX_NAME_LENGTH } from "@/lib/formValues";
+import { isUsernameTooLong, USERNAME_TOO_LONG_MESSAGE } from "@/lib/credentialInput";
 import type { CreatedInvite } from "@/lib/actions/dens";
 import type { Rank } from "@/generated/prisma/enums";
+
+/** Prisma's unique-constraint error: here, a username someone else just took. */
+function isUniqueViolation(error: unknown) {
+  return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2002";
+}
 
 export async function createAdminAction(
   username: string,
@@ -48,10 +55,23 @@ export async function createAdminAction(
     return { ok: false as const, error: "Only the master admin can create Admin accounts." };
   }
 
+  // Called with arguments rather than a form, but still straight from the
+  // browser: anything could arrive here, so check the types too.
+  if (typeof username !== "string" || typeof displayName !== "string" || (email != null && typeof email !== "string")) {
+    return { ok: false as const, error: "Username and display name are required." };
+  }
   const clean = username.trim().toLowerCase();
   const name = displayName.trim();
   const cleanEmail = email?.trim() || null;
   if (!clean || !name) return { ok: false as const, error: "Username and display name are required." };
+  // Sign-in won't look up a longer name, so the login could never be used.
+  if (isUsernameTooLong(clean)) return { ok: false as const, error: USERNAME_TOO_LONG_MESSAGE };
+  if (name.length > MAX_NAME_LENGTH) {
+    return { ok: false as const, error: `Display names can be at most ${MAX_NAME_LENGTH} characters.` };
+  }
+  if (cleanEmail && !isValidEmail(cleanEmail)) {
+    return { ok: false as const, error: "Enter a single email address, like name@example.com." };
+  }
 
   // The protected names are reserved whether or not a row currently holds
   // them. Master status is decided by username (src/lib/masterAdmins.ts), so
@@ -68,34 +88,52 @@ export async function createAdminAction(
 
   // No password is ever generated server-side for anyone to see — the account
   // starts with a random, immediately-discarded hash, and the new user sets
-  // their own password via a one-time invite link.
-  const user = await prisma.user.create({
-    data: {
-      username: clean,
-      passwordHash: await hashPassword(generatePassword()),
-      role,
-      displayName: name,
-      email: cleanEmail,
-    },
-  });
+  // their own password via a one-time invite link. Hashed before the
+  // transaction so nothing waits on bcrypt.
+  const placeholderHash = await hashPassword(generatePassword());
 
-  await recordAudit(session, {
-    action: "user.create",
-    summary: `Created the ${ROLE_LABELS[role] ?? role} login “${clean}” for ${name}`,
-    entityType: "User",
-    entityId: user.id,
-    details: [
-      { label: "Username", from: "—", to: clean },
-      { label: "Display name", from: "—", to: name },
-      { label: "Role", from: "—", to: ROLE_LABELS[role] ?? role },
-      ...(cleanEmail ? [{ label: "Email", from: "—", to: cleanEmail }] : []),
-    ],
-  });
+  // The account, its invite link and the audit entry commit together: no
+  // login without a way in, and no login without its record.
+  let created: { userId: string; token: string };
+  try {
+    created = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          username: clean,
+          passwordHash: placeholderHash,
+          role,
+          displayName: name,
+          email: cleanEmail,
+        },
+      });
+      const token = await issueTokenInTransaction(tx, user.id, "invite");
+      await recordAuditInTransaction(tx, session, {
+        action: "user.create",
+        summary: `Created the ${ROLE_LABELS[role] ?? role} login “${clean}” for ${name}`,
+        entityType: "User",
+        entityId: user.id,
+        details: [
+          { label: "Username", from: "—", to: clean },
+          { label: "Display name", from: "—", to: name },
+          { label: "Role", from: "—", to: ROLE_LABELS[role] ?? role },
+          ...(cleanEmail ? [{ label: "Email", from: "—", to: cleanEmail }] : []),
+        ],
+      });
+      return { userId: user.id, token };
+    }, CREDENTIAL_TRANSACTION);
+  } catch (error) {
+    // Two admins creating the same name at once: the check above passed for
+    // both, and the database's unique index stopped the second.
+    if (isUniqueViolation(error)) return { ok: false as const, error: "That username is already taken." };
+    // Anything else (a lost connection, a timeout) rolled back the account,
+    // its invite and its audit entry together, so trying again is safe.
+    console.error("[users] creating an account failed", error);
+    return { ok: false as const, error: "The account couldn't be created. Please try again in a moment." };
+  }
 
   revalidatePath("/portal/admin/users");
 
-  const token = await issueInviteToken(user.id);
-  const url = `${getAppBaseUrl()}/portal/reset/${token}`;
+  const url = `${getAppBaseUrl()}/portal/reset/${created.token}`;
 
   if (cleanEmail) {
     const { sent } = await sendAccountLinkEmail(cleanEmail, { username: clean, url, isNewAccount: true });
@@ -113,55 +151,92 @@ export async function resetPasswordAction(userId: string) {
   } catch {
     return { ok: false as const, error: "Not authorized." };
   }
+  if (typeof userId !== "string" || !userId) return { ok: false as const, error: "User not found." };
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
   if (!user) return { ok: false as const, error: "User not found." };
 
   // Only a master admin can reset a master admin's password. Without this,
   // a regular admin could reset the master's credentials and — if that
   // account has no email — have the new link revealed to them on screen.
+  const masterOnly = "Only a master admin can reset a master admin's password.";
   try {
     await assertCanMutateUser(session, user);
   } catch {
-    return { ok: false as const, error: "Only a master admin can reset a master admin's password." };
+    return { ok: false as const, error: masterOnly };
   }
+  // Worked out now for the same check under the lock below, which can't make
+  // its own query outside the transaction (the local dev database allows one
+  // connection).
+  const viewerIsMaster = await isMasterAdminSession(session);
+
+  // The throwaway password is hashed before the transaction, so the account
+  // row is never held locked for the length of a bcrypt hash.
+  const placeholderHash = await hashPassword(generatePassword());
 
   // Immediately kill the current password and any live sessions — matching
   // the confirm dialog's promise that "the old password will stop working
-  // immediately" — then send a one-time link so the user picks their own
+  // immediately" — and issue a one-time link so the user picks their own
   // replacement. The server never generates or sees the new password.
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      passwordHash: await hashPassword(generatePassword()),
-      failedLoginCount: 0,
-      lockedUntil: null,
-      sessionVersion: { increment: 1 },
-    },
-  });
-
-  await recordAudit(session, {
-    action: "user.resetPassword",
-    summary: `Reset the password for “${user.username}” (${user.displayName}) — the old password and every live session stopped working`,
-    entityType: "User",
-    entityId: userId,
-  });
+  //
+  // One transaction, under the account's lock (the same protocol as issuing
+  // and finishing a link, src/lib/resetTokens.ts): the new link moves the
+  // account to a new link generation, so any older link — even one whose
+  // owner is mid-way through finishing it — can no longer replace the
+  // password this sets. The audit entry commits with the change.
+  let outcome;
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      if (!(await lockUserRow(tx, userId))) return null;
+      // Re-read under the lock: this row is what the change is decided on.
+      const current = await tx.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { username: true, displayName: true, email: true },
+      });
+      if (isMasterAdminUsername(current.username) && !viewerIsMaster) return "forbidden" as const;
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash: placeholderHash,
+          failedLoginCount: 0,
+          lockedUntil: null,
+          sessionVersion: { increment: 1 },
+        },
+      });
+      const token = await issueTokenInTransaction(tx, userId, "reset");
+      await recordAuditInTransaction(tx, session, {
+        action: "user.resetPassword",
+        summary: `Reset the password for “${current.username}” (${current.displayName}) — the old password and every live session stopped working`,
+        entityType: "User",
+        entityId: userId,
+      });
+      return { token, user: current };
+    }, CREDENTIAL_TRANSACTION);
+  } catch (error) {
+    // Nothing above commits unless all of it does: the password, the sessions,
+    // the old links and the audit entry are just as they were, so the Admin
+    // can simply try again.
+    console.error("[users] resetting a password failed", error);
+    return { ok: false as const, error: "The password couldn't be reset. Please try again in a moment." };
+  }
+  if (!outcome) return { ok: false as const, error: "User not found." };
+  if (outcome === "forbidden") return { ok: false as const, error: masterOnly };
 
   revalidatePath("/portal/admin/users");
   revalidatePath("/portal/admin/users/parents");
 
-  const token = await issueResetToken(userId);
-  const url = `${getAppBaseUrl()}/portal/reset/${token}`;
+  // Sent only after the commit, so the link in the email is one that exists.
+  const url = `${getAppBaseUrl()}/portal/reset/${outcome.token}`;
 
-  if (user.email) {
-    const { sent } = await sendAccountLinkEmail(user.email, {
-      username: user.username,
+  if (outcome.user.email) {
+    const { sent } = await sendAccountLinkEmail(outcome.user.email, {
+      username: outcome.user.username,
       url,
       isNewAccount: false,
     });
-    if (sent) return { ok: true as const, emailedTo: user.email };
+    if (sent) return { ok: true as const, emailedTo: outcome.user.email };
   }
-  const invite: CreatedInvite = { username: user.username, url };
+  const invite: CreatedInvite = { username: outcome.user.username, url };
   return { ok: true as const, invite };
 }
 

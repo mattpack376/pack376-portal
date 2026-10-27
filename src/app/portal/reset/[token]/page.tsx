@@ -1,10 +1,11 @@
 import Image from "next/image";
-import { peekResetToken } from "@/lib/resetTokens";
-import SetPasswordForm from "@/components/SetPasswordForm";
+import { resetLinkStatus } from "@/lib/resetTokens";
+import SetPasswordForm, { DeadLinkNotice } from "@/components/SetPasswordForm";
 
 export default async function ResetPasswordPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const valid = await peekResetToken(token);
+  // Read-only: looking at the page never spends the link.
+  const status = await resetLinkStatus(token);
 
   return (
     <div className="login-wrap">
@@ -15,18 +16,9 @@ export default async function ResetPasswordPage({ params }: { params: Promise<{ 
             <span className="pack-name">Pack 376</span>
           </span>
         </div>
-        <h1>{valid ? "Set Your Password" : "Link Invalid"}</h1>
-
-        {valid ? (
-          <>
-            <p className="sub">Choose a password for your Pack 376 Portal account.</p>
-            <SetPasswordForm token={token} />
-          </>
-        ) : (
-          <div className="form-error">
-            This link is invalid, expired, or has already been used. Ask an admin to send you a new one.
-          </div>
-        )}
+        {/* Each view brings its own heading: the form's changes with it if a
+            submit finds the link dead, to the same view a dead link gets here. */}
+        {status === "usable" ? <SetPasswordForm token={token} /> : <DeadLinkNotice reason={status} />}
       </div>
     </div>
   );

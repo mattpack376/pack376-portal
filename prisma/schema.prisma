@@ -69,6 +69,9 @@ enum SignerRelationship {
 
 model User {
   id                       String                   @id @default(cuid())
+  // At most 254 bytes, the longest sign-in will look up, enforced by the
+  // User_username_length_check constraint (migration
+  // 20261027150001_limit_username_length; Prisma can't declare CHECKs).
   username                 String                   @unique
   passwordHash             String
   role                     Role
@@ -81,6 +84,12 @@ model User {
   // The value is embedded in the session JWT; a mismatch on any protected
   // request invalidates already-issued tokens (see src/lib/auth.ts).
   sessionVersion           Int                      @default(0)
+  // The account's reset/invite link generation. Bumped whenever a link is
+  // issued or redeemed (and so by every Admin reset); a link only works while
+  // its own credentialVersion still matches. Separate from sessionVersion,
+  // which role/den changes and switching inactive also bump — those must not
+  // kill a link that's waiting in someone's inbox. See src/lib/resetTokens.ts.
+  credentialVersion        Int                      @default(0)
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
   advancementUpdates       AdvancementRecord[]
@@ -148,13 +157,16 @@ model Household {
  * or displayed URL and is never persisted (see src/lib/resetTokens.ts).
  */
 model PasswordResetToken {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash         String    @unique
+  expiresAt         DateTime
+  usedAt            DateTime?
+  // User.credentialVersion when this link was issued. Links from before the
+  // column existed read 0, matching an account that hasn't issued one since.
+  credentialVersion Int       @default(0)
+  createdAt         DateTime  @default(now())
 
   @@index([userId])
 }
