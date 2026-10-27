@@ -71,7 +71,9 @@ import type { Prisma, Raffle } from "@/generated/prisma/client";
  * who is being removed. The raffle row is always locked first, before any of
  * its buyers, boxes or payments, so two of these can't deadlock each other.
  * The writes that depend on a payment's state also say that state in their
- * WHERE clause (updateMany + a count check), as a second guard.
+ * WHERE clause (updateMany + a count check), as a second guard. A change that
+ * can't get the lock within LOCK_TIMEOUT gives up with a "try again" message
+ * rather than hanging the form (see raffleTransaction).
  *
  * A buyer is identified by name: a name already on the raffle (however it's
  * capitalized, ignoring spaces at either end) gets more boxes on that line,
@@ -97,11 +99,36 @@ class RaffleInputError extends Error {}
 type Tx = Prisma.TransactionClient;
 
 /**
- * Lock waits count against `timeout`. Raffle changes are a handful of small
- * queries, so a change still waiting after this long means something else is
- * stuck — better to say so than to hang the form.
+ * Prisma's limits on one raffle transaction. `timeout` can't interrupt a
+ * query that is waiting for a lock — the waiting change would sit there for
+ * as long as the lock is held — so raffleTransaction also sets Postgres's own
+ * limits below.
  */
 const TX_OPTIONS = { timeout: 15_000, maxWait: 10_000 };
+
+/**
+ * The longest any one statement in a raffle transaction waits for a lock (the
+ * raffle row, a payment, a login row its foreign keys point at). A raffle
+ * change takes milliseconds, so a wait this long means the holder is stuck;
+ * the waiting change then fails with BUSY, having saved nothing.
+ */
+const LOCK_TIMEOUT = "10s";
+
+/**
+ * Ends the database session of a raffle transaction that sits idle — its
+ * server function frozen or killed between two statements — for this long,
+ * which releases the raffle lock it holds. Without it a dead holder could
+ * keep every change to that raffle failing for hours. Live transactions never
+ * pause this long between statements; Prisma's own `timeout` ends them sooner.
+ */
+const IDLE_TIMEOUT = "30s";
+
+/** A Postgres error code (SQLSTATE) that Prisma passed through from the driver, if any. */
+function postgresErrorCode(error: unknown): string | undefined {
+  const cause = (error as { meta?: { driverAdapterError?: { cause?: { originalCode?: unknown } } } } | null)?.meta?.driverAdapterError
+    ?.cause;
+  return typeof cause?.originalCode === "string" ? cause.originalCode : undefined;
+}
 
 const RAFFLE_GONE = "This raffle no longer exists. Go back to the list of raffles.";
 const RAFFLE_CLOSED = "This raffle is closed. Reopen it before changing anything.";
@@ -138,11 +165,12 @@ async function asResult(work: () => Promise<void>): Promise<RaffleFormResult> {
     const model = uniqueViolationModel(error);
     if (model === "RaffleEntry") return { error: NAME_TAKEN_MEANWHILE };
     if (model !== null) return { error: TAKEN_MEANWHILE };
-    // An interactive transaction that ran past TX_OPTIONS.timeout (almost
-    // always waiting on the raffle lock behind a stuck change), or one
-    // Postgres chose to abort to break a deadlock. Nothing was saved either way.
+    // A lock wait past LOCK_TIMEOUT (55P03, almost always the raffle lock
+    // behind a stuck change), a transaction that ran past TX_OPTIONS.timeout,
+    // or one Postgres chose to abort to break a deadlock. Nothing was saved
+    // in any of them.
     const code = prismaErrorCode(error);
-    if (code === "P2028" || code === "P2034") return { error: BUSY };
+    if (code === "P2028" || code === "P2034" || postgresErrorCode(error) === "55P03") return { error: BUSY };
     throw error;
   }
 }
@@ -169,6 +197,21 @@ function revalidateRaffle(raffleId: string) {
 }
 
 /**
+ * An interactive transaction for raffle changes. Its first statement sets
+ * LOCK_TIMEOUT and IDLE_TIMEOUT for this transaction only (set_config(…,
+ * true) is SET LOCAL), before anything that might wait for a lock.
+ */
+async function raffleTransaction<T>(
+  work: (tx: Tx) => Promise<T>,
+  options: { timeout: number; maxWait: number } = TX_OPTIONS
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('lock_timeout', ${LOCK_TIMEOUT}, true), set_config('idle_in_transaction_session_timeout', ${IDLE_TIMEOUT}, true)`;
+    return work(tx);
+  }, options);
+}
+
+/**
  * Runs `work` in one transaction that holds the raffle's row lock (FOR
  * UPDATE) from its first statement to its commit, handing it the raffle as it
  * stands once the lock is held. Every action that changes a raffle — its
@@ -186,7 +229,7 @@ async function withLockedRaffle<T>(
   { allowClosed = false }: { allowClosed?: boolean } = {}
 ): Promise<T> {
   if (!raffleId) throw new RaffleInputError(RAFFLE_GONE);
-  return prisma.$transaction(async (tx) => {
+  return raffleTransaction(async (tx) => {
     const locked = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Raffle" WHERE "id" = ${raffleId} FOR UPDATE`;
     if (locked.length === 0) throw new RaffleInputError(RAFFLE_GONE);
     // A fresh read, after the lock: it sees everything committed by whoever
@@ -194,7 +237,7 @@ async function withLockedRaffle<T>(
     const raffle = await tx.raffle.findUniqueOrThrow({ where: { id: raffleId } });
     if (!allowClosed && raffle.status === "CLOSED") throw new RaffleInputError(RAFFLE_CLOSED);
     return work(tx, raffle);
-  }, TX_OPTIONS);
+  });
 }
 
 /** Which raffle a buyer belongs to — only to know which lock to take; the buyer is read again under it. */
@@ -314,7 +357,7 @@ export async function createRaffleAction(formData: FormData): Promise<RaffleForm
 
   const result = await asResult(async () => {
     const terms = readRaffleTerms(formData);
-    raffleId = await prisma.$transaction(async (tx) => {
+    raffleId = await raffleTransaction(async (tx) => {
       const raffle = await tx.raffle.create({ data: terms });
       await recordAuditInTransaction(tx, session, {
         action: "raffle.create",
@@ -329,7 +372,7 @@ export async function createRaffleAction(formData: FormData): Promise<RaffleForm
         ],
       });
       return raffle.id;
-    }, TX_OPTIONS);
+    });
   });
   if (result.error) return result;
 
@@ -1310,7 +1353,7 @@ export async function setRaffleHelperAction(formData: FormData): Promise<RaffleF
       throw new RaffleInputError(`${user.displayName} is ${ROLE_LABELS[user.role] ?? user.role}, which can't be a raffle helper.`);
     }
 
-    const changed = await prisma.$transaction(async (tx) => {
+    const changed = await raffleTransaction(async (tx) => {
       // Only flips a login that is still the other way (and, when granting,
       // still at a level that can hold it), so two Admins pressing at once
       // record one change, not two.
@@ -1330,7 +1373,7 @@ export async function setRaffleHelperAction(formData: FormData): Promise<RaffleF
         details: [{ label: "Raffle helper", from: enabled ? "No" : "Yes", to: enabled ? "Yes" : "No" }],
       });
       return true;
-    }, TX_OPTIONS);
+    });
     if (changed) revalidatePath(LIST_PATH);
   });
 }
@@ -1358,7 +1401,7 @@ export async function importRaffleAction(formData: FormData): Promise<RaffleForm
     const now = new Date();
     // One transaction, so a record never lands with half its boxes. The
     // longer timeout covers a full board's worth of small inserts.
-    raffleId = await prisma.$transaction(
+    raffleId = await raffleTransaction(
       async (tx) => {
         // Two imports of the same file at once would both pass a plain
         // "already imported?" check; this lock makes the second wait and
