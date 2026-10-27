@@ -535,14 +535,26 @@ describe("registrations already left waiting on a priced trip", () => {
     return { trip, stranded, charged };
   }
 
-  const settleAs = (user: SessionUser, tripPageId: string, pricePerPersonCents: number | string) =>
+  /** The banner's Charge button: the price it showed, and the families and paying counts it listed. */
+  const settleAs = (
+    user: SessionUser,
+    tripPageId: string,
+    pricePerPersonCents: number | string,
+    listed: { id: string; payingCount: number }[] | string[],
+  ) =>
     runAs(user, () =>
-      actions.page.settleWaitingTripRegistrationsAction(form({ id: tripPageId, pricePerPersonCents: String(pricePerPersonCents) })),
+      actions.page.settleWaitingTripRegistrationsAction(
+        form({
+          id: tripPageId,
+          pricePerPersonCents: String(pricePerPersonCents),
+          waiting: listed.map((reg) => (typeof reg === "string" ? reg : `${reg.id}:${reg.payingCount}`)),
+        }),
+      ),
     );
 
   it("are charged at the posted price from the admin page, one audit entry per family", async () => {
     const { trip, stranded, charged } = await strandedTrip();
-    assert.deepEqual(await settleAs(admin, trip.id, 4000), {});
+    assert.deepEqual(await settleAs(admin, trip.id, 4000, [stranded]), {});
 
     const after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } });
     assert.equal(after.owedPending, false);
@@ -560,14 +572,15 @@ describe("registrations already left waiting on a priced trip", () => {
     assert.match(entries[0].summary, /3 × \$40\.00 = \$120\.00/);
 
     // Nothing left to do the second time.
-    assert.deepEqual(await settleAs(admin, trip.id, 4000), {});
+    assert.deepEqual(await settleAs(admin, trip.id, 4000, [stranded]), {});
     assert.equal((await settledEntries()).length, 1);
   });
 
   it("are not charged if the price changed after the page showed it", async () => {
     const { trip, stranded } = await strandedTrip();
-    const result = await settleAs(admin, trip.id, 3500);
+    const result = await settleAs(admin, trip.id, 3500, [stranded]);
     assert.match(result.error ?? "", /now \$40\.00\/person/);
+    assert.equal(result.stale, true, "the form shows the refreshed page, not the old entries");
     assert.ok(testState.revalidated.includes("/portal/admin/cyclones"), "the page is refreshed to show the current price");
     const after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } });
     assert.equal(after.owedPending, true);
@@ -577,7 +590,7 @@ describe("registrations already left waiting on a priced trip", () => {
   it("keep waiting if the price went back to TBD", async () => {
     const { trip, stranded } = await strandedTrip();
     await db.prisma.tripPage.update({ where: { id: trip.id }, data: { priceTbd: true } });
-    assert.match((await settleAs(admin, trip.id, 4000)).error ?? "", /TBD/);
+    assert.match((await settleAs(admin, trip.id, 4000, [stranded])).error ?? "", /TBD/);
     assert.equal((await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } })).owedPending, true);
   });
 
@@ -585,7 +598,7 @@ describe("registrations already left waiting on a priced trip", () => {
     const { trip, stranded } = await strandedTrip();
     for (const role of ["JUNIOR_ADMIN", "TRIP_VIEWER", "PARENT"] as const) {
       const user = await createUser(db.prisma, role);
-      assert.equal((await settle(settleAs(user, trip.id, 4000))).ok, false, role);
+      assert.equal((await settle(settleAs(user, trip.id, 4000, [stranded]))).ok, false, role);
     }
     assert.equal((await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } })).owedPending, true);
   });
@@ -602,18 +615,130 @@ describe("registrations already left waiting on a priced trip", () => {
 
   it("is charged attendees × the posted price when edited with the amount left blank", async () => {
     const { stranded } = await strandedTrip();
-    assert.deepEqual(await editRegistration(actions, admin, stranded, { payingCount: 4 }), {});
+    // The form quotes the price it will charge at (chargePricePerPersonCents).
+    assert.deepEqual(await editRegistration(actions, admin, stranded, { payingCount: 4, chargePricePerPersonCents: 4000 }), {});
     const after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } });
     assert.equal(after.owedPending, false);
     assert.equal(after.amountOwedCents, 16000);
   });
 
+  it("is not charged from an edit form that quoted another price, or none", async () => {
+    const { trip, stranded } = await strandedTrip();
+    // The form was loaded during an early-bird rate that has since ended: it
+    // said a blank amount would be charged at $35, and today it's $40.
+    await db.prisma.tripPage.update({
+      where: { id: trip.id },
+      data: { earlyBirdPriceCents: 3500, earlyBirdDeadline: new Date("2020-01-01T00:00:00Z") },
+    });
+    const quotedOld = await editRegistration(actions, admin, stranded, { payingCount: 4, chargePricePerPersonCents: 3500 });
+    assert.match(quotedOld.error ?? "", /now \$40\.00\/person, not \$35\.00/);
+    assert.equal(quotedOld.stale, true);
+    // A form that quoted no price was loaded while the price was TBD.
+    const quotedNone = await editRegistration(actions, admin, stranded, { payingCount: 4 });
+    assert.match(quotedNone.error ?? "", /posted after this page loaded/);
+
+    let after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } });
+    assert.equal(after.owedPending, true, "still waiting — nothing from the refused edits was saved");
+    assert.equal(after.payingCount, 3);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "tripRegistration.update", entityId: stranded.id } }), 0);
+
+    // The refreshed form quotes $40, and the edit goes through at that.
+    assert.deepEqual(await editRegistration(actions, admin, stranded, { payingCount: 4, chargePricePerPersonCents: 4000 }), {});
+    after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } });
+    assert.equal(after.amountOwedCents, 16000);
+  });
+
+  it("are not charged when a family that wasn't listed is waiting too", async () => {
+    const { trip, stranded } = await strandedTrip();
+    const unlisted = await db.prisma.tripRegistration.create({
+      data: {
+        tripPageId: trip.id,
+        familyName: "The Unlisted Family",
+        contactEmail: "unlisted@example.test",
+        guestOfName: "Timmy Test",
+        affiliation: "PACK",
+        payingCount: 5,
+        freeCount: 0,
+        amountOwedCents: 0,
+        owedPending: true,
+      },
+    });
+    const result = await settleAs(admin, trip.id, 4000, [stranded]);
+    assert.match(result.error ?? "", /changed after this page loaded/);
+    assert.equal(result.stale, true);
+    for (const id of [stranded.id, unlisted.id]) {
+      assert.equal((await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id } })).owedPending, true);
+    }
+    assert.equal(
+      await db.prisma.auditLog.count({ where: { action: "tripRegistration.settlePrice", entityId: { in: [stranded.id, unlisted.id] } } }),
+      0,
+    );
+
+    // The refreshed banner lists both, and that goes through.
+    assert.deepEqual(await settleAs(admin, trip.id, 4000, [stranded, unlisted]), {});
+    assert.equal((await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: unlisted.id } })).amountOwedCents, 20000);
+  });
+
+  it("are not charged when a paying count changed while the Charge click waited", async (t) => {
+    const { trip, stranded } = await strandedTrip();
+    // An edit in another tab holds the trip and changes the count from the
+    // 3 the banner listed to 4; the click queues behind it. (The old action
+    // checked only the price, and charged 4 × $40 for a family the admin
+    // confirmed at 3 × $40.)
+    const holder = await openTransaction(db.pool);
+    t.after(() => holder.rollback());
+    await holder.query(LOCK_TRIP, [trip.id]);
+    await holder.query(`UPDATE "TripRegistration" SET "payingCount" = 4 WHERE "id" = $1`, [stranded.id]);
+    const charging = settleAs(admin, trip.id, 4000, [stranded]);
+    await waitForLockWait(db.pool);
+    await holder.commit();
+
+    assert.match((await charging).error ?? "", /changed after this page loaded/);
+    const after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } });
+    assert.equal(after.owedPending, true);
+    assert.equal(after.amountOwedCents, 0);
+  });
+
+  it("a click queued behind a change that keeps the list as shown charges what was shown", async (t) => {
+    const { trip, stranded } = await strandedTrip();
+    const holder = await openTransaction(db.pool);
+    t.after(() => holder.rollback());
+    await holder.query(LOCK_TRIP, [trip.id]);
+    await holder.query(`UPDATE "TripRegistration" SET "familyName" = 'The Renamed Family' WHERE "id" = $1`, [stranded.id]);
+    const charging = settleAs(admin, trip.id, 4000, [stranded]);
+    await waitForLockWait(db.pool);
+    await holder.commit();
+
+    assert.deepEqual(await charging, {});
+    const after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } });
+    assert.equal(after.owedPending, false);
+    assert.equal(after.amountOwedCents, 12000);
+  });
+
+  it("one charged by a pricing save in the meantime isn't charged again", async () => {
+    const { trip, stranded } = await strandedTrip();
+    assert.deepEqual(await savePricing(actions, admin, trip.id, { regularPrice: "40" }), {});
+    // The banner was still on screen in another tab; its click finds nothing left to do.
+    assert.deepEqual(await settleAs(admin, trip.id, 4000, [stranded]), {});
+    assert.equal((await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } })).amountOwedCents, 12000);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "tripRegistration.settlePrice", entityId: stranded.id } }), 0);
+    assert.deepEqual((await pricingAudits(trip.id)).flatMap(chargedFamilies), [stranded.familyName]);
+  });
+
+  it("refuses a malformed list without charging anything", async () => {
+    const { trip, stranded } = await strandedTrip();
+    for (const listed of [[`${stranded.id}`], [`${stranded.id}:x`], [`${stranded.id}:3`, `${stranded.id}:3`], ["a b:3"]]) {
+      assert.match((await settleAs(admin, trip.id, 4000, listed)).error ?? "", /Reload the page/, JSON.stringify(listed));
+    }
+    assert.equal((await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } })).owedPending, true);
+  });
+
   it("settling and a new registration at the same time leave nothing waiting", async () => {
     for (let round = 0; round < 10; round++) {
-      const { trip } = await strandedTrip();
+      const { trip, stranded } = await strandedTrip();
       const results = await Promise.all(
         shuffled<() => Promise<{ error?: string }>>([
-          () => settleAs(admin, trip.id, 4000),
+          () => settleAs(admin, trip.id, 4000, [stranded]),
           () => register(actions, familyForm(trip.id, { payingCount: 1 })),
           () => savePricing(actions, admin, trip.id, { regularPrice: "40" }),
         ]).map((start) => start()),

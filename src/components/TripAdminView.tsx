@@ -202,6 +202,10 @@ export default async function TripAdminView({
           <TripAdminForm action={settleWaitingTripRegistrationsAction}>
             <input type="hidden" name="id" value={trip.id} />
             <input type="hidden" name="pricePerPersonCents" value={priceCents} />
+            {/* What was listed, so a change since the page loaded is turned down rather than charged unseen. */}
+            {stranded.map((r) => (
+              <input key={r.id} type="hidden" name="waiting" value={`${r.id}:${r.payingCount}`} />
+            ))}
             <ConfirmSubmitButton
               className="btn btn-primary btn-small"
               pendingLabel="Charging…"
@@ -929,7 +933,12 @@ export default async function TripAdminView({
                               />
                             </div>
                           </div>
+                          {/* Keyed by what's stored, so the fields start over from the saved
+                              counts and amount when those change under them — charged by
+                              posting the price or the Charge button, or saved in another tab
+                              — instead of keeping the amount they first loaded with. */}
                           <TripRegistrationCountFields
+                            key={`${reg.owedPending}:${reg.amountOwedCents}:${reg.payingCount}:${reg.freeCount}`}
                             idPrefix={`reg-${reg.id}`}
                             pricePerPersonCents={priceCents}
                             defaultPayingCount={reg.payingCount}

@@ -25,6 +25,9 @@ import type { TripDay, TripMealType } from "@/generated/prisma/enums";
 /** The oldest "free age and under" the pricing form takes — anything above is a typo, not a policy. */
 const MAX_FREE_AGE = 99;
 
+/** More registrations than any trip has had, many times over: a bound on what the Charge button's form can send. */
+const MAX_WAITING_SHOWN = 1000;
+
 const FLYER_UPLOAD_FAILED =
   "The flyer couldn't be uploaded. It has to be a JPEG, PNG, WEBP, GIF, or PDF of 8MB or less — if it is, try again in a moment.";
 
@@ -284,10 +287,13 @@ export async function updateTripPricingAction(formData: FormData): Promise<TripF
 /**
  * The reviewable way to fill in registrations still waiting for a price on a
  * trip whose price is already posted — rows a race left pending before price
- * posting and registration took the same lock. The admin page lists how many
- * there are and the per-person price they'll be charged; this charges exactly
- * that (attendees × the price), one audit entry per family, and turns the
- * click down if the price changed after the page loaded.
+ * posting and registration took the same lock. The admin page lists each
+ * family, its paying attendees and the per-person price; this charges exactly
+ * that (attendees × the price), one audit entry per family. The form sends
+ * back the price and the list it showed, and the click is turned down if
+ * the price changed after the page loaded, or a family now waiting wasn't on
+ * the list or has a different paying count (edited in another tab) — so a
+ * family is only ever charged the total the admin confirmed.
  */
 export async function settleWaitingTripRegistrationsAction(formData: FormData): Promise<TripFormResult> {
   const session = await getSession();
@@ -297,7 +303,10 @@ export async function settleWaitingTripRegistrationsAction(formData: FormData): 
   return tripFormResult(async () => {
     const id = textField(formData.get("id"));
     const shownPriceRaw = textField(formData.get("pricePerPersonCents"));
-    if (!id || !/^\d{1,9}$/.test(shownPriceRaw)) throw new TripInputError("Missing trip page id or price. Reload the page.", { stale: true });
+    const shownWaiting = readShownWaiting(formData.getAll("waiting"));
+    if (!id || !/^\d{1,9}$/.test(shownPriceRaw) || !shownWaiting) {
+      throw new TripInputError("Missing trip page id, price or registrations. Reload the page.", { stale: true });
+    }
     const shownPriceCents = Number(shownPriceRaw);
 
     await prisma.$transaction(async (tx) => {
@@ -317,7 +326,7 @@ export async function settleWaitingTripRegistrationsAction(formData: FormData): 
         );
       }
 
-      const settled = await settleWaitingRegistrations(tx, id, pricePerPersonCents);
+      const settled = await settleWaitingRegistrations(tx, id, pricePerPersonCents, shownWaiting);
       for (const reg of settled) {
         await recordAuditInTransaction(tx, session, {
           action: "tripRegistration.settlePrice",
@@ -336,21 +345,55 @@ export async function settleWaitingTripRegistrationsAction(formData: FormData): 
 }
 
 /**
+ * The Charge button's list of the registrations it showed, as "id:paying
+ * count" entries — a Map of the two, or null for anything malformed or
+ * implausibly long.
+ */
+function readShownWaiting(entries: FormDataEntryValue[]): Map<string, number> | null {
+  if (entries.length > MAX_WAITING_SHOWN) return null;
+  const shown = new Map<string, number>();
+  for (const entry of entries) {
+    const match = typeof entry === "string" ? /^([A-Za-z0-9_-]{1,64}):(\d{1,9})$/.exec(entry) : null;
+    if (!match || shown.has(match[1])) return null;
+    shown.set(match[1], Number(match[2]));
+  }
+  return shown;
+}
+
+/**
  * Charges every registration of this trip that is still waiting for a price:
  * attendees × `pricePerPersonCents`. Call it with the trip locked
  * (lockTripPage). A total too large to store throws a TripInputError before
  * any row is written, and the throw rolls back the rest of the save with it.
  *
+ * `expected` is the list an admin reviewed (the Charge button's): when given,
+ * every registration waiting now must be on it with the same paying count, or
+ * nothing is charged and the admin is asked to look again — so no family is
+ * charged a total the admin wasn't shown. One on the list that's no longer
+ * waiting (charged by a pricing save in the meantime, or removed) just isn't
+ * charged again.
+ *
  * Each row is written only if it is still waiting with the attendee count
  * read here. Every writer of those columns holds the same lock, so that only
  * misses a registration deleted in between, which is then simply left out.
  */
-async function settleWaitingRegistrations(tx: Prisma.TransactionClient, tripPageId: string, pricePerPersonCents: number) {
+async function settleWaitingRegistrations(
+  tx: Prisma.TransactionClient,
+  tripPageId: string,
+  pricePerPersonCents: number,
+  expected?: Map<string, number>,
+) {
   const waiting = await tx.tripRegistration.findMany({
     where: { tripPageId, owedPending: true },
     select: { id: true, familyName: true, payingCount: true },
     orderBy: { createdAt: "asc" },
   });
+  if (expected && waiting.some((reg) => expected.get(reg.id) !== reg.payingCount)) {
+    throw new TripInputError(
+      "The registrations waiting for a price changed after this page loaded — the list above is up to date now. Review it and try again.",
+      { stale: true },
+    );
+  }
   const planned = waiting.map((reg) => ({ ...reg, amountOwedCents: multiplyCents(reg.payingCount, pricePerPersonCents) }));
   const tooLarge = planned.find((reg) => reg.amountOwedCents === null);
   if (tooLarge) {

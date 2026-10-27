@@ -119,6 +119,8 @@ export default function TripRegistrationCountFields({
           onChange={(e) => setAmount(e.target.value)}
           aria-describedby={`${idPrefix}-amountOwed-note`}
         />
+        {/* The price this form quotes for a blank amount, so the save can turn it down if the price has changed since. */}
+        {uncharged && <input type="hidden" name="chargePricePerPersonCents" value={pricePerPersonCents} />}
         <p id={`${idPrefix}-amountOwed-note`} className="form-note" style={{ marginTop: 4, marginBottom: 0 }}>
           {note}
         </p>

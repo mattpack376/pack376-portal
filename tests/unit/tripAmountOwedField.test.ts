@@ -98,4 +98,16 @@ describe("TripRegistrationCountFields", () => {
     assert.match(html, /value="80.00"/);
     assert.match(html, /The price isn&#x27;t posted yet, so this amount stays as it is/);
   });
+
+  it("quotes the price a blank amount will be charged at, only for a registration waiting on a priced trip", () => {
+    const waitingOnPriced = render({ owedPending: true, defaultAmountOwedCents: 0, pricePerPersonCents: 4000 });
+    assert.match(waitingOnPriced, /<input type="hidden" name="chargePricePerPersonCents" value="4000"\/>/);
+    assert.match(waitingOnPriced, /Leave blank to charge paying count × the posted price \(\$40\.00\/person = \$80\.00\)/);
+
+    const waitingOnTbd = render({ owedPending: true, priceTbd: true, defaultAmountOwedCents: 0, pricePerPersonCents: 0 });
+    assert.doesNotMatch(waitingOnTbd, /chargePricePerPersonCents/);
+    assert.match(waitingOnTbd, /Waiting for the price/);
+
+    assert.doesNotMatch(render(), /chargePricePerPersonCents/);
+  });
 });

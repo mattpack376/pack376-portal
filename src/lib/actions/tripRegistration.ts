@@ -383,6 +383,11 @@ export async function updateTripRegistrationAction(formData: FormData): Promise<
     if (amountOwedRaw !== "" && typedAmountCents === null) {
       throw new TripInputError("Enter a valid amount owed (up to $1,000,000.00).");
     }
+    // The per-person price the form said a blank amount would be charged at
+    // — sent only by a form that said so (TripRegistrationCountFields), for a
+    // registration still waiting on a trip whose price is posted.
+    const shownChargeRaw = textField(formData.get("chargePricePerPersonCents"));
+    const shownChargeCents = /^\d{1,9}$/.test(shownChargeRaw) ? Number(shownChargeRaw) : null;
 
     // A registration never moves to another trip, so which trip to lock can
     // be read before the lock; everything else is re-read under it.
@@ -427,8 +432,21 @@ export async function updateTripRegistrationAction(formData: FormData): Promise<
       } else if (before.owedPending) {
         // Left blank, but the price is already posted: a registration the
         // posting missed (only possible before posting took this lock). It's
-        // charged what posting would have charged — attendees × the price.
-        const priced = multiplyCents(fields.payingCount, currentTripPriceCents(trip));
+        // charged what posting would have charged — attendees × the price —
+        // as long as that's the price the form said it would charge at, the
+        // same check the "still waiting" banner's Charge button makes. A form
+        // that said nothing about a charge (loaded while the price was TBD)
+        // or quoted another price is turned down for a fresh look instead.
+        const pricePerPersonCents = currentTripPriceCents(trip);
+        if (shownChargeCents !== pricePerPersonCents) {
+          throw new TripInputError(
+            shownChargeCents === null
+              ? `The price was posted after this page loaded: ${auditMoney(pricePerPersonCents)}/person. Review this registration's charge on the refreshed page, then save again.`
+              : `The price is now ${auditMoney(pricePerPersonCents)}/person, not ${auditMoney(shownChargeCents)}. Review this registration's charge on the refreshed page, then save again.`,
+            { stale: true },
+          );
+        }
+        const priced = multiplyCents(fields.payingCount, pricePerPersonCents);
         if (priced === null) throw new TripInputError(TOTAL_TOO_LARGE);
         amountOwedCents = priced;
         owedPending = false;
