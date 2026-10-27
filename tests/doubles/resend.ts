@@ -22,6 +22,12 @@ export type ResendBehavior = {
   beforeResult?: (payload: unknown) => Promise<void>;
   /** For a batch send: these indexes are reported as refused (permissive validation). */
   batchErrors?: { index: number; message: string }[];
+  /**
+   * For a single send: the email reaches Resend and goes out (its key is
+   * remembered), then the answer is lost — the caller gets `error` or
+   * `throws` instead, like a connection dropped after Resend accepted it.
+   */
+  delivered?: boolean;
 };
 
 export type ResendCall = {
@@ -30,7 +36,12 @@ export type ResendCall = {
   options?: { idempotencyKey?: string; batchValidation?: string };
 };
 
-export type ResendControl = { queue: ResendBehavior[]; calls: ResendCall[] };
+export type ResendControl = {
+  queue: ResendBehavior[];
+  calls: ResendCall[];
+  /** Idempotency keys emails went out under, as Resend remembers them. */
+  sentKeys: Map<string, unknown>;
+};
 
 const DOUBLE_URL = pathToFileURL(path.join(__dirname, "controllable-resend.mjs")).href;
 
@@ -44,12 +55,14 @@ export function installControllableResend(): ResendControl {
     },
   });
   const holder = globalThis as unknown as { __pack376ResendControl?: ResendControl };
-  holder.__pack376ResendControl ??= { queue: [], calls: [] };
+  holder.__pack376ResendControl ??= { queue: [], calls: [], sentKeys: new Map() };
+  holder.__pack376ResendControl.sentKeys ??= new Map();
   return holder.__pack376ResendControl;
 }
 
-/** Empties the queue and the call log; pair with resetTestState() between tests. */
+/** Empties the queue, the call log and the remembered keys; pair with resetTestState() between tests. */
 export function resetResendControl(control: ResendControl) {
   control.queue.length = 0;
   control.calls.length = 0;
+  control.sentKeys.clear();
 }

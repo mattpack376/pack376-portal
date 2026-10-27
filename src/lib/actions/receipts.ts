@@ -6,11 +6,12 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { recordAudit, recordAuditInTransaction } from "@/lib/audit";
-import { MAX_EMAIL_ERROR_LENGTH, isEmailConfigured, sendReceiptEmail } from "@/lib/email";
+import { MAX_EMAIL_ERROR_LENGTH, isDeliverableAddress, isEmailConfigured, sendReceiptEmail } from "@/lib/email";
 import { RECEIPT_TEMPLATE_VERSION, buildReceiptPdf, receiptPdfSha256 } from "@/lib/receiptPdf";
 import type { SessionPayload } from "@/lib/session";
 import {
   EMAIL_ATTEMPT_STALE_MS,
+  PROVIDER_KEY_REUSE_MS,
   RECEIPT_KIND_INFO,
   RECEIPT_RECORDS_EMAIL,
   formatReceiptMoney,
@@ -206,67 +207,132 @@ export async function generateReceiptAction(input: ReceiptInput, requestKey: str
 }
 
 type Claim =
-  | { state: "claimed"; attemptId: string }
+  | {
+      state: "claimed";
+      attemptId: string;
+      tryCount: number;
+      /** Resend's Idempotency-Key for this try. */
+      providerKey: string;
+      /** True when this try reuses an earlier try's key because that one may have gone out. */
+      reusedKey: boolean;
+      to: string;
+      replyTo: string | null;
+    }
   | { state: "missing" }
   | { state: "sent"; sentTo: string }
   | { state: "sending" }
-  | { state: "unknown" };
+  | { state: "unknown"; to: string };
 
-const sameAddress = (a: string | null, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
+const addressKey = (address: string) => address.toLowerCase();
+const providerKeyFor = (receiptId: string, attemptId: string, tryCount: number) =>
+  `pack376-receipt/${receiptId}/${attemptId}/${tryCount}`;
+
+/** A send that's still under way: PENDING, and not yet old enough to count as abandoned. */
+function isInFlight(attempt: { status: string; startedAt: Date }, now: number) {
+  return attempt.status === "PENDING" && now - attempt.startedAt.getTime() < EMAIL_ATTEMPT_STALE_MS;
+}
 
 /**
  * Records that this request is about to email the receipt (PENDING), unless
- * it shouldn't: an attempt still in progress blocks any other, and the same
- * request (same key, same address) that already sent it, or whose earlier
- * try never finished, doesn't send again. The row is locked while deciding
- * so two requests can't both claim it; the lock is released before any
- * email is sent.
+ * it shouldn't. A request is a request key plus the address it named (in any
+ * letter case), and each has its own ReceiptEmailAttempt row, so:
+ *
+ * - one that already sent the receipt never sends again, whatever other
+ *   sends of the receipt (other addresses, other Resends) came in between;
+ * - any send of the receipt still under way holds up every other;
+ * - one whose earlier try Resend refused tries again under a new Resend key;
+ * - one whose earlier try may have gone out (Resend didn't answer clearly, or
+ *   the server stopped mid-send) tries again only under that try's own key,
+ *   to the same address with the same reply-to, so Resend hands back the
+ *   first result instead of sending a second copy — and once that key is too
+ *   old for Resend to remember, not at all.
+ *
+ * The receipt row is locked while deciding, so two requests can't both
+ * claim it; the lock is released before any email is sent.
  */
-async function claimEmailAttempt(receiptId: string, requestKey: string, address: string): Promise<Claim> {
+async function claimEmailAttempt(
+  receiptId: string,
+  requestKey: string,
+  address: string,
+  replyTo: string | null
+): Promise<Claim> {
   return prisma.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<{ id: string }[]>`
       SELECT "id" FROM "Receipt" WHERE "id" = ${receiptId} FOR UPDATE`;
     if (locked.length === 0) return { state: "missing" };
-    const row = await tx.receipt.findUniqueOrThrow({
-      where: { id: receiptId },
-      select: { emailStatus: true, emailAttemptKey: true, emailAttemptTo: true, emailAttemptId: true, emailAttemptAt: true, emailedTo: true },
-    });
-
-    const sameRequest = row.emailAttemptKey === requestKey && sameAddress(row.emailAttemptTo, address);
-    if (row.emailStatus === "PENDING") {
-      const started = row.emailAttemptAt?.getTime() ?? 0;
-      if (Date.now() - started < EMAIL_ATTEMPT_STALE_MS) return { state: "sending" };
-      // Never finished. The same request may not send again — the first try
-      // might have gone out — but a deliberate new send (another key) may.
-      if (sameRequest) return { state: "unknown" };
-    }
-    if (row.emailStatus === "SENT" && sameRequest) return { state: "sent", sentTo: row.emailedTo ?? address };
-
-    const attemptId = randomUUID();
-    // Conditional on the attempt read above, as a second guard alongside the lock.
-    const claimed = await tx.receipt.updateMany({
-      where: { id: receiptId, emailAttemptId: row.emailAttemptId },
-      data: {
-        emailStatus: "PENDING",
-        emailAttemptId: attemptId,
-        emailAttemptKey: requestKey,
-        emailAttemptTo: address,
-        emailAttemptAt: new Date(),
-        emailError: null,
+    const now = new Date();
+    const attempts = await tx.receiptEmailAttempt.findMany({
+      where: { receiptId },
+      select: {
+        id: true,
+        requestKey: true,
+        addressKey: true,
+        address: true,
+        status: true,
+        tryCount: true,
+        startedAt: true,
+        providerKey: true,
+        providerKeyAt: true,
+        mayHaveSent: true,
+        replyTo: true,
       },
     });
+    const mine = attempts.find((a) => a.requestKey === requestKey && a.addressKey === addressKey(address));
+
+    if (mine?.status === "SENT") return { state: "sent", sentTo: mine.address };
+    if (attempts.some((a) => isInFlight(a, now.getTime()))) return { state: "sending" };
+
+    if (!mine) {
+      const attemptId = randomUUID();
+      const providerKey = providerKeyFor(receiptId, attemptId, 1);
+      await tx.receiptEmailAttempt.create({
+        data: {
+          id: attemptId,
+          receiptId,
+          requestKey,
+          address,
+          addressKey: addressKey(address),
+          status: "PENDING",
+          tryCount: 1,
+          providerKey,
+          providerKeyAt: now,
+          replyTo,
+          startedAt: now,
+        },
+      });
+      return { state: "claimed", attemptId, tryCount: 1, providerKey, reusedKey: false, to: address, replyTo };
+    }
+
+    // A retry of this request: its last try FAILED, or never finished.
+    const unconfirmed = mine.status === "PENDING" || mine.mayHaveSent;
+    const tryCount = mine.tryCount + 1;
+    let next: { providerKey: string; providerKeyAt: Date; replyTo: string | null };
+    if (unconfirmed) {
+      if (now.getTime() - mine.providerKeyAt.getTime() >= PROVIDER_KEY_REUSE_MS) return { state: "unknown", to: mine.address };
+      next = { providerKey: mine.providerKey, providerKeyAt: mine.providerKeyAt, replyTo: mine.replyTo };
+    } else {
+      // Resend refused the last try, so nothing went out under its key; a
+      // fresh one keeps Resend from handing back that same refusal.
+      next = { providerKey: providerKeyFor(receiptId, mine.id, tryCount), providerKeyAt: now, replyTo };
+    }
+    // Conditional on the try read above, as a second guard alongside the lock.
+    const claimed = await tx.receiptEmailAttempt.updateMany({
+      where: { id: mine.id, status: mine.status, tryCount: mine.tryCount },
+      data: { ...next, status: "PENDING", tryCount, startedAt: now, finishedAt: null, error: null, mayHaveSent: unconfirmed },
+    });
     if (claimed.count !== 1) return { state: "sending" };
-    return { state: "claimed", attemptId };
+    return { state: "claimed", attemptId: mine.id, tryCount, reusedKey: unconfirmed, to: mine.address, ...next };
   }, TX);
 }
 
 /**
  * Emails a saved receipt's PDF (BCC to the records address) with a durable
- * record either way: the attempt is saved as PENDING before the email is
- * handed to Resend, then SENT or FAILED (with Resend's reason) after. No
- * transaction is open while it sends. A database failure after the send can
- * only leave the attempt PENDING — never an email with no record, and the
- * claim above stops a retry from sending it twice.
+ * record either way: the request is saved as PENDING before the email is
+ * handed to Resend, then SENT or FAILED (with Resend's reason, and whether
+ * it may have gone out anyway) after. No transaction is open while it sends.
+ * A database failure after the send can only leave the request PENDING —
+ * never an email with no record — and the claim above then retries it only
+ * under the same Resend key.
  */
 async function emailIssuedReceipt(
   session: SessionPayload,
@@ -276,9 +342,12 @@ async function emailIssuedReceipt(
   verb: "Emailed" | "Re-emailed"
 ): Promise<EmailReceiptResult> {
   // Read before claiming, so nothing but the send itself sits between
-  // marking the attempt PENDING and handing the email to Resend.
+  // marking the request PENDING and handing the email to Resend. The reply-to
+  // is saved with the request, so a retry under the same Resend key sends
+  // exactly the same message (Resend refuses a reused key otherwise).
   const me = await prisma.user.findUnique({ where: { id: session.userId }, select: { email: true } });
-  const claim = await claimEmailAttempt(receipt.id, requestKey, address);
+  const replyTo = me?.email && isDeliverableAddress(me.email) ? me.email : null;
+  const claim = await claimEmailAttempt(receipt.id, requestKey, address, replyTo);
   switch (claim.state) {
     case "missing":
       return { ok: false, error: "That receipt no longer exists." };
@@ -292,12 +361,11 @@ async function emailIssuedReceipt(
     case "unknown":
       return {
         ok: false,
-        error:
-          "An earlier try to email this receipt never finished, so it may or may not have gone out. Check with the recipient, or use Resend in the history below to send it again.",
+        error: `An earlier try to email this receipt to ${claim.to} was never confirmed, and it's too long ago to retry safely, so it may or may not have gone out. Check with the recipient, or use Resend in the history below to send another copy.`,
       };
   }
 
-  const result = await sendReceiptEmail(address, {
+  const result = await sendReceiptEmail(claim.to, {
     isDonation: receipt.data.kind === "DONATION",
     receivedFrom: receipt.data.receivedFrom,
     amountLabel: formatReceiptMoney(receipt.data.amountCents),
@@ -306,54 +374,90 @@ async function emailIssuedReceipt(
     filename: receiptFilename(receipt.data),
     pdf: receipt.pdf,
     bcc: RECEIPT_RECORDS_EMAIL,
-    replyTo: me?.email ?? undefined,
-    // Resend returns this attempt's first result for a repeat of the same key.
-    idempotencyKey: `pack376-receipt/${receipt.id}/${claim.attemptId}`,
+    replyTo: claim.replyTo ?? undefined,
+    // Resend returns the first result for a repeat of the same key (and the same message).
+    idempotencyKey: claim.providerKey,
   });
 
-  const thisAttempt = { id: receipt.id, emailAttemptId: claim.attemptId, emailStatus: "PENDING" as const };
+  const thisTry = { id: claim.attemptId, status: "PENDING" as const, tryCount: claim.tryCount };
+  const finishedAt = new Date();
   if (result.sent) {
     try {
-      await prisma.receipt.updateMany({
-        where: thisAttempt,
-        data: { emailStatus: "SENT", emailedTo: address, emailedAt: new Date(), emailError: null },
-      });
+      // The receipt row before its attempt, the order delete locks them in.
+      await prisma.$transaction([
+        prisma.receipt.updateMany({ where: { id: receipt.id }, data: { emailedTo: claim.to, emailedAt: finishedAt } }),
+        prisma.receiptEmailAttempt.updateMany({ where: thisTry, data: { status: "SENT", finishedAt, error: null } }),
+      ]);
     } catch (error) {
-      // The email did go out; the row stays PENDING, which blocks a resend of
-      // this same request rather than risking a second copy.
+      // The email did go out; the request stays PENDING, and a retry of it
+      // reuses this try's Resend key rather than risking a second copy.
       console.error(`Receipt ${receipt.id} was emailed but its status couldn't be saved:`, error);
     }
     await recordAudit(session, {
       action: "receipt.email",
-      summary: auditSummary(verb, receipt.data, ` to ${address}`),
+      summary: auditSummary(
+        verb,
+        receipt.data,
+        ` to ${claim.to}${claim.reusedKey ? " (a retry of an unconfirmed try, under the same Resend key, so at most one copy went out)" : ""}`
+      ),
       entityType: "Receipt",
       entityId: receipt.id,
     });
     revalidatePath(RECEIPTS_PATH);
-    return { ok: true, id: receipt.id, sentTo: address };
+    return { ok: true, id: receipt.id, sentTo: claim.to };
   }
 
   const reason = result.configured ? (result.error ?? "Unknown error") : "Email isn't set up on the server.";
+  const uncertain = result.configured && result.uncertain === true;
+  // A retry under an unconfirmed try's key that Resend now turns down still
+  // leaves that earlier try unaccounted for, so it's never "didn't go out".
+  const mayHaveGoneOut = uncertain || claim.reusedKey;
   try {
-    await prisma.receipt.updateMany({
-      where: thisAttempt,
-      data: { emailStatus: "FAILED", emailError: reason.slice(0, MAX_EMAIL_ERROR_LENGTH) },
+    await prisma.receiptEmailAttempt.updateMany({
+      where: thisTry,
+      // mayHaveSent is only ever turned on: once a try may have gone out,
+      // every later try of this request has to reuse its key.
+      data: { status: "FAILED", finishedAt, error: reason.slice(0, MAX_EMAIL_ERROR_LENGTH), ...(uncertain ? { mayHaveSent: true } : {}) },
     });
   } catch (error) {
-    // Nothing went out; left PENDING, the row only holds up a retry until it goes stale.
+    // Left PENDING, the request holds up other sends until it goes stale and
+    // is then retried only under this try's key — safe either way.
     console.error(`Receipt ${receipt.id}'s failed email couldn't be recorded:`, error);
   }
   await recordAudit(session, {
     action: "receipt.emailFailed",
-    summary: auditSummary(`Tried to ${verb === "Emailed" ? "email" : "re-email"}`, receipt.data, ` to ${address}, but it didn't go out`),
+    summary: auditSummary(
+      `Tried to ${verb === "Emailed" ? "email" : "re-email"}`,
+      receipt.data,
+      ` to ${claim.to}, but ${mayHaveGoneOut ? "Resend didn't confirm whether it went out" : "it didn't go out"}`
+    ),
     entityType: "Receipt",
     entityId: receipt.id,
   });
   revalidatePath(RECEIPTS_PATH);
-  return {
-    ok: false,
-    error: `Saved to the history below, but the email to ${address} didn't go out (${reason}). Check the address and try again, use Resend on that row, or use Download PDF and send it yourself.`,
-  };
+  return { ok: false, error: failureMessage(verb, claim.to, reason, mayHaveGoneOut) };
+}
+
+/**
+ * What the Admin is told when a send didn't (or may not have) gone out. The
+ * receipt itself is always saved by then. Resend's reason goes in brackets
+ * without its own closing period, so the sentence doesn't end in ".)."
+ */
+function failureMessage(verb: "Emailed" | "Re-emailed", to: string, reason: string, uncertain: boolean) {
+  const because = reason.trim().replace(/[.!\s]+$/, "") || "no reason given";
+  const fromForm = verb === "Emailed";
+  if (uncertain) {
+    // Pressing the same button again repeats the same request (the form and
+    // an open Resend form keep their key), which is what makes it safe.
+    return (
+      (fromForm ? "Saved to the history below, but " : "") +
+      `Resend didn't confirm whether the email to ${to} went out (${because}). ` +
+      `Press ${fromForm ? "Email" : "Send"} again to retry: if the first one did go out, it won't be sent twice.`
+    );
+  }
+  return fromForm
+    ? `Saved to the history below, but the email to ${to} didn't go out (${because}). Check the address and try again, use Retry email on that row, or use Download PDF and send it yourself.`
+    : `The email to ${to} didn't go out (${because}). Check the address and try again, or use Download PDF and send it yourself.`;
 }
 
 export async function emailReceiptAction(input: ReceiptInput, requestKey: string): Promise<EmailReceiptResult> {
@@ -413,34 +517,66 @@ export async function downloadSavedReceiptAction(id: string): Promise<GenerateRe
 
 export type DeleteReceiptResult = { ok: true } | { ok: false; error: string };
 
+/** Each address once (letter case aside), in the order first seen. */
+function distinctAddresses(addresses: (string | null)[]) {
+  const seen = new Map<string, string>();
+  for (const address of addresses) {
+    if (address && !seen.has(addressKey(address))) seen.set(addressKey(address), address);
+  }
+  return [...seen.values()];
+}
+
 /**
- * Removes a receipt (and its stored PDF) from the history, for one entered by
- * mistake. The row is gone for good, so the audit entry — written in the
- * same transaction — records everything it said, and an email that already
- * went out is not unsent.
+ * Removes a receipt (and its stored PDF and email requests) from the
+ * history, for one entered by mistake. The row is gone for good, so the audit
+ * entry — written in the same transaction — records everything it said,
+ * including every address it went to and any send never confirmed either
+ * way; an email that already went out is not unsent. While the receipt is
+ * being emailed it can't be deleted: the send's result would have nowhere to
+ * be recorded, and this entry couldn't say whether it went out.
  */
 export async function deleteReceiptAction(id: string): Promise<DeleteReceiptResult> {
   const session = await requireAdmin();
   if (typeof id !== "string" || !id) return { ok: false, error: "That receipt was already deleted." };
 
-  const deleted = await prisma.$transaction(async (tx) => {
+  const outcome = await prisma.$transaction(async (tx) => {
+    // The same row lock a send's claim takes, so no send can start (or be
+    // seen half-started) while this decides.
     const locked = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Receipt" WHERE "id" = ${id} FOR UPDATE`;
-    if (locked.length === 0) return false;
+    if (locked.length === 0) return "missing" as const;
+    const attempts = await tx.receiptEmailAttempt.findMany({
+      where: { receiptId: id },
+      orderBy: { createdAt: "asc" },
+      select: { status: true, address: true, startedAt: true, mayHaveSent: true },
+    });
+    const now = Date.now();
+    if (attempts.some((a) => isInFlight(a, now))) return "sending" as const;
+
     const record = await tx.receipt.delete({ where: { id } });
     const data = receiptDataFromRecord(record);
+    const sentTo = distinctAddresses([...attempts.filter((a) => a.status === "SENT").map((a) => a.address), record.emailedTo]);
+    const sentKeys = new Set(sentTo.map(addressKey));
+    const unconfirmed = distinctAddresses(
+      attempts.filter((a) => a.status === "PENDING" || (a.status === "FAILED" && a.mayHaveSent)).map((a) => a.address)
+    ).filter((address) => !sentKeys.has(addressKey(address)));
     await recordAuditInTransaction(tx, session, {
       action: "receipt.delete",
       summary: auditSummary(
         "Deleted",
         data,
-        ` dated ${data.date}${record.emailedTo ? `, which had been emailed to ${record.emailedTo}` : ""}`
+        ` dated ${data.date}` +
+          (sentTo.length ? `, which had been emailed to ${sentTo.join(", ")}` : "") +
+          (unconfirmed.length ? `; an email to ${unconfirmed.join(", ")} was never confirmed either way` : "")
       ),
       entityType: "Receipt",
       entityId: record.id,
     });
-    return true;
+    return "deleted" as const;
   }, TX);
-  if (!deleted) return { ok: false, error: "That receipt was already deleted." };
+  if (outcome === "missing") return { ok: false, error: "That receipt was already deleted." };
+  if (outcome === "sending") {
+    return { ok: false, error: "This receipt is being emailed right now. Wait a moment, then try deleting it again." };
+  }
 
   revalidatePath(RECEIPTS_PATH);
   return { ok: true };

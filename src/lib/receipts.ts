@@ -142,6 +142,55 @@ export function isReceiptRequestKey(value: unknown): value is string {
  */
 export const EMAIL_ATTEMPT_STALE_MS = 15 * 60 * 1000;
 
+/**
+ * Resend remembers an Idempotency-Key for 24 hours. An hour short of that, a
+ * reused key is no longer trusted to stop a second copy, so a request whose
+ * send was never confirmed isn't retried after this long.
+ */
+export const PROVIDER_KEY_REUSE_MS = 23 * 60 * 60 * 1000;
+
+/** The latest email request on a receipt, as the history reads it. */
+export type LatestEmailAttempt = {
+  status: "PENDING" | "SENT" | "FAILED";
+  requestKey: string;
+  address: string;
+  startedAt: Date;
+  providerKeyAt: Date;
+  mayHaveSent: boolean;
+};
+
+/**
+ * Where a receipt's latest email request stands, for the history's "Emailed
+ * to" cell and the button beside it:
+ *
+ * - done: it went out (or there's none);
+ * - sending: still under way;
+ * - failed: Resend turned it down, so nothing went out;
+ * - unconfirmed: Resend didn't say either way (no answer, a server error);
+ * - never-finished: the server stopped before recording how it went;
+ * - too-old: unconfirmed or never finished, and too long ago for Resend to
+ *   still remember its key.
+ *
+ * The middle three come with `retryKey`, the request's own key: retrying
+ * that same request (same key, same address) is what makes a retry safe —
+ * if the first try did reach the family, Resend hands back that result
+ * instead of sending a second copy. A too-old one has no safe retry; only a
+ * deliberate Resend (a new request) can send it again.
+ */
+export function emailAttemptView(
+  attempt: LatestEmailAttempt | undefined,
+  now: number
+):
+  | { state: "done" | "sending" | "too-old" }
+  | { state: "failed" | "unconfirmed" | "never-finished"; retryKey: string } {
+  if (!attempt || attempt.status === "SENT") return { state: "done" };
+  if (attempt.status === "PENDING" && now - attempt.startedAt.getTime() < EMAIL_ATTEMPT_STALE_MS) return { state: "sending" };
+  const unconfirmed = attempt.status === "PENDING" || attempt.mayHaveSent;
+  if (!unconfirmed) return { state: "failed", retryKey: attempt.requestKey };
+  if (now - attempt.providerKeyAt.getTime() >= PROVIDER_KEY_REUSE_MS) return { state: "too-old" };
+  return { state: attempt.status === "PENDING" ? "never-finished" : "unconfirmed", retryKey: attempt.requestKey };
+}
+
 function clean(value: unknown, max: number): string {
   return String(value ?? "")
     .replace(/[\u0000-\u001f\u007f]+/g, " ")
@@ -150,9 +199,15 @@ function clean(value: unknown, max: number): string {
     .slice(0, max);
 }
 
-/** One plain mailbox, the same rule every other form uses (see isValidEmail). */
+/**
+ * One plain mailbox, the same rule every other form uses (see isValidEmail),
+ * and no control characters, which that pattern lets through (its \s doesn't
+ * cover NUL or U+0080–U+009F). The sender refuses those too, but by then the
+ * receipt and its email attempt would already be saved — and a NUL can't be
+ * saved at all — so they're turned away here, before anything is written.
+ */
 export function isValidReceiptEmail(value: string) {
-  return isValidEmail(value);
+  return isValidEmail(value) && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
 }
 
 export function formatReceiptMoney(cents: number) {

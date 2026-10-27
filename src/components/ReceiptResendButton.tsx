@@ -7,20 +7,24 @@ import { newReceiptRequestKey } from "@/lib/receipts";
 
 /**
  * History row: emails a saved receipt again, defaulting to the address it
- * last went to (or, after a failed try, the one it was meant for). Each time
- * the form opens it gets a new request key, so pressing Send again after a
- * dropped connection doesn't email the receipt twice — but reopening it and
- * sending is a deliberate new copy.
+ * last went to. As "Resend", each time the form opens it gets a new request
+ * key, so pressing Send again after a dropped connection doesn't email the
+ * receipt twice — but reopening it and sending is a deliberate new copy.
+ *
+ * As "Retry email" (`retryKey` given: the latest request didn't go out, or
+ * wasn't confirmed either way), it repeats that request instead — the same
+ * key, defaulting to the same address — so if the first try did reach the
+ * family after all, Resend returns that result rather than sending a second
+ * copy. Changing the address makes it a new request to the new address.
  */
 export default function ReceiptResendButton({
   id,
   lastEmailedTo,
-  label = "Resend",
+  retryKey,
 }: {
   id: string;
   lastEmailedTo: string | null;
-  /** "Resend", or "Retry email" on a row whose last try didn't go out. */
-  label?: string;
+  retryKey?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState(lastEmailedTo ?? "");
@@ -48,12 +52,12 @@ export default function ReceiptResendButton({
           className="btn btn-quiet btn-small"
           onClick={() => {
             setEmail(lastEmailedTo ?? "");
-            setRequestKey(newReceiptRequestKey());
+            setRequestKey(retryKey ?? newReceiptRequestKey());
             setMessage(null);
             setOpen(true);
           }}
         >
-          {label}
+          {retryKey ? "Retry email" : "Resend"}
         </button>
         {message && (
           <span

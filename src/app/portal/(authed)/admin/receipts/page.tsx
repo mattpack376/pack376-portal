@@ -2,12 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/authorize";
 import { formatDateOnly, todayDateOnlyString } from "@/lib/dateOnly";
 import {
-  EMAIL_ATTEMPT_STALE_MS,
   RECEIPT_KIND_INFO,
   RECEIPT_RECORDS_EMAIL,
   defaultIssuerName,
+  emailAttemptView,
   formatReceiptMoney,
   receiptDataFromRecord,
+  type LatestEmailAttempt,
 } from "@/lib/receipts";
 import ReceiptForm from "@/components/ReceiptForm";
 import ReceiptDownloadButton from "@/components/ReceiptDownloadButton";
@@ -16,43 +17,47 @@ import ReceiptDeleteButton from "@/components/ReceiptDeleteButton";
 
 const HISTORY_LIMIT = 200;
 
-type EmailColumns = {
-  emailedTo: string | null;
-  emailStatus: "PENDING" | "SENT" | "FAILED" | null;
-  emailAttemptTo: string | null;
-  emailAttemptAt: Date | null;
-  emailError: string | null;
-};
+type LatestAttempt = LatestEmailAttempt & { error: string | null };
+
+const RED = "var(--carnival-red)";
 
 /**
  * The "Emailed to" cell: the address it last went to, plus where the latest
- * attempt stands when that one didn't (or hasn't yet) gone out — so a failed
- * send reads as "Saved, but the email didn't go out" with Resend beside it.
+ * request stands when that one didn't (or hasn't yet, or may not have) gone
+ * out — so a failed send reads as "Didn't go out" with Retry email beside it.
  */
-function EmailStatus({ receipt, now }: { receipt: EmailColumns; now: number }) {
-  const lastSent = receipt.emailedTo ? <div>{receipt.emailedTo}</div> : null;
-  const attemptTo = receipt.emailAttemptTo ?? "the address entered";
-  if (receipt.emailStatus === "FAILED") {
-    return (
-      <>
-        {lastSent}
-        <div style={{ color: "var(--carnival-red)", fontWeight: 600 }}>Didn&apos;t go out to {attemptTo}</div>
-        {receipt.emailError && <div className="form-note" style={{ margin: 0 }}>{receipt.emailError}</div>}
-      </>
-    );
-  }
-  if (receipt.emailStatus === "PENDING") {
-    const stale = !receipt.emailAttemptAt || now - receipt.emailAttemptAt.getTime() >= EMAIL_ATTEMPT_STALE_MS;
-    return (
-      <>
-        {lastSent}
-        <div style={{ color: stale ? "var(--carnival-red)" : "var(--ink-soft)", fontWeight: 600 }}>
-          {stale ? `Not confirmed: the send to ${attemptTo} never finished` : `Sending to ${attemptTo}…`}
+function EmailStatus({
+  emailedTo,
+  attempt,
+  view,
+}: {
+  emailedTo: string | null;
+  attempt: LatestAttempt | undefined;
+  view: ReturnType<typeof emailAttemptView>;
+}) {
+  const lastSent = emailedTo ? <div>{emailedTo}</div> : null;
+  if (!attempt || view.state === "done") return lastSent ?? (attempt ? <div>{attempt.address}</div> : <>—</>);
+  const line = {
+    sending: { text: `Sending to ${attempt.address}…`, color: "var(--ink-soft)" },
+    "never-finished": { text: `Not confirmed: the send to ${attempt.address} never finished`, color: RED },
+    unconfirmed: { text: `Not confirmed: Resend didn't say whether the email to ${attempt.address} went out`, color: RED },
+    "too-old": {
+      text: `Not confirmed whether the email to ${attempt.address} went out, and it's too long ago to retry safely. Check with them before sending another copy.`,
+      color: RED,
+    },
+    failed: { text: `Didn't go out to ${attempt.address}`, color: RED },
+  }[view.state];
+  return (
+    <>
+      {lastSent}
+      <div style={{ color: line.color, fontWeight: 600 }}>{line.text}</div>
+      {attempt.status === "FAILED" && attempt.error && (
+        <div className="form-note" style={{ margin: 0 }}>
+          {attempt.error}
         </div>
-      </>
-    );
-  }
-  return lastSent ?? <>—</>;
+      )}
+    </>
+  );
 }
 
 export default async function AdminReceiptsPage() {
@@ -63,8 +68,24 @@ export default async function AdminReceiptsPage() {
     prisma.receipt.findMany({
       orderBy: { createdAt: "desc" },
       take: HISTORY_LIMIT,
-      // Whether the issued PDF is on file, without loading the file itself.
-      include: { document: { select: { templateVersion: true } } },
+      include: {
+        // Whether the issued PDF is on file, without loading the file itself.
+        document: { select: { templateVersion: true } },
+        // The latest email request, for the "Emailed to" cell.
+        emailAttempts: {
+          orderBy: { startedAt: "desc" },
+          take: 1,
+          select: {
+            status: true,
+            requestKey: true,
+            address: true,
+            startedAt: true,
+            providerKeyAt: true,
+            mayHaveSent: true,
+            error: true,
+          },
+        },
+      },
     }),
     prisma.receipt.count(),
   ]);
@@ -110,6 +131,8 @@ export default async function AdminReceiptsPage() {
             )}
             {receipts.map((r) => {
               const data = receiptDataFromRecord(r);
+              const attempt = r.emailAttempts[0];
+              const view = emailAttemptView(attempt, now);
               return (
                 <tr key={r.id}>
                   <td>{r.receivedFrom}</td>
@@ -117,16 +140,18 @@ export default async function AdminReceiptsPage() {
                   <td data-label="Type">{RECEIPT_KIND_INFO[data.kind].label}</td>
                   <td data-label="Amount">{formatReceiptMoney(r.amountCents)}</td>
                   <td data-label="Emailed to">
-                    <EmailStatus receipt={r} now={now} />
+                    <EmailStatus emailedTo={r.emailedTo} attempt={attempt} view={view} />
                   </td>
                   <td data-label="Generated by">{r.issuedByName}</td>
                   <td className="actions">
                     <ReceiptDownloadButton id={r.id} archived={!!r.document} />
-                    <ReceiptResendButton
-                      id={r.id}
-                      lastEmailedTo={r.emailStatus === "FAILED" ? r.emailAttemptTo : (r.emailedTo ?? r.emailAttemptTo)}
-                      label={r.emailStatus === "FAILED" ? "Retry email" : "Resend"}
-                    />
+                    {"retryKey" in view && attempt ? (
+                      // Repeats that same request (its key and address), so a
+                      // try that did reach the family isn't sent twice.
+                      <ReceiptResendButton id={r.id} lastEmailedTo={attempt.address} retryKey={view.retryKey} />
+                    ) : (
+                      <ReceiptResendButton id={r.id} lastEmailedTo={r.emailedTo ?? attempt?.address ?? null} />
+                    )}
                     <ReceiptDeleteButton id={r.id} label={`${r.receivedFrom}, ${formatReceiptMoney(r.amountCents)}`} emailedTo={r.emailedTo} />
                   </td>
                 </tr>
