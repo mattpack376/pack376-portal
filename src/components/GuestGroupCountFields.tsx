@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-/** Adults/Kids/Amount Owed fields for a guest group — Amount Owed auto-fills from the counts times the event's per-head fees, and stays editable afterward (recalculated whenever a count changes). */
+/** Adults/Kids/Amount Owed fields for a guest group — Amount Owed auto-fills from the counts times the event's per-head fees, and stays editable afterward (recalculated whenever a count changes). `maxPeople` is only a hint to the browser; the Server Action enforces the real limit. */
 export default function GuestGroupCountFields({
   idPrefix,
   adultFeeCents,
@@ -10,6 +10,7 @@ export default function GuestGroupCountFields({
   defaultAdultCount = 0,
   defaultChildCount = 0,
   defaultAmountOwedCents,
+  maxPeople,
 }: {
   idPrefix: string;
   adultFeeCents: number | null;
@@ -17,6 +18,7 @@ export default function GuestGroupCountFields({
   defaultAdultCount?: number;
   defaultChildCount?: number;
   defaultAmountOwedCents?: number;
+  maxPeople?: number;
 }) {
   const [adultCount, setAdultCount] = useState(defaultAdultCount);
   const [childCount, setChildCount] = useState(defaultChildCount);
@@ -44,6 +46,7 @@ export default function GuestGroupCountFields({
             name="adultCount"
             type="number"
             min="0"
+            max={maxPeople}
             step="1"
             value={adultCount}
             onChange={(e) => {
@@ -60,6 +63,7 @@ export default function GuestGroupCountFields({
             name="childCount"
             type="number"
             min="0"
+            max={maxPeople}
             step="1"
             value={childCount}
             onChange={(e) => {

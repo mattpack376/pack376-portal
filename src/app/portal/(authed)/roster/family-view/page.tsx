@@ -15,7 +15,8 @@ import CollapsibleGroup from "@/components/CollapsibleGroup";
 import SortableColumnHeader from "@/components/SortableColumnHeader";
 import PaymentInstructionsCard from "@/components/PaymentInstructionsCard";
 import { sortGuestGroups } from "@/lib/guestSort";
-import { registerMyGuestGroupForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
+import { removeMyGuestGroupAction } from "@/lib/actions/events";
+import GuestSelfRegistrationForm from "@/components/GuestSelfRegistrationForm";
 import UpcomingEventsSection from "@/components/UpcomingEventsSection";
 import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import ParentPreviewPicker from "@/components/ParentPreviewPicker";
@@ -474,26 +475,15 @@ export default async function FamilyViewPage({
                     </div>
                   )}
 
-                  <form action={registerMyGuestGroupForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-                    <input type="hidden" name="eventId" value={event.id} />
-                    <div className="form-field" style={{ marginBottom: 0, flex: "1 1 200px" }}>
-                      <label htmlFor={`familyName-${event.id}`}>Family Name / Guest Name</label>
-                      <input id={`familyName-${event.id}`} name="familyName" required defaultValue={session.displayName} />
-                    </div>
-                    {event.adultFeeCents !== null && (
-                      <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
-                        <label htmlFor={`adultCount-${event.id}`}>Adults</label>
-                        <input id={`adultCount-${event.id}`} name="adultCount" type="number" min="0" step="1" defaultValue={1} />
-                      </div>
-                    )}
-                    {event.guestChildFeeCents !== null && (
-                      <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
-                        <label htmlFor={`childCount-${event.id}`}>Kids</label>
-                        <input id={`childCount-${event.id}`} name="childCount" type="number" min="0" step="1" defaultValue={0} />
-                      </div>
-                    )}
-                    <button type="submit" className="btn btn-primary btn-small">Register</button>
-                  </form>
+                  <GuestSelfRegistrationForm
+                    eventId={event.id}
+                    nameLabel="Family Name / Guest Name"
+                    defaultName={session.displayName}
+                    adults={event.adultFeeCents !== null}
+                    kids={event.guestChildFeeCents !== null}
+                    submitLabel="Register"
+                    submitClassName="btn btn-primary btn-small"
+                  />
                 </div>
               ))}
             </div>

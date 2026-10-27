@@ -26,6 +26,10 @@ import SortableColumnHeader from "@/components/SortableColumnHeader";
 import { sortGuestGroups } from "@/lib/guestSort";
 import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import FileExportButton from "@/components/FileExportButton";
+import ActionForm from "@/components/ActionForm";
+import SubmitButton from "@/components/SubmitButton";
+import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
+import { ADMIN_GUEST_GROUP_MAX_PEOPLE, newSubmissionKey } from "@/lib/guestGroupLimits";
 
 export default async function AdminEventDetailPage({
   params,
@@ -130,7 +134,7 @@ export default async function AdminEventDetailPage({
           <input type="hidden" name="id" value={event.id} />
           <div className="form-field">
             <label htmlFor="edit-title">Title</label>
-            <input id="edit-title" name="title" required defaultValue={event.title} />
+            <input id="edit-title" name="title" required maxLength={MAX_NAME_LENGTH} defaultValue={event.title} />
           </div>
           <div className="form-row">
             <div className="form-field">
@@ -186,7 +190,7 @@ export default async function AdminEventDetailPage({
           </div>
           <div className="form-field">
             <label htmlFor="edit-description">Description (optional)</label>
-            <textarea id="edit-description" name="description" rows={2} defaultValue={event.description ?? ""} />
+            <textarea id="edit-description" name="description" rows={2} maxLength={MAX_NOTE_LENGTH} defaultValue={event.description ?? ""} />
           </div>
           <div className="form-field">
             <label htmlFor="edit-flyer">Flyer (optional)</label>
@@ -282,7 +286,7 @@ export default async function AdminEventDetailPage({
         {availableDens.length === 0 ? (
           <p style={{ marginBottom: 0 }}>Every scout is already registered for this event.</p>
         ) : (
-          <form action={registerScoutForEventAction}>
+          <ActionForm action={registerScoutForEventAction}>
             <input type="hidden" name="eventId" value={event.id} />
             <p className="form-note" style={{ marginTop: 0, marginBottom: 8 }}>
               Check every scout signing up — they&apos;ll all get the same amount owed below.
@@ -313,8 +317,8 @@ export default async function AdminEventDetailPage({
                 defaultValue={event.feeCents !== null ? (event.feeCents / 100).toFixed(2) : undefined}
               />
             </div>
-            <button type="submit" className="btn btn-primary">Register Selected Scouts</button>
-          </form>
+            <SubmitButton className="btn btn-primary" pendingLabel="Registering…">Register Selected Scouts</SubmitButton>
+          </ActionForm>
         )}
       </div>
       )}
@@ -391,11 +395,13 @@ export default async function AdminEventDetailPage({
       {canEdit && (
       <div className="info-card" style={{ maxWidth: 460 }}>
         <h3>Register a Guest Group</h3>
-        <form action={addGuestGroupAction}>
+        <ActionForm action={addGuestGroupAction}>
           <input type="hidden" name="eventId" value={event.id} />
+          {/* A new key each time the page renders: pressing Add twice adds one group. */}
+          <input type="hidden" name="submissionKey" value={newSubmissionKey()} />
           <div className="form-field">
             <label htmlFor="familyName">Family Name / Guest Name</label>
-            <input id="familyName" name="familyName" required placeholder="e.g. The Smith Family" />
+            <input id="familyName" name="familyName" required maxLength={MAX_NAME_LENGTH} placeholder="e.g. The Smith Family" />
           </div>
           <div className="form-field">
             <label htmlFor="guestOf">Guest Of</label>
@@ -405,9 +411,10 @@ export default async function AdminEventDetailPage({
             idPrefix="add-guest"
             adultFeeCents={event.adultFeeCents}
             guestChildFeeCents={event.guestChildFeeCents}
+            maxPeople={ADMIN_GUEST_GROUP_MAX_PEOPLE}
           />
-          <button type="submit" className="btn btn-primary">Add</button>
-        </form>
+          <SubmitButton className="btn btn-primary" pendingLabel="Adding…">Add</SubmitButton>
+        </ActionForm>
       </div>
       )}
     </>

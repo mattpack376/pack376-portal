@@ -4,21 +4,93 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin } from "@/lib/authorize";
+import { assertAdmin, canViewParentContacts } from "@/lib/authorize";
 import { RANK_ORDER } from "@/lib/rankConfig";
 import { DEADLINE_CATEGORY_LABELS } from "@/lib/deadlineCategories";
-import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
+import { recordAudit, recordAuditInTransaction, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import { uploadFlyer } from "@/lib/flyerUpload";
-import { dollarsToCents, parseCount } from "@/lib/formValues";
-import { parseDateOnlyString, todayDateOnly } from "@/lib/dateOnly";
+import {
+  MAX_CENTS,
+  MAX_NAME_LENGTH,
+  MAX_NOTE_LENGTH,
+  dollarsToCents,
+  multiplyCents,
+  parseCount,
+  textField,
+} from "@/lib/formValues";
+import { readDateOnlyField, todayDateOnly } from "@/lib/dateOnly";
 import { upcomingVisibleEventWhere } from "@/lib/eventsData";
+import {
+  ADMIN_GUEST_GROUP_MAX_PEOPLE,
+  SELF_SERVICE_GUEST_GROUP_MAX_PEOPLE,
+  SELF_SERVICE_GUEST_GROUPS_PER_EVENT,
+  isSubmissionKey,
+} from "@/lib/guestGroupLimits";
+import type { Prisma } from "@/generated/prisma/client";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
+import type { SessionPayload } from "@/lib/session";
+
+/**
+ * What the forms built on ActionForm get back: `error` is shown above the
+ * fields. Nothing (or {}) means it saved.
+ */
+export type EventFormResult = { error?: string };
+
+/**
+ * A mistake in what was entered, or a sign-up that's no longer possible (the
+ * event closed, the group already exists). Actions behind ActionForm return
+ * its message as { error } instead of throwing to the error page — in
+ * production Next replaces a thrown message with a generic one, so a family
+ * would never see why. Anything else (not signed in, a tampered request, the
+ * database down) is still thrown.
+ */
+class EventInputError extends Error {}
+
+async function asResult(work: () => Promise<void>): Promise<EventFormResult> {
+  try {
+    await work();
+    return {};
+  } catch (error) {
+    if (error instanceof EventInputError) return { error: error.message };
+    throw error;
+  }
+}
+
+/** Interactive transactions here lock one row and do a handful of small queries. */
+const TX = { timeout: 15_000, maxWait: 10_000 };
+
+const MAX_AMOUNT_TEXT = `$${(MAX_CENTS / 100).toLocaleString("en-US")}`;
+const NOT_OPEN = "This event isn't open for self-registration.";
+const STALE_FORM = "This form was already used or is out of date. Reload the page and try again.";
+
+function isUniqueViolation(error: unknown) {
+  return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2002";
+}
+
+/** A row id from a hidden field. "" when missing, or longer than any id this app makes (a cuid is 25 characters). */
+function idField(raw: FormDataEntryValue | null): string {
+  const value = textField(raw);
+  return value.length <= 64 ? value : "";
+}
+
+/**
+ * Locks an event's row until the transaction ends; false if the event is
+ * gone. Every sign-up for an event takes this lock before it checks anything,
+ * so the checks (still open, the fee, how many groups this login has, whether
+ * this form was already sent) and the insert happen one sign-up at a time, and
+ * an Admin's edit to the event either lands before a sign-up reads it or waits
+ * until that sign-up is saved.
+ */
+async function lockEvent(tx: Prisma.TransactionClient, eventId: string): Promise<boolean> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
+  return rows.length > 0;
+}
 
 /** An event's title for audit text, falling back to the raw id. */
-async function eventTitle(eventId: string) {
+async function eventTitle(eventId: string, db: Prisma.TransactionClient = prisma) {
   if (!eventId) return "an event";
-  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { title: true } });
+  const event = await db.event.findUnique({ where: { id: eventId }, select: { title: true } });
   return event?.title ?? eventId;
 }
 
@@ -41,167 +113,323 @@ async function registrationContext(registrationId: string) {
   };
 }
 
-export async function createEventAction(formData: FormData) {
+// ---------------------------------------------------------------------------
+// Reading form fields. Every limit is checked here, on the server, before
+// anything is written: the browser's max/maxLength hints are only hints.
+// ---------------------------------------------------------------------------
+
+function isDeadlineCategory(value: string): value is DeadlineCategory {
+  return Object.hasOwn(DEADLINE_CATEGORY_LABELS, value);
+}
+
+/** An optional fee field: blank is null (no default fee). */
+function optionalCents(raw: FormDataEntryValue | null, label: string): number | null {
+  const text = textField(raw);
+  if (!text) return null;
+  const cents = dollarsToCents(text);
+  if (cents === null) {
+    throw new EventInputError(`${label} isn't a valid amount. Use dollars and cents, up to ${MAX_AMOUNT_TEXT}.`);
+  }
+  return cents;
+}
+
+/** Title, category, date, description and default fees from the create/edit event forms. */
+function readEventFields(formData: FormData) {
+  const title = textField(formData.get("title"));
+  if (!title) throw new EventInputError("Enter a title.");
+  if (title.length > MAX_NAME_LENGTH) {
+    throw new EventInputError(`Keep the title to ${MAX_NAME_LENGTH} characters or fewer.`);
+  }
+
+  const category = textField(formData.get("category")) || "GENERAL";
+  if (!isDeadlineCategory(category)) throw new EventInputError("Choose a category from the list.");
+
+  const eventDate = readDateOnlyField(formData.get("eventDate"), "Event date");
+  if (eventDate.error !== undefined) throw new EventInputError(eventDate.error);
+  if (!eventDate.date) throw new EventInputError("Enter the event date.");
+
+  const description = textField(formData.get("description"));
+  if (description.length > MAX_NOTE_LENGTH) {
+    throw new EventInputError(`Keep the description to ${MAX_NOTE_LENGTH} characters or fewer.`);
+  }
+
+  return {
+    title,
+    category,
+    eventDate: eventDate.date,
+    description: description || null,
+    feeCents: optionalCents(formData.get("fee"), "The fee per scout"),
+    adultFeeCents: optionalCents(formData.get("adultFee"), "The fee per adult"),
+    guestChildFeeCents: optionalCents(formData.get("guestChildFee"), "The fee per guest child"),
+  };
+}
+
+/** A payment from the Record a Payment forms: amount above $0, optional date (today) and note. */
+function readPayment(formData: FormData) {
+  const amountCents = dollarsToCents(textField(formData.get("amount")));
+  if (amountCents === null || amountCents === 0) {
+    throw new EventInputError(`Enter a payment amount above $0, in dollars and cents, up to ${MAX_AMOUNT_TEXT}.`);
+  }
+  const paidOn = readDateOnlyField(formData.get("paidOn"), "Payment date");
+  if (paidOn.error !== undefined) throw new EventInputError(paidOn.error);
+  const note = textField(formData.get("note"));
+  if (note.length > MAX_NOTE_LENGTH) {
+    throw new EventInputError(`Keep the note to ${MAX_NOTE_LENGTH} characters or fewer.`);
+  }
+  return { amountCents, paidOn: paidOn.date ?? todayDateOnly(), note: note || null };
+}
+
+/** The scouts checked on a sign-up form, each once. More than the whole pack is a hand-built request. */
+function checkedScoutIds(formData: FormData): string[] {
+  const ids = [...new Set(formData.getAll("scoutId").map(idField).filter(Boolean))];
+  if (ids.length > 500) throw new Error("Too many scouts in one sign-up.");
+  return ids;
+}
+
+/** A guest group's "Family Name / Guest Name". */
+function readGroupName(formData: FormData): string {
+  const name = textField(formData.get("familyName"));
+  if (!name) throw new EventInputError("Enter a family or guest name.");
+  if (name.length > MAX_NAME_LENGTH) {
+    throw new EventInputError(`Keep the name to ${MAX_NAME_LENGTH} characters or fewer.`);
+  }
+  return name;
+}
+
+/**
+ * One headcount field, up to `max`. parseCount takes plain digits only, so
+ * "1e3", "0x10", "2.0", "-1" and "+3" fail as not-a-number; plain digits
+ * that only failed the ceiling get the group-size message instead.
+ */
+function readCount(raw: FormDataEntryValue | null, what: string, max: number, tooMany: string): number {
+  const count = parseCount(raw, max);
+  if (count !== null) return count;
+  if (typeof raw === "string" && /^\d+$/.test(raw.trim())) throw new EventInputError(tooMany);
+  throw new EventInputError(`Enter the number of ${what} as a whole number, like 2.`);
+}
+
+/** Adults and kids for one guest group: at least one person, at most `maxPeople` together. */
+function readHeadcounts(formData: FormData, maxPeople: number, tooMany: string) {
+  const adultCount = readCount(formData.get("adultCount"), "adults", maxPeople, tooMany);
+  const childCount = readCount(formData.get("childCount"), "kids", maxPeople, tooMany);
+  if (adultCount + childCount === 0) throw new EventInputError("Enter at least one adult or child.");
+  if (adultCount + childCount > maxPeople) throw new EventInputError(tooMany);
+  return { adultCount, childCount };
+}
+
+const SELF_SERVICE_TOO_MANY =
+  `Online sign-up is limited to ${SELF_SERVICE_GUEST_GROUP_MAX_PEOPLE} people per group. ` +
+  "For a bigger group, ask an Admin to register it for you.";
+
+const ADMIN_TOO_MANY =
+  `A guest group can have at most ${ADMIN_GUEST_GROUP_MAX_PEOPLE} people. ` +
+  "Split a bigger group into more than one.";
+
+/** The amount owed an Admin types for a guest group. */
+function readAmountOwed(formData: FormData): number {
+  const cents = dollarsToCents(textField(formData.get("amountOwed")));
+  if (cents === null) {
+    throw new EventInputError(`Enter the amount owed in dollars and cents, up to ${MAX_AMOUNT_TEXT}.`);
+  }
+  return cents;
+}
+
+/**
+ * A group's total at the event's per-head fees, or null when it's more than
+ * any one amount can be (MAX_CENTS). multiplyCents refuses an unsafe or
+ * oversize product before it can round or overflow the 32-bit column.
+ */
+function guestTotalCents(
+  adultCount: number,
+  adultFeeCents: number | null,
+  childCount: number,
+  guestChildFeeCents: number | null,
+): number | null {
+  const adults = multiplyCents(adultCount, adultFeeCents ?? 0);
+  const kids = multiplyCents(childCount, guestChildFeeCents ?? 0);
+  if (adults === null || kids === null || adults + kids > MAX_CENTS) return null;
+  return adults + kids;
+}
+
+type GuestOf = { guestOfScoutId: string | null; guestOfUserId: string | null };
+
+/**
+ * Parses a "Guest Of" <select> value of the form "scout:<id>" | "user:<id>" |
+ * "" into the two mutually-exclusive FK fields. Anything else isn't one of
+ * the options the picker offers.
+ */
+function readGuestOf(raw: FormDataEntryValue | null): GuestOf {
+  const value = textField(raw);
+  if (!value) return { guestOfScoutId: null, guestOfUserId: null };
+  const match = /^(scout|user):([^:\s]{1,64})$/.exec(value);
+  if (!match) throw new EventInputError("Choose a Guest Of option from the list.");
+  return match[1] === "scout"
+    ? { guestOfScoutId: match[2], guestOfUserId: null }
+    : { guestOfScoutId: null, guestOfUserId: match[2] };
+}
+
+/** The scout or login a group is linked to still exists (an inactive one stays a valid link). */
+async function assertGuestOfExists(tx: Prisma.TransactionClient, guestOf: GuestOf) {
+  if (guestOf.guestOfScoutId) {
+    const scout = await tx.scout.findUnique({ where: { id: guestOf.guestOfScoutId }, select: { id: true } });
+    if (!scout) throw new EventInputError("That scout is no longer on the roster. Reload the page and choose again.");
+  }
+  if (guestOf.guestOfUserId) {
+    const user = await tx.user.findUnique({ where: { id: guestOf.guestOfUserId }, select: { id: true } });
+    if (!user) throw new EventInputError("That login no longer exists. Reload the page and choose again.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Flyers
+// ---------------------------------------------------------------------------
+
+/** Uploads the flyer from the form, if one was chosen. */
+async function uploadEventFlyer(raw: FormDataEntryValue | null): Promise<string | null> {
+  if (!(raw instanceof File) || raw.size === 0) return null;
+  try {
+    return await uploadFlyer(raw, "event-flyers");
+  } catch (error) {
+    // uploadFlyer's own refusals (wrong type, too big) start "Flyer …" and
+    // are written for the Admin; anything else is a storage failure and goes
+    // to the error page as before.
+    if (error instanceof Error && error.message.startsWith("Flyer")) throw new EventInputError(error.message);
+    throw error;
+  }
+}
+
+/**
+ * Runs the database write that will point at a flyer just uploaded. If the
+ * write fails, the upload is deleted again — otherwise it would sit in Blob
+ * storage, public at its URL, with no row referring to it.
+ */
+async function writeWithFlyer<T>(uploadedUrl: string | null, write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (error) {
+    if (uploadedUrl) await deleteUploadedBlob(uploadedUrl);
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+
+export async function createEventAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const title = String(formData.get("title") || "").trim();
-  const category = String(formData.get("category") || "GENERAL") as DeadlineCategory;
-  const eventDateRaw = String(formData.get("eventDate") || "").trim();
-  const description = String(formData.get("description") || "").trim();
-  const feeRaw = String(formData.get("fee") || "");
-  const adultFeeRaw = String(formData.get("adultFee") || "");
-  const guestChildFeeRaw = String(formData.get("guestChildFee") || "");
-  if (!title || !eventDateRaw) throw new Error("Title and event date are required.");
+  let eventId = "";
+  const result = await asResult(async () => {
+    const fields = readEventFields(formData);
+    const flyerUrl = await uploadEventFlyer(formData.get("flyer"));
+    const event = await writeWithFlyer(flyerUrl, () => prisma.event.create({ data: { ...fields, flyerUrl } }));
+    eventId = event.id;
 
-  const eventDate = parseDateOnlyString(eventDateRaw, "Invalid event date.") as Date;
-
-  const feeCents = feeRaw.trim() ? dollarsToCents(feeRaw) : null;
-  if (feeRaw.trim() && feeCents === null) throw new Error("Invalid fee amount.");
-
-  const adultFeeCents = adultFeeRaw.trim() ? dollarsToCents(adultFeeRaw) : null;
-  if (adultFeeRaw.trim() && adultFeeCents === null) throw new Error("Invalid adult fee amount.");
-
-  const guestChildFeeCents = guestChildFeeRaw.trim() ? dollarsToCents(guestChildFeeRaw) : null;
-  if (guestChildFeeRaw.trim() && guestChildFeeCents === null) throw new Error("Invalid guest child fee amount.");
-
-  let flyerUrl: string | null = null;
-  const flyer = formData.get("flyer");
-  if (flyer instanceof File && flyer.size > 0) {
-    flyerUrl = await uploadFlyer(flyer, "event-flyers");
-  }
-
-  const event = await prisma.event.create({
-    data: { title, category, eventDate, description: description || null, feeCents, adultFeeCents, guestChildFeeCents, flyerUrl },
+    await recordAudit(session, {
+      action: "event.create",
+      summary: `Created the event “${fields.title}” on ${auditDate(fields.eventDate)}`,
+      entityType: "Event",
+      entityId: event.id,
+      details: [
+        { label: "Title", from: "—", to: fields.title },
+        { label: "Category", from: "—", to: DEADLINE_CATEGORY_LABELS[fields.category] ?? fields.category },
+        { label: "Event date", from: "—", to: auditDate(fields.eventDate) },
+        ...(fields.feeCents !== null ? [{ label: "Scout fee", from: "—", to: auditMoney(fields.feeCents) }] : []),
+        ...(fields.adultFeeCents !== null
+          ? [{ label: "Adult fee", from: "—", to: auditMoney(fields.adultFeeCents) }]
+          : []),
+        ...(fields.guestChildFeeCents !== null
+          ? [{ label: "Guest child fee", from: "—", to: auditMoney(fields.guestChildFeeCents) }]
+          : []),
+        ...(flyerUrl ? [{ label: "Flyer", from: "—", to: "Uploaded" }] : []),
+      ],
+    });
   });
-
-  await recordAudit(session, {
-    action: "event.create",
-    summary: `Created the event “${title}” on ${auditDate(eventDate)}`,
-    entityType: "Event",
-    entityId: event.id,
-    details: [
-      { label: "Title", from: "—", to: title },
-      { label: "Category", from: "—", to: DEADLINE_CATEGORY_LABELS[category] ?? category },
-      { label: "Event date", from: "—", to: auditDate(eventDate) },
-      ...(feeCents !== null ? [{ label: "Scout fee", from: "—", to: auditMoney(feeCents) }] : []),
-      ...(adultFeeCents !== null ? [{ label: "Adult fee", from: "—", to: auditMoney(adultFeeCents) }] : []),
-      ...(guestChildFeeCents !== null
-        ? [{ label: "Guest child fee", from: "—", to: auditMoney(guestChildFeeCents) }]
-        : []),
-      ...(flyerUrl ? [{ label: "Flyer", from: "—", to: "Uploaded" }] : []),
-    ],
-  });
+  if (result.error) return result;
 
   revalidatePath("/portal/admin/events");
   revalidatePath("/portal/parent");
   revalidatePath("/portal/roster/family-view");
-  redirect(`/portal/admin/events/${event.id}`);
+  redirect(`/portal/admin/events/${eventId}`);
 }
 
+// The edit form uses SaveButton, whose "Saved ✓" only makes sense after a
+// save that went through, so this one still throws on bad input (before
+// anything is uploaded or written) rather than returning { error }.
 export async function updateEventAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const id = String(formData.get("id") || "");
-  const title = String(formData.get("title") || "").trim();
-  const category = String(formData.get("category") || "GENERAL") as DeadlineCategory;
-  const eventDateRaw = String(formData.get("eventDate") || "").trim();
-  const description = String(formData.get("description") || "").trim();
-  const feeRaw = String(formData.get("fee") || "");
-  const adultFeeRaw = String(formData.get("adultFee") || "");
-  const guestChildFeeRaw = String(formData.get("guestChildFee") || "");
-  if (!id || !title || !eventDateRaw) throw new Error("Title and event date are required.");
+  const id = idField(formData.get("id"));
+  if (!id) throw new Error("Missing event id.");
+  const fields = readEventFields(formData);
+  const removeFlyer = textField(formData.get("removeFlyer")) === "true";
 
-  const eventDate = parseDateOnlyString(eventDateRaw, "Invalid event date.") as Date;
-
-  const feeCents = feeRaw.trim() ? dollarsToCents(feeRaw) : null;
-  if (feeRaw.trim() && feeCents === null) throw new Error("Invalid fee amount.");
-
-  const adultFeeCents = adultFeeRaw.trim() ? dollarsToCents(adultFeeRaw) : null;
-  if (adultFeeRaw.trim() && adultFeeCents === null) throw new Error("Invalid adult fee amount.");
-
-  const guestChildFeeCents = guestChildFeeRaw.trim() ? dollarsToCents(guestChildFeeRaw) : null;
-  if (guestChildFeeRaw.trim() && guestChildFeeCents === null) throw new Error("Invalid guest child fee amount.");
+  // Turned away before anything is uploaded for it.
+  if (!(await prisma.event.findUnique({ where: { id }, select: { id: true } }))) {
+    throw new Error("Event not found.");
+  }
 
   // Only touch flyerUrl when a new file was uploaded or "remove" was checked,
   // so leaving both alone keeps whatever flyer is already saved.
-  let flyerUrl: string | null | undefined;
-  const flyer = formData.get("flyer");
-  if (flyer instanceof File && flyer.size > 0) {
-    flyerUrl = await uploadFlyer(flyer, "event-flyers");
-  } else if (String(formData.get("removeFlyer") || "") === "true") {
-    flyerUrl = null;
-  }
+  const uploadedUrl = await uploadEventFlyer(formData.get("flyer"));
+  const flyerUrl: string | null | undefined = uploadedUrl ?? (removeFlyer ? null : undefined);
 
-  const before = await prisma.event.findUnique({
-    where: { id },
-    select: {
-      title: true,
-      category: true,
-      eventDate: true,
-      description: true,
-      feeCents: true,
-      adultFeeCents: true,
-      guestChildFeeCents: true,
-      // So a flyer that's been replaced or removed can be deleted from Blob
-      // storage below rather than left public at its original URL.
-      flyerUrl: true,
-    },
-  });
-
-  await prisma.event.update({
-    where: { id },
-    data: {
-      title,
-      category,
-      eventDate,
-      description: description || null,
-      feeCents,
-      adultFeeCents,
-      guestChildFeeCents,
-      ...(flyerUrl !== undefined ? { flyerUrl } : {}),
-    },
-  });
+  const before = await writeWithFlyer(uploadedUrl, () =>
+    prisma.$transaction(async (tx) => {
+      // Re-read under the lock, so the flyer this replaces is the one saved
+      // right now: two Admins replacing it at once would otherwise both
+      // delete the same old file and leave one of the new uploads behind.
+      if (!(await lockEvent(tx, id))) throw new Error("Event not found.");
+      const previous = await tx.event.findUniqueOrThrow({
+        where: { id },
+        select: {
+          title: true,
+          category: true,
+          eventDate: true,
+          description: true,
+          feeCents: true,
+          adultFeeCents: true,
+          guestChildFeeCents: true,
+          flyerUrl: true,
+        },
+      });
+      await tx.event.update({
+        where: { id },
+        data: { ...fields, ...(flyerUrl !== undefined ? { flyerUrl } : {}) },
+      });
+      return previous;
+    }, TX),
+  );
 
   // After the row is updated: a stray object is a better failure than a row
   // pointing at a flyer that's already gone. Same helper as albums.ts.
-  if (flyerUrl !== undefined && before?.flyerUrl && before.flyerUrl !== flyerUrl) {
+  if (flyerUrl !== undefined && before.flyerUrl && before.flyerUrl !== flyerUrl) {
     await deleteUploadedBlob(before.flyerUrl);
   }
 
+  const money = (cents: number | null) => (cents === null ? null : auditMoney(cents));
   await recordAudit(session, {
     action: "event.update",
-    summary: `Edited the event “${title}”`,
+    summary: `Edited the event “${fields.title}”`,
     entityType: "Event",
     entityId: id,
     details: [
       ...changedFields({
-        Title: [before?.title, title],
+        Title: [before.title, fields.title],
         Category: [
-          before ? DEADLINE_CATEGORY_LABELS[before.category] ?? before.category : null,
-          DEADLINE_CATEGORY_LABELS[category] ?? category,
+          DEADLINE_CATEGORY_LABELS[before.category] ?? before.category,
+          DEADLINE_CATEGORY_LABELS[fields.category] ?? fields.category,
         ],
-        "Event date": [before?.eventDate, eventDate],
-        Description: [before?.description, description || null],
-        "Scout fee": [
-          before?.feeCents === null || before?.feeCents === undefined ? null : auditMoney(before.feeCents),
-          feeCents === null ? null : auditMoney(feeCents),
-        ],
-        "Adult fee": [
-          before?.adultFeeCents === null || before?.adultFeeCents === undefined
-            ? null
-            : auditMoney(before.adultFeeCents),
-          adultFeeCents === null ? null : auditMoney(adultFeeCents),
-        ],
-        "Guest child fee": [
-          before?.guestChildFeeCents === null || before?.guestChildFeeCents === undefined
-            ? null
-            : auditMoney(before.guestChildFeeCents),
-          guestChildFeeCents === null ? null : auditMoney(guestChildFeeCents),
-        ],
+        "Event date": [before.eventDate, fields.eventDate],
+        Description: [before.description, fields.description],
+        "Scout fee": [money(before.feeCents), money(fields.feeCents)],
+        "Adult fee": [money(before.adultFeeCents), money(fields.adultFeeCents)],
+        "Guest child fee": [money(before.guestChildFeeCents), money(fields.guestChildFeeCents)],
       }),
       ...(flyerUrl === undefined
         ? []
@@ -288,52 +516,77 @@ export async function deleteEventAction(formData: FormData) {
   redirect("/portal/admin/events");
 }
 
-export async function registerScoutForEventAction(formData: FormData) {
+// ---------------------------------------------------------------------------
+// Scout registrations and their payments
+// ---------------------------------------------------------------------------
+
+/**
+ * The scouts a sign-up names, read inside its transaction. New sign-ups are
+ * for active scouts only; the pickers don't offer anyone else, this stops a
+ * request built by hand or a form left open while a scout was switched off.
+ */
+async function activeScoutsForSignUp(tx: Prisma.TransactionClient, scoutIds: string[]) {
+  const scouts = await tx.scout.findMany({
+    where: { id: { in: scoutIds } },
+    select: { id: true, firstName: true, lastName: true, denId: true, active: true },
+  });
+  if (scouts.length !== scoutIds.length) {
+    throw new EventInputError("One or more of those scouts is no longer on the roster. Reload the page and try again.");
+  }
+  if (scouts.some((s) => !s.active)) throw new EventInputError("One or more of those scouts is inactive.");
+  return scouts;
+}
+
+export async function registerScoutForEventAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const eventId = String(formData.get("eventId") || "");
-  const scoutIds = formData.getAll("scoutId").map(String).filter(Boolean);
-  const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
-  if (!eventId || scoutIds.length === 0 || amountOwedCents === null) {
-    throw new Error("At least one scout and a valid amount owed are required.");
-  }
-  await assertScoutsActive(scoutIds);
+  const eventId = idField(formData.get("eventId"));
+  if (!eventId) throw new Error("Missing event id.");
 
-  const existing = await prisma.eventRegistration.findMany({
-    where: { eventId, scoutId: { in: scoutIds } },
-    select: { scoutId: true },
-  });
-  const alreadyRegistered = new Set(existing.map((r) => r.scoutId));
-  const newScoutIds = scoutIds.filter((id) => !alreadyRegistered.has(id));
-  if (newScoutIds.length === 0) throw new Error("Those scouts are already registered for this event.");
+  const result = await asResult(async () => {
+    const scoutIds = checkedScoutIds(formData);
+    if (scoutIds.length === 0) throw new EventInputError("Check at least one scout to register.");
+    const amountOwedCents = readAmountOwed(formData);
 
-  await prisma.eventRegistration.createMany({
-    data: newScoutIds.map((scoutId) => ({ eventId, scoutId, amountOwedCents })),
-  });
+    await prisma.$transaction(async (tx) => {
+      if (!(await lockEvent(tx, eventId))) throw new EventInputError("This event no longer exists.");
+      const scouts = await activeScoutsForSignUp(tx, scoutIds);
 
-  const scouts = await prisma.scout.findMany({
-    where: { id: { in: newScoutIds } },
-    select: { firstName: true, lastName: true, denId: true },
+      const existing = await tx.eventRegistration.findMany({
+        where: { eventId, scoutId: { in: scoutIds } },
+        select: { scoutId: true },
+      });
+      const alreadyRegistered = new Set(existing.map((r) => r.scoutId));
+      const added = scouts.filter((s) => !alreadyRegistered.has(s.id));
+      if (added.length === 0) throw new EventInputError("Those scouts are already registered for this event.");
+
+      await tx.eventRegistration.createMany({
+        data: added.map((s) => ({ eventId, scoutId: s.id, amountOwedCents })),
+      });
+
+      const names = added.map((sc) => `${sc.firstName} ${sc.lastName}`).sort();
+      await recordAuditInTransaction(tx, session, {
+        action: "eventRegistration.create",
+        summary: `Registered ${names.join(", ")} for “${await eventTitle(eventId, tx)}” at ${auditMoney(
+          amountOwedCents,
+        )} each`,
+        entityType: "Event",
+        entityId: eventId,
+        // Only tagged with a den when every scout came from the same one.
+        denId: new Set(added.map((sc) => sc.denId)).size === 1 ? added[0].denId : null,
+        details: [
+          { label: "Scouts registered", from: "—", to: names.join(", ") },
+          { label: "Amount owed each", from: "—", to: auditMoney(amountOwedCents) },
+        ],
+      });
+    }, TX);
   });
-  const names = scouts.map((sc) => `${sc.firstName} ${sc.lastName}`).sort();
-  await recordAudit(session, {
-    action: "eventRegistration.create",
-    summary: `Registered ${names.join(", ") || `${newScoutIds.length} scout(s)`} for “${await eventTitle(
-      eventId,
-    )}” at ${auditMoney(amountOwedCents)} each`,
-    entityType: "Event",
-    entityId: eventId,
-    // Only tagged with a den when every scout came from the same one.
-    denId: new Set(scouts.map((sc) => sc.denId)).size === 1 ? scouts[0].denId : null,
-    details: [
-      { label: "Scouts registered", from: "—", to: names.join(", ") },
-      { label: "Amount owed each", from: "—", to: auditMoney(amountOwedCents) },
-    ],
-  });
+  if (result.error) return result;
 
   revalidatePath(`/portal/admin/events/${eventId}`);
+  return {};
 }
 
 export async function updateRegistrationAmountAction(formData: FormData) {
@@ -424,107 +677,118 @@ export async function removeRegistrationAction(formData: FormData) {
   revalidatePath("/portal/admin/events");
 }
 
-export async function addEventPaymentAction(formData: FormData) {
+export async function addEventPaymentAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-
-  const registrationId = String(formData.get("registrationId") || "");
-  const eventId = String(formData.get("eventId") || "");
-  const amountCents = dollarsToCents(String(formData.get("amount") || ""));
-  const paidOnRaw = String(formData.get("paidOn") || "").trim();
-  const note = String(formData.get("note") || "").trim() || null;
-  if (!registrationId || amountCents === null || amountCents === 0) {
-    throw new Error("A valid payment amount is required.");
-  }
-
-  const registration = await prisma.eventRegistration.findUnique({
-    where: { id: registrationId },
-    select: { scout: { select: { denId: true } } },
-  });
-  if (!registration) throw new Error("Registration not found.");
   assertAdmin(session);
 
-  const paidOn = parseDateOnlyString(paidOnRaw, "Invalid payment date.") ?? todayDateOnly();
+  const registrationId = idField(formData.get("registrationId"));
+  const eventId = idField(formData.get("eventId"));
+  if (!registrationId) throw new Error("Missing registration id.");
 
-  const payment = await prisma.eventPayment.create({
-    data: { eventRegistrationId: registrationId, amountCents, paidOn, note, recordedByUserId: session.userId },
-  });
+  const result = await asResult(async () => {
+    const { amountCents, paidOn, note } = readPayment(formData);
 
-  const context = await registrationContext(registrationId);
-  await recordAudit(session, {
-    action: "eventPayment.add",
-    summary: `Recorded a ${auditMoney(amountCents)} payment for ${context.scoutName} on “${context.eventTitle}”`,
-    entityType: "EventPayment",
-    entityId: payment.id,
-    denId: context.denId,
-    details: [
-      { label: "Amount", from: "—", to: auditMoney(amountCents) },
-      { label: "Paid on", from: "—", to: auditDate(paidOn) },
-      ...(note ? [{ label: "Note", from: "—", to: note }] : []),
-    ],
+    await prisma.$transaction(async (tx) => {
+      // The registration first, so removing it (which takes its payments
+      // with it) can't interleave with this payment being added.
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "EventRegistration" WHERE id = ${registrationId} FOR UPDATE`;
+      if (locked.length === 0) throw new EventInputError("This registration no longer exists.");
+      const registration = await tx.eventRegistration.findUniqueOrThrow({
+        where: { id: registrationId },
+        select: {
+          event: { select: { title: true } },
+          scout: { select: { firstName: true, lastName: true, denId: true } },
+        },
+      });
+
+      const payment = await tx.eventPayment.create({
+        data: { eventRegistrationId: registrationId, amountCents, paidOn, note, recordedByUserId: session.userId },
+      });
+
+      await recordAuditInTransaction(tx, session, {
+        action: "eventPayment.add",
+        summary: `Recorded a ${auditMoney(amountCents)} payment for ${registration.scout.firstName} ${
+          registration.scout.lastName
+        } on “${registration.event.title}”`,
+        entityType: "EventPayment",
+        entityId: payment.id,
+        denId: registration.scout.denId,
+        details: [
+          { label: "Amount", from: "—", to: auditMoney(amountCents) },
+          { label: "Paid on", from: "—", to: auditDate(paidOn) },
+          ...(note ? [{ label: "Note", from: "—", to: note }] : []),
+        ],
+      });
+    }, TX);
   });
+  if (result.error) return result;
 
   revalidatePath(`/portal/admin/events/${eventId}/${registrationId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
+  return {};
 }
 
-/** New sign-ups are for active scouts only; the pickers don't offer anyone else, this stops a hand-built request. */
-async function assertScoutsActive(scoutIds: string[]) {
-  const inactive = await prisma.scout.count({ where: { id: { in: scoutIds }, active: false } });
-  if (inactive > 0) throw new Error("One or more of those scouts is inactive.");
-}
-
-export async function registerMyScoutsForEventAction(formData: FormData) {
+export async function registerMyScoutsForEventAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   if (session.role !== "PARENT") throw new Error("Not authorized.");
 
-  const eventId = String(formData.get("eventId") || "");
-  const scoutIds = formData.getAll("scoutId").map(String).filter(Boolean);
-  if (!eventId || scoutIds.length === 0) throw new Error("Select at least one scout.");
-
+  const eventId = idField(formData.get("eventId"));
+  const scoutIds = checkedScoutIds(formData);
+  // Only the family's own scouts; scoutIds is baked into the signed session.
   const allowedScoutIds = new Set(session.scoutIds);
   if (!scoutIds.every((id) => allowedScoutIds.has(id))) {
     throw new Error("Not authorized for one or more of those scouts.");
   }
-  await assertScoutsActive(scoutIds);
 
-  const event = await prisma.event.findFirst({
-    where: { id: eventId, ...upcomingVisibleEventWhere() },
-    select: { feeCents: true },
-  });
-  if (!event || event.feeCents === null) throw new Error("This event isn't open for self-registration.");
+  const result = await asResult(async () => {
+    if (!eventId) throw new EventInputError(NOT_OPEN);
+    if (scoutIds.length === 0) throw new EventInputError("Select at least one scout.");
 
-  const existing = await prisma.eventRegistration.findMany({
-    where: { eventId, scoutId: { in: scoutIds } },
-    select: { scoutId: true },
-  });
-  const alreadyRegistered = new Set(existing.map((r) => r.scoutId));
-  const newScoutIds = scoutIds.filter((id) => !alreadyRegistered.has(id));
-  if (newScoutIds.length === 0) throw new Error("Already registered for this event.");
+    await prisma.$transaction(async (tx) => {
+      if (!(await lockEvent(tx, eventId))) throw new EventInputError(NOT_OPEN);
+      const event = await tx.event.findFirst({
+        where: { id: eventId, ...upcomingVisibleEventWhere() },
+        select: { feeCents: true, title: true },
+      });
+      if (!event || event.feeCents === null) throw new EventInputError(NOT_OPEN);
+      const feeCents = event.feeCents;
+      const scouts = await activeScoutsForSignUp(tx, scoutIds);
 
-  await prisma.eventRegistration.createMany({
-    data: newScoutIds.map((scoutId) => ({ eventId, scoutId, amountOwedCents: event.feeCents! })),
-  });
+      const existing = await tx.eventRegistration.findMany({
+        where: { eventId, scoutId: { in: scoutIds } },
+        select: { scoutId: true },
+      });
+      const alreadyRegistered = new Set(existing.map((r) => r.scoutId));
+      const added = scouts.filter((s) => !alreadyRegistered.has(s.id));
+      if (added.length === 0) throw new EventInputError("Already registered for this event.");
 
-  const scouts = await prisma.scout.findMany({
-    where: { id: { in: newScoutIds } },
-    select: { firstName: true, lastName: true, denId: true },
+      await tx.eventRegistration.createMany({
+        data: added.map((s) => ({ eventId, scoutId: s.id, amountOwedCents: feeCents })),
+      });
+
+      const names = added.map((sc) => `${sc.firstName} ${sc.lastName}`).sort();
+      await recordAuditInTransaction(tx, session, {
+        action: "eventRegistration.selfRegister",
+        summary: `Signed ${names.join(", ")} up for “${event.title}” at ${auditMoney(feeCents)} each`,
+        entityType: "Event",
+        entityId: eventId,
+        denId: new Set(added.map((sc) => sc.denId)).size === 1 ? added[0].denId : null,
+      });
+    }, TX);
   });
-  const names = scouts.map((sc) => `${sc.firstName} ${sc.lastName}`).sort();
-  await recordAudit(session, {
-    action: "eventRegistration.selfRegister",
-    summary: `Signed ${names.join(", ") || "their scout(s)"} up for “${await eventTitle(eventId)}” at ${auditMoney(
-      event.feeCents,
-    )} each`,
-    entityType: "Event",
-    entityId: eventId,
-    denId: new Set(scouts.map((sc) => sc.denId)).size === 1 ? scouts[0].denId : null,
-  });
+  if (result.error) return result;
 
   revalidatePath("/portal/parent");
+  return {};
 }
+
+// ---------------------------------------------------------------------------
+// Guest groups
+// ---------------------------------------------------------------------------
 
 /**
  * A parent's oldest scout (furthest-along den, e.g. AOL beats Lion), used so
@@ -533,9 +797,9 @@ export async function registerMyScoutsForEventAction(formData: FormData) {
  * scout is an equally correct answer. Returns null for non-parents (empty
  * scoutIds), who fall back to guestOfUserId = self.
  */
-async function oldestScoutId(scoutIds: string[]): Promise<string | null> {
+async function oldestScoutId(tx: Prisma.TransactionClient, scoutIds: string[]): Promise<string | null> {
   if (scoutIds.length === 0) return null;
-  const scouts = await prisma.scout.findMany({
+  const scouts = await tx.scout.findMany({
     where: { id: { in: scoutIds } },
     select: { id: true, den: { select: { rank: true } } },
   });
@@ -545,72 +809,139 @@ async function oldestScoutId(scoutIds: string[]): Promise<string | null> {
   ).id;
 }
 
-// Self-registration as a guest group (a family or a leader bringing guests)
-// is open to any signed-in role (parent, den leader, admin) — everyone signs
-// up the same way; ownership (addedByUserId) is what lets someone withdraw
-// their own entry later (removeMyGuestGroupAction). Editing it, or recording
-// money against it, is admin-only.
-export async function registerMyGuestGroupForEventAction(formData: FormData) {
+/**
+ * Who can sign a guest group up themselves: a parent (Parent Dashboard), and
+ * the staff Family View offers the same form to — Admin, Den Leader, and a
+ * Committee Member assigned to a den. Junior Admin, Attendance Only,
+ * Photographer and the shared Trip Viewer login never get the form, so a
+ * request from one is refused here too.
+ */
+function canSelfRegisterGuestGroups(session: SessionPayload) {
+  if (session.role === "PARENT") return true;
+  return session.role !== "JUNIOR_ADMIN" && canViewParentContacts(session);
+}
+
+/**
+ * A guest group (a family, or a leader bringing guests) signed up by the
+ * person bringing them; ownership (addedByUserId) is what lets them withdraw
+ * it later (removeMyGuestGroupAction). Editing it, or recording money against
+ * it, is admin-only.
+ *
+ * Bounded so one login can't fill an event's roster or run up a balance by
+ * accident or on purpose: at most SELF_SERVICE_GUEST_GROUP_MAX_PEOPLE people
+ * per group, at most SELF_SERVICE_GUEST_GROUPS_PER_EVENT groups per login per
+ * event, and the total has to fit in one amount (MAX_CENTS). The form's
+ * one-time submission key makes a repeated request a no-op rather than a
+ * second group: the event lock makes a repeat wait for the first to finish
+ * and then find its group, and the unique index on submissionKey backs that
+ * up in the database.
+ */
+export async function registerMyGuestGroupForEventAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
+  if (!canSelfRegisterGuestGroups(session)) throw new Error("Not authorized.");
 
-  const eventId = String(formData.get("eventId") || "");
-  const familyName = String(formData.get("familyName") || "").trim();
-  const adultCount = parseCount(formData.get("adultCount"));
-  const childCount = parseCount(formData.get("childCount"));
-  if (!eventId || !familyName || adultCount === null || childCount === null) {
-    throw new Error("A name and valid adult/child counts are required.");
-  }
-  if (adultCount + childCount === 0) throw new Error("Enter at least one adult or child.");
+  const result = await asResult(async () => {
+    const eventId = idField(formData.get("eventId"));
+    if (!eventId) throw new EventInputError(NOT_OPEN);
+    const submissionKey = textField(formData.get("submissionKey"));
+    if (!isSubmissionKey(submissionKey)) throw new EventInputError(STALE_FORM);
+    const familyName = readGroupName(formData);
+    const { adultCount, childCount } = readHeadcounts(
+      formData,
+      SELF_SERVICE_GUEST_GROUP_MAX_PEOPLE,
+      SELF_SERVICE_TOO_MANY,
+    );
 
-  const event = await prisma.event.findFirst({
-    where: { id: eventId, ...upcomingVisibleEventWhere() },
-    select: { adultFeeCents: true, guestChildFeeCents: true },
+    try {
+      await prisma.$transaction(async (tx) => {
+        if (!(await lockEvent(tx, eventId))) throw new EventInputError(NOT_OPEN);
+
+        // Checked before whether the event is still open: a repeat of a
+        // sign-up that already went through should say so, not report that
+        // sign-up has since closed.
+        const earlier = await tx.eventGuestGroup.findUnique({
+          where: { submissionKey },
+          select: { eventId: true, addedByUserId: true },
+        });
+        if (earlier) {
+          if (earlier.eventId === eventId && earlier.addedByUserId === session.userId) return;
+          throw new EventInputError(STALE_FORM);
+        }
+
+        const event = await tx.event.findFirst({
+          where: { id: eventId, ...upcomingVisibleEventWhere() },
+          select: { title: true, adultFeeCents: true, guestChildFeeCents: true },
+        });
+        if (!event) throw new EventInputError(NOT_OPEN);
+        if (adultCount > 0 && event.adultFeeCents === null) {
+          throw new EventInputError("This event isn't open for adult guest self-registration.");
+        }
+        if (childCount > 0 && event.guestChildFeeCents === null) {
+          throw new EventInputError("This event isn't open for guest child self-registration.");
+        }
+
+        const amountOwedCents = guestTotalCents(adultCount, event.adultFeeCents, childCount, event.guestChildFeeCents);
+        if (amountOwedCents === null) {
+          throw new EventInputError(
+            "That group's total is more than the portal can record. Ask an Admin to register it for you.",
+          );
+        }
+
+        const mine = await tx.eventGuestGroup.count({ where: { eventId, addedByUserId: session.userId } });
+        if (mine >= SELF_SERVICE_GUEST_GROUPS_PER_EVENT) {
+          throw new EventInputError(
+            `You already have ${SELF_SERVICE_GUEST_GROUPS_PER_EVENT} guest groups signed up for this event, the most ` +
+              "one account can add. Remove one, or ask an Admin to add another.",
+          );
+        }
+
+        // Parents are "guest of" their oldest scout, not themselves — a den
+        // leader/admin with no linked scout still falls back to guestOfUserId.
+        const guestOfScoutId = session.role === "PARENT" ? await oldestScoutId(tx, session.scoutIds) : null;
+
+        const group = await tx.eventGuestGroup.create({
+          data: {
+            eventId,
+            familyName,
+            adultCount,
+            childCount,
+            amountOwedCents,
+            addedByUserId: session.userId,
+            guestOfScoutId,
+            guestOfUserId: guestOfScoutId ? null : session.userId,
+            submissionKey,
+          },
+        });
+
+        await recordAuditInTransaction(tx, session, {
+          action: "guestGroup.selfRegister",
+          summary: `Signed up the guest group “${familyName}” (${adultCount} adult(s), ${childCount} child(ren)) for “${
+            event.title
+          }” — ${auditMoney(amountOwedCents)} owed`,
+          entityType: "EventGuestGroup",
+          entityId: group.id,
+          details: [
+            { label: "Guest group", from: "—", to: familyName },
+            { label: "Adults", from: "—", to: String(adultCount) },
+            { label: "Children", from: "—", to: String(childCount) },
+            { label: "Amount owed", from: "—", to: auditMoney(amountOwedCents) },
+          ],
+        });
+      }, TX);
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      // The same key was saved meanwhile by a request for a different event
+      // (one for this event would have waited on the event lock and found
+      // it above). Only a form reused by hand gets here.
+      throw new EventInputError(STALE_FORM);
+    }
   });
-  if (!event) throw new Error("This event isn't open for self-registration.");
-  if (adultCount > 0 && event.adultFeeCents === null) {
-    throw new Error("This event isn't open for adult guest self-registration.");
-  }
-  if (childCount > 0 && event.guestChildFeeCents === null) {
-    throw new Error("This event isn't open for guest child self-registration.");
-  }
-
-  const amountOwedCents = adultCount * (event.adultFeeCents ?? 0) + childCount * (event.guestChildFeeCents ?? 0);
-
-  // Parents are "guest of" their oldest scout, not themselves — a den
-  // leader/admin with no linked scout still falls back to guestOfUserId.
-  const guestOfScoutId = session.role === "PARENT" ? await oldestScoutId(session.scoutIds) : null;
-
-  const group = await prisma.eventGuestGroup.create({
-    data: {
-      eventId,
-      familyName,
-      adultCount,
-      childCount,
-      amountOwedCents,
-      addedByUserId: session.userId,
-      guestOfScoutId,
-      guestOfUserId: guestOfScoutId ? null : session.userId,
-    },
-  });
-
-  await recordAudit(session, {
-    action: "guestGroup.selfRegister",
-    summary: `Signed up the guest group “${familyName}” (${adultCount} adult(s), ${childCount} child(ren)) for “${await eventTitle(
-      eventId,
-    )}” — ${auditMoney(amountOwedCents)} owed`,
-    entityType: "EventGuestGroup",
-    entityId: group.id,
-    details: [
-      { label: "Guest group", from: "—", to: familyName },
-      { label: "Adults", from: "—", to: String(adultCount) },
-      { label: "Children", from: "—", to: String(childCount) },
-      { label: "Amount owed", from: "—", to: auditMoney(amountOwedCents) },
-    ],
-  });
+  if (result.error) return result;
 
   revalidatePath("/portal/parent");
   revalidatePath("/portal/roster/family-view");
+  return {};
 }
 
 export async function removeMyGuestGroupAction(formData: FormData) {
@@ -712,102 +1043,118 @@ export async function deleteEventPaymentAction(formData: FormData) {
 // Managing guest groups — creating, editing amounts/linkage, and recording or
 // removing payments — is admin-only, the same as every other money action.
 // Den leaders see no money; the only thing a registrant can do to their own
-// group is withdraw it (removeMyGuestGroupAction).
+// group is withdraw it (removeMyGuestGroupAction). An Admin can enter a group
+// of up to ADMIN_GUEST_GROUP_MAX_PEOPLE, far more than self-registration
+// allows, and sets its amount owed by hand.
 
-/** Parses a "Guest Of" <select> value of the form "scout:<id>" | "user:<id>" | "" into the two mutually-exclusive FK fields. */
-function parseGuestOf(raw: FormDataEntryValue | null): { guestOfScoutId: string | null; guestOfUserId: string | null } {
-  const value = String(raw || "");
-  if (value.startsWith("scout:")) return { guestOfScoutId: value.slice(6), guestOfUserId: null };
-  if (value.startsWith("user:")) return { guestOfScoutId: null, guestOfUserId: value.slice(5) };
-  return { guestOfScoutId: null, guestOfUserId: null };
-}
-
-export async function addGuestGroupAction(formData: FormData) {
+export async function addGuestGroupAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const eventId = String(formData.get("eventId") || "");
-  const familyName = String(formData.get("familyName") || "").trim();
-  const adultCount = parseCount(formData.get("adultCount"));
-  const childCount = parseCount(formData.get("childCount"));
-  const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
-  const { guestOfScoutId, guestOfUserId } = parseGuestOf(formData.get("guestOf"));
-  if (!eventId || !familyName || adultCount === null || childCount === null || amountOwedCents === null) {
-    throw new Error("A name, valid adult/child counts, and a valid amount owed are required.");
-  }
-  if (adultCount + childCount === 0) throw new Error("Enter at least one adult or child.");
+  const eventId = idField(formData.get("eventId"));
+  if (!eventId) throw new Error("Missing event id.");
 
-  const group = await prisma.eventGuestGroup.create({
-    data: { eventId, familyName, adultCount, childCount, amountOwedCents, guestOfScoutId, guestOfUserId },
-  });
+  const result = await asResult(async () => {
+    const submissionKey = textField(formData.get("submissionKey"));
+    if (!isSubmissionKey(submissionKey)) throw new EventInputError(STALE_FORM);
+    const familyName = readGroupName(formData);
+    const guestOf = readGuestOf(formData.get("guestOf"));
+    const { adultCount, childCount } = readHeadcounts(formData, ADMIN_GUEST_GROUP_MAX_PEOPLE, ADMIN_TOO_MANY);
+    const amountOwedCents = readAmountOwed(formData);
 
-  await recordAudit(session, {
-    action: "guestGroup.create",
-    summary: `Added the guest group “${familyName}” (${adultCount} adult(s), ${childCount} child(ren)) to “${await eventTitle(
-      eventId,
-    )}” — ${auditMoney(amountOwedCents)} owed`,
-    entityType: "EventGuestGroup",
-    entityId: group.id,
-    details: [
-      { label: "Guest group", from: "—", to: familyName },
-      { label: "Adults", from: "—", to: String(adultCount) },
-      { label: "Children", from: "—", to: String(childCount) },
-      { label: "Amount owed", from: "—", to: auditMoney(amountOwedCents) },
-    ],
+    try {
+      await prisma.$transaction(async (tx) => {
+        if (!(await lockEvent(tx, eventId))) throw new EventInputError("This event no longer exists.");
+
+        // The same Add pressed twice (or a retried request): the first one
+        // already added the group.
+        const earlier = await tx.eventGuestGroup.findUnique({
+          where: { submissionKey },
+          select: { eventId: true, addedByUserId: true },
+        });
+        if (earlier) {
+          if (earlier.eventId === eventId && earlier.addedByUserId === null) return;
+          throw new EventInputError(STALE_FORM);
+        }
+
+        await assertGuestOfExists(tx, guestOf);
+
+        const group = await tx.eventGuestGroup.create({
+          data: { eventId, familyName, adultCount, childCount, amountOwedCents, ...guestOf, submissionKey },
+        });
+
+        await recordAuditInTransaction(tx, session, {
+          action: "guestGroup.create",
+          summary: `Added the guest group “${familyName}” (${adultCount} adult(s), ${childCount} child(ren)) to “${await eventTitle(
+            eventId,
+            tx,
+          )}” — ${auditMoney(amountOwedCents)} owed`,
+          entityType: "EventGuestGroup",
+          entityId: group.id,
+          details: [
+            { label: "Guest group", from: "—", to: familyName },
+            { label: "Adults", from: "—", to: String(adultCount) },
+            { label: "Children", from: "—", to: String(childCount) },
+            { label: "Amount owed", from: "—", to: auditMoney(amountOwedCents) },
+          ],
+        });
+      }, TX);
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      throw new EventInputError(STALE_FORM);
+    }
   });
+  if (result.error) return result;
 
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events/guests");
+  return {};
 }
 
+// The edit form uses SaveButton (see updateEventAction), so bad input is
+// still thrown, before anything is written.
 export async function updateGuestGroupAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-
-  const guestGroupId = String(formData.get("guestGroupId") || "");
-  const eventId = String(formData.get("eventId") || "");
-  const familyName = String(formData.get("familyName") || "").trim();
-  const adultCount = parseCount(formData.get("adultCount"));
-  const childCount = parseCount(formData.get("childCount"));
-  const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
-  const { guestOfScoutId, guestOfUserId } = parseGuestOf(formData.get("guestOf"));
-  if (!guestGroupId || !familyName || adultCount === null || childCount === null || amountOwedCents === null) {
-    throw new Error("A name, valid adult/child counts, and a valid amount owed are required.");
-  }
-  if (adultCount + childCount === 0) throw new Error("Enter at least one adult or child.");
-
-  const existing = await prisma.eventGuestGroup.findUnique({
-    where: { id: guestGroupId },
-    select: {
-      addedByUserId: true,
-      familyName: true,
-      adultCount: true,
-      childCount: true,
-      amountOwedCents: true,
-      eventId: true,
-    },
-  });
-  if (!existing) throw new Error("Guest group not found.");
   assertAdmin(session);
 
-  await prisma.eventGuestGroup.update({
-    where: { id: guestGroupId },
-    data: { familyName, adultCount, childCount, amountOwedCents, guestOfScoutId, guestOfUserId },
-  });
+  const guestGroupId = idField(formData.get("guestGroupId"));
+  const eventId = idField(formData.get("eventId"));
+  if (!guestGroupId) throw new Error("Missing guest group id.");
+  const familyName = readGroupName(formData);
+  const guestOf = readGuestOf(formData.get("guestOf"));
+  const { adultCount, childCount } = readHeadcounts(formData, ADMIN_GUEST_GROUP_MAX_PEOPLE, ADMIN_TOO_MANY);
+  const amountOwedCents = readAmountOwed(formData);
 
-  await recordAudit(session, {
-    action: "guestGroup.update",
-    summary: `Edited the guest group “${familyName}” on “${await eventTitle(existing.eventId)}”`,
-    entityType: "EventGuestGroup",
-    entityId: guestGroupId,
-    details: changedFields({
-      "Guest group": [existing.familyName, familyName],
-      Adults: [existing.adultCount, adultCount],
-      Children: [existing.childCount, childCount],
-      "Amount owed": [auditMoney(existing.amountOwedCents), auditMoney(amountOwedCents)],
-    }),
-  });
+  await prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "EventGuestGroup" WHERE id = ${guestGroupId} FOR UPDATE`;
+    if (locked.length === 0) throw new Error("Guest group not found.");
+    const existing = await tx.eventGuestGroup.findUniqueOrThrow({
+      where: { id: guestGroupId },
+      select: { familyName: true, adultCount: true, childCount: true, amountOwedCents: true, eventId: true },
+    });
+    await assertGuestOfExists(tx, guestOf);
+
+    await tx.eventGuestGroup.update({
+      where: { id: guestGroupId },
+      data: { familyName, adultCount, childCount, amountOwedCents, ...guestOf },
+    });
+
+    await recordAuditInTransaction(tx, session, {
+      action: "guestGroup.update",
+      summary: `Edited the guest group “${familyName}” on “${await eventTitle(existing.eventId, tx)}”`,
+      entityType: "EventGuestGroup",
+      entityId: guestGroupId,
+      details: changedFields({
+        "Guest group": [existing.familyName, familyName],
+        Adults: [existing.adultCount, adultCount],
+        Children: [existing.childCount, childCount],
+        "Amount owed": [auditMoney(existing.amountOwedCents), auditMoney(amountOwedCents)],
+      }),
+    });
+  }, TX);
 
   revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
@@ -851,53 +1198,55 @@ export async function removeGuestGroupAction(formData: FormData) {
   revalidatePath("/portal/admin/events");
 }
 
-export async function addGuestGroupPaymentAction(formData: FormData) {
+export async function addGuestGroupPaymentAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-
-  const guestGroupId = String(formData.get("guestGroupId") || "");
-  const eventId = String(formData.get("eventId") || "");
-  const amountCents = dollarsToCents(String(formData.get("amount") || ""));
-  const paidOnRaw = String(formData.get("paidOn") || "").trim();
-  const note = String(formData.get("note") || "").trim() || null;
-  if (!guestGroupId || amountCents === null || amountCents === 0) {
-    throw new Error("A valid payment amount is required.");
-  }
-
-  const guestGroup = await prisma.eventGuestGroup.findUnique({
-    where: { id: guestGroupId },
-    select: { addedByUserId: true },
-  });
-  if (!guestGroup) throw new Error("Guest group not found.");
   assertAdmin(session);
 
-  const paidOn = parseDateOnlyString(paidOnRaw, "Invalid payment date.") ?? todayDateOnly();
+  const guestGroupId = idField(formData.get("guestGroupId"));
+  const eventId = idField(formData.get("eventId"));
+  if (!guestGroupId) throw new Error("Missing guest group id.");
 
-  const payment = await prisma.eventGuestGroupPayment.create({
-    data: { eventGuestGroupId: guestGroupId, amountCents, paidOn, note, recordedByUserId: session.userId },
-  });
+  const result = await asResult(async () => {
+    const { amountCents, paidOn, note } = readPayment(formData);
 
-  const group = await prisma.eventGuestGroup.findUnique({
-    where: { id: guestGroupId },
-    select: { familyName: true, eventId: true },
+    await prisma.$transaction(async (tx) => {
+      // The same row lock removeMyGuestGroupAction takes: a payment and a
+      // family withdrawing the group can't interleave. If the withdrawal won,
+      // the group is gone by the time this lock is granted.
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "EventGuestGroup" WHERE id = ${guestGroupId} FOR UPDATE`;
+      if (locked.length === 0) throw new EventInputError("This guest group no longer exists.");
+      const group = await tx.eventGuestGroup.findUniqueOrThrow({
+        where: { id: guestGroupId },
+        select: { familyName: true, event: { select: { title: true } } },
+      });
+
+      const payment = await tx.eventGuestGroupPayment.create({
+        data: { eventGuestGroupId: guestGroupId, amountCents, paidOn, note, recordedByUserId: session.userId },
+      });
+
+      await recordAuditInTransaction(tx, session, {
+        action: "guestGroupPayment.add",
+        summary: `Recorded a ${auditMoney(amountCents)} payment from the guest group “${group.familyName}” on “${
+          group.event.title
+        }”`,
+        entityType: "EventGuestGroupPayment",
+        entityId: payment.id,
+        details: [
+          { label: "Amount", from: "—", to: auditMoney(amountCents) },
+          { label: "Paid on", from: "—", to: auditDate(paidOn) },
+          ...(note ? [{ label: "Note", from: "—", to: note }] : []),
+        ],
+      });
+    }, TX);
   });
-  await recordAudit(session, {
-    action: "guestGroupPayment.add",
-    summary: `Recorded a ${auditMoney(amountCents)} payment from the guest group “${
-      group?.familyName ?? guestGroupId
-    }” on “${await eventTitle(group?.eventId ?? eventId)}”`,
-    entityType: "EventGuestGroupPayment",
-    entityId: payment.id,
-    details: [
-      { label: "Amount", from: "—", to: auditMoney(amountCents) },
-      { label: "Paid on", from: "—", to: auditDate(paidOn) },
-      ...(note ? [{ label: "Note", from: "—", to: note }] : []),
-    ],
-  });
+  if (result.error) return result;
 
   revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
+  return {};
 }
 
 export async function deleteGuestGroupPaymentAction(formData: FormData) {
