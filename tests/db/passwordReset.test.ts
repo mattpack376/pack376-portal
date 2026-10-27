@@ -6,7 +6,7 @@
  * bcrypt (testState.pauses["bcrypt.hash"]) while the database changes under it.
  */
 import assert from "node:assert/strict";
-import { before, beforeEach, describe, it } from "node:test";
+import { before, beforeEach, describe, it, type TestContext } from "node:test";
 import bcrypt from "bcryptjs";
 import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
 import { asAnonymous, form, gate, resetTestState, runAs, settle, testState } from "../support/context";
@@ -132,6 +132,31 @@ function linkFromResetResult(result: Awaited<ReturnType<typeof import("@/lib/act
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+let failureSequence = 0;
+/**
+ * Makes the database itself refuse an INSERT into `table` whenever
+ * `condition` (SQL over NEW, subqueries allowed) holds — a real failure in
+ * the middle of the app's transaction, not a mock. Returns a function that
+ * lifts it early; it is lifted at the end of the test regardless.
+ */
+async function failInsertsWhen(t: TestContext, table: string, condition: string) {
+  failureSequence += 1;
+  const name = `test_fail_insert_${failureSequence}`;
+  await db.pool.query(`
+    CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      IF ${condition} THEN RAISE EXCEPTION 'simulated write failure (${name})'; END IF;
+      RETURN NEW;
+    END $$`);
+  await db.pool.query(`CREATE TRIGGER ${name} BEFORE INSERT ON "${table}" FOR EACH ROW EXECUTE FUNCTION ${name}()`);
+  const lift = async () => {
+    await db.pool.query(`DROP TRIGGER IF EXISTS ${name} ON "${table}"`);
+    await db.pool.query(`DROP FUNCTION IF EXISTS ${name}()`);
+  };
+  t.after(lift);
+  return lift;
+}
 
 // Prisma keeps DateTime columns as UTC in "timestamp without time zone", and
 // the test server's sessions may run in another zone, so SQL here spells out
@@ -620,6 +645,46 @@ describe("Admin reset", () => {
     assert.equal(entry.actorUserId, admin.id);
   });
 
+  it("commits all or nothing: a failure at any step leaves the password, sessions and old link as they were", async (t) => {
+    // If the reset were split into more than one commit (the old shape: kill
+    // the password, commit, then issue the link), an older link finished in
+    // between would still be current and would overwrite the Admin's reset.
+    // A real failure at each later step proves there is no such gap: nothing
+    // is committed unless everything is.
+    const admin = await makeAdmin();
+    const steps: [string, string, (userId: string) => string][] = [
+      ["issuing the new link", "PasswordResetToken", (userId) => `NEW."userId" = '${userId}'`],
+      ["writing the audit entry", "AuditLog", (userId) => `NEW.action = 'user.resetPassword' AND NEW."entityId" = '${userId}'`],
+    ];
+    for (const [step, table, condition] of steps) {
+      const user = await makeUser({ email: "all-or-nothing@example.test" });
+      const oldLink = await tokens.issueResetToken(user.id);
+      const before = await userRow(user.id);
+      const lift = await failInsertsWhen(t, table, condition(user.id));
+      const emailsBefore = testState.emails.length;
+
+      const attempt = await settle(runAs(admin, () => users.resetPasswordAction(user.id)));
+
+      const after = await userRow(user.id);
+      assert.equal(after.passwordHash, before.passwordHash, `${step}: the password wasn't killed`);
+      assert.equal(after.sessionVersion, before.sessionVersion, `${step}: no session was revoked`);
+      assert.equal(after.credentialVersion, before.credentialVersion, `${step}: the link generation didn't move`);
+      assert.equal(await tokens.resetLinkStatus(oldLink), "usable", `${step}: the old link is still the live one`);
+      assert.equal(await usableLinkCount(user.id), 1, step);
+      assert.equal(await auditCount("user.resetPassword", user.id), 0, `${step}: no audit entry for a change that didn't happen`);
+      assert.equal(testState.emails.length, emailsBefore, `${step}: no email went out`);
+      assert.ok(attempt.ok, `${step}: the Admin gets a message, not an error page`);
+      assert.deepEqual(attempt.value, { ok: false, error: "The password couldn't be reset. Please try again in a moment." }, step);
+
+      // With the failure gone, the same reset goes through and replaces the old link.
+      await lift();
+      const newLink = linkFromResetResult(await runAs(admin, () => users.resetPasswordAction(user.id)));
+      assert.equal(await tokens.resetLinkStatus(oldLink), "invalid", step);
+      assert.equal(await tokens.resetLinkStatus(newLink), "usable", step);
+      assert.equal((await userRow(user.id)).sessionVersion, before.sessionVersion + 1, step);
+    }
+  });
+
   it("shows the link on screen when the account has no email", async () => {
     const admin = await makeAdmin();
     const user = await makeUser({ role: "DEN" });
@@ -666,6 +731,32 @@ describe("creating an account with an invite", () => {
     const link = result.ok && "invite" in result && result.invite ? tokenFromUrl(result.invite.url) : "";
     assert.equal(await tokens.resetLinkStatus(link), "usable");
     assert.equal(await auditCount("user.create", created.id), 1);
+  });
+
+  it("creates the login, its invite and its audit entry all or nothing", async (t) => {
+    const admin = await makeAdmin();
+    const username = "all-or-nothing-login";
+    const steps: [string, string, string][] = [
+      ["the invite", "PasswordResetToken", `(SELECT username FROM "User" WHERE id = NEW."userId") = '${username}'`],
+      ["the audit entry", "AuditLog", `NEW.action = 'user.create' AND NEW."entityId" IN (SELECT id FROM "User" WHERE username = '${username}')`],
+    ];
+    for (const [step, table, condition] of steps) {
+      const lift = await failInsertsWhen(t, table, condition);
+      const attempt = await settle(
+        runAs(admin, () => users.createAdminAction(username, "All Or Nothing", "PHOTOGRAPHER", "aon@example.test")),
+      );
+      assert.equal(await db.prisma.user.count({ where: { username } }), 0, `${step}: no login without its invite and record`);
+      assert.equal(await db.prisma.auditLog.count({ where: { action: "user.create", summary: { contains: username } } }), 0, step);
+      assert.equal(testState.emails.length, 0, `${step}: no invite email`);
+      assert.ok(attempt.ok, `${step}: the Admin gets a message, not an error page`);
+      assert.deepEqual(attempt.value, { ok: false, error: "The account couldn't be created. Please try again in a moment." }, step);
+      await lift();
+    }
+    const created = await runAs(admin, () => users.createAdminAction(username, "All Or Nothing", "PHOTOGRAPHER", "aon@example.test"));
+    assert.deepEqual(created, { ok: true, emailedTo: "aon@example.test" });
+    const user = await db.prisma.user.findUniqueOrThrow({ where: { username } });
+    assert.equal(await usableLinkCount(user.id), 1);
+    assert.equal(await auditCount("user.create", user.id), 1);
   });
 
   it("two creates of the same username at once: one account, one readable refusal", async () => {

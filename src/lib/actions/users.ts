@@ -126,7 +126,10 @@ export async function createAdminAction(
     // Two admins creating the same name at once: the check above passed for
     // both, and the database's unique index stopped the second.
     if (isUniqueViolation(error)) return { ok: false as const, error: "That username is already taken." };
-    throw error;
+    // Anything else (a lost connection, a timeout) rolled back the account,
+    // its invite and its audit entry together, so trying again is safe.
+    console.error("[users] creating an account failed", error);
+    return { ok: false as const, error: "The account couldn't be created. Please try again in a moment." };
   }
 
   revalidatePath("/portal/admin/users");
@@ -182,32 +185,41 @@ export async function resetPasswordAction(userId: string) {
   // account to a new link generation, so any older link — even one whose
   // owner is mid-way through finishing it — can no longer replace the
   // password this sets. The audit entry commits with the change.
-  const outcome = await prisma.$transaction(async (tx) => {
-    if (!(await lockUserRow(tx, userId))) return null;
-    // Re-read under the lock: this row is what the change is decided on.
-    const current = await tx.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { username: true, displayName: true, email: true },
-    });
-    if (isMasterAdminUsername(current.username) && !viewerIsMaster) return "forbidden" as const;
-    await tx.user.update({
-      where: { id: userId },
-      data: {
-        passwordHash: placeholderHash,
-        failedLoginCount: 0,
-        lockedUntil: null,
-        sessionVersion: { increment: 1 },
-      },
-    });
-    const token = await issueTokenInTransaction(tx, userId, "reset");
-    await recordAuditInTransaction(tx, session, {
-      action: "user.resetPassword",
-      summary: `Reset the password for “${current.username}” (${current.displayName}) — the old password and every live session stopped working`,
-      entityType: "User",
-      entityId: userId,
-    });
-    return { token, user: current };
-  }, CREDENTIAL_TRANSACTION);
+  let outcome;
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      if (!(await lockUserRow(tx, userId))) return null;
+      // Re-read under the lock: this row is what the change is decided on.
+      const current = await tx.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { username: true, displayName: true, email: true },
+      });
+      if (isMasterAdminUsername(current.username) && !viewerIsMaster) return "forbidden" as const;
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash: placeholderHash,
+          failedLoginCount: 0,
+          lockedUntil: null,
+          sessionVersion: { increment: 1 },
+        },
+      });
+      const token = await issueTokenInTransaction(tx, userId, "reset");
+      await recordAuditInTransaction(tx, session, {
+        action: "user.resetPassword",
+        summary: `Reset the password for “${current.username}” (${current.displayName}) — the old password and every live session stopped working`,
+        entityType: "User",
+        entityId: userId,
+      });
+      return { token, user: current };
+    }, CREDENTIAL_TRANSACTION);
+  } catch (error) {
+    // Nothing above commits unless all of it does: the password, the sessions,
+    // the old links and the audit entry are just as they were, so the Admin
+    // can simply try again.
+    console.error("[users] resetting a password failed", error);
+    return { ok: false as const, error: "The password couldn't be reset. Please try again in a moment." };
+  }
   if (!outcome) return { ok: false as const, error: "User not found." };
   if (outcome === "forbidden") return { ok: false as const, error: masterOnly };
 

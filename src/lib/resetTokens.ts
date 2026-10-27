@@ -26,6 +26,14 @@ import type { Role } from "@/generated/prisma/enums";
  * password first and only then opens the transaction, and an Admin reset does
  * the same with its throwaway password. Nothing holds the row locked for the
  * quarter-second a hash takes, and an email is only sent after commit.
+ *
+ * Rolling the site back past this code: older code issues links without a
+ * generation, so they read 0 (the column default) and work as before while
+ * that code is live. Once this code is back, such a link is refused as invalid
+ * for any account this code had already moved past generation 0, and its
+ * owner needs a new link (an Admin's Reset Password). Don't special-case
+ * generation 0 to let them through: the generation check is what stops an
+ * older link that's mid-way through being finished.
  */
 
 // New-account invites get a longer window than resets since a volunteer may
