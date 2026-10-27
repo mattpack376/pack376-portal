@@ -35,6 +35,11 @@
     // Local, untracked review evidence (never committed); each harness that
     // needs type-checking has its own tsconfig, e.g.
     // security-review-2026-10-03/verify/tsconfig.json.
-    "security-review-*"
+    "security-review-*",
+    // iCloud conflict copies of generated files ("routes.d 2.ts", "client 2.ts"):
+    // this folder lives in iCloud-synced Documents. Neither Next nor Prisma
+    // names a file with a space, so this matches only the copies.
+    ".next/**/* ?.ts",
+    "src/generated/**/* ?.ts"
   ]
 }
