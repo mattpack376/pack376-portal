@@ -1,5 +1,5 @@
 import "server-only";
-import { Resend } from "resend";
+import { Resend, type ErrorResponse } from "resend";
 import { getAppBaseUrl, getPublicBaseUrl } from "@/lib/appUrl";
 import { isValidEmail } from "@/lib/formValues";
 
@@ -23,9 +23,61 @@ export const MAX_EMAIL_ERROR_LENGTH = 500;
 /**
  * Every sender's result. `configured` tells "no RESEND_API_KEY" apart from a
  * real failure; `error` is a short reason when a configured send didn't go
- * out (a refused address or link, or what Resend said).
+ * out (a refused address or link, or what Resend said). `uncertain` marks a
+ * failure that doesn't prove nothing went out — see isUnconfirmedFailure.
  */
-export type SendResult = { sent: boolean; configured: boolean; error?: string };
+export type SendResult = { sent: boolean; configured: boolean; error?: string; uncertain?: boolean };
+
+/** Error names as resend@6 defines them, so a misspelled one below fails the typecheck. */
+type ResendErrorName = ErrorResponse["name"];
+
+const UNCONFIRMED_ERROR_NAMES = new Set<string>([
+  "application_error",
+  "internal_server_error",
+  "concurrent_idempotent_requests",
+  "invalid_idempotent_request",
+] satisfies ResendErrorName[]);
+
+/** The refusals resend@6 names (its RESEND_ERROR_CODE_KEY), less the unconfirmed ones above. */
+const REFUSAL_ERROR_NAMES = new Set<string>([
+  "invalid_idempotency_key",
+  "validation_error",
+  "missing_api_key",
+  "restricted_api_key",
+  "invalid_api_key",
+  "not_found",
+  "method_not_allowed",
+  "invalid_attachment",
+  "invalid_from_address",
+  "invalid_access",
+  "invalid_parameter",
+  "invalid_region",
+  "missing_required_field",
+  "monthly_quota_exceeded",
+  "daily_quota_exceeded",
+  "rate_limit_exceeded",
+  "security_error",
+] satisfies ResendErrorName[]);
+
+/**
+ * Whether an error Resend's SDK returned leaves open that the email went out
+ * anyway. The SDK returns (rather than throws) a dropped connection as an
+ * `application_error` with no status, so a network failure after Resend
+ * accepted the email looks like any other error unless it's told apart here:
+ * no answer, a server error (5xx), or a clash with an earlier request under
+ * the same idempotency key all count as unconfirmed. A 4xx answer (a bad
+ * address, a rate limit) means Resend didn't take the email. With no status
+ * at all, only a refusal Resend's SDK names (its own checks, made before any
+ * request) is definite; anything else is treated as unconfirmed, the safe
+ * side, since a retry of it then reuses the same key.
+ */
+export function isUnconfirmedFailure(error: unknown): boolean {
+  if (!error || typeof error !== "object") return true;
+  const { name, statusCode } = error as { name?: unknown; statusCode?: unknown };
+  if (typeof name === "string" && UNCONFIRMED_ERROR_NAMES.has(name)) return true;
+  if (typeof statusCode === "number") return statusCode >= 500;
+  return !(typeof name === "string" && REFUSAL_ERROR_NAMES.has(name));
+}
 
 /*
  * Everything put into an email's HTML that didn't come from this file — a
@@ -219,10 +271,14 @@ async function deliver(message: Outgoing): Promise<SendResult> {
       },
       message.idempotencyKey ? { idempotencyKey: message.idempotencyKey } : undefined
     );
-    if (error) return { sent: false, configured: true, error: describeError(error) };
+    if (error) {
+      return { sent: false, configured: true, error: describeError(error), uncertain: isUnconfirmedFailure(error) };
+    }
     return { sent: true, configured: true };
   } catch (error) {
-    return { sent: false, configured: true, error: describeError(error) };
+    // The SDK doesn't normally throw, so this is something unexpected after
+    // the request may already have reached Resend.
+    return { sent: false, configured: true, error: describeError(error), uncertain: true };
   }
 }
 

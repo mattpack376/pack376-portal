@@ -340,3 +340,73 @@ describe("sendReceiptEmail", () => {
     assert.equal(resend.calls[0].message?.replyTo, undefined);
   });
 });
+
+describe("telling a refusal from an unconfirmed send", () => {
+  // What resend@6's fetchRequest returns when the connection drops: no status.
+  const DROPPED = { name: "application_error", statusCode: null, message: "Unable to fetch data. The request could not be resolved." };
+
+  it("counts no answer, server errors and idempotency clashes as unconfirmed", () => {
+    for (const error of [
+      DROPPED,
+      // A non-JSON error page (a gateway) comes back as application_error with its status.
+      { name: "application_error", statusCode: 413, message: "Internal server error." },
+      { name: "internal_server_error", statusCode: 500, message: "Internal server error" },
+      { name: "something_new", statusCode: 503, message: "Unavailable" },
+      { name: "concurrent_idempotent_requests", statusCode: 409, message: "In progress" },
+      { name: "invalid_idempotent_request", statusCode: 409, message: "Different payload" },
+      { message: "no name at all" },
+      { name: "", statusCode: null, message: "empty name" },
+      { name: "TypeError", message: "fetch failed" },
+      new Error("socket hang up"),
+      null,
+      "a string",
+    ]) {
+      assert.equal(email.isUnconfirmedFailure(error), true, JSON.stringify(error));
+    }
+  });
+
+  it("counts a named refusal as definite: nothing went out", () => {
+    for (const error of [
+      { name: "validation_error", statusCode: 422, message: "Invalid `to` field." },
+      { name: "validation_error", statusCode: 403, message: "The domain is not verified." },
+      { name: "rate_limit_exceeded", statusCode: 429, message: "Too many requests" },
+      { name: "daily_quota_exceeded", statusCode: 429, message: "Quota" },
+      { name: "invalid_api_key", statusCode: 403, message: "API key is invalid" },
+      // The SDK's own checks, made before any request: no status, but named.
+      { name: "missing_required_field", statusCode: null, message: "Missing `id` field." },
+    ]) {
+      assert.equal(email.isUnconfirmedFailure(error), false, JSON.stringify(error));
+    }
+  });
+
+  it("sendReceiptEmail marks each failure the same way, and a refused address as definite", async () => {
+    const base = { isDonation: true, receivedFrom: "Pat", amountLabel: "$5.00", filename: "r.pdf", pdf: new Uint8Array([1]) };
+    resend.queue.push({ error: DROPPED });
+    assert.deepEqual(await email.sendReceiptEmail("pat@example.com", base), {
+      sent: false,
+      configured: true,
+      error: "Unable to fetch data. The request could not be resolved.",
+      uncertain: true,
+    });
+    resend.queue.push({ throws: new Error("socket hang up") });
+    assert.deepEqual(await email.sendReceiptEmail("pat@example.com", base), {
+      sent: false,
+      configured: true,
+      error: "socket hang up",
+      uncertain: true,
+    });
+    resend.queue.push({ error: { name: "validation_error", statusCode: 422, message: "Invalid `to` field." } });
+    assert.deepEqual(await email.sendReceiptEmail("pat@example.com", base), {
+      sent: false,
+      configured: true,
+      error: "Invalid `to` field.",
+      uncertain: false,
+    });
+    // Refused here, before Resend is called: certainly not sent.
+    const local = await email.sendReceiptEmail("pat\u0085@example.com", base);
+    assert.equal(local.sent, false);
+    assert.equal(local.uncertain, undefined);
+    assert.equal(resend.calls.length, 3);
+    assert.equal(testState.emails.length, 0);
+  });
+});
