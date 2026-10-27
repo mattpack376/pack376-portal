@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/session";
 import type { Role } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 import { clientDeviceFromHeaders, clientLocationFromHeaders } from "@/lib/clientInfo";
 
 /**
@@ -105,26 +106,7 @@ export type AuditActor = {
 export async function recordAuditAs(actor: AuditActor, entry: AuditEntry) {
   try {
     const request = await currentRequestClient();
-    await prisma.auditLog.create({
-      data: {
-        actorUserId: actor.userId,
-        actorUsername: actor.username,
-        actorDisplayName: actor.displayName,
-        actorRole: actor.role,
-        action: entry.action,
-        category: entry.action.split(".")[0],
-        summary: entry.summary,
-        entityType: entry.entityType ?? null,
-        entityId: entry.entityId ?? null,
-        denId: entry.denId ?? null,
-        details: entry.details && entry.details.length > 0 ? entry.details : undefined,
-        // `undefined` means the caller didn't decide, so fall back to the
-        // request. An explicit null is a decision and is left alone.
-        ipAddress: entry.ipAddress !== undefined ? entry.ipAddress : request.ipAddress,
-        deviceInfo: entry.deviceInfo !== undefined ? entry.deviceInfo : request.deviceInfo,
-        location: entry.location !== undefined ? entry.location : request.location,
-      },
-    });
+    await prisma.auditLog.create({ data: auditRow(actor, entry, request) });
   } catch (error) {
     console.error("[audit] failed to record entry", entry.action, error);
   }
@@ -132,6 +114,66 @@ export async function recordAuditAs(actor: AuditActor, entry: AuditEntry) {
   // Separate from the try above so a failed sweep is never mistaken for a
   // dropped entry — the entry is already safely written by this point.
   await sweepExpiredAuditEntries();
+}
+
+/**
+ * Writes the audit entry for a change *inside the transaction making it*, for
+ * the changes where a missing record matters more than a failed save:
+ * credentials, money and anything destructive. The opposite contract to
+ * recordAudit: the entry and the change commit or roll back together, and an
+ * error writing the entry is thrown, failing the change.
+ *
+ * Reads the actor through the same transaction. The retention sweep is left
+ * to the next ordinary recordAudit call, so it never runs inside a caller's
+ * transaction or holds its locks longer.
+ */
+export async function recordAuditInTransaction(
+  tx: Prisma.TransactionClient,
+  session: SessionPayload,
+  entry: AuditEntry,
+) {
+  const actor = await tx.user.findUnique({
+    where: { id: session.userId },
+    select: { username: true, displayName: true, role: true },
+  });
+  const request = await currentRequestClient();
+  await tx.auditLog.create({
+    data: auditRow(
+      {
+        userId: actor ? session.userId : null,
+        username: actor?.username ?? "(deleted account)",
+        displayName: actor?.displayName ?? session.displayName,
+        role: actor?.role ?? session.role,
+      },
+      entry,
+      request,
+    ),
+  });
+}
+
+function auditRow(
+  actor: AuditActor,
+  entry: AuditEntry,
+  request: { ipAddress: string | null; deviceInfo: string | null; location: string | null },
+): Prisma.AuditLogUncheckedCreateInput {
+  return {
+    actorUserId: actor.userId,
+    actorUsername: actor.username,
+    actorDisplayName: actor.displayName,
+    actorRole: actor.role,
+    action: entry.action,
+    category: entry.action.split(".")[0],
+    summary: entry.summary,
+    entityType: entry.entityType ?? null,
+    entityId: entry.entityId ?? null,
+    denId: entry.denId ?? null,
+    details: entry.details && entry.details.length > 0 ? entry.details : undefined,
+    // `undefined` means the caller didn't decide, so fall back to the
+    // request. An explicit null is a decision and is left alone.
+    ipAddress: entry.ipAddress !== undefined ? entry.ipAddress : request.ipAddress,
+    deviceInfo: entry.deviceInfo !== undefined ? entry.deviceInfo : request.deviceInfo,
+    location: entry.location !== undefined ? entry.location : request.location,
+  };
 }
 
 /**
