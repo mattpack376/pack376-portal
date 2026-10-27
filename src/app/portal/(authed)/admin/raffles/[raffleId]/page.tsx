@@ -5,6 +5,7 @@ import { getPayerHistory, getRaffleDetail, getRaffleNameSuggestions } from "@/li
 import { formatCents } from "@/lib/duesData";
 import { formatLongDate, todayDateOnlyString } from "@/lib/dateOnly";
 import { reopenRaffleAction } from "@/lib/actions/raffles";
+import ActionForm from "@/components/ActionForm";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import RaffleBoard from "@/components/RaffleBoard";
 import SegmentedNav from "@/components/SegmentedNav";
@@ -68,7 +69,7 @@ export default async function AdminRafflePage({
           <span className={`badge-pill ${isOpen ? "badge-attendance" : "badge-pending"}`}>{isOpen ? "Open" : "Closed"}</span>
         </div>
         {isAdmin && !isOpen && (
-          <form action={reopenRaffleAction}>
+          <ActionForm action={reopenRaffleAction}>
             <input type="hidden" name="raffleId" value={raffle.id} />
             <ConfirmSubmitButton
               className="btn btn-quiet btn-small"
@@ -77,7 +78,7 @@ export default async function AdminRafflePage({
             >
               Reopen Raffle
             </ConfirmSubmitButton>
-          </form>
+          </ActionForm>
         )}
       </div>
 

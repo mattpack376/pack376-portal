@@ -6,6 +6,7 @@ import SubmitButton from "@/components/SubmitButton";
 import RaffleBoxesSaveButton from "@/components/RaffleBoxesSaveButton";
 import { assignBoxesAction, changeEntryBoxesAction, removeEntryAction, updateEntryAction } from "@/lib/actions/raffles";
 import { formatCents } from "@/lib/duesData";
+import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { paymentRowClass, paymentStatus } from "@/lib/paymentStatus";
 import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, formatBoxNumbers } from "@/lib/raffleMath";
 import type { RaffleDetail } from "@/lib/raffleData";
@@ -196,11 +197,11 @@ export default function BuyersTab({
                           <input type="hidden" name="entryId" value={entry.id} />
                           <div className="form-field">
                             <label htmlFor={`entry-${entry.id}-name`}>Name</label>
-                            <input id={`entry-${entry.id}-name`} name="name" required defaultValue={entry.name} />
+                            <input id={`entry-${entry.id}-name`} name="name" required maxLength={MAX_NAME_LENGTH} defaultValue={entry.name} />
                           </div>
                           <div className="form-field">
                             <label htmlFor={`entry-${entry.id}-notes`}>Notes (optional)</label>
-                            <input id={`entry-${entry.id}-notes`} name="notes" defaultValue={entry.notes ?? ""} />
+                            <input id={`entry-${entry.id}-notes`} name="notes" maxLength={MAX_NOTE_LENGTH} defaultValue={entry.notes ?? ""} />
                           </div>
                           <SubmitButton className="btn btn-primary btn-small" pendingLabel="Saving…">
                             Save
@@ -247,14 +248,23 @@ export default function BuyersTab({
           <p>
             For someone who isn&apos;t on the list yet, when it&apos;s quicker to type the numbers than to pick them on
             the Board tab. For someone already above, use their Boxes button instead — though a name typed here that
-            matches theirs goes onto their line too, not a second one.
+            matches theirs goes onto their line too, not a second one. Two different people with the same name need
+            names that tell them apart, like a last name or initial.
           </p>
           <ActionForm action={assignBoxesAction}>
             <input type="hidden" name="raffleId" value={raffle.id} />
             <div className="form-row">
               <div className="form-field">
                 <label htmlFor="add-name">Buyer</label>
-                <input id="add-name" name="name" list="add-buyer-names" autoComplete="off" required placeholder="Name" />
+                <input
+                  id="add-name"
+                  name="name"
+                  list="add-buyer-names"
+                  autoComplete="off"
+                  required
+                  maxLength={MAX_NAME_LENGTH}
+                  placeholder="Name"
+                />
                 <datalist id="add-buyer-names">
                   {[...new Set([...raffle.entries.map((entry) => entry.name), ...buyerNames])].map((name) => (
                     <option key={name} value={name} />
@@ -289,7 +299,14 @@ export default function BuyersTab({
               </div>
               <div className="form-field">
                 <label htmlFor="add-payer">Paid by someone else? (optional)</label>
-                <input id="add-payer" name="payerName" list={PAYER_LIST_ID} autoComplete="off" placeholder="Name on the Zelle" />
+                <input
+                  id="add-payer"
+                  name="payerName"
+                  list={PAYER_LIST_ID}
+                  autoComplete="off"
+                  maxLength={MAX_NAME_LENGTH}
+                  placeholder="Name on the Zelle"
+                />
               </div>
             </div>
             <SubmitButton className="btn btn-primary" pendingLabel="Saving…">

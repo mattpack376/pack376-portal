@@ -3,6 +3,7 @@ import SubmitButton from "@/components/SubmitButton";
 import { recordPaymentAction } from "@/lib/actions/raffles";
 import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, type RaffleMethod } from "@/lib/raffleMath";
 import { auditDate } from "@/lib/audit";
+import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import type { RaffleEntryDetail } from "@/lib/raffleData";
 
 /* Pieces the raffle tabs share. */
@@ -92,11 +93,18 @@ export function RecordPaymentPopover({
       </div>
       <div className="form-field">
         <label htmlFor={`${id}-payer`}>Paid by someone else? (optional)</label>
-        <input id={`${id}-payer`} name="payerName" list={payerListId} autoComplete="off" placeholder="Name on the Zelle" />
+        <input
+          id={`${id}-payer`}
+          name="payerName"
+          list={payerListId}
+          autoComplete="off"
+          maxLength={MAX_NAME_LENGTH}
+          placeholder="Name on the Zelle"
+        />
       </div>
       <div className="form-field">
         <label htmlFor={`${id}-note`}>Note (optional)</label>
-        <input id={`${id}-note`} name="note" />
+        <input id={`${id}-note`} name="note" maxLength={MAX_NOTE_LENGTH} />
       </div>
       <SubmitButton className="btn btn-primary btn-small" pendingLabel="Saving…">
         Record Payment

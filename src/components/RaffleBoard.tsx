@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useRef, useState, useTransition } from "react";
 import { assignBoxesAction, changeEntryBoxesAction } from "@/lib/actions/raffles";
 import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, formatRaffleMoney } from "@/lib/raffleMath";
+import { MAX_NAME_LENGTH } from "@/lib/formValues";
 
 export type RaffleBoardBox = { number: number; entryId: string; buyer: string; paid: boolean };
 export type RaffleBoardBuyer = { id: string; name: string; boxNumbers: number[] };
@@ -272,6 +273,7 @@ function BoardFields({
                 list="board-buyer-names"
                 autoComplete="off"
                 required
+                maxLength={MAX_NAME_LENGTH}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Name"
@@ -300,6 +302,7 @@ function BoardFields({
                 name="payerName"
                 list="board-payer-names"
                 autoComplete="off"
+                maxLength={MAX_NAME_LENGTH}
                 placeholder="Name on the Zelle"
               />
               <datalist id="board-payer-names">
@@ -313,7 +316,7 @@ function BoardFields({
             <div style={{ marginBottom: 14 }}>
               <p className="form-note" style={{ marginTop: 0, marginBottom: lookalikes.length > 0 ? 8 : 0 }}>
                 {match
-                  ? `Adding to ${match.name}'s line — they already have ${match.boxNumbers.length === 1 ? "box" : "boxes"} ${match.boxNumbers.join(", ")}.`
+                  ? `Adding to ${match.name}'s line — they already have ${match.boxNumbers.length === 1 ? "box" : "boxes"} ${match.boxNumbers.join(", ")}. A different person with the same name? Add a last name or initial to tell them apart.`
                   : lookalikes.length > 0
                     ? "This will start a new line. If you meant someone already on the raffle, tap their name:"
                     : "New buyer — this starts a new line."}
