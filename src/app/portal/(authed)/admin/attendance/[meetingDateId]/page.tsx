@@ -3,8 +3,7 @@ import Link from "next/link";
 import { getMeetingDetailForAdmin } from "@/lib/attendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { RANK_INFO } from "@/lib/rankConfig";
-import { getSession } from "@/lib/auth";
-import { canAccessLeaderAttendance, canResetDenAttendance } from "@/lib/authorize";
+import { canAccessLeaderAttendance, canResetDenAttendance, requireAttendanceSession } from "@/lib/authorize";
 import { canEditMeetingAttendance, isAttendanceLocked } from "@/lib/attendanceLock";
 import AttendanceControl from "@/components/AttendanceControl";
 import AttendanceLockNotice from "@/components/AttendanceLockNotice";
@@ -20,13 +19,16 @@ export default async function AdminMeetingAttendancePage({
   params: Promise<{ meetingDateId: string }>;
 }) {
   const { meetingDateId } = await params;
-  const [data, session] = await Promise.all([getMeetingDetailForAdmin(meetingDateId), getSession()]);
+  // Checked here as well as in the layout: a layout isn't re-run on every
+  // navigation and doesn't stop this page rendering, so the page guards its own data.
+  const session = await requireAttendanceSession();
+  const data = await getMeetingDetailForAdmin(meetingDateId);
   if (!data) notFound();
   const { meeting, eventLabel, scoutingYear, dens } = data;
   // Past noon the day after the meeting, only Admins can edit — see attendanceLock.ts.
-  const canEdit = !!session && canEditMeetingAttendance(session.role, meeting.date);
+  const canEdit = canEditMeetingAttendance(session.role, meeting.date);
   const meetingLocked = isAttendanceLocked(meeting.date);
-  const canReset = canEdit && !!session && canResetDenAttendance(session);
+  const canReset = canEdit && canResetDenAttendance(session);
   const cancelled = meeting.status === "NO_MEETING";
 
   return (
@@ -42,7 +44,7 @@ export default async function AdminMeetingAttendancePage({
         {canEdit && <MeetingStatusToggle meetingDateId={meeting.id} status={meeting.status} />}
       </div>
 
-      {session && canAccessLeaderAttendance(session) && (
+      {canAccessLeaderAttendance(session) && (
         <AttendanceSubNav active="scouts" meetingDateId={meeting.id} />
       )}
 

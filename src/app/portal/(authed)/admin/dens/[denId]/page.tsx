@@ -3,8 +3,7 @@ import SaveButton from "@/components/SaveButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
-import { canAddScoutsToDens } from "@/lib/authorize";
+import { canAddScoutsToDens, requireAdvancementSession } from "@/lib/authorize";
 import { getDenChecklist } from "@/lib/denData";
 import { denDisplayName, nextRank } from "@/lib/rankConfig";
 import { addScoutAction, removeScoutAction, updateScoutNameAction } from "@/lib/actions/dens";
@@ -16,14 +15,16 @@ export default async function AdminDenDetailPage({
 }: {
   params: Promise<{ denId: string }>;
 }) {
+  // Checked here as well as in the layout: a layout isn't re-run on every
+  // navigation and doesn't stop this page rendering, so the page guards its own data.
+  const session = await requireAdvancementSession();
   const { denId } = await params;
   const data = await getDenChecklist(denId);
   if (!data) notFound();
 
-  const session = await getSession();
-  const isFullAdmin = session?.role === "ADMIN";
+  const isFullAdmin = session.role === "ADMIN";
   // Junior Admin can add a scout; renaming and removing stay Admin-only.
-  const canAddScouts = !!session && canAddScoutsToDens(session);
+  const canAddScouts = canAddScoutsToDens(session);
 
   const { den, scouts, inactiveScouts } = data;
   const assignments = await prisma.denAssignment.findMany({

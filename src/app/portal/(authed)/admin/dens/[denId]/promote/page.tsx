@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireAdminSession } from "@/lib/authorize";
 import { denDisplayName, nextRank, RANK_INFO } from "@/lib/rankConfig";
 import PromoteDenForm from "@/components/PromoteDenForm";
 
@@ -16,6 +17,9 @@ export default async function PromoteDenPage({
 }: {
   params: Promise<{ denId: string }>;
 }) {
+  // Checked here as well as in the layout: a layout isn't re-run on every
+  // navigation and doesn't stop this page rendering, so the page guards its own data.
+  await requireAdminSession();
   const { denId } = await params;
   const den = await prisma.den.findUnique({ where: { id: denId } });
   if (!den) notFound();

@@ -1,14 +1,16 @@
 import Link from "next/link";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { requireAlbumSession } from "@/lib/authorize";
 import { formatLongDate } from "@/lib/dateOnly";
 import { deleteAlbumAction } from "@/lib/actions/albums";
 import AlbumVisibilityToggle from "@/components/AlbumVisibilityToggle";
 
 export default async function AdminAlbumsPage() {
-  const session = await getSession();
-  const canDelete = session?.role === "ADMIN";
+  // Checked here as well as in the layout: a layout isn't re-run on every
+  // navigation and doesn't stop this page rendering, so the page guards its own data.
+  const session = await requireAlbumSession();
+  const canDelete = session.role === "ADMIN";
   const albums = await prisma.photoAlbum.findMany({ orderBy: { eventDate: "desc" } });
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);

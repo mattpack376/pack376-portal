@@ -2,8 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getAdultLeaderMeetingDetail } from "@/lib/adultLeaderAttendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
-import { getSession } from "@/lib/auth";
-import { canResetLeaderAttendance } from "@/lib/authorize";
+import { canResetLeaderAttendance, requireLeaderAttendanceSession } from "@/lib/authorize";
 import { canEditMeetingAttendance, isAttendanceLocked } from "@/lib/attendanceLock";
 import AttendanceLockNotice from "@/components/AttendanceLockNotice";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
@@ -19,13 +18,16 @@ export default async function AdminLeaderMeetingAttendancePage({
   params: Promise<{ meetingDateId: string }>;
 }) {
   const { meetingDateId } = await params;
-  const [data, session] = await Promise.all([getAdultLeaderMeetingDetail(meetingDateId), getSession()]);
+  // Checked here as well as in the layout: a layout isn't re-run on every
+  // navigation and doesn't stop this page rendering, so the page guards its own data.
+  const session = await requireLeaderAttendanceSession();
+  const data = await getAdultLeaderMeetingDetail(meetingDateId);
   if (!data) notFound();
   const { meeting, eventLabel, scoutingYear, sections } = data;
   // Past noon the day after the meeting, only Admins can edit — see attendanceLock.ts.
-  const canEdit = !!session && canEditMeetingAttendance(session.role, meeting.date);
+  const canEdit = canEditMeetingAttendance(session.role, meeting.date);
   const meetingLocked = isAttendanceLocked(meeting.date);
-  const canReset = canEdit && !!session && canResetLeaderAttendance(session);
+  const canReset = canEdit && canResetLeaderAttendance(session);
   const cancelled = meeting.status === "NO_MEETING";
   const listedCount = sections.reduce((sum, s) => sum + s.leaders.length, 0);
 
