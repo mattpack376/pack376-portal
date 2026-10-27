@@ -1,9 +1,11 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { summarizeRaffle, type RaffleSummary } from "@/lib/raffleMath";
+import { buyerNameKey, summarizeRaffle, type RaffleSummary } from "@/lib/raffleMath";
 import { RAFFLE_HELPER_ROLES } from "@/lib/authorize";
 
 const NAME_SUGGESTION_LIMIT = 500;
+/** Decades of this pack's raffles; the newest payments are the ones that matter. */
+const PAYER_HISTORY_LIMIT = 5_000;
 
 function byName<T extends { name: string }>(a: T, b: T) {
   return a.name.localeCompare(b.name, "en", { sensitivity: "base" });
@@ -131,30 +133,32 @@ export async function getRaffleNameSuggestions() {
 }
 
 /**
- * Whose boxes a payer's money went toward last time, keyed by the payer's name
- * in lower case — so a Zelle that arrives under a business name or a spouse's
- * name can be shown as "last time this was for …" instead of being worked out
- * again from scratch.
+ * Whose boxes a payer's money went toward last time, keyed by buyerNameKey of
+ * the payer's name — so a Zelle that arrives under a business name or a
+ * spouse's name can be shown as "last time this was for …" instead of being
+ * worked out again from scratch.
  * Covers every raffle; the most recent match wins.
+ *
+ * Names are compared in JavaScript with buyerNameKey, exactly, the way the
+ * raffle pages compare buyer names: not with Prisma's `mode: "insensitive"`
+ * equals, which is an ILIKE ("%" or "_" in a payer name matched other
+ * people's), and not with Postgres's lower(), which on a "C"-locale database
+ * leaves "JOSÉ" unmatched with "José".
  */
 export async function getPayerHistory(payerNames: string[]) {
-  const wanted = [...new Set(payerNames.map((name) => name.trim().toLowerCase()).filter(Boolean))];
+  const wanted = new Set(payerNames.map(buyerNameKey).filter(Boolean));
   const history = new Map<string, string>();
-  if (wanted.length === 0) return history;
+  if (wanted.size === 0) return history;
 
-  // Compared in SQL rather than with Prisma's `mode: "insensitive"` equals,
-  // which is an ILIKE: a payer name with "%" or "_" in it would match other
-  // people's names.
-  const matched = await prisma.$queryRaw<{ payerName: string; entryName: string }[]>`
-    SELECT p."payerName", e."name" AS "entryName"
-    FROM "RafflePayment" p
-    JOIN "RaffleEntry" e ON e."id" = p."entryId"
-    WHERE lower(btrim(p."payerName")) = ANY(${wanted}::text[])
-      AND p."voidedAt" IS NULL
-    ORDER BY p."createdAt" DESC, p."id" DESC`;
-  for (const payment of matched) {
-    const key = payment.payerName.trim().toLowerCase();
-    if (key && !history.has(key)) history.set(key, payment.entryName);
+  const payments = await prisma.rafflePayment.findMany({
+    where: { voidedAt: null, payerName: { not: null }, entryId: { not: null } },
+    select: { payerName: true, entry: { select: { name: true } } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: PAYER_HISTORY_LIMIT,
+  });
+  for (const payment of payments) {
+    const key = buyerNameKey(payment.payerName ?? "");
+    if (payment.entry && wanted.has(key) && !history.has(key)) history.set(key, payment.entry.name);
   }
   return history;
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useRef, useState, useTransition } from "react";
 import { assignBoxesAction, changeEntryBoxesAction } from "@/lib/actions/raffles";
-import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, formatRaffleMoney } from "@/lib/raffleMath";
+import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, buyerNameKey, formatRaffleMoney } from "@/lib/raffleMath";
 import { MAX_NAME_LENGTH } from "@/lib/formValues";
 
 export type RaffleBoardBox = { number: number; entryId: string; buyer: string; paid: boolean };
@@ -60,7 +60,7 @@ function similarBuyers(typed: string, buyers: RaffleBoardBuyer[]) {
   const firstWord = typed.split(/\s+/)[0];
   return buyers
     .filter((buyer) => {
-      const name = buyer.name.trim().toLowerCase();
+      const name = buyerNameKey(buyer.name);
       return name.includes(typed) || typed.includes(name) || (firstWord.length >= 3 && name.split(/\s+/)[0] === firstWord);
     })
     .slice(0, 4);
@@ -94,8 +94,9 @@ function BoardFields({
   // the refreshed board then shows it taken, and it drops out of the picks.
   const picks = selected.filter((number) => !taken.has(number));
 
-  const typed = name.trim().toLowerCase();
-  const match = typed ? currentBuyers.find((buyer) => buyer.name.trim().toLowerCase() === typed) : undefined;
+  // The same comparison the save makes (buyerNameKey), so "Adding to …'s line" is a promise.
+  const typed = buyerNameKey(name);
+  const match = typed ? currentBuyers.find((buyer) => buyerNameKey(buyer.name) === typed) : undefined;
   const lookalikes = match ? [] : similarBuyers(typed, currentBuyers);
   const suggestions = [...new Set([...currentBuyers.map((buyer) => buyer.name), ...buyerNames])];
 

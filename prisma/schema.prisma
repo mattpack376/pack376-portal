@@ -1064,11 +1064,12 @@ model Raffle {
  * families. What they owe is always boxes x the raffle's price, so it isn't
  * stored.
  * The name is how the raffle pages tell buyers apart, so it is unique per
- * raffle ignoring case and spaces at either end: two people who share a name
- * are entered as e.g. "Frank Smith" and "Frank R." The unique index on
- * ("raffleId", lower(btrim("name"))) is an expression index Prisma can't
- * describe — see migration 20261027130000_raffle_buyer_name_unique, which
- * adds it only where existing data allows.
+ * raffle ignoring case and spaces at either end (buyerNameKey in
+ * src/lib/raffleMath.ts, checked under the raffle lock): two people who share
+ * a name are entered as e.g. "Frank Smith" and "Frank R." The unique index on
+ * ("raffleId", lower(btrim("name"))) backing that up is an expression index
+ * Prisma can't describe — see migration 20261027130000_raffle_buyer_name_unique,
+ * which adds it only where existing data allows.
  */
 model RaffleEntry {
   id        String          @id @default(cuid())

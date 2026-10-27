@@ -15,7 +15,7 @@ import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { PACK_TIME_ZONE, toDateOnlyString } from "@/lib/dateOnly";
 import { formatCents } from "@/lib/duesData";
 import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
-import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, formatBoxNumbers, type RaffleMethod } from "@/lib/raffleMath";
+import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, buyerNameKey, formatBoxNumbers, type RaffleMethod } from "@/lib/raffleMath";
 import { paymentEditVersion } from "@/lib/raffleEditVersion";
 import type { RaffleDetail, RafflePaymentDetail } from "@/lib/raffleData";
 import { MethodSelect, PayerNameList, RecordPaymentPopover, receivedLabel } from "./parts";
@@ -58,7 +58,7 @@ export default function PaymentsTab({
   helperUserId: string | null;
   today: string;
   payerNames: string[];
-  /** Lower-cased payer name -> the buyer their money was for last time. */
+  /** buyerNameKey of a payer name -> the buyer their money was for last time. */
   payerHistory: Map<string, string>;
 }) {
   const s = raffle.summary;
@@ -308,7 +308,7 @@ export default function PaymentsTab({
           </thead>
           <tbody>
             {unmatched.map((payment) => {
-              const lastFor = payerHistory.get((payment.payerName ?? "").trim().toLowerCase());
+              const lastFor = payerHistory.get(buyerNameKey(payment.payerName ?? ""));
               return (
                 <tr key={payment.id} className="status-owing">
                   <td className="audit-hover" data-audit={formatAuditTooltip("Recorded", payment.createdAt, payment.recordedByUsername)}>

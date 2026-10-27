@@ -1,4 +1,4 @@
-import { MAX_RAFFLE_BOXES, isRaffleMethod, prizeForSales, type RaffleMethod } from "@/lib/raffleMath";
+import { MAX_RAFFLE_BOXES, buyerNameKey, isRaffleMethod, prizeForSales, type RaffleMethod } from "@/lib/raffleMath";
 import { MAX_CENTS, MAX_NAME_LENGTH, MAX_NOTE_LENGTH, multiplyCents } from "@/lib/formValues";
 import { isDateOnlyString } from "@/lib/dateOnly";
 
@@ -143,12 +143,12 @@ export function parseRaffleImport(source: string): RaffleImportResult {
     const buyers = data.buyers.map((raw, index): RaffleImportBuyer => {
       if (!isRecord(raw)) fail(`Buyer ${index + 1} couldn't be read.`);
       const buyerName = text(raw.name, `Buyer ${index + 1}'s name`);
-      // Compared the way the raffle pages compare names: ignoring case.
-      const sameName = names.get(buyerName.toLowerCase());
+      // Compared the way the raffle pages compare names (buyerNameKey).
+      const sameName = names.get(buyerNameKey(buyerName));
       if (sameName) {
         fail(`${sameName} and ${buyerName} are listed as two buyers with the same name. Give each a name that tells them apart, like a last name or initial.`);
       }
-      names.set(buyerName.toLowerCase(), buyerName);
+      names.set(buyerNameKey(buyerName), buyerName);
       if (!Array.isArray(raw.boxes) || raw.boxes.length === 0) fail(`${buyerName} has no boxes listed.`);
       const boxes = raw.boxes.map((box) => wholeNumber(box, `A box number for ${buyerName}`, 1, boxCount));
       for (const box of boxes) {

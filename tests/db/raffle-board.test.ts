@@ -445,12 +445,15 @@ describe("buyers are one line per name", () => {
     assert.equal(await db.prisma.raffleEntry.count({ where: { raffleId: raffle.id } }), 1);
   });
 
-  it("20 rounds of two sales to one name (different capitalization) make one buyer", async () => {
+  it("20 rounds of two sales to one name (different capitalization, accents included) make one buyer", async () => {
     for (let round = 0; round < 20; round++) {
       const raffle = await kit.makeRaffle();
+      // On a database created with the "C" locale (like this test server)
+      // Postgres's lower() leaves "É" and "Í" alone; the first version of the
+      // fix compared names with it and made two buyers here.
       const results = await Promise.all([
-        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Jose Diaz", "1", "CASH")))),
-        kit.resultOf(kit.act(helper2, () => raffles.assignBoxesAction(sale(raffle, "JOSE DIAZ", "2")))),
+        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "José Díaz", "1", "CASH")))),
+        kit.resultOf(kit.act(helper2, () => raffles.assignBoxesAction(sale(raffle, "JOSÉ DÍAZ", "2")))),
       ]);
       assert.deepEqual(results, [{}, {}]);
       const entries = await db.prisma.raffleEntry.findMany({ where: { raffleId: raffle.id }, include: { boxes: true } });
@@ -488,6 +491,27 @@ describe("buyers are one line per name", () => {
     const clash = await runAs(helper, () => raffles.updateEntryAction(editEntryForm(jones, { name: "FRANK SMITH" })));
     assert.match(clash.error ?? "", /already a buyer named Frank Smith/);
     assert.deepEqual(await runAs(helper, () => raffles.updateEntryAction(editEntryForm(jones, { name: "Frank J." }))), {});
+  });
+
+  it("accented capitals, and an accent typed as a separate mark, are the same buyer", async () => {
+    const raffle = await kit.makeRaffle();
+    const jose = await kit.sell(helper, raffles, raffle.id, "José Díaz", "1");
+    // Capitals, and "e" followed by a combining accent (some phones and pasted text send that).
+    for (const [name, box] of [["JOSÉ DÍAZ", "2"], ["  jose\u0301 di\u0301az ", "3"]]) {
+      assert.deepEqual(await runAs(helper2, () => raffles.assignBoxesAction(sale(raffle, name, box))), {}, name);
+    }
+    assert.deepEqual(await kit.boardOf(raffle.id), ["1:José Díaz", "2:José Díaz", "3:José Díaz"]);
+    assert.equal(await db.prisma.raffleEntry.count({ where: { raffleId: raffle.id } }), 1);
+
+    // Edit refuses the same name in capitals for another buyer, too.
+    const maria = await kit.sell(helper, raffles, raffle.id, "María", "4");
+    const clash = await runAs(helper, () => raffles.updateEntryAction(editEntryForm(maria, { name: "JOSÉ DÍAZ" })));
+    assert.match(clash.error ?? "", /already a buyer named José Díaz/);
+    // Renaming a buyer to their own name in other capitals is fine.
+    assert.deepEqual(await runAs(helper, () => raffles.updateEntryAction(editEntryForm(jose, { name: "José DÍAZ" }))), {});
+    // And a real namesake is told apart by a last name or initial.
+    assert.deepEqual(await runAs(helper, () => raffles.assignBoxesAction(sale(raffle, "José R.", "5"))), {});
+    assert.equal(await db.prisma.raffleEntry.count({ where: { raffleId: raffle.id } }), 3);
   });
 
   it("the database refuses a second buyer with the same name on one raffle", async () => {

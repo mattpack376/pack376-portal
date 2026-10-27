@@ -134,6 +134,20 @@ describe("payer history", () => {
     const history = await raffleData.getPayerHistory(["%", "Fr_nk Smith", " FRANK smith "]);
     assert.deepEqual([...history.entries()], [["frank smith", "Ann"]]);
   });
+
+  it("matches accented capitals the way buyer names match", async () => {
+    const raffle = await kit.makeRaffle();
+    const bea = await kit.sell(helper, raffles, raffle.id, "Bea", "1");
+    assert.deepEqual(
+      await runAs(helper, () =>
+        raffles.recordPaymentAction(form({ raffleId: raffle.id, entryId: bea.id, amount: "10", method: "ZELLE", payerName: "Ángel Núñez" })),
+      ),
+      {},
+    );
+    // The Payments tab looks the hint up by buyerNameKey of the payer name.
+    const history = await raffleData.getPayerHistory(["ÁNGEL NÚÑEZ"]);
+    assert.deepEqual([...history.entries()], [["ángel núñez", "Bea"]]);
+  });
 });
 
 describe("importing a past raffle record", () => {
@@ -182,6 +196,7 @@ describe("importing a past raffle record", () => {
   it("refuses a record with two buyers of one name, an impossible date, or out-of-range values — saving nothing", async () => {
     const cases: [Record<string, unknown>, RegExp][] = [
       [{ buyers: [{ name: "Ana", boxes: [1] }, { name: "ANA", boxes: [2] }] }, /Ana and ANA are listed as two buyers with the same name/],
+      [{ buyers: [{ name: "Ana María", boxes: [1] }, { name: "ANA MARÍA", boxes: [2] }] }, /Ana María and ANA MARÍA are listed as two buyers/],
       [{ drawingDate: "2026-02-31" }, /drawing date should be a real date/],
       [{ winner: { box: 2, paid: true, paidOn: "2026-13-01" } }, /date the prize was paid should be a real date/],
       [{ priceDollars: 0.001 }, /price per box should be a dollar amount/],

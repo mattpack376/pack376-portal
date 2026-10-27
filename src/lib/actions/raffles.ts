@@ -25,6 +25,7 @@ import { parseDateOnlyString, todayDateOnlyString } from "@/lib/dateOnly";
 import {
   MAX_RAFFLE_BOXES,
   RAFFLE_METHOD_LABELS,
+  buyerNameKey,
   formatBoxNumbers,
   isRaffleMethod,
   parseBoxNumbers,
@@ -83,13 +84,14 @@ import type { Prisma, Raffle } from "@/generated/prisma/client";
  * money that never changed hands or putting someone else's correction back.
  *
  * A buyer is identified by name: a name already on the raffle (however it's
- * capitalized, ignoring spaces at either end) gets more boxes on that line,
- * and Edit refuses a name another buyer on the raffle already has. Two
- * different people who share a name have to be entered with names that tell
- * them apart — a last name or initial ("Frank Smith", "Frank R.") — which is
- * how the October 2026 raffle already lists its two Franks and two Joses.
- * The check runs under the raffle lock; a unique index on the normalized name
- * (see the 20261027130000 migration) backs it up where the data allowed one.
+ * capitalized, accents included, ignoring spaces at either end — see
+ * buyerNameKey in raffleMath.ts) gets more boxes on that line, and Edit
+ * refuses a name another buyer on the raffle already has. Two different
+ * people who share a name have to be entered with names that tell them apart
+ * — a last name or initial ("Frank Smith", "Frank R.") — which is how the
+ * October 2026 raffle already lists its two Franks and two Joses. The check
+ * runs under the raffle lock; a unique index on the lower-cased name (see the
+ * 20261027130000 migration) backs it up where the data allowed one.
  *
  * Audit entries for these changes are written inside the same transaction
  * (recordAuditInTransaction): the change and its record commit together.
@@ -473,21 +475,26 @@ async function assertBoxesFree(tx: Tx, raffleId: string, numbers: number[], exce
 }
 
 /**
- * The buyer on this raffle with this name, compared the way the buyer-name
- * index does: ignoring case and spaces at either end. Not Prisma's
- * `mode: "insensitive"` equals, which is an ILIKE — a typed "%" or "_" would
- * match other people's names. The oldest match wins if old data ever holds
- * two.
+ * The buyer on this raffle with this name: the same buyerNameKey (case,
+ * accents typed either way, spaces at either end), which is what the board's
+ * hint promised. Also a name the buyer-name index would call the same
+ * (Postgres's lower(btrim())), so the index never refuses a save this check
+ * let through — on a "C"-locale database that index only folds A–Z, and
+ * elsewhere a few letters (a Turkish dotted İ, a Greek final sigma) fold
+ * differently in Postgres than in JavaScript. Compared exactly, never as a
+ * pattern: Prisma's `mode: "insensitive"` equals is an ILIKE, where a typed
+ * "%" or "_" matched other people's names. The oldest match wins if old data
+ * ever holds two.
  */
 async function buyerNamed(tx: Tx, raffleId: string, name: string, exceptEntryId = "") {
-  const rows = await tx.$queryRaw<{ id: string; name: string }[]>`
-    SELECT "id", "name" FROM "RaffleEntry"
-    WHERE "raffleId" = ${raffleId}
-      AND lower(btrim("name")) = lower(btrim(${name}::text))
-      AND "id" <> ${exceptEntryId}
-    ORDER BY "createdAt" ASC, "id" ASC
-    LIMIT 1`;
-  return rows[0] ?? null;
+  const rows = await tx.$queryRaw<{ id: string; name: string; sameInIndex: boolean }[]>`
+    SELECT "id", "name", lower(btrim("name")) = lower(btrim(${name}::text)) AS "sameInIndex"
+    FROM "RaffleEntry"
+    WHERE "raffleId" = ${raffleId} AND "id" <> ${exceptEntryId}
+    ORDER BY "createdAt" ASC, "id" ASC`;
+  const key = buyerNameKey(name);
+  const match = rows.find((row) => row.sameInIndex || buyerNameKey(row.name) === key);
+  return match ? { id: match.id, name: match.name } : null;
 }
 
 /**

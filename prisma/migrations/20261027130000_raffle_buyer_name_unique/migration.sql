@@ -2,7 +2,10 @@
 -- the raffle (ignoring case and spaces at either end) adds boxes to that
 -- buyer, and editing a buyer refuses a name another buyer there has. The
 -- portal checks that under a lock on the raffle row (src/lib/actions/raffles.ts);
--- this unique index on the same normalized name backs it up in the database.
+-- this unique index on the lower-cased name backs it up in the database.
+-- (The portal's check treats as the same buyer every name this index would,
+-- and more — it also folds accented capitals, which lower() leaves alone on a
+-- "C"-locale database — so the index never refuses a save the portal allowed.)
 --
 -- Prisma's schema can't describe an index on an expression, so it lives only
 -- here. (`prisma migrate diff` leaves expression indexes alone, so a later
