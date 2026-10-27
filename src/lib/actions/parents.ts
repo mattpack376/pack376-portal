@@ -11,6 +11,7 @@ import { sendAccountLinkEmail } from "@/lib/email";
 import { formatPhoneNumber } from "@/lib/phone";
 import { recordAudit, changedFields } from "@/lib/audit";
 import type { CreatedInvite } from "@/lib/actions/dens";
+import { isUsernameTooLong, USERNAME_TOO_LONG_MESSAGE } from "@/lib/credentialInput";
 
 /**
  * If this email already belongs to a PARENT-role portal login (e.g. a
@@ -232,6 +233,8 @@ export async function inviteParentPortalAction(parentId: string) {
   if (!cleanEmail) {
     return { ok: false as const, error: "Add an email address for this parent before inviting them." };
   }
+  // The email becomes the login, which sign-in (and the database) cap.
+  if (isUsernameTooLong(cleanEmail)) return { ok: false as const, error: USERNAME_TOO_LONG_MESSAGE };
 
   const existing = await prisma.user.findUnique({ where: { username: cleanEmail } });
   if (existing) {
@@ -493,6 +496,7 @@ export async function createParentAccountAction(
   const cleanEmail = email?.trim().toLowerCase() || null;
   const cleanPhone = phone?.trim() ? formatPhoneNumber(phone.trim()) : null;
   if (!clean || !name) return { ok: false as const, error: "Login and display name are required." };
+  if (isUsernameTooLong(clean)) return { ok: false as const, error: USERNAME_TOO_LONG_MESSAGE };
   // Same reservation as createAdminAction in actions/users.ts — this form
   // creates a User row too, so it's a second way to claim a freed master name.
   if (isReservedUsername(clean)) {

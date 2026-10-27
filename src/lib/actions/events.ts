@@ -10,6 +10,7 @@ import { DEADLINE_CATEGORY_LABELS } from "@/lib/deadlineCategories";
 import { recordAudit, recordAuditInTransaction, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import { uploadFlyer } from "@/lib/flyerUpload";
+import { UploadRejectedError } from "@/lib/uploadValidation";
 import {
   MAX_CENTS,
   MAX_NAME_LENGTH,
@@ -352,10 +353,10 @@ async function uploadEventFlyer(raw: FormDataEntryValue | null): Promise<string 
   try {
     return await uploadFlyer(raw, "event-flyers");
   } catch (error) {
-    // uploadFlyer's own refusals (wrong type, too big) start "Flyer …" and
-    // are written for the Admin; anything else is a storage failure and goes
-    // to the error page as before.
-    if (error instanceof Error && error.message.startsWith("Flyer")) throw new EventInputError(error.message);
+    // uploadFlyer's own refusals (wrong type, too big, not really an image or
+    // PDF) are written for the Admin; anything else is a storage failure and
+    // goes to the error page as before.
+    if (error instanceof UploadRejectedError) throw new EventInputError(error.message);
     throw error;
   }
 }

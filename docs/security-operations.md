@@ -38,19 +38,23 @@ uploads or the database. Then, on production:
 
 ### 1.2 Rate limiting (Vercel Firewall)
 
-The sign-in form and the public trip registration form each ask the Vercel
-Firewall whether the visitor is over a limit, by rule name:
+The sign-in form, the set-your-password (reset/invite link) form and the
+public trip registration form each ask the Vercel Firewall whether the visitor
+is over a limit, by rule name:
 
 | Rule name (exact)   | Used by                                   | Suggested limit                         |
 | ------------------- | ----------------------------------------- | --------------------------------------- |
 | `portal-login`      | portal sign-in                            | 10 requests per minute per IP address   |
+| `portal-reset`      | finishing a reset or invite link          | 10 requests per 10 minutes per IP address |
 | `trip-registration` | public sign-up on conron./cyclones. sites | 20 requests per 10 minutes per IP address |
 
 The trip limit is looser on purpose: at a pack meeting many families sign up
 from the same school Wi-Fi, which is one IP address.
 
-- [ ] Vercel → Firewall → both rules exist, are enabled, and their IDs match
-      the names above exactly.
+- [ ] Vercel → Firewall → all three rules exist, are enabled, and their IDs
+      match the names above exactly. (`portal-reset` is new with the October 27
+      fixes; until it exists, finishing a link fails open and logs
+      `[rate limit] no "portal-reset" rule in the Vercel Firewall`.)
 - [ ] Vercel → Logs, search for `[rate limit] no "` — there should be no hits.
 
 **The app fails open on purpose.** If a rule is missing or misnamed, the SDK
@@ -62,6 +66,9 @@ then:
 - **Sign-in:** account lockout — 5 wrong passwords lock that account for 15
   minutes. It stops guessing one account's password; it does not stop someone
   trying many usernames, and it is not a limit on server load.
+- **Reset/invite links:** a link is a 43-character random token, checked
+  cheaply before any password hashing, so guessing links costs the server
+  almost nothing; there is no per-account lockout here.
 - **Trip registration:** at most 10 registrations per email address per trip,
   plus the duplicate-submission check. A bot that changes email address each
   time is not slowed down.
@@ -76,7 +83,19 @@ So a missing rule is worth knowing about quickly:
       attempts. Try again in a few minutes." appears. (Use a test account — the
       lockout counts those attempts too.)
 
-### 1.3 Response headers to spot-check
+### 1.3 Rolling back
+
+Vercel's Instant Rollback switches the code but never the database. Since the
+October 27 fixes, reset and invite links carry a credential version: if you
+roll back past that release and then forward again, any reset or invite link
+issued while the older code was live shows as invalid. Re-send those with
+**Reset Password** (the audit log's `user.resetPassword` / `user.create`
+entries show who got one). Every migration in that release only adds optional
+columns, tables and checks, so the older code still runs on the newer
+database; the new checks only refuse values that code shouldn't write anyway
+(an over-long username, a negative amount).
+
+### 1.4 Response headers to spot-check
 
 From any computer: `curl -sI https://pack376nyc.org/` and
 `curl -sI https://portal.pack376nyc.org/login`. Expect:
@@ -93,7 +112,7 @@ Signed in as an Admin, download one CSV and one PDF export with the browser's
 developer tools open (Network tab). Both should show
 `cache-control: private, no-store` and `content-disposition: attachment`.
 
-### 1.4 Private exports
+### 1.5 Private exports
 
 Every CSV and PDF export (parents, leaders, attendance, photo consent, event
 guests, raffles, trip registrations and expenses) is sent `private, no-store`

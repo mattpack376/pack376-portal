@@ -14,6 +14,7 @@ import { nextRank as computeNextRank, denDisplayName } from "@/lib/rankConfig";
 import { parseScoutingYear } from "@/lib/attendanceSchedule";
 import { recordAudit, changedFields } from "@/lib/audit";
 import type { Rank } from "@/generated/prisma/enums";
+import { isUsernameTooLong, USERNAME_TOO_LONG_MESSAGE } from "@/lib/credentialInput";
 
 export type CreatedInvite = { username: string; url: string };
 export type DenActionState = { error?: string; invite?: CreatedInvite };
@@ -106,6 +107,7 @@ export async function createDenAction(
     const usernameTaken = await prisma.user.findUnique({ where: { username: username.toLowerCase() } });
     if (usernameTaken) return { error: "Den created, but that username is already taken." };
     if (isReservedUsername(username)) return { error: "Den created, but that username is reserved." };
+    if (isUsernameTooLong(username.toLowerCase())) return { error: `Den created, but its login wasn't. ${USERNAME_TOO_LONG_MESSAGE}` };
     const account = await createDenAccount(den.id, rank, scoutingYear, username);
     invite = { username: account.username, url: account.url };
     await recordAudit(session, {
@@ -303,6 +305,7 @@ export async function promoteDenAction(
     const usernameTaken = await prisma.user.findUnique({ where: { username: username.toLowerCase() } });
     if (usernameTaken) return { error: "Den promoted, but that username is already taken." };
     if (isReservedUsername(username)) return { error: "Den promoted, but that username is reserved." };
+    if (isUsernameTooLong(username.toLowerCase())) return { error: `Den promoted, but its login wasn't. ${USERNAME_TOO_LONG_MESSAGE}` };
     const account = await createDenAccount(newDen.id, next, scoutingYear, username);
     invite = { username: account.username, url: account.url };
     await recordAudit(session, {

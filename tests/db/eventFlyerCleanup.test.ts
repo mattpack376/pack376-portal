@@ -60,12 +60,16 @@ function eventForm(fields: Record<string, string>, flyer?: File) {
   return data;
 }
 
-const png = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "flyer.png", { type: "image/png" });
+// A real (minimal) PDF: uploadFlyer checks the bytes, not just the name.
+const flyerFile = () =>
+  new File(["%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n"], "flyer.pdf", {
+    type: "application/pdf",
+  });
 
 describe("event flyers", () => {
   it("deletes the new upload when creating the event fails", async () => {
     const outcome = await settle(
-      runAs(admin, () => events.createEventAction(eventForm({ title: FAIL_TITLE }, png()))),
+      runAs(admin, () => events.createEventAction(eventForm({ title: FAIL_TITLE }, flyerFile()))),
     );
     assert.equal(outcome.ok, false);
     assert.equal(testState.blobPuts.length, 1);
@@ -74,7 +78,7 @@ describe("event flyers", () => {
   });
 
   it("keeps the upload when the event is created", async () => {
-    const outcome = await settle(runAs(admin, () => events.createEventAction(eventForm({ title: "Kept" }, png()))));
+    const outcome = await settle(runAs(admin, () => events.createEventAction(eventForm({ title: "Kept" }, flyerFile()))));
     // Success ends in a redirect to the new event's page.
     assert.equal(outcome.ok, false);
     assert.match(String((outcome as { error: { redirect?: string } }).error.redirect), /^\/portal\/admin\/events\//);
@@ -87,10 +91,14 @@ describe("event flyers", () => {
     const pdfAsText = new File(["hello"], "flyer.txt", { type: "text/plain" });
     const badType = await runAs(admin, () => events.createEventAction(eventForm({ title: "Bad flyer" }, pdfAsText)));
     assert.match(badType.error ?? "", /^Flyer must be/);
-    const longTitle = await runAs(admin, () => events.createEventAction(eventForm({ title: "t".repeat(121) }, png())));
+    // Some refusals don't start with "Flyer" — they still reach the form.
+    const webPage = new File(["<!doctype html><html><body>hi</body></html>"], "flyer.pdf", { type: "application/pdf" });
+    const html = await runAs(admin, () => events.createEventAction(eventForm({ title: "Bad flyer" }, webPage)));
+    assert.match(html.error ?? "", /web page/);
+    const longTitle = await runAs(admin, () => events.createEventAction(eventForm({ title: "t".repeat(121) }, flyerFile())));
     assert.match(longTitle.error ?? "", /120 characters/);
     const badDate = await runAs(admin, () =>
-      events.createEventAction(eventForm({ title: "Bad date", eventDate: "2030-02-30" }, png())),
+      events.createEventAction(eventForm({ title: "Bad date", eventDate: "2030-02-30" }, flyerFile())),
     );
     assert.match(badDate.error ?? "", /isn't a real date/);
     assert.equal(testState.blobPuts.length, 0);
@@ -100,7 +108,7 @@ describe("event flyers", () => {
   it("deletes the replacement, and keeps the old flyer, when updating the event fails", async () => {
     const event = await fx.event({ title: "Has a flyer", flyerUrl: "https://example.test/event-flyers/old.png" });
     const outcome = await settle(
-      runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: FAIL_TITLE }, png()))),
+      runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: FAIL_TITLE }, flyerFile()))),
     );
     assert.equal(outcome.ok, false);
     assert.deepEqual(cleanupCalls(), [testState.blobPuts[0].url]);
@@ -112,7 +120,7 @@ describe("event flyers", () => {
   it("deletes only the old flyer once a replacement is saved, and nothing when the flyer is left alone", async () => {
     const old = "https://example.test/event-flyers/old-2.png";
     const event = await fx.event({ title: "Replace me", flyerUrl: old });
-    await runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: "Replaced" }, png())));
+    await runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: "Replaced" }, flyerFile())));
     const saved = await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } });
     assert.equal(saved.flyerUrl, testState.blobPuts[0].url);
     assert.deepEqual(cleanupCalls(), [old]);
@@ -140,7 +148,7 @@ describe("event flyers", () => {
     t.after(() => holder.rollback());
     await holder.query(`UPDATE "Event" SET title = 'Spring Campout' WHERE id = $1`, [event.id]);
 
-    const pending = settle(runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: longTitle }, png()))));
+    const pending = settle(runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: longTitle }, flyerFile()))));
     await waitForLockWait(db.pool);
     await holder.commit();
 
@@ -156,7 +164,7 @@ describe("event flyers", () => {
 
   it("uploads nothing for an event that no longer exists", async () => {
     const outcome = await settle(
-      runAs(admin, () => events.updateEventAction(eventForm({ id: "gone", title: "Whatever" }, png()))),
+      runAs(admin, () => events.updateEventAction(eventForm({ id: "gone", title: "Whatever" }, flyerFile()))),
     );
     assert.equal(outcome.ok, false);
     assert.equal(testState.blobPuts.length, 0);

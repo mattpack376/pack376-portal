@@ -8,3 +8,11 @@ globalThis.__eventFlyerCleanupCalls ??= [];
 export async function deleteUploadedBlob(url) {
   if (url) globalThis.__eventFlyerCleanupCalls.push(url);
 }
+
+// The rest of blobCleanup.ts's exports, so modules that import them
+// (flyerUpload.ts retries queued deletions after each upload) still load.
+export async function discardUnsavedUpload(url) {
+  if (url) globalThis.__eventFlyerCleanupCalls.push(url);
+}
+
+export async function processPendingBlobDeletions() {}

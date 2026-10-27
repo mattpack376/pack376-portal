@@ -74,7 +74,11 @@ export default function CreateAdminForm({ canCreateAdmins }: { canCreateAdmins: 
           ))}
         </select>
       </div>
-      {error && <p className="form-error">{error}</p>}
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
       <button type="submit" className="btn btn-primary" disabled={isPending}>
         {isPending ? "Creating…" : "Create Account"}
       </button>

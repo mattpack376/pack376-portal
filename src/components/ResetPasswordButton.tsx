@@ -33,7 +33,11 @@ export default function ResetPasswordButton({ userId }: { userId: string }) {
       >
         {isPending ? "Resetting…" : "Reset Password"}
       </button>
-      {error && <p className="form-error" style={{ marginTop: 8 }}>{error}</p>}
+      {error && (
+        <p className="form-error" role="alert" style={{ marginTop: 8 }}>
+          {error}
+        </p>
+      )}
       {result && <CredentialReveal invite={result.invite} emailedTo={result.emailedTo} />}
     </div>
   );
