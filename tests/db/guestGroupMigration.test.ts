@@ -106,6 +106,13 @@ describe("guest group submission key migration", () => {
     await undoMigration();
     await insertGroup(event.id, -1);
 
+    // The check the migration's comment gives for before a deploy (prisma
+    // migrate deploy doesn't print the notice) finds the row.
+    const { rows: blocking } = await db.pool.query(
+      `SELECT id FROM "EventGuestGroup" WHERE "adultCount" < 0 OR "childCount" < 0 OR "amountOwedCents" < 0`,
+    );
+    assert.equal(blocking.length, 1);
+
     const notices = await applyMigration();
     assert.equal(notices.length, 1);
     assert.match(notices[0], /skipped adding EventGuestGroup_nonnegative_check/);

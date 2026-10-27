@@ -11,9 +11,21 @@ CREATE UNIQUE INDEX "EventGuestGroup_submissionKey_key" ON "EventGuestGroup"("su
 
 -- Headcounts and the amount owed can't be negative. The forms have always
 -- refused negatives, so no row should break this; if one somehow does, the
--- constraint is skipped with a notice instead of failing the deploy, and can
--- be added by hand once that row is fixed. Not in schema.prisma, which has no
--- way to express a CHECK constraint (Prisma leaves it alone).
+-- constraint is skipped instead of failing the deploy, and can be added by
+-- hand once that row is fixed. Not in schema.prisma, which has no way to
+-- express a CHECK constraint (Prisma leaves it alone).
+--
+-- `prisma migrate deploy` doesn't print the NOTICE below, so a skip is
+-- silent in the deploy log. To check before deploying (no rows = it will be
+-- added):
+--   SELECT id FROM "EventGuestGroup"
+--   WHERE "adultCount" < 0 OR "childCount" < 0 OR "amountOwedCents" < 0;
+-- and after (one row = it was added):
+--   SELECT conname FROM pg_constraint
+--   WHERE conname = 'EventGuestGroup_nonnegative_check';
+-- Adding the constraint NOT VALID instead would not be safer: the
+-- ON DELETE SET NULL links (Guest Of, Added By) update the old row when a
+-- scout or login is deleted, and that update would then fail.
 DO $$
 BEGIN
   LOCK TABLE "EventGuestGroup" IN ACCESS EXCLUSIVE MODE;
