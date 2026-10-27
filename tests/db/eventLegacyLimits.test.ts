@@ -116,9 +116,8 @@ describe("an event saved before the limits", () => {
       [{ adultFee: "2500000.00" }, /fee per adult isn't a valid amount/],
     ];
     for (const [fields, message] of refusals) {
-      const outcome = await settle(editEvent(event.id, { ...fields, guestChildFee: "6.00" }));
-      assert.equal(outcome.ok, false, JSON.stringify(fields).slice(0, 80));
-      assert.match(outcome.ok ? "" : outcome.error.message, message, JSON.stringify(fields).slice(0, 80));
+      const result = await editEvent(event.id, { ...fields, guestChildFee: "6.00" });
+      assert.match(result.error ?? "(no error)", message, JSON.stringify(fields).slice(0, 80));
     }
     const unchanged = await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } });
     assert.equal(unchanged.title, LONG_TITLE);
@@ -134,7 +133,7 @@ describe("an event saved before the limits", () => {
     assert.equal(fixed.feeCents, 2500);
 
     // ...and from then on the limits hold for it too.
-    assert.equal((await settle(editEvent(event.id, { title: LONG_TITLE }))).ok, false);
+    assert.match((await editEvent(event.id, { title: LONG_TITLE })).error ?? "(no error)", /title to 120 characters/);
   });
 
   it("holds new events to the limits: there is no saved value to keep", async () => {
@@ -189,13 +188,11 @@ describe("an unchanged long value is judged against the row as locked", () => {
 
     // The edit's first read (no lock) still sees the long title, so it gets
     // as far as locking the event, and waits there.
-    const pending = settle(editEvent(event.id, { adultFee: "12.00" }));
+    const pending = editEvent(event.id, { adultFee: "12.00" });
     await waitForLockWait(db.pool);
     await holder.commit();
 
-    const outcome = await pending;
-    assert.equal(outcome.ok, false);
-    assert.match(outcome.ok ? "" : outcome.error.message, /title to 120 characters/);
+    assert.match((await pending).error ?? "(no error)", /title to 120 characters/);
     const saved = await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } });
     assert.equal(saved.title, "Spring Campout", "the long title wasn't written back");
     assert.equal(saved.adultFeeCents, 1000);

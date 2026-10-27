@@ -27,6 +27,7 @@ import { sortGuestGroups } from "@/lib/guestSort";
 import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import FileExportButton from "@/components/FileExportButton";
 import ActionForm from "@/components/ActionForm";
+import TripAdminForm from "@/components/TripAdminForm";
 import SubmitButton from "@/components/SubmitButton";
 import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { ADMIN_GUEST_GROUP_MAX_PEOPLE, newSubmissionKey } from "@/lib/guestGroupLimits";
@@ -136,7 +137,10 @@ export default async function AdminEventDetailPage({
       {canEdit && (
       <div className="info-card" style={{ maxWidth: 460, marginBottom: 24 }}>
         <h3>Edit Event Details</h3>
-        <form action={updateEventAction}>
+        {/* TripAdminForm, not a bare form: a refused flyer or a mistake in a field
+            is shown here, with what was typed put back, instead of on the
+            generic error page with every edit lost. */}
+        <TripAdminForm action={updateEventAction}>
           <input type="hidden" name="id" value={event.id} />
           <div className="form-field">
             <label htmlFor="edit-title">Title</label>
@@ -229,7 +233,7 @@ export default async function AdminEventDetailPage({
             )}
           </div>
           <SaveButton className="btn btn-primary">Save Changes</SaveButton>
-        </form>
+        </TripAdminForm>
       </div>
       )}
 

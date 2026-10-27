@@ -35,28 +35,42 @@ import type { DeadlineCategory } from "@/generated/prisma/enums";
 import type { SessionPayload } from "@/lib/session";
 
 /**
- * What the forms built on ActionForm get back: `error` is shown above the
- * fields. Nothing (or {}) means it saved.
+ * What the forms built on ActionForm or TripAdminForm get back: `error` is
+ * shown above the fields. Nothing (or {}) means it saved. `stale` marks a
+ * refusal about something that changed after the page loaded rather than
+ * about what was typed; the action refreshes the page with it, and
+ * TripAdminForm then shows the page as it now stands instead of putting the
+ * Admin's entries back.
  */
-export type EventFormResult = { error?: string };
+export type EventFormResult = { error?: string; stale?: boolean };
 
 /**
- * A mistake in what was entered, or a sign-up that's no longer possible (the
- * event closed, the group already exists). Actions behind ActionForm return
- * its message as { error } instead of throwing to the error page — in
- * production Next replaces a thrown message with a generic one, so a family
- * would never see why. Anything else (not signed in, a tampered request, the
- * database down) is still thrown.
+ * A mistake in what was entered, or a sign-up or edit that's no longer
+ * possible (the event closed, the group already exists, someone else changed
+ * the row first). Actions behind ActionForm or TripAdminForm return its
+ * message as { error } instead of throwing to the error page — in production
+ * Next replaces a thrown message with a generic one, so a family or Admin
+ * would never see why. Thrown rather than returned so that, thrown inside a
+ * transaction, it also rolls back everything that transaction wrote.
+ * Anything else (not signed in, a tampered request, the database down) is
+ * still thrown.
  */
-class EventInputError extends Error {}
+class EventInputError extends Error {
+  readonly stale: boolean;
+
+  constructor(message: string, options: { stale?: boolean } = {}) {
+    super(message);
+    this.stale = options.stale ?? false;
+  }
+}
 
 async function asResult(work: () => Promise<void>): Promise<EventFormResult> {
   try {
     await work();
     return {};
   } catch (error) {
-    if (error instanceof EventInputError) return { error: error.message };
-    throw error;
+    if (!(error instanceof EventInputError)) throw error;
+    return error.stale ? { error: error.message, stale: true } : { error: error.message };
   }
 }
 
@@ -419,10 +433,23 @@ export async function createEventAction(formData: FormData): Promise<EventFormRe
   redirect(`/portal/admin/events/${eventId}`);
 }
 
-// The edit form uses SaveButton, whose "Saved ✓" only makes sense after a
-// save that went through, so this one still throws on bad input (before
-// anything is uploaded or written) rather than returning { error }.
-export async function updateEventAction(formData: FormData) {
+const EVENT_GONE = "This event no longer exists.";
+
+function revalidateEventPages(eventId: string) {
+  revalidatePath(`/portal/admin/events/${eventId}`);
+  revalidatePath("/portal/admin/events");
+  revalidatePath("/portal/parent");
+  revalidatePath("/portal/roster/family-view");
+}
+
+/**
+ * The Edit Event Details form (TripAdminForm, so a refusal is shown above
+ * the fields with what the Admin typed put back, and its SaveButton only
+ * says "Saved ✓" after a save that went through). A mistake in a field or a
+ * flyer the upload checks turn down comes back as { error }, with nothing
+ * uploaded or written; so does an event deleted meanwhile.
+ */
+export async function updateEventAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
@@ -431,71 +458,76 @@ export async function updateEventAction(formData: FormData) {
   if (!id) throw new Error("Missing event id.");
   const removeFlyer = textField(formData.get("removeFlyer")) === "true";
 
-  // Turned away, and the fields checked against the event as saved, before
-  // anything is uploaded for it.
-  const saved = await prisma.event.findUnique({ where: { id }, select: SAVED_EVENT_SELECT });
-  if (!saved) throw new Error("Event not found.");
-  readEventFields(formData, saved);
+  const result = await asResult(async () => {
+    // Turned away, and the fields checked against the event as saved, before
+    // anything is uploaded for it.
+    const saved = await prisma.event.findUnique({ where: { id }, select: SAVED_EVENT_SELECT });
+    if (!saved) throw new EventInputError(EVENT_GONE, { stale: true });
+    readEventFields(formData, saved);
 
-  // Only touch flyerUrl when a new file was uploaded or "remove" was checked,
-  // so leaving both alone keeps whatever flyer is already saved.
-  const uploadedUrl = await uploadEventFlyer(formData.get("flyer"));
-  const flyerUrl: string | null | undefined = uploadedUrl ?? (removeFlyer ? null : undefined);
+    // Only touch flyerUrl when a new file was uploaded or "remove" was
+    // checked, so leaving both alone keeps whatever flyer is already saved.
+    // A file the upload checks refuse (the wrong type, too big, labeled as
+    // one kind of file but really another) stops here, with nothing written.
+    const uploadedUrl = await uploadEventFlyer(formData.get("flyer"));
+    const flyerUrl: string | null | undefined = uploadedUrl ?? (removeFlyer ? null : undefined);
 
-  const { before, fields } = await writeWithFlyer(uploadedUrl, () =>
-    prisma.$transaction(async (tx) => {
-      // Re-read under the lock, so the flyer this replaces is the one saved
-      // right now: two Admins replacing it at once would otherwise both
-      // delete the same old file and leave one of the new uploads behind.
-      if (!(await lockEvent(tx, id))) throw new Error("Event not found.");
-      const previous = await tx.event.findUniqueOrThrow({ where: { id }, select: SAVED_EVENT_SELECT });
-      // Checked again against the locked row: an over-limit title kept "as
-      // is" has to still be the saved one, not one another Admin has just
-      // replaced.
-      const fields = readEventFields(formData, previous);
-      await tx.event.update({
-        where: { id },
-        data: { ...fields, ...(flyerUrl !== undefined ? { flyerUrl } : {}) },
-      });
-      return { before: previous, fields };
-    }, TX),
-  );
+    const { before, fields } = await writeWithFlyer(uploadedUrl, () =>
+      prisma.$transaction(async (tx) => {
+        // Re-read under the lock, so the flyer this replaces is the one saved
+        // right now: two Admins replacing it at once would otherwise both
+        // delete the same old file and leave one of the new uploads behind.
+        if (!(await lockEvent(tx, id))) throw new EventInputError(EVENT_GONE, { stale: true });
+        const previous = await tx.event.findUniqueOrThrow({ where: { id }, select: SAVED_EVENT_SELECT });
+        // Checked again against the locked row: an over-limit title kept "as
+        // is" has to still be the saved one, not one another Admin has just
+        // replaced.
+        const fields = readEventFields(formData, previous);
+        await tx.event.update({
+          where: { id },
+          data: { ...fields, ...(flyerUrl !== undefined ? { flyerUrl } : {}) },
+        });
+        return { before: previous, fields };
+      }, TX),
+    );
 
-  // After the row is updated: a stray object is a better failure than a row
-  // pointing at a flyer that's already gone. Same helper as albums.ts.
-  if (flyerUrl !== undefined && before.flyerUrl && before.flyerUrl !== flyerUrl) {
-    await deleteUploadedBlob(before.flyerUrl);
-  }
+    // After the row is updated: a stray object is a better failure than a row
+    // pointing at a flyer that's already gone. Same helper as albums.ts.
+    if (flyerUrl !== undefined && before.flyerUrl && before.flyerUrl !== flyerUrl) {
+      await deleteUploadedBlob(before.flyerUrl);
+    }
 
-  const money = (cents: number | null) => (cents === null ? null : auditMoney(cents));
-  await recordAudit(session, {
-    action: "event.update",
-    summary: `Edited the event “${fields.title}”`,
-    entityType: "Event",
-    entityId: id,
-    details: [
-      ...changedFields({
-        Title: [before.title, fields.title],
-        Category: [
-          DEADLINE_CATEGORY_LABELS[before.category] ?? before.category,
-          DEADLINE_CATEGORY_LABELS[fields.category] ?? fields.category,
-        ],
-        "Event date": [before.eventDate, fields.eventDate],
-        Description: [before.description, fields.description],
-        "Scout fee": [money(before.feeCents), money(fields.feeCents)],
-        "Adult fee": [money(before.adultFeeCents), money(fields.adultFeeCents)],
-        "Guest child fee": [money(before.guestChildFeeCents), money(fields.guestChildFeeCents)],
-      }),
-      ...(flyerUrl === undefined
-        ? []
-        : [{ label: "Flyer", from: "Previous", to: flyerUrl === null ? "—" : "Replaced" }]),
-    ],
+    const money = (cents: number | null) => (cents === null ? null : auditMoney(cents));
+    await recordAudit(session, {
+      action: "event.update",
+      summary: `Edited the event “${fields.title}”`,
+      entityType: "Event",
+      entityId: id,
+      details: [
+        ...changedFields({
+          Title: [before.title, fields.title],
+          Category: [
+            DEADLINE_CATEGORY_LABELS[before.category] ?? before.category,
+            DEADLINE_CATEGORY_LABELS[fields.category] ?? fields.category,
+          ],
+          "Event date": [before.eventDate, fields.eventDate],
+          Description: [before.description, fields.description],
+          "Scout fee": [money(before.feeCents), money(fields.feeCents)],
+          "Adult fee": [money(before.adultFeeCents), money(fields.adultFeeCents)],
+          "Guest child fee": [money(before.guestChildFeeCents), money(fields.guestChildFeeCents)],
+        }),
+        ...(flyerUrl === undefined
+          ? []
+          : [{ label: "Flyer", from: "Previous", to: flyerUrl === null ? "—" : "Replaced" }]),
+      ],
+    });
   });
 
-  revalidatePath(`/portal/admin/events/${id}`);
-  revalidatePath("/portal/admin/events");
-  revalidatePath("/portal/parent");
-  revalidatePath("/portal/roster/family-view");
+  // A refusal about what was typed leaves the page as it loaded, so the
+  // Admin's entries go back over it; a stale one refreshes it.
+  if (result.error && !result.stale) return result;
+  revalidateEventPages(id);
+  return result;
 }
 
 export async function toggleEventVisibilityAction(formData: FormData) {
