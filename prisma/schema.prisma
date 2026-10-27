@@ -1019,6 +1019,10 @@ enum RafflePaymentMethod {
  * holds the drawn box and the rest to the pack. Each raffle keeps its own
  * buyers, boxes and payments, so a closed one stays as a permanent record
  * while the next starts from an empty board.
+ * Every change to a raffle or anything in it locks this row first (see
+ * withLockedRaffle in src/lib/actions/raffles.ts). CHECK constraints Prisma
+ * doesn't describe (migration 20261027130001_raffle_check_constraints) keep
+ * the terms in range and the drawing all-or-nothing.
  */
 model Raffle {
   id           String       @id @default(cuid())
@@ -1059,6 +1063,12 @@ model Raffle {
  * User: buyers are grandparents, neighbours and coworkers as often as pack
  * families. What they owe is always boxes x the raffle's price, so it isn't
  * stored.
+ * The name is how the raffle pages tell buyers apart, so it is unique per
+ * raffle ignoring case and spaces at either end: two people who share a name
+ * are entered as e.g. "Frank Smith" and "Frank R." The unique index on
+ * ("raffleId", lower(btrim("name"))) is an expression index Prisma can't
+ * describe — see migration 20261027130000_raffle_buyer_name_unique, which
+ * adds it only where existing data allows.
  */
 model RaffleEntry {
   id        String          @id @default(cuid())
