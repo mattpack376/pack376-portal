@@ -25,6 +25,28 @@ import type { TripDay, TripMealType } from "@/generated/prisma/enums";
 /** The oldest "free age and under" the pricing form takes — anything above is a typo, not a policy. */
 const MAX_FREE_AGE = 99;
 
+const FLYER_UPLOAD_FAILED =
+  "The flyer couldn't be uploaded. It has to be a JPEG, PNG, WEBP, GIF, or PDF of 8MB or less — if it is, try again in a moment.";
+
+/**
+ * What the admin is told when a flyer upload fails. A rejection the upload
+ * helper words for the admin — an UploadRejectedError: the wrong type, too
+ * large, a file that isn't what its name says — is shown as written. Anything
+ * else is a storage or network failure, whose text is the storage SDK's
+ * (environment-variable names and all), so it's logged and the admin gets
+ * what to check and a nudge to try again instead.
+ *
+ * Matched by name rather than instanceof because the error class lives in
+ * the upload-validation module (src/lib/uploadValidation.ts); before that
+ * module, flyerUpload.ts threw plain Errors, and those get the general
+ * message, which lists the same requirements.
+ */
+function flyerUploadRefusal(error: unknown): string {
+  if (error instanceof Error && error.name === "UploadRejectedError") return error.message;
+  console.warn(`[trip flyer] upload failed: ${error instanceof Error ? error.message : String(error)}`);
+  return FLYER_UPLOAD_FAILED;
+}
+
 /** "SATURDAY" -> "Saturday", "HOT_BREAKFAST" -> "Hot breakfast" — enums in audit text. */
 function titleCase(value: string): string {
   const words = value.toLowerCase().replace(/_/g, " ");
@@ -66,11 +88,7 @@ export async function updateTripDetailsAction(formData: FormData): Promise<TripF
       try {
         uploadedUrl = await uploadFlyer(flyer, "trip-flyers");
       } catch (error) {
-        // uploadFlyer's messages (wrong type, too large) are written for the
-        // admin; a storage outage's is at least something to report.
-        const message = error instanceof Error ? error.message : "The flyer couldn't be uploaded. Try again.";
-        console.warn(`[trip flyer] upload refused or failed: ${message}`);
-        throw new TripInputError(message);
+        throw new TripInputError(flyerUploadRefusal(error));
       }
       flyerUrl = uploadedUrl;
     } else if (String(formData.get("removeFlyer") || "") === "true") {
