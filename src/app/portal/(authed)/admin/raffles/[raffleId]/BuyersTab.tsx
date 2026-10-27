@@ -9,6 +9,7 @@ import { formatCents } from "@/lib/duesData";
 import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { paymentRowClass, paymentStatus } from "@/lib/paymentStatus";
 import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, formatBoxNumbers } from "@/lib/raffleMath";
+import { entryEditVersion } from "@/lib/raffleEditVersion";
 import type { RaffleDetail } from "@/lib/raffleData";
 import { PayerNameList, RecordPaymentPopover } from "./parts";
 
@@ -140,6 +141,8 @@ export default function BuyersTab({
                         {!boardLocked && (
                           <EditPopover action={changeEntryBoxesAction} label="Boxes">
                             <input type="hidden" name="entryId" value={entry.id} />
+                            {/* The price this page shows: added boxes paid for here are refused if it has changed since. */}
+                            <input type="hidden" name="priceCents" value={raffle.priceCents} />
                             <div className="form-field">
                               <label>Take away a box picked by mistake</label>
                               <div className="raffle-ticks">
@@ -195,6 +198,8 @@ export default function BuyersTab({
                         )}
                         <EditPopover action={updateEntryAction}>
                           <input type="hidden" name="entryId" value={entry.id} />
+                          {/* What this form was filled in with: refused if someone changes the buyer meanwhile. */}
+                          <input type="hidden" name="version" value={entryEditVersion(entry)} />
                           <div className="form-field">
                             <label htmlFor={`entry-${entry.id}-name`}>Name</label>
                             <input id={`entry-${entry.id}-name`} name="name" required maxLength={MAX_NAME_LENGTH} defaultValue={entry.name} />
@@ -253,6 +258,7 @@ export default function BuyersTab({
           </p>
           <ActionForm action={assignBoxesAction}>
             <input type="hidden" name="raffleId" value={raffle.id} />
+            <input type="hidden" name="priceCents" value={raffle.priceCents} />
             <div className="form-row">
               <div className="form-field">
                 <label htmlFor="add-name">Buyer</label>

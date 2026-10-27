@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { before, describe, it } from "node:test";
 import { withTestDatabase } from "../support/db";
 import { form, runAs, settle } from "../support/context";
-import { newId, raffleTestKit, type RaffleActions, type TestUser } from "./raffle-support";
+import { editEntryForm, newId, raffleTestKit, type RaffleActions, type TestUser } from "./raffle-support";
 
 const db = withTestDatabase("raffle_input");
 const kit = raffleTestKit(db);
@@ -45,9 +45,9 @@ describe("text and amount limits", () => {
     assert.deepEqual(await kit.boardOf(raffle.id), []);
 
     const ann = await kit.sell(helper, raffles, raffle.id, long(120), "1");
-    const notes = await runAs(helper, () => raffles.updateEntryAction(form({ entryId: ann.id, name: "Ann", notes: long(2001) })));
+    const notes = await runAs(helper, () => raffles.updateEntryAction(editEntryForm(ann, { name: "Ann", notes: long(2001) })));
     assert.match(notes.error ?? "", /notes can be at most 2000 characters/);
-    assert.deepEqual(await runAs(helper, () => raffles.updateEntryAction(form({ entryId: ann.id, name: "Ann", notes: long(2000) }))), {});
+    assert.deepEqual(await runAs(helper, () => raffles.updateEntryAction(editEntryForm(ann, { name: "Ann", notes: long(2000) }))), {});
   });
 
   it("payment amounts, notes and void reasons are bounded", async () => {

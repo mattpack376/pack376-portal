@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { openTransaction, withTestDatabase } from "../support/db";
 import { form, runAs } from "../support/context";
-import { raffleTestKit, type RaffleActions, type TestUser } from "./raffle-support";
+import { editPaymentForm, raffleTestKit, type RaffleActions, type TestUser } from "./raffle-support";
 
 const db = withTestDatabase("raffle_payments");
 const kit = raffleTestKit(db);
@@ -244,7 +244,7 @@ describe("already-voided payments", () => {
     assert.match((await runAs(helper, () => raffles.voidPaymentAction(voidForm(payment.id)))).error ?? "", /already voided/);
     assert.match((await runAs(admin2, () => raffles.setPaymentVerifiedAction(verifyForm(payment)))).error ?? "", /voided/);
     assert.match(
-      (await runAs(admin2, () => raffles.updatePaymentAction(form({ paymentId: payment.id, entryId: payment.entryId, amount: "10", method: "CASH" })))).error ?? "",
+      (await runAs(admin2, () => raffles.updatePaymentAction(editPaymentForm(payment)))).error ?? "",
       /voided/,
     );
 
@@ -318,7 +318,7 @@ describe("Verify All", () => {
 
     // Before the fix all three were ticked, the corrected $15 one included.
     assert.deepEqual(await verifiedIds(raffle.id), []);
-    assert.match(result?.error ?? "", /1 of the 3 Cash payments on your screen was voided or changed/);
+    assert.match(result?.error ?? "", /1 of the 3 Cash payments on your screen was voided or changed after the page loaded \((Ann|Ben)'s \$10\.00\)/);
     assert.equal(await kit.auditCount("raffle.payment.verifyAll", raffle.id), 0);
   });
 
@@ -384,7 +384,7 @@ describe("Verify All", () => {
     const paused = await kit.pauseUser(admin2);
     t.after(() => paused.rollback());
     const correcting = kit.act(admin2, () =>
-      raffles.updatePaymentAction(form({ paymentId: payments[1].id, entryId: payments[1].entryId, amount: "15", method: "CASH" })),
+      raffles.updatePaymentAction(editPaymentForm(payments[1], { amount: "15" })),
     );
     await kit.waitForWaiters(1);
     const verifying = kit.act(admin, () => verifyAll(raffle.id, reviewed));
@@ -402,7 +402,7 @@ describe("Verify All", () => {
     const verifying = kit.act(admin, () => verifyAll(raffle.id, reviewed));
     await kit.waitForWaiters(1);
     const correcting = kit.act(admin2, () =>
-      raffles.updatePaymentAction(form({ paymentId: payments[1].id, entryId: payments[1].entryId, amount: "15", method: "CASH" })),
+      raffles.updatePaymentAction(editPaymentForm(payments[1], { amount: "15" })),
     );
     await kit.waitForWaiters(2);
     await paused.commit();
@@ -421,7 +421,7 @@ describe("Verify All", () => {
         kit.resultOf(kit.act(admin, () => verifyAll(raffle.id, reviewed))),
         kit.resultOf(
           kit.act(admin2, () =>
-            raffles.updatePaymentAction(form({ paymentId: payments[1].id, entryId: payments[1].entryId, amount: "15", method: "CASH" })),
+            raffles.updatePaymentAction(editPaymentForm(payments[1], { amount: "15" })),
           ),
         ),
       ]);
@@ -443,7 +443,7 @@ describe("single Verify and corrections", () => {
   it("a Verify button for an amount someone has since corrected is refused", async () => {
     const { payment } = await helperPayment();
     assert.deepEqual(
-      await runAs(admin2, () => raffles.updatePaymentAction(form({ paymentId: payment.id, entryId: payment.entryId, amount: "7.50", method: "ZELLE" }))),
+      await runAs(admin2, () => raffles.updatePaymentAction(editPaymentForm(payment, { amount: "7.50", method: "ZELLE" }))),
       {},
     );
     const stale = await runAs(admin, () => raffles.setPaymentVerifiedAction(verifyForm(payment)));
@@ -460,7 +460,7 @@ describe("single Verify and corrections", () => {
     const paused = await kit.pauseUser(admin2);
     t.after(() => paused.rollback());
     const correcting = kit.act(admin2, () =>
-      raffles.updatePaymentAction(form({ paymentId: payment.id, entryId: payment.entryId, amount: "20", method: "CASH" })),
+      raffles.updatePaymentAction(editPaymentForm(payment, { amount: "20" })),
     );
     await kit.waitForWaiters(1);
     const verifying = kit.act(admin, () => raffles.setPaymentVerifiedAction(verifyForm(payment)));

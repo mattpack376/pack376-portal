@@ -21,6 +21,8 @@ import assert from "node:assert/strict";
 import { openTransaction, type TestDatabase } from "../support/db";
 import { form, runAs, settle, type SessionUser } from "../support/context";
 import type { Role } from "@/generated/prisma/enums";
+import { toDateOnlyString } from "@/lib/dateOnly";
+import { entryEditVersion, paymentEditVersion } from "@/lib/raffleEditVersion";
 
 export type RaffleActions = typeof import("@/lib/actions/raffles");
 export type RaffleResult = { error?: string };
@@ -104,7 +106,10 @@ export function raffleTestKit(db: TestDatabase) {
     return db.prisma.auditLog.count({ where: { action, ...(entityId ? { entityId } : {}) } });
   }
 
-  /** Sells boxes as `user` and insists it worked. */
+  /**
+   * Sells boxes as `user` and insists it worked. The form carries the
+   * raffle's price as it stands, the way a freshly loaded board shows it.
+   */
   async function sell(
     user: TestUser,
     actions: RaffleActions,
@@ -113,13 +118,55 @@ export function raffleTestKit(db: TestDatabase) {
     boxes: string,
     paid = "",
   ) {
-    const result = await runAs(user, () => actions.assignBoxesAction(form({ raffleId, name, boxes, paid })));
+    const { priceCents } = await db.prisma.raffle.findUniqueOrThrow({ where: { id: raffleId }, select: { priceCents: true } });
+    const result = await runAs(user, () => actions.assignBoxesAction(form({ raffleId, name, boxes, paid, priceCents })));
     assert.deepEqual(result, {}, `selling ${boxes} to ${name}`);
     const entry = await db.prisma.raffleEntry.findFirstOrThrow({ where: { raffleId, name } });
     return entry;
   }
 
   return { unique, makeUser, makeRaffle, act, resultOf, waitForWaiters, pauseUser, holdRaffle, boardOf, auditCount, sell };
+}
+
+type LoadedPayment = {
+  id: string;
+  entryId: string | null;
+  amountCents: number;
+  method: string;
+  payerName: string | null;
+  receivedOn: Date | null;
+  note: string | null;
+};
+
+/**
+ * What a payment's Edit form (PaymentsTab) sends: the values it was filled in
+ * with — `loaded`, the payment as the page read it — with `changes` typed over
+ * them, and the version of what it loaded.
+ */
+export function editPaymentForm(
+  loaded: LoadedPayment,
+  changes: { entryId?: string; amount?: string; method?: string; payerName?: string; receivedOn?: string; note?: string } = {},
+) {
+  return form({
+    paymentId: loaded.id,
+    entryId: changes.entryId ?? loaded.entryId ?? "",
+    amount: changes.amount ?? (loaded.amountCents / 100).toFixed(2),
+    method: changes.method ?? loaded.method,
+    payerName: changes.payerName ?? loaded.payerName ?? "",
+    receivedOn: changes.receivedOn ?? toDateOnlyString(loaded.receivedOn) ?? "",
+    note: changes.note ?? loaded.note ?? "",
+    version: paymentEditVersion(loaded),
+  });
+}
+
+/** What a buyer's Edit form (BuyersTab) sends, the same way. */
+export function editEntryForm(loaded: { id: string; name: string; notes: string | null }, changes: { name?: string; notes?: string } = {}) {
+  return form({
+    entryId: loaded.id,
+    name: changes.name ?? loaded.name,
+    notes: changes.notes ?? loaded.notes ?? "",
+    version: entryEditVersion(loaded),
+  });
 }
 
 /** An id for a row a test inserts with raw SQL (the app's own rows get cuids). */

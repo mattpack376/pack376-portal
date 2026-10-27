@@ -16,6 +16,7 @@ import { PACK_TIME_ZONE, toDateOnlyString } from "@/lib/dateOnly";
 import { formatCents } from "@/lib/duesData";
 import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { RAFFLE_METHODS, RAFFLE_METHOD_LABELS, formatBoxNumbers, type RaffleMethod } from "@/lib/raffleMath";
+import { paymentEditVersion } from "@/lib/raffleEditVersion";
 import type { RaffleDetail, RafflePaymentDetail } from "@/lib/raffleData";
 import { MethodSelect, PayerNameList, RecordPaymentPopover, receivedLabel } from "./parts";
 
@@ -97,6 +98,8 @@ export default function PaymentsTab({
       <>
         <EditPopover action={updatePaymentAction} label={editLabel}>
           <input type="hidden" name="paymentId" value={payment.id} />
+          {/* What this form was filled in with: refused if another Admin corrects the payment meanwhile. */}
+          <input type="hidden" name="version" value={paymentEditVersion(payment)} />
           <div className="form-field">
             <label htmlFor={`${id}-entry`}>For</label>
             <select id={`${id}-entry`} name="entryId" defaultValue={payment.entryId ?? ""}>

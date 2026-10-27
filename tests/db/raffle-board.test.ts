@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { openTransaction, withTestDatabase } from "../support/db";
 import { form, runAs } from "../support/context";
-import { newId, raffleTestKit, type RaffleActions, type TestUser } from "./raffle-support";
+import { editEntryForm, newId, raffleTestKit, type RaffleActions, type TestUser } from "./raffle-support";
 import { prizeForSales } from "@/lib/raffleMath";
 
 const db = withTestDatabase("raffle_board");
@@ -30,7 +30,9 @@ before(async () => {
   helper2 = await kit.makeUser("PARENT", { raffleHelper: true });
 });
 
-const sale = (raffleId: string, name: string, boxes: string, paid = "") => form({ raffleId, name, boxes, paid });
+/** A sale from a board page loaded when `raffle` was read: it carries the price per box that page showed. */
+const sale = (raffle: { id: string; priceCents: number }, name: string, boxes: string, paid = "") =>
+  form({ raffleId: raffle.id, name, boxes, paid, priceCents: raffle.priceCents });
 const winner = (raffleId: string, winningBox: number) => form({ raffleId, winningBox });
 
 /** The prize recorded on the raffle agrees with the boxes on its board. */
@@ -73,7 +75,7 @@ describe("sale vs recording the winner", () => {
 
     // Before the fix this sale read "no winner" and then inserted its box
     // after the drawing committed: $5 prize, $20 board.
-    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Bob", "2")));
+    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Bob", "2")));
     await kit.waitForWaiters(1);
     await drawing.commit();
 
@@ -91,7 +93,7 @@ describe("sale vs recording the winner", () => {
     t.after(() => paused.rollback());
     const drawing = kit.act(admin, () => raffles.recordWinnerAction(winner(raffle.id, 1)));
     await kit.waitForWaiters(1);
-    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Bob", "2", "CASH")));
+    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Bob", "2", "CASH")));
     await kit.waitForWaiters(2);
     await paused.commit();
 
@@ -106,7 +108,7 @@ describe("sale vs recording the winner", () => {
     await kit.sell(helper, raffles, raffle.id, "Ann", "1");
     const paused = await kit.pauseUser(helper);
     t.after(() => paused.rollback());
-    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Bob", "2")));
+    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Bob", "2")));
     await kit.waitForWaiters(1);
     const drawing = kit.act(admin, () => raffles.recordWinnerAction(winner(raffle.id, 1)));
     await kit.waitForWaiters(2);
@@ -123,7 +125,7 @@ describe("sale vs recording the winner", () => {
       const raffle = await kit.makeRaffle({ priceCents: 500, prizePercent: 50 });
       await kit.sell(helper, raffles, raffle.id, "Ann", "1");
       const [sold, drawn] = await Promise.all([
-        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Bob", "2, 3", "ZELLE")))),
+        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Bob", "2, 3", "ZELLE")))),
         kit.resultOf(kit.act(admin, () => raffles.recordWinnerAction(winner(raffle.id, 1)))),
       ]);
       assert.deepEqual(drawn, {});
@@ -140,7 +142,7 @@ describe("sale vs closing", () => {
     t.after(() => closing.rollback());
     await closing.query(`UPDATE "Raffle" SET status = 'CLOSED', "closedAt" = now() WHERE id = $1`, [raffle.id]);
 
-    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Ann", "4", "CASH")));
+    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Ann", "4", "CASH")));
     await kit.waitForWaiters(1);
     await closing.commit();
 
@@ -154,7 +156,7 @@ describe("sale vs closing", () => {
       const raffle = await kit.makeRaffle();
       const ann = await kit.sell(helper, raffles, raffle.id, "Ann", "1");
       const [sold, paid, closed] = await Promise.all([
-        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Bob", "2")))),
+        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Bob", "2")))),
         kit.resultOf(
           kit.act(helper2, () => raffles.recordPaymentAction(form({ raffleId: raffle.id, entryId: ann.id, amount: "10", method: "CASH" }))),
         ),
@@ -253,7 +255,7 @@ describe("term changes vs sales", () => {
     t.after(() => shrinking.rollback());
     await shrinking.query(`UPDATE "Raffle" SET "boxCount" = 10 WHERE id = $1`, [raffle.id]);
 
-    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Ann", "15")));
+    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Ann", "15")));
     await kit.waitForWaiters(1);
     await shrinking.commit();
 
@@ -261,26 +263,28 @@ describe("term changes vs sales", () => {
     assert.deepEqual(await kit.boardOf(raffle.id), []);
   });
 
-  it("a paid sale waiting behind a price change records the new price", async (t) => {
+  it("a paid sale waiting behind a price change is refused: the seller collected the old price", async (t) => {
     const raffle = await kit.makeRaffle({ priceCents: 1000 });
     const repricing = await kit.holdRaffle(raffle.id);
     t.after(() => repricing.rollback());
     await repricing.query(`UPDATE "Raffle" SET "priceCents" = 2000 WHERE id = $1`, [raffle.id]);
 
-    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Ann", "3, 4", "CASH")));
+    // The seller's page showed $10 a box and they took $20 for two. The first
+    // version of the fix recorded $40 here — money that never arrived.
+    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Ann", "3, 4", "CASH")));
     await kit.waitForWaiters(1);
     await repricing.commit();
 
-    assert.deepEqual(await kit.resultOf(selling), {});
-    const payment = await db.prisma.rafflePayment.findFirstOrThrow({ where: { raffleId: raffle.id } });
-    assert.equal(payment.amountCents, 4000, "two boxes at the price in force when the sale saved");
+    assert.match((await kit.resultOf(selling)).error ?? "", /price per box changed from \$10\.00 to \$20\.00 after this page loaded/);
+    assert.deepEqual(await kit.boardOf(raffle.id), []);
+    assert.equal(await db.prisma.rafflePayment.count({ where: { raffleId: raffle.id } }), 0);
   });
 
   it("real actions, sale first: the shrink and the price change are refused", async (t) => {
     const raffle = await kit.makeRaffle({ boxCount: 20, priceCents: 1000 });
     const paused = await kit.pauseUser(helper);
     t.after(() => paused.rollback());
-    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Ann", "15", "CASH")));
+    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Ann", "15", "CASH")));
     await kit.waitForWaiters(1);
     const editing = kit.act(admin, () =>
       raffles.updateRaffleAction(form({ raffleId: raffle.id, name: raffle.name, boxCount: 10, price: "10", prizePercent: 50 })),
@@ -302,7 +306,7 @@ describe("term changes vs sales", () => {
     for (let round = 0; round < 20; round++) {
       const raffle = await kit.makeRaffle({ boxCount: 20, priceCents: 1000 });
       const [sold, edited] = await Promise.all([
-        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Ann", "15, 16", "CASH")))),
+        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Ann", "15, 16", "CASH")))),
         kit.resultOf(
           kit.act(admin, () =>
             raffles.updateRaffleAction(form({ raffleId: raffle.id, name: raffle.name, boxCount: 10, price: "20", prizePercent: 50 })),
@@ -310,6 +314,7 @@ describe("term changes vs sales", () => {
         ),
       ]);
       assert.ok(Boolean(sold.error) !== Boolean(edited.error), `round ${round}: exactly one of the two applies`);
+      if (sold.error) assert.match(sold.error, /price per box changed/, `round ${round}`);
       const final = await db.prisma.raffle.findUniqueOrThrow({ where: { id: raffle.id } });
       const highest = await db.prisma.raffleBox.findFirst({ where: { raffleId: raffle.id }, orderBy: { number: "desc" } });
       assert.ok(!highest || highest.number <= final.boxCount, `round ${round}: a box off the board`);
@@ -431,7 +436,7 @@ describe("buyers are one line per name", () => {
     await firstSale.query(`INSERT INTO "RaffleEntry" (id, "raffleId", name) VALUES ($1, $2, 'Frank Smith')`, [frankId, raffle.id]);
     await firstSale.query(`INSERT INTO "RaffleBox" (id, "raffleId", "entryId", number) VALUES ($1, $2, $3, 1)`, [newId("box"), raffle.id, frankId]);
 
-    const selling = kit.act(helper2, () => raffles.assignBoxesAction(sale(raffle.id, " frank SMITH ", "2")));
+    const selling = kit.act(helper2, () => raffles.assignBoxesAction(sale(raffle, " frank SMITH ", "2")));
     await kit.waitForWaiters(1);
     await firstSale.commit();
 
@@ -444,8 +449,8 @@ describe("buyers are one line per name", () => {
     for (let round = 0; round < 20; round++) {
       const raffle = await kit.makeRaffle();
       const results = await Promise.all([
-        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Jose Diaz", "1", "CASH")))),
-        kit.resultOf(kit.act(helper2, () => raffles.assignBoxesAction(sale(raffle.id, "JOSE DIAZ", "2")))),
+        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Jose Diaz", "1", "CASH")))),
+        kit.resultOf(kit.act(helper2, () => raffles.assignBoxesAction(sale(raffle, "JOSE DIAZ", "2")))),
       ]);
       assert.deepEqual(results, [{}, {}]);
       const entries = await db.prisma.raffleEntry.findMany({ where: { raffleId: raffle.id }, include: { boxes: true } });
@@ -459,8 +464,8 @@ describe("buyers are one line per name", () => {
       const raffle = await kit.makeRaffle();
       const ann = await kit.sell(helper, raffles, raffle.id, "Ann", "1");
       const [renamed, sold] = await Promise.all([
-        kit.resultOf(kit.act(helper, () => raffles.updateEntryAction(form({ entryId: ann.id, name: "Frank R." })))),
-        kit.resultOf(kit.act(helper2, () => raffles.assignBoxesAction(sale(raffle.id, "frank r.", "2")))),
+        kit.resultOf(kit.act(helper, () => raffles.updateEntryAction(editEntryForm(ann, { name: "Frank R." })))),
+        kit.resultOf(kit.act(helper2, () => raffles.assignBoxesAction(sale(raffle, "frank r.", "2")))),
       ]);
       assert.deepEqual(sold, {});
       const named = await db.prisma.$queryRaw<{ n: number }[]>`
@@ -480,9 +485,9 @@ describe("buyers are one line per name", () => {
     assert.deepEqual(await kit.boardOf(raffle.id), ["1:Frank Smith", "2:Frank Jones", "3:Fr%", "4:Frank_Smith"]);
 
     const jones = await db.prisma.raffleEntry.findFirstOrThrow({ where: { raffleId: raffle.id, name: "Frank Jones" } });
-    const clash = await runAs(helper, () => raffles.updateEntryAction(form({ entryId: jones.id, name: "FRANK SMITH" })));
+    const clash = await runAs(helper, () => raffles.updateEntryAction(editEntryForm(jones, { name: "FRANK SMITH" })));
     assert.match(clash.error ?? "", /already a buyer named Frank Smith/);
-    assert.deepEqual(await runAs(helper, () => raffles.updateEntryAction(form({ entryId: jones.id, name: "Frank J." }))), {});
+    assert.deepEqual(await runAs(helper, () => raffles.updateEntryAction(editEntryForm(jones, { name: "Frank J." }))), {});
   });
 
   it("the database refuses a second buyer with the same name on one raffle", async () => {
@@ -507,7 +512,7 @@ describe("two sales of one box", () => {
     await firstSale.query(`INSERT INTO "RaffleEntry" (id, "raffleId", name) VALUES ($1, $2, 'Ann')`, [annId, raffle.id]);
     await firstSale.query(`INSERT INTO "RaffleBox" (id, "raffleId", "entryId", number) VALUES ($1, $2, $3, 5)`, [newId("box"), raffle.id, annId]);
 
-    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Bob", "5", "CASH")));
+    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Bob", "5", "CASH")));
     await kit.waitForWaiters(1);
     await firstSale.commit();
 
@@ -522,8 +527,8 @@ describe("two sales of one box", () => {
       const raffle = await kit.makeRaffle();
       const cal = await kit.sell(admin, raffles, raffle.id, "Cal", "9");
       const results = await Promise.all([
-        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Ann", "5", "CASH")))),
-        kit.resultOf(kit.act(helper2, () => raffles.assignBoxesAction(sale(raffle.id, "Bob", "5, 6", "ZELLE")))),
+        kit.resultOf(kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Ann", "5", "CASH")))),
+        kit.resultOf(kit.act(helper2, () => raffles.assignBoxesAction(sale(raffle, "Bob", "5, 6", "ZELLE")))),
         kit.resultOf(kit.act(admin, () => raffles.changeEntryBoxesAction(form({ entryId: cal.id, add: "5" })))),
       ]);
       assert.equal(results.filter((result) => !result.error).length, 1, `round ${round}: one winner of box 5`);
@@ -545,7 +550,7 @@ describe("deleting a raffle", () => {
     const deleting = await kit.holdRaffle(raffle.id);
     t.after(() => deleting.rollback());
     await deleting.query(`DELETE FROM "Raffle" WHERE id = $1`, [raffle.id]);
-    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle.id, "Ann", "1")));
+    const selling = kit.act(helper, () => raffles.assignBoxesAction(sale(raffle, "Ann", "1")));
     await kit.waitForWaiters(1);
     await deleting.commit();
     assert.match((await kit.resultOf(selling)).error ?? "", /no longer exists/);

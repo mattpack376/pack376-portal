@@ -245,6 +245,8 @@ function BoardFields({
               : `Picked: ${picks.join(", ")} — ${picks.length} × ${formatRaffleMoney(priceCents)} = ${formatRaffleMoney(picks.length * priceCents)}`}
           </p>
           <input type="hidden" name="boxes" value={picks.join(",")} />
+          {/* The price shown above: a paid sale is refused if the raffle's price has changed since (assignBoxesAction). */}
+          <input type="hidden" name="priceCents" value={priceCents} />
           {currentBuyers.length > 0 && (
             <div className="form-field">
               <label htmlFor="board-existing">Already on this raffle?</label>

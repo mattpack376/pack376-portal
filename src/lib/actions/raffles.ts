@@ -32,6 +32,7 @@ import {
   type RaffleMethod,
 } from "@/lib/raffleMath";
 import { parseRaffleImport } from "@/lib/raffleImport";
+import { entryEditVersion, paymentEditVersion } from "@/lib/raffleEditVersion";
 import type { Prisma, Raffle } from "@/generated/prisma/client";
 
 /*
@@ -74,6 +75,12 @@ import type { Prisma, Raffle } from "@/generated/prisma/client";
  * WHERE clause (updateMany + a count check), as a second guard. A change that
  * can't get the lock within LOCK_TIMEOUT gives up with a "try again" message
  * rather than hanging the form (see raffleTransaction).
+ *
+ * What a form showed counts too. A paid sale carries the price per box its
+ * page showed, and an Edit form a fingerprint of the values it was filled in
+ * with (raffleEditVersion.ts): if the raffle or the row changed since the page
+ * loaded, the save is refused with a "refresh" message rather than recording
+ * money that never changed hands or putting someone else's correction back.
  *
  * A buyer is identified by name: a name already on the raffle (however it's
  * capitalized, ignoring spaces at either end) gets more boxes on that line,
@@ -254,6 +261,21 @@ async function raffleIdOfPayment(paymentId: string) {
     : null;
   if (!payment) throw new RaffleInputError(PAYMENT_GONE);
   return payment.raffleId;
+}
+
+/**
+ * A paid sale records boxes × price as money received, so the price has to be
+ * the one the seller's page showed — what they actually asked for and took.
+ * If an Admin changed the price after that page loaded, nothing is saved and
+ * the seller is asked to refresh and collect the right amount.
+ */
+function assertShownPrice(shownPriceCents: number | null, raffle: Raffle) {
+  if (shownPriceCents === null) throw new RaffleInputError(PAGE_OUT_OF_DATE);
+  if (shownPriceCents !== raffle.priceCents) {
+    throw new RaffleInputError(
+      `The price per box changed from ${auditMoney(shownPriceCents)} to ${auditMoney(raffle.priceCents)} after this page loaded. Nothing was saved — refresh the page, collect the right amount, and try again.`
+    );
+  }
 }
 
 function assertBoardUnlocked(raffle: Raffle) {
@@ -489,12 +511,16 @@ export async function assignBoxesAction(formData: FormData): Promise<RaffleFormR
     const paid = field(formData, "paid");
     const method = paid ? methodField(formData, "paid") : null;
     const payerName = nameField(formData, "payerName", "The name it was paid by") || null;
+    // The price per box the page showed; only a paid sale needs it.
+    const shownPriceCents = centsField(formData, "priceCents");
 
     await withLockedRaffle(raffleId, async (tx, raffle) => {
       assertBoardUnlocked(raffle);
+      if (method) assertShownPrice(shownPriceCents, raffle);
       assertOnBoard(numbers, raffle.boxCount);
       await assertBoxesFree(tx, raffleId, numbers);
-      // The price as it stands now, under the lock — not as the page showed it.
+      // The price as it stands under the lock — for a paid sale, the same one
+      // the seller's page showed (assertShownPrice).
       const amountCents = boxesCost(numbers.length, raffle.priceCents);
 
       const buyer =
@@ -535,7 +561,12 @@ export async function assignBoxesAction(formData: FormData): Promise<RaffleFormR
   });
 }
 
-/** A buyer's name and notes. Their boxes change through changeEntryBoxesAction. */
+/**
+ * A buyer's name and notes. Their boxes change through changeEntryBoxesAction.
+ * The form carries entryEditVersion of the name and notes it showed; if
+ * someone changed either since, the save is refused rather than putting the
+ * old ones back.
+ */
 export async function updateEntryAction(formData: FormData): Promise<RaffleFormResult> {
   const { session } = await sellerSession();
   return asResult(async () => {
@@ -543,11 +574,18 @@ export async function updateEntryAction(formData: FormData): Promise<RaffleFormR
     const name = nameField(formData, "name", "The buyer's name");
     if (!name) throw new RaffleInputError("Enter the buyer's name.");
     const notes = noteField(formData, "notes", "The notes") || null;
+    const version = field(formData, "version");
+    if (!version) throw new RaffleInputError(PAGE_OUT_OF_DATE);
     const raffleId = await raffleIdOfEntry(entryId);
 
     await withLockedRaffle(raffleId, async (tx, raffle) => {
       const entry = await tx.raffleEntry.findFirst({ where: { id: entryId, raffleId } });
       if (!entry) throw new RaffleInputError(BUYER_GONE);
+      if (entryEditVersion(entry) !== version) {
+        throw new RaffleInputError(
+          `Someone changed this buyer's name or notes after this page loaded (they're now listed as ${entry.name}). Nothing was saved — refresh the page and make your change again.`
+        );
+      }
 
       // Selling by name finds the buyer by their name, so two buyers on one
       // raffle can't share one.
@@ -558,7 +596,12 @@ export async function updateEntryAction(formData: FormData): Promise<RaffleFormR
         );
       }
 
-      await tx.raffleEntry.update({ where: { id: entry.id }, data: { name, notes } });
+      // Only while the name and notes are still the ones just checked.
+      const { count } = await tx.raffleEntry.updateMany({
+        where: { id: entry.id, raffleId, name: entry.name, notes: entry.notes },
+        data: { name, notes },
+      });
+      if (count !== 1) throw new RaffleInputError(PAGE_OUT_OF_DATE);
 
       await recordAuditInTransaction(tx, session, {
         action: "raffle.entry.update",
@@ -587,6 +630,7 @@ export async function changeEntryBoxesAction(formData: FormData): Promise<Raffle
     const paid = field(formData, "paid");
     const paidMethod = paid ? methodField(formData, "paid") : null;
     const payerName = nameField(formData, "payerName", "The name it was paid by") || null;
+    const shownPriceCents = centsField(formData, "priceCents");
     const raffleId = await raffleIdOfEntry(entryId);
 
     await withLockedRaffle(raffleId, async (tx, raffle) => {
@@ -615,6 +659,7 @@ export async function changeEntryBoxesAction(formData: FormData): Promise<Raffle
       }
 
       const method = added.length > 0 ? paidMethod : null;
+      if (method) assertShownPrice(shownPriceCents, raffle);
       const paidCents = boxesCost(added.length, raffle.priceCents);
       if (added.length > 0) await assertBoxesFree(tx, raffleId, added, entry.id);
 
@@ -812,6 +857,11 @@ function paymentOwner(payment: { entry: { name: string } | null; payerName: stri
  * clears the "verified" tick, since what was counted no longer matches —
  * decided from the payment as it stands under the lock, so a verification
  * that landed a moment earlier is cleared too.
+ *
+ * The Edit form carries paymentEditVersion of the values it was filled in
+ * with. If another Admin corrected the payment since (another amount, method,
+ * buyer, payer, date or note), the save is refused instead of quietly putting
+ * the old values back over their correction.
  */
 export async function updatePaymentAction(formData: FormData): Promise<RaffleFormResult> {
   const session = await adminSession();
@@ -824,17 +874,36 @@ export async function updatePaymentAction(formData: FormData): Promise<RaffleFor
     const note = noteField(formData, "note", "The note") || null;
     const receivedOn = dateField(formData, "receivedOn");
     if (!entryId && !payerName) throw new RaffleInputError("Enter the name the money came from, or choose the buyer it belongs to.");
+    const version = field(formData, "version");
+    if (!version) throw new RaffleInputError(PAGE_OUT_OF_DATE);
     const raffleId = await raffleIdOfPayment(paymentId);
 
     await withLockedRaffle(raffleId, async (tx, raffle) => {
       const payment = await lockedPayment(tx, raffleId, paymentId);
       if (payment.voidedAt) throw new RaffleInputError("That payment is voided. Restore it before editing it.");
+      if (paymentEditVersion(payment) !== version) {
+        throw new RaffleInputError(
+          `That payment was changed after this page loaded — it's now ${auditMoney(payment.amountCents)} by ${RAFFLE_METHOD_LABELS[payment.method].toLowerCase()} for ${paymentOwner(payment)}. Nothing was saved — refresh the page and make your change again.`
+        );
+      }
       const entry = await entryForPayment(tx, raffleId, entryId);
 
       const unverify = payment.verifiedAt !== null && (amountCents !== payment.amountCents || method !== payment.method);
 
+      // Only while the payment still holds the values just checked (and so
+      // the ones the form was filled in with), and isn't voided.
       const { count } = await tx.rafflePayment.updateMany({
-        where: { id: payment.id, raffleId, voidedAt: null },
+        where: {
+          id: payment.id,
+          raffleId,
+          voidedAt: null,
+          entryId: payment.entryId,
+          amountCents: payment.amountCents,
+          method: payment.method,
+          payerName: payment.payerName,
+          receivedOn: payment.receivedOn,
+          note: payment.note,
+        },
         data: {
           entryId: entry?.id ?? null,
           amountCents,
@@ -1065,7 +1134,15 @@ export async function verifyAllPaymentsAction(formData: FormData): Promise<Raffl
     const verifiedAny = await withLockedRaffle(raffleId, async (tx, raffle) => {
       const current = await tx.rafflePayment.findMany({
         where: { raffleId, id: { in: [...reviewed.keys()] } },
-        select: { id: true, amountCents: true, method: true, verifiedAt: true, voidedAt: true },
+        select: {
+          id: true,
+          amountCents: true,
+          method: true,
+          verifiedAt: true,
+          voidedAt: true,
+          payerName: true,
+          entry: { select: { name: true } },
+        },
       });
       const byId = new Map(current.map((payment) => [payment.id, payment]));
       const changed = [...reviewed].filter(([id, cents]) => {
@@ -1074,8 +1151,13 @@ export async function verifyAllPaymentsAction(formData: FormData): Promise<Raffl
       });
       if (changed.length > 0) {
         const one = changed.length === 1;
+        // Which ones, as the Admin's list showed them, so they know what to look at.
+        const named = changed.slice(0, 3).map(([id, cents]) => {
+          const payment = byId.get(id);
+          return payment ? `${paymentOwner(payment)}'s ${auditMoney(cents)}` : `a ${auditMoney(cents)} payment`;
+        });
         throw new RaffleInputError(
-          `${changed.length} of the ${reviewed.size} ${label} payments on your screen ${one ? "was" : "were"} voided or changed after the page loaded, so the total you counted no longer matches. Nothing was verified — refresh the page, check the list, and try again.`
+          `${changed.length} of the ${reviewed.size} ${label} payments on your screen ${one ? "was" : "were"} voided or changed after the page loaded (${named.join(", ")}${changed.length > 3 ? " and more" : ""}), so the total you counted no longer matches. Nothing was verified — refresh the page, check the list, and try again.`
         );
       }
 
