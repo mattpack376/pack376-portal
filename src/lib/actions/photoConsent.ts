@@ -4,27 +4,50 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertPhotoConsentDenAccess, canManagePhotoConsentForDen } from "@/lib/authorize";
-import { generatePhotoConsentToken } from "@/lib/photoConsentTokens";
+import { generatePhotoConsentToken, isPhotoConsentTokenShape } from "@/lib/photoConsentTokens";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import { sendPhotoConsentLinkEmail, sendPhotoConsentLinkEmails } from "@/lib/email";
 import { consentGroup } from "@/lib/photoConsentGroups";
+import { consentLinkRecipient, parentEmailOnFile } from "@/lib/photoConsentRecipients";
 import { recordAudit } from "@/lib/audit";
 import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
 import { isDateOnlyString } from "@/lib/dateOnly";
+import { MAX_EMAIL_LENGTH, MAX_NAME_LENGTH, textField } from "@/lib/formValues";
 
 const RELATIONSHIPS: SignerRelationship[] = ["PARENT", "GUARDIAN", "GRANDPARENT", "AUNT_UNCLE", "ADULT_SIBLING"];
+const VENUES = ["facebook", "website", "fliers"] as const;
 
 const ADMIN_PAGE_PATH = "/portal/roster/photo-consent";
+
+const INVALID_LINK = "This link isn't valid. Ask your den leader for a new one.";
 
 function consentLinkUrl(token: string) {
   return `${getPublicBaseUrl()}/consent/${token}`;
 }
 
+/** The consent form's fields, in the order they appear on it. */
+export type ConsentField = (typeof VENUES)[number] | "signedByName" | "signedRelationship" | "signedDate";
+
+/** What the parent entered, as plain strings (blank where nothing usable was given). */
+export type ConsentFormValues = Record<ConsentField, string>;
+
 export type SubmitConsentState = {
   error?: string;
+  /** The field the error is about, so the form can mark it invalid and move focus to it. */
+  field?: ConsentField;
+  /**
+   * What was entered, sent back with an error: React resets an action form
+   * after every submit, so without this a refused form would come back
+   * blank. Only values that are already safe to show — the name cut to its
+   * limit, and choices and dates only when they're valid ones.
+   */
+  values?: ConsentFormValues;
   /** The answers just recorded, echoed back so the confirmation popup can show the parent what was saved. */
   saved?: { facebook: ConsentStatus; website: ConsentStatus; fliers: ConsentStatus };
 };
+
+const isAnswer = (v: string): v is "CONSENT" | "DECLINE" => v === "CONSENT" || v === "DECLINE";
+const isRelationship = (v: string): v is SignerRelationship => (RELATIONSHIPS as string[]).includes(v);
 
 /**
  * Public — no session. The token itself is what authorizes this request,
@@ -39,30 +62,48 @@ export async function submitPhotoConsentAction(
   _prevState: SubmitConsentState,
   formData: FormData
 ): Promise<SubmitConsentState> {
-  const token = String(formData.get("token") || "");
-  const signedByName = String(formData.get("signedByName") || "").trim();
-  const signedRelationship = String(formData.get("signedRelationship") || "") as SignerRelationship;
-  const signedDateRaw = String(formData.get("signedDate") || "");
-  const facebook = String(formData.get("facebook") || "") as ConsentStatus;
-  const website = String(formData.get("website") || "") as ConsentStatus;
-  const fliers = String(formData.get("fliers") || "") as ConsentStatus;
+  const token = textField(formData.get("token"));
+  // A name typed on a phone, as one line: control characters (including the
+  // NUL byte Postgres can't store) become spaces rather than a failed save.
+  const signedByName = textField(formData.get("signedByName"))
+    .replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const signedRelationship = textField(formData.get("signedRelationship"));
+  const signedDateRaw = textField(formData.get("signedDate"));
+  const answers = {
+    facebook: textField(formData.get("facebook")),
+    website: textField(formData.get("website")),
+    fliers: textField(formData.get("fliers")),
+  };
 
-  if (!token) return { error: "Missing or invalid link." };
-  if (!signedByName) return { error: "Enter your name." };
-  if (!RELATIONSHIPS.includes(signedRelationship)) return { error: "Choose your relationship to the scout." };
+  const values: ConsentFormValues = {
+    facebook: isAnswer(answers.facebook) ? answers.facebook : "",
+    website: isAnswer(answers.website) ? answers.website : "",
+    fliers: isAnswer(answers.fliers) ? answers.fliers : "",
+    signedByName: signedByName.slice(0, MAX_NAME_LENGTH),
+    signedRelationship: isRelationship(signedRelationship) ? signedRelationship : "",
+    signedDate: isDateOnlyString(signedDateRaw) ? signedDateRaw : "",
+  };
+  const refuse = (error: string, field?: ConsentField): SubmitConsentState => ({ error, field, values });
+
+  // Every check below runs before any database work, so a malformed or
+  // oversized request costs nothing but this.
+  if (!isPhotoConsentTokenShape(token)) return refuse(INVALID_LINK);
+  const unanswered = VENUES.find((venue) => !values[venue]);
+  if (unanswered) return refuse("Choose consent or decline for all three.", unanswered);
+  if (!signedByName) return refuse("Enter your name.", "signedByName");
+  if (signedByName.length > MAX_NAME_LENGTH) {
+    return refuse(`Your name can be at most ${MAX_NAME_LENGTH} characters.`, "signedByName");
+  }
+  if (!isRelationship(signedRelationship)) return refuse("Choose your relationship to the scout.", "signedRelationship");
   // isDateOnlyString rejects dates Date() would quietly roll over (Feb 31 →
   // Mar 3) and ones it can't parse at all (month 13), so a malformed value is
   // a readable error rather than a wrong stored date or a RangeError.
-  const signedDate = isDateOnlyString(signedDateRaw) ? new Date(`${signedDateRaw}T00:00:00.000Z`) : null;
-  if (!signedDate) return { error: "Enter a valid date." };
-  const valid = (v: string): v is "CONSENT" | "DECLINE" => v === "CONSENT" || v === "DECLINE";
-  if (!valid(facebook) || !valid(website) || !valid(fliers)) {
-    return { error: "Choose consent or decline for all three." };
-  }
+  if (!isDateOnlyString(signedDateRaw)) return refuse("Enter a valid date.", "signedDate");
+  const signedDate = new Date(`${signedDateRaw}T00:00:00.000Z`);
 
-  const record = await prisma.photoConsent.findUnique({ where: { token } });
-  if (!record) return { error: "This link isn't valid. Ask your den leader for a new one." };
-
+  const { facebook, website, fliers } = answers as Record<(typeof VENUES)[number], "CONSENT" | "DECLINE">;
   const signedAt = new Date();
   const submission = { facebook, website, fliers, signedByName, signedRelationship, signedDate, signedAt };
 
@@ -70,14 +111,26 @@ export async function submitPhotoConsentAction(
   // this exact link can't be reopened afterward to view the signer's info or
   // overwrite it again — a den leader/admin must issue a fresh link (see
   // regeneratePhotoConsentTokenAction) for any later change. The history row
-  // is an append-only snapshot of what was submitted.
-  await prisma.$transaction([
-    prisma.photoConsentHistory.create({ data: { photoConsentId: record.id, ...submission } }),
-    prisma.photoConsent.update({
-      where: { token },
-      data: { ...submission, token: generatePhotoConsentToken() },
-    }),
-  ]);
+  // is an append-only snapshot of what was submitted. The row is locked by
+  // its token first, so a second submission of the same link (a double tap,
+  // two family members at once) waits for this one and then finds the token
+  // already rotated: one recorded answer and a readable error, never a crash.
+  const recorded = await prisma.$transaction(
+    async (tx) => {
+      const rows = await tx.$queryRaw<{ id: string }[]>`
+        SELECT "id" FROM "PhotoConsent" WHERE "token" = ${token} FOR UPDATE`;
+      const record = rows[0];
+      if (!record) return false;
+      await tx.photoConsentHistory.create({ data: { photoConsentId: record.id, ...submission } });
+      await tx.photoConsent.update({
+        where: { id: record.id },
+        data: { ...submission, token: generatePhotoConsentToken() },
+      });
+      return true;
+    },
+    { timeout: 15000, maxWait: 10000 }
+  );
+  if (!recorded) return refuse(INVALID_LINK);
 
   return { saved: { facebook, website, fliers } };
 }
@@ -149,7 +202,13 @@ export async function regeneratePhotoConsentTokenAction(scoutId: string) {
 
 export type SendConsentEmailState = { error?: string; sent?: boolean; configured?: boolean };
 
-/** Admin/den-leader — emails the existing consent link to a parent's address on file. */
+/**
+ * Admin/den-leader — emails the existing consent link to a parent's address
+ * on file. The form names the address it showed on its button; it is only
+ * used to pick which stored Parent email of this scout to send to (matched
+ * without regard to case), never sent to as typed, so a tampered request
+ * can't mail a scout's consent link anywhere else.
+ */
 export async function sendPhotoConsentLinkEmailAction(
   _prevState: SendConsentEmailState,
   formData: FormData
@@ -157,13 +216,19 @@ export async function sendPhotoConsentLinkEmailAction(
   const session = await getSession();
   if (!session) return { error: "Not authorized." };
 
-  const scoutId = String(formData.get("scoutId") || "");
-  const parentEmail = String(formData.get("parentEmail") || "").trim();
-  if (!scoutId || !parentEmail) return { error: "Missing scout or parent email." };
+  const scoutId = textField(formData.get("scoutId"));
+  const requestedEmail = textField(formData.get("parentEmail"));
+  if (!scoutId || !requestedEmail) return { error: "Missing scout or parent email." };
 
   const scout = await prisma.scout.findUnique({
     where: { id: scoutId },
-    select: { denId: true, firstName: true, photoConsent: { select: { token: true } } },
+    select: {
+      denId: true,
+      firstName: true,
+      active: true,
+      photoConsent: { select: { token: true } },
+      parents: { orderBy: { createdAt: "asc" }, select: { email: true } },
+    },
   });
   if (!scout) return { error: "Scout not found." };
   try {
@@ -171,9 +236,15 @@ export async function sendPhotoConsentLinkEmailAction(
   } catch {
     return { error: "Not authorized for this den." };
   }
+  if (!scout.active) return { error: "This scout is marked inactive." };
   if (!scout.photoConsent) return { error: "Generate the link before emailing it." };
 
-  const { sent, configured } = await sendPhotoConsentLinkEmail(parentEmail, {
+  const to = requestedEmail.length <= MAX_EMAIL_LENGTH ? parentEmailOnFile(scout.parents, requestedEmail) : null;
+  if (!to) {
+    return { error: "That address isn't a parent email on file for this scout. Refresh the page and try again." };
+  }
+
+  const { sent, configured } = await sendPhotoConsentLinkEmail(to, {
     scoutFirstName: scout.firstName,
     url: consentLinkUrl(scout.photoConsent.token),
   });
@@ -181,7 +252,7 @@ export async function sendPhotoConsentLinkEmailAction(
   if (sent) {
     await recordAudit(session, {
       action: "photoConsent.emailLink",
-      summary: `Emailed ${scout.firstName}'s photo consent link to ${parentEmail}`,
+      summary: `Emailed ${scout.firstName}'s photo consent link to ${to}`,
       entityType: "PhotoConsent",
       entityId: scoutId,
       denId: scout.denId,
@@ -196,10 +267,10 @@ export type EmailAllConsentLinksState = { error?: string; sent?: number; failed?
 /**
  * Admin/den-leader — the Not Answered tab's Email All: sends every unanswered
  * scout in the dens this login manages their own consent link, generating one
- * first where none exists yet. Goes to the scout's first parent with an email,
- * same as the per-scout Email Link button; scouts with no parent email are
- * skipped (the page lists how many). Recomputes the list server-side rather
- * than trusting anything from the form.
+ * first where none exists yet. Goes to the scout's first parent with a usable
+ * email on file (consentLinkRecipient), same as the per-scout Email Link
+ * button; scouts with none are skipped (the page lists how many). Recomputes
+ * the list server-side rather than trusting anything from the form.
  */
 // Takes no arguments: useActionState passes (prevState, formData), and neither
 // is needed since the recipient list is rebuilt here from the database.
@@ -224,7 +295,7 @@ export async function emailAllUnansweredConsentLinksAction(): Promise<EmailAllCo
   });
   const targets = scouts
     .filter((s) => consentGroup(s.photoConsent) === "unanswered")
-    .map((s) => ({ ...s, email: s.parents.map((p) => p.email?.trim()).find((e) => !!e) }))
+    .map((s) => ({ ...s, email: consentLinkRecipient(s.parents) }))
     .filter((s): s is typeof s & { email: string } => !!s.email);
   if (targets.length === 0) return { sent: 0, failed: 0, configured: true };
 

@@ -2,13 +2,17 @@ import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import PhotoConsentForm from "@/components/PhotoConsentForm";
 import { toDateOnlyString, todayDateOnlyString } from "@/lib/dateOnly";
+import { isPhotoConsentTokenShape } from "@/lib/photoConsentTokens";
 
 export default async function PhotoConsentPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const record = await prisma.photoConsent.findUnique({
-    where: { token },
-    include: { scout: { select: { firstName: true } } },
-  });
+  // A path that can't be a consent token never reaches the database.
+  const record = isPhotoConsentTokenShape(token)
+    ? await prisma.photoConsent.findUnique({
+        where: { token },
+        include: { scout: { select: { firstName: true } } },
+      })
+    : null;
   const signedDate = toDateOnlyString(record?.signedDate) ?? todayDateOnlyString();
 
   return (

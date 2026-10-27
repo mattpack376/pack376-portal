@@ -5,6 +5,11 @@ import { sendPhotoConsentLinkEmailAction, type SendConsentEmailState } from "@/l
 
 const initialState: SendConsentEmailState = {};
 
+/**
+ * Emails a scout's consent link to the parent address shown on the button.
+ * The action only ever sends to a matching parent email it finds on file for
+ * this scout, so the hidden field just says which one.
+ */
 export default function EmailConsentLinkButton({ scoutId, parentEmail }: { scoutId: string; parentEmail: string }) {
   const [state, formAction, pending] = useActionState(sendPhotoConsentLinkEmailAction, initialState);
 
@@ -15,16 +20,26 @@ export default function EmailConsentLinkButton({ scoutId, parentEmail }: { scout
       <button type="submit" disabled={pending} className="btn btn-quiet btn-small" style={{ borderColor: "var(--teal)", color: "var(--teal)" }}>
         {pending ? "Sending…" : `Email Link to ${parentEmail}`}
       </button>
-      {state?.sent && <span style={{ fontSize: 13, color: "var(--teal)", fontWeight: 600 }}>Sent!</span>}
+      {state?.sent && (
+        <span role="status" style={{ fontSize: 13, color: "var(--teal)", fontWeight: 600 }}>
+          Sent!
+        </span>
+      )}
       {state?.sent === false && state.configured === false && (
-        <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>Email isn&apos;t configured — copy the link instead.</span>
+        <span role="status" style={{ fontSize: 13, color: "var(--ink-soft)" }}>
+          Email isn&apos;t configured — copy the link instead.
+        </span>
       )}
       {state?.sent === false && state.configured === true && (
-        <span style={{ fontSize: 13, color: "var(--carnival-red)" }}>
+        <span role="alert" style={{ fontSize: 13, color: "var(--carnival-red)" }}>
           Something went wrong sending it — copy the link instead.
         </span>
       )}
-      {state?.error && <span style={{ fontSize: 13, color: "var(--carnival-red)" }}>{state.error}</span>}
+      {state?.error && (
+        <span role="alert" style={{ fontSize: 13, color: "var(--carnival-red)" }}>
+          {state.error}
+        </span>
+      )}
     </form>
   );
 }
