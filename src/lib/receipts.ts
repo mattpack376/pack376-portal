@@ -4,7 +4,7 @@
  * receipt is — the actions re-validate everything regardless, since they
  * receive whatever a caller sends.
  */
-import { dollarsToCents } from "@/lib/formValues";
+import { dollarsToCents, isValidEmail } from "@/lib/formValues";
 import { isDateOnlyString } from "@/lib/dateOnly";
 
 /**
@@ -113,7 +113,34 @@ export type ReceiptData = {
 };
 
 const MAX_AMOUNT_CENTS = 100_000_00;
-const EMAIL_PATTERN = /^[^\s@,;<>()]+@[^\s@,;<>()]+\.[^\s@,;<>()]+$/;
+
+/*
+ * Request keys. The form makes one per receipt it shows (a new one whenever a
+ * printed field changes) and each Resend makes one when it opens, so a
+ * retried Download/Email/Send — a double click, a reload after a dropped
+ * connection — is recognized as the same request: it finds the receipt it
+ * already saved, and an email that already went out isn't sent again.
+ */
+const REQUEST_KEY_PATTERN = /^[0-9a-f]{32}$/;
+
+/** 128 random bits as hex. getRandomValues rather than randomUUID, which some browsers only offer on https. */
+export function newReceiptRequestKey() {
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export function isReceiptRequestKey(value: unknown): value is string {
+  return typeof value === "string" && REQUEST_KEY_PATTERN.test(value);
+}
+
+/**
+ * How long an email attempt can sit at PENDING before it's treated as one
+ * that never finished (the server stopped between handing it to Resend and
+ * recording the result). Longer than any request can run, so a send still in
+ * progress is never mistaken for an abandoned one.
+ */
+export const EMAIL_ATTEMPT_STALE_MS = 15 * 60 * 1000;
 
 function clean(value: unknown, max: number): string {
   return String(value ?? "")
@@ -123,8 +150,9 @@ function clean(value: unknown, max: number): string {
     .slice(0, max);
 }
 
+/** One plain mailbox, the same rule every other form uses (see isValidEmail). */
 export function isValidReceiptEmail(value: string) {
-  return value.length <= 200 && EMAIL_PATTERN.test(value);
+  return isValidEmail(value);
 }
 
 export function formatReceiptMoney(cents: number) {
@@ -167,7 +195,9 @@ export function validateReceiptInput(input: ReceiptInput, opts: { requireEmail: 
 
   const status = RECEIPT_STATUSES.find((s) => s === input.status) ?? "FULL";
 
-  const emailTo = clean(input.emailTo, 200);
+  // Not cut to a length like the fields above: a shortened address would be
+  // someone else's, so an over-long one fails validation instead.
+  const emailTo = clean(input.emailTo, Infinity);
   if (opts.requireEmail) {
     if (!emailTo) return { ok: false, error: "Enter the email address to send the receipt to." };
     if (!isValidReceiptEmail(emailTo)) return { ok: false, error: "That email address doesn't look right." };
@@ -221,10 +251,14 @@ export function seasonForDate(iso: string) {
   return m >= 8 ? `${y}–${y + 1}` : `${y - 1}–${y}`;
 }
 
-export function receiptFilename(data: ReceiptData) {
+/**
+ * `rebuilt` marks a receipt saved before issued PDFs were kept, rebuilt from
+ * its saved details with today's layout rather than the file that went out.
+ */
+export function receiptFilename(data: ReceiptData, opts: { rebuilt?: boolean } = {}) {
   const kind = data.kind === "DONATION" ? "Donation" : "Payment";
   const who = data.receivedFrom.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "Receipt";
-  return `Pack376_${kind}_Receipt_${who}_${data.date}.pdf`;
+  return `Pack376_${kind}_Receipt_${who}_${data.date}${opts.rebuilt ? "_rebuilt" : ""}.pdf`;
 }
 
 /** The columns of a stored Receipt row that make up what is printed. */
@@ -259,8 +293,12 @@ export function receiptDataFromRecord(record: ReceiptRecordFields): ReceiptData 
   };
 }
 
+/** True when two receipts print exactly the same thing. */
+export function sameReceiptData(a: ReceiptData, b: ReceiptData) {
+  return (Object.keys(a) as (keyof ReceiptData)[]).every((key) => a[key] === b[key]);
+}
+
 /** True when a stored receipt already says exactly what this data would print. */
 export function receiptRecordMatches(record: ReceiptRecordFields, data: ReceiptData) {
-  const stored = receiptDataFromRecord(record);
-  return (Object.keys(data) as (keyof ReceiptData)[]).every((key) => stored[key] === data[key]);
+  return sameReceiptData(receiptDataFromRecord(record), data);
 }
