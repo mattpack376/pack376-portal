@@ -681,6 +681,10 @@ model EventGuestGroup {
   guestOfScout    Scout?                   @relation(fields: [guestOfScoutId], references: [id], onDelete: SetNull)
   guestOfUserId   String?
   guestOfUser     User?                    @relation("GuestGroupGuestOf", fields: [guestOfUserId], references: [id], onDelete: SetNull)
+  // The one-time key from the form that created this group (see
+  // src/lib/guestGroupLimits.ts). Unique, so the same form sent twice makes
+  // one group, not two. Null on groups created before keys existed.
+  submissionKey   String?                  @unique
   payments        EventGuestGroupPayment[]
 }
 
