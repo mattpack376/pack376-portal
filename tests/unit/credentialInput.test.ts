@@ -4,9 +4,10 @@ import { describe, it } from "node:test";
 import bcrypt from "bcryptjs";
 import {
   MAX_PASSWORD_BYTES,
-  MAX_SIGN_IN_PASSWORD_LENGTH,
+  MAX_PASSWORD_INPUT_LENGTH,
   isWellFormedResetToken,
   newPasswordProblem,
+  oversizePasswordProblem,
   utf8ByteLength,
 } from "@/lib/credentialInput";
 
@@ -24,6 +25,7 @@ describe("isWellFormedResetToken", () => {
       "A".repeat(42),
       "A".repeat(44),
       "A".repeat(100_000),
+      `${"A".repeat(43)}${"!".repeat(100_000)}`,
       `${"A".repeat(42)}=`,
       `${"A".repeat(42)}+`,
       `${"A".repeat(42)}/`,
@@ -76,7 +78,32 @@ describe("newPasswordProblem", () => {
     assert.equal(utf8ByteLength("😀"), 4);
   });
 
-  it("keeps the sign-in bound above anything a reset can set", () => {
-    assert.ok(MAX_SIGN_IN_PASSWORD_LENGTH > MAX_PASSWORD_BYTES);
+  it("keeps the input cap above anything a reset can set", () => {
+    assert.ok(MAX_PASSWORD_INPUT_LENGTH > MAX_PASSWORD_BYTES);
+  });
+});
+
+describe("oversizePasswordProblem", () => {
+  it("lets anything up to the cap through to the later checks", () => {
+    const atCap = "p".repeat(MAX_PASSWORD_INPUT_LENGTH);
+    for (const [password, confirm] of [["", ""], ["short", "other"], [atCap, atCap], ["p".repeat(100), atCap]]) {
+      assert.equal(oversizePasswordProblem(password, confirm), null);
+    }
+  });
+
+  it("says exactly what the full rules would say about the same input", () => {
+    const huge = "p".repeat(MAX_PASSWORD_INPUT_LENGTH + 1);
+    for (const [password, confirm] of [
+      [huge, huge],
+      [huge, "brand-new-password"],
+      ["brand-new-password", huge],
+      ["short", huge],
+    ]) {
+      const early = oversizePasswordProblem(password, confirm);
+      assert.ok(early, "refused");
+      // Whatever passes the minimum, the full rules agree word for word.
+      if (password.length >= 8) assert.deepEqual(early, newPasswordProblem(password, confirm));
+    }
+    assert.equal(oversizePasswordProblem("short", huge)?.field, "confirmPassword");
   });
 });

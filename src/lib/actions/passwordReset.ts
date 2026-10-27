@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { checkRateLimit } from "@vercel/firewall";
 import { hashPassword, createSessionCookie } from "@/lib/auth";
-import { DEAD_LINK_TEXT, isWellFormedResetToken, newPasswordProblem, type DeadLinkReason } from "@/lib/credentialInput";
+import {
+  DEAD_LINK_TEXT,
+  isWellFormedResetToken,
+  newPasswordProblem,
+  oversizePasswordProblem,
+  type DeadLinkReason,
+} from "@/lib/credentialInput";
 import { redeemResetToken, resetLinkStatus } from "@/lib/resetTokens";
 import { recordAuditInTransaction } from "@/lib/audit";
 
@@ -32,11 +38,12 @@ function deadLink(reason: DeadLinkReason): CompleteResetState {
  * new-account invites, that never bumped it in the first place.
  *
  * Anyone can post here, so the order is cheapest first: the firewall, then
- * the token's shape and the password's length, then one indexed read to see
- * the link is live — and only a live link gets the expensive bcrypt hash. The
- * hash runs with no transaction open; the short transaction in
- * redeemResetToken then rechecks everything under the account's lock, so a
- * newer link or an Admin reset that landed meanwhile wins (see resetTokens.ts).
+ * the token's shape and a hard cap on the password's length, then one indexed
+ * read to see the link is live, then the password rules — and only a live
+ * link with an acceptable password gets the expensive bcrypt hash. The hash
+ * runs with no transaction open; the short transaction in redeemResetToken
+ * then rechecks everything under the account's lock, so a newer link or an
+ * Admin reset that landed meanwhile wins (see resetTokens.ts).
  */
 export async function completeResetAction(
   _prevState: CompleteResetState,
@@ -63,11 +70,18 @@ export async function completeResetAction(
   const confirmPassword = typeof rawConfirm === "string" ? rawConfirm : "";
 
   if (!isWellFormedResetToken(token)) return deadLink("invalid");
-  const problem = newPasswordProblem(password, confirmPassword);
-  if (problem) return problem;
+  // Junk-sized input goes no further: not even the link lookup sees it.
+  const oversize = oversizePasswordProblem(password, confirmPassword);
+  if (oversize) return oversize;
 
+  // The link before the password rules: if it's dead, fixing the password
+  // can't help, so that's the thing to say first. The lookup reads only the
+  // token, and the page itself already makes the same read on every visit.
   const status = await resetLinkStatus(token);
   if (status !== "usable") return deadLink(status);
+
+  const problem = newPasswordProblem(password, confirmPassword);
+  if (problem) return problem;
 
   const passwordHash = await hashPassword(password);
 

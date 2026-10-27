@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionCookie, isLockedOut, lockedUntilForCount } from "@/lib/auth";
 import { recordAuditAs, clientIpFromHeaders, UNKNOWN_ACCOUNT_ACTOR, type AuditActor } from "@/lib/audit";
 import { clientDeviceFromHeaders, clientLocationFromHeaders } from "@/lib/clientInfo";
-import { MAX_SIGN_IN_PASSWORD_LENGTH, MAX_USERNAME_LENGTH } from "@/lib/credentialInput";
+import { MAX_PASSWORD_INPUT_LENGTH, MAX_USERNAME_LENGTH } from "@/lib/credentialInput";
 
 /**
  * `username` is what was typed, normalized, handed back after a refusal so
@@ -61,7 +61,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   // an entry per junk request would be the flood's amplifier, and these can
   // never sign in anyway. No account is looked up, so the reply says nothing
   // about which usernames exist.
-  if (username.length > MAX_USERNAME_LENGTH || password.length > MAX_SIGN_IN_PASSWORD_LENGTH) {
+  if (username.length > MAX_USERNAME_LENGTH || password.length > MAX_PASSWORD_INPUT_LENGTH) {
     return { error: "Invalid username or password." };
   }
 

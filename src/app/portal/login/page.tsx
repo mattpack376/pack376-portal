@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { loginAction, type LoginState } from "./actions";
-import { MAX_SIGN_IN_PASSWORD_LENGTH, MAX_USERNAME_LENGTH } from "@/lib/credentialInput";
+import { MAX_PASSWORD_INPUT_LENGTH, MAX_USERNAME_LENGTH } from "@/lib/credentialInput";
 
 const initialState: LoginState = {};
 const ERROR_ID = "login-error";
@@ -63,7 +63,7 @@ export default function LoginPage() {
               name="password"
               type="password"
               autoComplete="current-password"
-              maxLength={MAX_SIGN_IN_PASSWORD_LENGTH}
+              maxLength={MAX_PASSWORD_INPUT_LENGTH}
               required
               {...invalidProps}
             />

@@ -13,22 +13,29 @@ export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_BYTES = 72;
 
 /**
- * Longest password the sign-in form passes on to bcrypt. Deliberately above
- * MAX_PASSWORD_BYTES: a password set before that limit was enforced can be
- * longer (bcrypt only ever compared its first 72 bytes), and it has to keep
- * working. Anything past this is junk, not a forgotten passphrase.
+ * Longest password either form accepts at all, checked before anything else
+ * runs. No one types this much: it's there so junk costs nothing.
+ *
+ * Deliberately above MAX_PASSWORD_BYTES. On sign-in, a password set before
+ * that limit was enforced can be longer (bcrypt only ever compared its first
+ * 72 bytes), and it has to keep working. On the reset form, everything from
+ * here down to 72 bytes is refused only after the link check, so someone
+ * holding a dead link hears that first instead of fixing a password for
+ * nothing.
  */
-export const MAX_SIGN_IN_PASSWORD_LENGTH = 1024;
+export const MAX_PASSWORD_INPUT_LENGTH = 1024;
 
 /** Parent Portal logins are email addresses, so a username can be as long as one. */
 export const MAX_USERNAME_LENGTH = MAX_EMAIL_LENGTH;
 
 /** Every reset/invite link carries randomBytes(32) in base64url: 43 characters. */
+const RESET_TOKEN_LENGTH = 43;
 const RESET_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 /** True for something shaped like a real link token; says nothing about whether it's live. */
 export function isWellFormedResetToken(token: unknown): token is string {
-  return typeof token === "string" && RESET_TOKEN_PATTERN.test(token);
+  // The length test first, so a huge string is turned away without scanning it.
+  return typeof token === "string" && token.length === RESET_TOKEN_LENGTH && RESET_TOKEN_PATTERN.test(token);
 }
 
 /**
@@ -56,6 +63,25 @@ export function utf8ByteLength(value: string) {
 
 export type NewPasswordProblem = { error: string; field: "password" | "confirmPassword" };
 
+const PASSWORD_TOO_LONG: NewPasswordProblem = {
+  field: "password",
+  error: "Password is too long. Please use 72 characters or fewer (accented letters and emoji count as more than one).",
+};
+const PASSWORDS_DIFFER: NewPasswordProblem = { field: "confirmPassword", error: "Passwords don't match." };
+
+/**
+ * The reset form's first check, before the link is even looked up: either
+ * field past MAX_PASSWORD_INPUT_LENGTH. It reports what newPasswordProblem
+ * would say about the same input, so the wording never depends on which
+ * check caught it (a confirmation that long can't match a password that
+ * isn't).
+ */
+export function oversizePasswordProblem(password: string, confirmPassword: string): NewPasswordProblem | null {
+  if (password.length > MAX_PASSWORD_INPUT_LENGTH) return PASSWORD_TOO_LONG;
+  if (confirmPassword.length > MAX_PASSWORD_INPUT_LENGTH) return PASSWORDS_DIFFER;
+  return null;
+}
+
 /** Why a new password (and its confirmation) can't be used, or null if it can. */
 export function newPasswordProblem(password: string, confirmPassword: string): NewPasswordProblem | null {
   if (password.length < MIN_PASSWORD_LENGTH) {
@@ -67,13 +93,8 @@ export function newPasswordProblem(password: string, confirmPassword: string): N
   // 72 UTF-16 units is over 72 bytes too, so that cheap check settles a huge
   // paste before any bytes are counted.
   if (password.length > MAX_PASSWORD_BYTES || utf8ByteLength(password) > MAX_PASSWORD_BYTES) {
-    return {
-      field: "password",
-      error: "Password is too long. Please use 72 characters or fewer (accented letters and emoji count as more than one).",
-    };
+    return PASSWORD_TOO_LONG;
   }
-  if (password !== confirmPassword) {
-    return { field: "confirmPassword", error: "Passwords don't match." };
-  }
+  if (password !== confirmPassword) return PASSWORDS_DIFFER;
   return null;
 }

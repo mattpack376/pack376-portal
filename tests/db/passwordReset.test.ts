@@ -13,6 +13,7 @@ import bcrypt from "bcryptjs";
 import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
 import { asAnonymous, form, gate, resetTestState, runAs, settle, testState } from "../support/context";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
+import { DEAD_LINK_TEXT, MAX_PASSWORD_INPUT_LENGTH, type DeadLinkReason } from "@/lib/credentialInput";
 
 const db = withTestDatabase("password_reset");
 let reset: typeof import("@/lib/actions/passwordReset");
@@ -278,6 +279,85 @@ describe("finishing a reset link", () => {
     const short = await complete(token, "short");
     assert.equal(short.kind === "state" && short.state.field, "password");
     assert.equal(short.kind === "state" && short.state.linkDead, undefined);
+  });
+
+  it("says a dead link is dead before asking for a different password", async () => {
+    // Someone opened the form while the link worked; by the time they submit,
+    // it's been used, replaced, expired, or the account switched off. Whatever
+    // they typed, the reply is the link, since no password can fix that.
+    const usedUser = await makeUser();
+    const used = await tokens.issueResetToken(usedUser.id);
+    assert.equal((await complete(used, "brand-new-password")).kind, "redirect");
+    const replacedUser = await makeUser();
+    const replaced = await tokens.issueResetToken(replacedUser.id);
+    await tokens.issueResetToken(replacedUser.id);
+    const expiredUser = await makeUser();
+    const expired = await tokens.issueResetToken(expiredUser.id);
+    await db.pool.query(`UPDATE "PasswordResetToken" SET "expiresAt" = ${UTC_NOW} - interval '1 second' WHERE "userId" = $1`, [expiredUser.id]);
+    const inactiveUser = await makeUser({ role: "DEN" });
+    const inactive = await tokens.issueInviteToken(inactiveUser.id);
+    await db.prisma.user.update({ where: { id: inactiveUser.id }, data: { active: false } });
+
+    const counts = countBcrypt();
+    const links: [string, string, DeadLinkReason][] = [
+      ["used", used, "invalid"],
+      ["replaced", replaced, "invalid"],
+      ["expired", expired, "invalid"],
+      ["unknown", "B".repeat(43), "invalid"],
+      ["inactive account", inactive, "inactive"],
+    ];
+    const typed: [string, string, string][] = [
+      ["too short", "short", "short"],
+      ["blank", "", ""],
+      ["mismatched", "brand-new-password", "different-password"],
+      ["over 72 bytes", "p".repeat(100), "p".repeat(100)],
+      ["right at the input cap", "p".repeat(MAX_PASSWORD_INPUT_LENGTH), "p".repeat(MAX_PASSWORD_INPUT_LENGTH)],
+      ["acceptable", "brand-new-password", "brand-new-password"],
+    ];
+    for (const [linkLabel, token, reason] of links) {
+      for (const [passwordLabel, password, confirmPassword] of typed) {
+        const outcome = await complete(token, password, confirmPassword);
+        assert.equal(outcome.kind, "state");
+        if (outcome.kind !== "state") continue;
+        const label = `${linkLabel} link, ${passwordLabel} password`;
+        assert.deepEqual(outcome.state, { error: DEAD_LINK_TEXT[reason].message, linkDead: reason }, label);
+      }
+    }
+    assert.equal(counts.hash, 0, "no bcrypt for a dead link, whatever the password");
+    assert.equal((await userRow(inactiveUser.id)).passwordHash, ORIGINAL_HASH);
+  });
+
+  it("turns away junk-sized passwords before the link is even looked up", async () => {
+    // Proved by the order of the replies, not by timing: an expired link gets
+    // the length refusal, which it couldn't if its row had been read first.
+    const user = await makeUser();
+    const expired = await tokens.issueResetToken(user.id);
+    await db.pool.query(`UPDATE "PasswordResetToken" SET "expiresAt" = ${UTC_NOW} - interval '1 second' WHERE "userId" = $1`, [user.id]);
+    const counts = countBcrypt();
+    const huge = "p".repeat(MAX_PASSWORD_INPUT_LENGTH + 1);
+
+    const tooLong = await complete(expired, huge);
+    assert.equal(tooLong.kind === "state" && tooLong.state.field, "password");
+    assert.equal(tooLong.kind === "state" && tooLong.state.linkDead, undefined);
+    assert.match(errorOf(tooLong), /too long/);
+
+    const hugeConfirmation = await complete(expired, "brand-new-password", huge);
+    assert.equal(hugeConfirmation.kind === "state" && hugeConfirmation.state.field, "confirmPassword");
+    assert.equal(hugeConfirmation.kind === "state" && hugeConfirmation.state.linkDead, undefined);
+    assert.match(errorOf(hugeConfirmation), /don't match/);
+
+    // At the cap itself the link is looked up, and it's the link that's wrong.
+    const atCap = await complete(expired, "p".repeat(MAX_PASSWORD_INPUT_LENGTH));
+    assert.equal(atCap.kind === "state" && atCap.state.linkDead, "invalid");
+    assert.equal(counts.hash, 0);
+
+    // On a live link the same cap gives the same words as the 72-byte rule.
+    const live = await tokens.issueResetToken(user.id);
+    const capped = await complete(live, huge);
+    assert.equal(capped.kind, "state");
+    assert.deepEqual(capped, await complete(live, "p".repeat(100)));
+    assert.equal(counts.hash, 0);
+    assert.equal(await usableLinkCount(user.id), 1);
   });
 
   it("refuses an inactive account without hashing or spending the link", async () => {

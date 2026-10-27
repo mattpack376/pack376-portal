@@ -9,7 +9,7 @@ import { describe, it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DeadLinkNotice, SetPasswordView } from "@/components/SetPasswordForm";
-import { DEAD_LINK_TEXT } from "@/lib/credentialInput";
+import { DEAD_LINK_TEXT, MAX_PASSWORD_INPUT_LENGTH } from "@/lib/credentialInput";
 import type { CompleteResetState } from "@/lib/actions/passwordReset";
 
 const TOKEN = "A".repeat(43);
@@ -35,6 +35,10 @@ describe("SetPasswordView", () => {
     assert.deepEqual(headings(html), ["Set Your Password"]);
     assert.doesNotMatch(html, /role="alert"|aria-invalid/);
     assert.match(html, /<input type="hidden" name="token" value="A{43}"\/>/);
+    // The browser stops at the same cap the action checks first.
+    for (const id of ["password", "confirmPassword"]) {
+      assert.match(inputTag(html, id), new RegExp(`maxLength="${MAX_PASSWORD_INPUT_LENGTH}"`));
+    }
   });
 
   it("ties an error about one field to that field only", () => {

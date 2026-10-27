@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, type Ref } from "react";
 import Link from "next/link";
 import { completeResetAction, type CompleteResetState } from "@/lib/actions/passwordReset";
-import { DEAD_LINK_TEXT, MIN_PASSWORD_LENGTH, type DeadLinkReason } from "@/lib/credentialInput";
+import { DEAD_LINK_TEXT, MAX_PASSWORD_INPUT_LENGTH, MIN_PASSWORD_LENGTH, type DeadLinkReason } from "@/lib/credentialInput";
 
 const initialState: CompleteResetState = {};
 const ERROR_ID = "set-password-error";
@@ -91,6 +91,7 @@ export function SetPasswordView({
             type="password"
             autoComplete="new-password"
             minLength={MIN_PASSWORD_LENGTH}
+            maxLength={MAX_PASSWORD_INPUT_LENGTH}
             required
             {...fieldProps("password")}
           />
@@ -103,6 +104,7 @@ export function SetPasswordView({
             type="password"
             autoComplete="new-password"
             minLength={MIN_PASSWORD_LENGTH}
+            maxLength={MAX_PASSWORD_INPUT_LENGTH}
             required
             {...fieldProps("confirmPassword")}
           />
