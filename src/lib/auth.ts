@@ -16,6 +16,10 @@ const LOCKOUT_THRESHOLD = 5;
 const LOCKOUT_MINUTES = 15;
 
 export async function hashPassword(password: string) {
+  // bcrypt would quietly hash only the first 72 bytes. Every form checks this
+  // first with a friendly message (src/lib/credentialInput.ts); this turns a
+  // missed check into an error instead of a silently shortened password.
+  if (bcrypt.truncates(password)) throw new Error("Password is longer than bcrypt's 72-byte limit.");
   return bcrypt.hash(password, 12);
 }
 
