@@ -276,7 +276,7 @@ describe("advancement: a scout moved while an Apply waits", () => {
     assert.equal(records.length, 1, "written while the scout was still a Tiger, before the move");
   });
 
-  it("holds under repetition: 20 rounds of an Apply racing a move to another rank", async () => {
+  it("holds under repetition: Applies racing a move to another rank, started at staggered offsets", async () => {
     const { scout, tigers, wolves, a1 } = await tigerScout();
     /*
      * The move takes the scout's row the way an Admin's edit would, and notes
@@ -298,18 +298,57 @@ describe("advancement: a scout moved while an Apply waits", () => {
       }
     }
 
-    for (let round = 0; round < 20; round++) {
+    async function reset() {
       await db.prisma.advancementRecord.deleteMany({ where: { scoutId: scout.id } });
       await db.prisma.scout.update({ where: { id: scout.id }, data: { denId: tigers.id } });
+    }
 
-      const [result, recordsAtMove] = await Promise.all([apply(admin, scout.id, [complete(a1.id)]), move()]);
+    /** Waits `ms`, fractions included (setTimeout can't wait under 1 ms), letting I/O run meanwhile. */
+    async function pause(ms: number) {
+      const until = performance.now() + ms;
+      while (performance.now() < until) await new Promise((resolve) => setImmediate(resolve));
+    }
+
+    /*
+     * Started together, the move finishes before the Apply even opens its
+     * transaction, so only one order would ever be tried. Instead each round
+     * starts one side a little later than the other, from the move a quarter
+     * of an Apply ahead to the move starting as the Apply ends, so some
+     * rounds land the move between the Apply reading the scout's rank and
+     * writing its records: exactly what the lock on the scout has to
+     * prevent. (The deterministic tests above pin each order down; this
+     * checks nothing slips through in between.)
+     */
+    let applyMs = Infinity;
+    for (let i = 0; i < 3; i++) {
+      await reset();
+      const started = performance.now();
+      await apply(admin, scout.id, [complete(a1.id)]);
+      applyMs = Math.min(applyMs, performance.now() - started);
+    }
+
+    const ROUNDS = 30;
+    for (let round = 0; round < ROUNDS; round++) {
+      await reset();
+      const offset = applyMs * ((1.25 * round) / (ROUNDS - 1) - 0.25); // < 0: the move goes first
+      const applying = (async () => {
+        if (offset < 0) await pause(-offset);
+        return apply(admin, scout.id, [complete(a1.id)]);
+      })();
+      const moving = (async () => {
+        if (offset > 0) await pause(offset);
+        return move();
+      })();
+
+      const [result, recordsAtMove] = await Promise.all([applying, moving]);
       const records = (await recordsFor(scout.id)).length;
-      assert.equal(records, recordsAtMove, `round ${round}: nothing written after the scout left the rank`);
+      const where = `round ${round} (move ${offset < 0 ? "first by" : "after"} ${Math.abs(offset).toFixed(2)} ms)`;
+      assert.equal(records, recordsAtMove, `${where}: nothing written after the scout left the rank`);
       if (result.ok) {
-        assert.equal(records, 1, `round ${round}: saved means written`);
+        assert.equal(records, 1, `${where}: saved means written`);
       } else {
-        assert.match(result.error, WRONG_RANK, `round ${round}`);
-        assert.equal(records, 0, `round ${round}: refused means nothing written`);
+        assert.match(result.error, WRONG_RANK, where);
+        assert.equal(records, 0, `${where}: refused means nothing written`);
       }
     }
   });
