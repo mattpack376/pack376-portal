@@ -3,15 +3,26 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
-import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
+import { recordAudit, recordAuditInTransaction, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import { uploadFlyer } from "@/lib/flyerUpload";
-import { dollarsToCents } from "@/lib/formValues";
-import { parseDateOnlyString, todayDateOnly } from "@/lib/dateOnly";
+import { dollarsToCents, multiplyCents, parseCount, textField } from "@/lib/formValues";
+import { parseDateOnlyString, readDateOnlyField, todayDateOnly } from "@/lib/dateOnly";
 import { revalidateTripAdminPages, revalidateTripPages } from "@/lib/tripRevalidate";
-import { currentTripPriceCents } from "@/lib/tripPageData";
+import {
+  currentTripPriceCents,
+  lockTripPage,
+  tripFormResult,
+  TripInputError,
+  TRIP_TRANSACTION_OPTIONS,
+  type TripFormResult,
+} from "@/lib/tripPageData";
 import { tripSiteBySlug } from "@/lib/tripSites";
+import type { Prisma } from "@/generated/prisma/client";
 import type { TripDay, TripMealType } from "@/generated/prisma/enums";
+
+/** The oldest "free age and under" the pricing form takes — anything above is a typo, not a policy. */
+const MAX_FREE_AGE = 99;
 
 /** "SATURDAY" -> "Saturday", "HOT_BREAKFAST" -> "Hot breakfast" — enums in audit text. */
 function titleCase(value: string): string {
@@ -115,115 +126,202 @@ export async function toggleTripPublishedAction(formData: FormData) {
   revalidateTripPages();
 }
 
-export async function updateTripPricingAction(formData: FormData) {
+/**
+ * Saves the Price Structure form. Turning "TBD" off is what posts the price,
+ * and posting it charges every registration that was waiting for it —
+ * attendees × the price in effect — in the same transaction, so a family is
+ * never left half-updated.
+ *
+ * Runs under the trip's lock (lockTripPage), which every registration path
+ * takes too: a registration either committed before this and is filled in
+ * here, or waits and reads the posted price itself. None can save as "TBD"
+ * after the price is out.
+ *
+ * Whenever the save leaves the trip priced, it also fills in any registration
+ * still waiting — one a race left behind before this lock existed — rather
+ * than needing a second save to notice it. Registrations that already have an
+ * amount keep it: what a family was charged at signup is never repriced here.
+ */
+export async function updateTripPricingAction(formData: FormData): Promise<TripFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const id = String(formData.get("id") || "");
-  const regularPriceRaw = String(formData.get("regularPrice") || "");
-  const earlyBirdPriceRaw = String(formData.get("earlyBirdPrice") || "");
-  const earlyBirdDeadlineRaw = String(formData.get("earlyBirdDeadline") || "").trim();
-  const rsvpDeadlineRaw = String(formData.get("rsvpDeadline") || "").trim();
-  const freeAgeRaw = String(formData.get("freeAgeAndUnder") || "").trim();
-  const priceTbdRequested = String(formData.get("priceTbd") || "") === "true";
-  if (!id) throw new Error("Missing trip page id.");
+  return tripFormResult(async () => {
+    const id = textField(formData.get("id"));
+    const regularPriceRaw = textField(formData.get("regularPrice"));
+    const earlyBirdPriceRaw = textField(formData.get("earlyBirdPrice"));
+    const freeAgeRaw = textField(formData.get("freeAgeAndUnder"));
+    const priceTbdRequested = String(formData.get("priceTbd") || "") === "true";
+    if (!id) throw new TripInputError("Missing trip page id.");
 
-  const regularPriceCents = dollarsToCents(regularPriceRaw);
-  if (regularPriceCents === null) throw new Error("A valid regular price is required.");
+    const regularPriceCents = dollarsToCents(regularPriceRaw);
+    if (regularPriceCents === null) throw new TripInputError("Enter a valid regular price (up to $1,000,000.00).");
 
-  const earlyBirdPriceCents = earlyBirdPriceRaw.trim() ? dollarsToCents(earlyBirdPriceRaw) : null;
-  if (earlyBirdPriceRaw.trim() && earlyBirdPriceCents === null) throw new Error("Invalid early-bird price.");
-
-  const earlyBirdDeadline = parseDateOnlyString(earlyBirdDeadlineRaw, "Invalid early-bird deadline.");
-  const rsvpDeadline = parseDateOnlyString(rsvpDeadlineRaw, "Invalid RSVP deadline.");
-
-  let freeAgeAndUnder: number | null = null;
-  if (freeAgeRaw) {
-    const parsed = Number(freeAgeRaw);
-    if (!Number.isInteger(parsed) || parsed < 0) throw new Error("Invalid free-age-and-under value.");
-    freeAgeAndUnder = parsed;
-  }
-
-  const before = await prisma.tripPage.findUnique({
-    where: { id },
-    select: {
-      title: true,
-      slug: true,
-      priceTbd: true,
-      regularPriceCents: true,
-      earlyBirdPriceCents: true,
-      earlyBirdDeadline: true,
-      rsvpDeadline: true,
-      freeAgeAndUnder: true,
-    },
-  });
-
-  // Only an event whose site has a TBD message has the toggle on its form, so
-  // for any other this is always false.
-  const priceTbd = !!before && !!tripSiteBySlug(before.slug)?.priceTbdMessage && priceTbdRequested;
-  // Turning TBD off is what posts the price, and a $0 one is almost certainly
-  // a form saved before the price was typed in.
-  const postingPrice = !!before?.priceTbd && !priceTbd;
-  if (postingPrice && regularPriceCents === 0) {
-    throw new Error("Enter the regular price before posting it — it is still $0.00.");
-  }
-
-  // Posting the price also settles every registration that was waiting for
-  // it, in the same transaction so a family is never left half-updated.
-  const priced = await prisma.$transaction(async (tx) => {
-    const updated = await tx.tripPage.update({
-      where: { id },
-      data: { regularPriceCents, priceTbd, earlyBirdPriceCents, earlyBirdDeadline, rsvpDeadline, freeAgeAndUnder },
-    });
-    if (!postingPrice) return [];
-
-    const pricePerPerson = currentTripPriceCents(updated);
-    const waiting = await tx.tripRegistration.findMany({
-      where: { tripPageId: id, owedPending: true },
-      select: { id: true, familyName: true, payingCount: true },
-    });
-    const settled = waiting.map((reg) => ({ ...reg, amountOwedCents: reg.payingCount * pricePerPerson }));
-    for (const reg of settled) {
-      await tx.tripRegistration.update({
-        where: { id: reg.id },
-        data: { amountOwedCents: reg.amountOwedCents, owedPending: false },
-      });
+    const earlyBirdPriceCents = earlyBirdPriceRaw ? dollarsToCents(earlyBirdPriceRaw) : null;
+    if (earlyBirdPriceRaw && earlyBirdPriceCents === null) {
+      throw new TripInputError("Enter a valid early-bird price (up to $1,000,000.00), or leave it blank.");
     }
-    return settled;
-  });
 
-  await recordAudit(session, {
-    action: "trip.updatePricing",
-    summary: postingPrice
-      ? `Posted the price for “${before?.title ?? "the trip"}” — regular ${auditMoney(regularPriceCents)}${
-          priced.length > 0 ? `; set the amount owed on ${priced.length} waiting registration${priced.length === 1 ? "" : "s"}` : ""
-        }`
-      : `Changed the pricing for “${before?.title ?? "the trip"}” — regular ${auditMoney(regularPriceCents)}`,
-    entityType: "TripPage",
-    entityId: id,
-    details: [
-      ...changedFields({
-        "Price TBD": [before?.priceTbd, priceTbd],
-        "Regular price": [
-          before ? auditMoney(before.regularPriceCents) : null,
-          auditMoney(regularPriceCents),
-        ],
-        "Early-bird price": [
-          before?.earlyBirdPriceCents === null || before?.earlyBirdPriceCents === undefined
-            ? null
-            : auditMoney(before.earlyBirdPriceCents),
-          earlyBirdPriceCents === null ? null : auditMoney(earlyBirdPriceCents),
-        ],
-        "Early-bird deadline": [before?.earlyBirdDeadline, earlyBirdDeadline],
-        "RSVP deadline": [before?.rsvpDeadline, rsvpDeadline],
-        "Free age and under": [before?.freeAgeAndUnder, freeAgeAndUnder],
-      }),
-      ...priced.map((reg) => ({ label: `${reg.familyName} owes`, from: "TBD", to: auditMoney(reg.amountOwedCents) })),
-    ],
-  });
+    const earlyBirdDeadline = dateField(formData.get("earlyBirdDeadline"), "The early-bird deadline");
+    const rsvpDeadline = dateField(formData.get("rsvpDeadline"), "The RSVP deadline");
 
-  revalidateTripPages();
+    let freeAgeAndUnder: number | null = null;
+    if (freeAgeRaw) {
+      freeAgeAndUnder = parseCount(freeAgeRaw, MAX_FREE_AGE);
+      if (freeAgeAndUnder === null) throw new TripInputError("Free age and under must be a whole number of years.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const before = await lockTripPage(tx, id);
+      if (!before) throw new TripInputError("This event's page no longer exists. Reload the page.");
+
+      // Only an event whose site has a TBD message has the toggle on its form,
+      // so for any other this is always false.
+      const priceTbd = !!tripSiteBySlug(before.slug)?.priceTbdMessage && priceTbdRequested;
+      // Turning TBD off is what posts the price, and a $0 one is almost
+      // certainly a form saved before the price was typed in. (A free event
+      // is a priced one at $0 — it just never goes through TBD.)
+      const postingPrice = before.priceTbd && !priceTbd;
+      if (postingPrice && regularPriceCents === 0) {
+        throw new TripInputError("Enter the regular price before posting it — it is still $0.00.");
+      }
+
+      // While the price stays TBD, waiting registrations keep waiting.
+      const pricePerPersonCents = currentTripPriceCents({ regularPriceCents, earlyBirdPriceCents, earlyBirdDeadline });
+      const settled = priceTbd ? [] : await settleWaitingRegistrations(tx, id, pricePerPersonCents);
+
+      await tx.tripPage.update({
+        where: { id },
+        data: { regularPriceCents, priceTbd, earlyBirdPriceCents, earlyBirdDeadline, rsvpDeadline, freeAgeAndUnder },
+      });
+
+      const plural = (n: number) => `${n} ${n === 1 ? "registration" : "registrations"}`;
+      await recordAuditInTransaction(tx, session, {
+        action: "trip.updatePricing",
+        summary: postingPrice
+          ? `Posted the price for “${before.title}” — regular ${auditMoney(regularPriceCents)}${
+              settled.length > 0 ? `; set the amount owed on ${plural(settled.length)} waiting for it` : ""
+            }`
+          : `Changed the pricing for “${before.title}” — regular ${auditMoney(regularPriceCents)}${
+              settled.length > 0 ? `; set the amount owed on ${plural(settled.length)} still waiting for a price` : ""
+            }`,
+        entityType: "TripPage",
+        entityId: id,
+        details: [
+          ...changedFields({
+            "Price TBD": [before.priceTbd, priceTbd],
+            "Regular price": [auditMoney(before.regularPriceCents), auditMoney(regularPriceCents)],
+            "Early-bird price": [
+              before.earlyBirdPriceCents === null ? null : auditMoney(before.earlyBirdPriceCents),
+              earlyBirdPriceCents === null ? null : auditMoney(earlyBirdPriceCents),
+            ],
+            "Early-bird deadline": [before.earlyBirdDeadline, earlyBirdDeadline],
+            "RSVP deadline": [before.rsvpDeadline, rsvpDeadline],
+            "Free age and under": [before.freeAgeAndUnder, freeAgeAndUnder],
+          }),
+          ...settled.map((reg) => ({ label: `${reg.familyName} owes`, from: "TBD", to: auditMoney(reg.amountOwedCents) })),
+        ],
+      });
+    }, TRIP_TRANSACTION_OPTIONS);
+
+    revalidateTripPages();
+  });
+}
+
+/**
+ * The reviewable way to fill in registrations still waiting for a price on a
+ * trip whose price is already posted — rows a race left pending before price
+ * posting and registration took the same lock. The admin page lists how many
+ * there are and the per-person price they'll be charged; this charges exactly
+ * that (attendees × the price), one audit entry per family, and turns the
+ * click down if the price changed after the page loaded.
+ */
+export async function settleWaitingTripRegistrationsAction(formData: FormData): Promise<TripFormResult> {
+  const session = await getSession();
+  if (!session) throw new Error("Not authorized.");
+  assertAdmin(session);
+
+  return tripFormResult(async () => {
+    const id = textField(formData.get("id"));
+    const shownPriceRaw = textField(formData.get("pricePerPersonCents"));
+    if (!id || !/^\d{1,9}$/.test(shownPriceRaw)) throw new TripInputError("Missing trip page id or price. Reload the page.");
+    const shownPriceCents = Number(shownPriceRaw);
+
+    await prisma.$transaction(async (tx) => {
+      const trip = await lockTripPage(tx, id);
+      if (!trip) throw new TripInputError("This event's page no longer exists. Reload the page.");
+      if (trip.priceTbd) {
+        throw new TripInputError(
+          "The price is TBD again, so these registrations wait for it. Post the price under Price Structure and they're filled in then.",
+        );
+      }
+      const pricePerPersonCents = currentTripPriceCents(trip);
+      if (pricePerPersonCents !== shownPriceCents) {
+        throw new TripInputError(
+          `The price is now ${auditMoney(pricePerPersonCents)}/person, not ${auditMoney(shownPriceCents)}. Review it and try again.`,
+        );
+      }
+
+      const settled = await settleWaitingRegistrations(tx, id, pricePerPersonCents);
+      for (const reg of settled) {
+        await recordAuditInTransaction(tx, session, {
+          action: "tripRegistration.settlePrice",
+          summary: `Set the amount owed for ${reg.familyName} at the posted price — ${reg.payingCount} × ${auditMoney(
+            pricePerPersonCents,
+          )} = ${auditMoney(reg.amountOwedCents)}`,
+          entityType: "TripRegistration",
+          entityId: reg.id,
+          details: [{ label: "Amount owed", from: "TBD", to: auditMoney(reg.amountOwedCents) }],
+        });
+      }
+    }, TRIP_TRANSACTION_OPTIONS);
+
+    revalidateTripPages();
+  });
+}
+
+/**
+ * Charges every registration of this trip that is still waiting for a price:
+ * attendees × `pricePerPersonCents`. Call it with the trip locked
+ * (lockTripPage). A total too large to store throws a TripInputError before
+ * any row is written, and the throw rolls back the rest of the save with it.
+ *
+ * Each row is written only if it is still waiting with the attendee count
+ * read here. Every writer of those columns holds the same lock, so that only
+ * misses a registration deleted in between, which is then simply left out.
+ */
+async function settleWaitingRegistrations(tx: Prisma.TransactionClient, tripPageId: string, pricePerPersonCents: number) {
+  const waiting = await tx.tripRegistration.findMany({
+    where: { tripPageId, owedPending: true },
+    select: { id: true, familyName: true, payingCount: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const planned = waiting.map((reg) => ({ ...reg, amountOwedCents: multiplyCents(reg.payingCount, pricePerPersonCents) }));
+  const tooLarge = planned.find((reg) => reg.amountOwedCents === null);
+  if (tooLarge) {
+    throw new TripInputError(
+      `${tooLarge.familyName}'s total (${tooLarge.payingCount} × ${auditMoney(pricePerPersonCents)}) would be more than $1,000,000.00. Check the price.`,
+    );
+  }
+
+  const settled: { id: string; familyName: string; payingCount: number; amountOwedCents: number }[] = [];
+  for (const reg of planned) {
+    const amountOwedCents = reg.amountOwedCents as number;
+    const { count } = await tx.tripRegistration.updateMany({
+      where: { id: reg.id, owedPending: true, payingCount: reg.payingCount },
+      data: { amountOwedCents, owedPending: false },
+    });
+    if (count === 1) settled.push({ ...reg, amountOwedCents });
+  }
+  return settled;
+}
+
+/** A date field read for a form that shows its problems (see TripInputError). */
+function dateField(raw: FormDataEntryValue | null, label: string): Date | null {
+  const read = readDateOnlyField(raw, label);
+  if (read.error !== undefined) throw new TripInputError(read.error);
+  return read.date;
 }
 
 export async function updateTripPaymentInstructionsAction(formData: FormData) {

@@ -10,6 +10,7 @@ export default function TripRegistrationCountFields({
   defaultFreeCount,
   defaultAmountOwedCents,
   owedPending,
+  priceTbd,
   freeAgeAndUnder,
 }: {
   idPrefix: string;
@@ -19,6 +20,12 @@ export default function TripRegistrationCountFields({
   defaultAmountOwedCents: number;
   /** Registered while the price was TBD: the amount is left blank (and stays pending) until the price is posted or one is typed here. */
   owedPending: boolean;
+  /**
+   * Whether the trip's price is still TBD. A registration still pending on a
+   * trip whose price is posted (left behind by a race before posting took the
+   * trip's lock) has its blank amount charged at attendees × the price on save.
+   */
+  priceTbd: boolean;
   /** The event's free age; null when it has no free tier (the free field then only shows for a registration that already has free attendees). */
   freeAgeAndUnder: number | null;
 }) {
@@ -31,6 +38,8 @@ export default function TripRegistrationCountFields({
   const [freeCount, setFreeCount] = useState(String(defaultFreeCount));
   const [amount, setAmount] = useState(owedPending ? "" : (defaultAmountOwedCents / 100).toFixed(2));
   const showFree = freeAgeAndUnder !== null || defaultFreeCount > 0;
+  const uncharged = owedPending && !priceTbd;
+  const chargeText = `$${((Number(payingCount || 0) * pricePerPersonCents) / 100).toFixed(2)}`;
 
   return (
     <>
@@ -84,14 +93,16 @@ export default function TripRegistrationCountFields({
           min="0"
           step="0.01"
           required={!owedPending}
-          placeholder={owedPending ? "Pending price" : undefined}
+          placeholder={uncharged ? chargeText : owedPending ? "Pending price" : undefined}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
         <p className="form-note" style={{ marginTop: 4, marginBottom: 0 }}>
-          {owedPending
-            ? "Waiting for the price — it fills in (attendees × price) when you post it. Type an amount to set it now."
-            : `Auto-filled from paying count × the current price ($${(pricePerPersonCents / 100).toFixed(2)}/person) — edit freely.`}
+          {uncharged
+            ? `Not charged yet. Leave blank to charge paying count × the posted price ($${(pricePerPersonCents / 100).toFixed(2)}/person = ${chargeText}), or type an amount.`
+            : owedPending
+              ? "Waiting for the price — it fills in (attendees × price) when you post it. Type an amount to set it now."
+              : `Auto-filled from paying count × the current price ($${(pricePerPersonCents / 100).toFixed(2)}/person) — edit freely.`}
         </p>
       </div>
     </>

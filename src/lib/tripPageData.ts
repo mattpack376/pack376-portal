@@ -121,6 +121,59 @@ export async function getOrCreateTripPage(slug: string) {
   });
 }
 
+/** What an admin trip form gets back: nothing when it saved, `error` when it was turned down (TripAdminForm shows it). */
+export type TripFormResult = { error?: string };
+
+/**
+ * A problem with what was entered, or a change someone else made first — the
+ * expected kind of failure, shown on the form. Thrown rather than returned so
+ * that, thrown inside a transaction, it also rolls back everything that
+ * transaction wrote. Anything else is a real fault and still throws to the
+ * error page.
+ */
+export class TripInputError extends Error {}
+
+/** Runs an admin trip action, turning a TripInputError into { error } for the form. */
+export async function tripFormResult(work: () => Promise<void>): Promise<TripFormResult> {
+  try {
+    await work();
+    return {};
+  } catch (error) {
+    if (error instanceof TripInputError) return { error: error.message };
+    throw error;
+  }
+}
+
+/** Options for every transaction that locks a TripPage: short, and never queued for long behind another. */
+export const TRIP_TRANSACTION_OPTIONS = { timeout: 15000, maxWait: 10000 };
+
+/**
+ * Locks an event's TripPage row until the end of the transaction, then reads
+ * it as it stands now. Null if there is no such row.
+ *
+ * This is how everything that depends on the event's terms takes turns: the
+ * public registration form, an admin adding or editing a registration,
+ * posting or changing the price, and settling registrations still waiting
+ * for one. Each of them reads the price, the TBD flag, publication and the
+ * deadline only *after* this lock, so a registration can never act on a "TBD"
+ * it read before the price was posted, and posting the price sees every
+ * registration that committed before it.
+ *
+ * Lock order, everywhere: this row first, then (public form only) the
+ * per-email advisory lock, then registration rows. Never the other way round,
+ * or two of these could each wait for the other.
+ *
+ * The row is locked by id and then re-read through Prisma: under Postgres's
+ * READ COMMITTED each statement sees everything committed before it started,
+ * so the read after the lock is current, and nobody else can change the row
+ * until this transaction ends.
+ */
+export async function lockTripPage(tx: Prisma.TransactionClient, id: string) {
+  const locked = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "TripPage" WHERE "id" = ${id} FOR UPDATE`;
+  if (locked.length === 0) return null;
+  return tx.tripPage.findUniqueOrThrow({ where: { id } });
+}
+
 export async function getTripMeals(tripPageId: string) {
   return prisma.tripMeal.findMany({
     where: { tripPageId },
