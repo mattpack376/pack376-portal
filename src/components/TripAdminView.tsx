@@ -386,7 +386,7 @@ export default async function TripAdminView({
       <div style={{ marginBottom: 24 }}>
         <CollapsibleGroup defaultOpen={groupsOpen} label="Event Details">
           <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
-            <form action={updateTripDetailsAction}>
+            <TripAdminForm action={updateTripDetailsAction}>
               <input type="hidden" name="id" value={trip.id} />
               <div className="form-field">
                 <label htmlFor="title">Title</label>
@@ -433,7 +433,7 @@ export default async function TripAdminView({
                 )}
               </div>
               <SaveButton className="btn btn-primary">Save Details</SaveButton>
-            </form>
+            </TripAdminForm>
           </div>
         </CollapsibleGroup>
         <CollapsibleGroup defaultOpen={groupsOpen} label="Price Structure">

@@ -30,78 +30,106 @@ function titleCase(value: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-export async function updateTripDetailsAction(formData: FormData) {
+/**
+ * Saves the Event Details form. Returns { error } for what an admin can fix —
+ * a missing title, an impossible date, a flyer of the wrong type or size.
+ *
+ * The flyer is uploaded before the transaction, never inside it: an upload
+ * can take seconds, and the trip's lock must not be held across it. If the
+ * save then fails, the just-uploaded file is deleted again rather than left
+ * public at a URL nothing points to. The row is locked while the old flyer's
+ * URL is read and replaced, so two replacements at once each delete the
+ * flyer they actually replaced.
+ */
+export async function updateTripDetailsAction(formData: FormData): Promise<TripFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const id = String(formData.get("id") || "");
-  const title = String(formData.get("title") || "").trim();
-  const location = String(formData.get("location") || "").trim();
-  const startDateRaw = String(formData.get("startDate") || "").trim();
-  const endDateRaw = String(formData.get("endDate") || "").trim();
-  const timeLabel = String(formData.get("timeLabel") || "").trim();
-  const detailsHtml = String(formData.get("detailsHtml") || "").trim();
-  if (!id || !title) throw new Error("Title is required.");
+  return tripFormResult(async () => {
+    const id = textField(formData.get("id"));
+    const title = textField(formData.get("title"));
+    const location = textField(formData.get("location"));
+    const timeLabel = textField(formData.get("timeLabel"));
+    const detailsHtml = textField(formData.get("detailsHtml"));
+    if (!id || !title) throw new TripInputError("Title is required.");
 
-  const startDate = parseDateOnlyString(startDateRaw, "Invalid start date.");
-  const endDate = parseDateOnlyString(endDateRaw, "Invalid end date.");
-  if (startDate && endDate && endDate < startDate) throw new Error("The end date can't be before the start date.");
+    const startDate = dateField(formData.get("startDate"), "The start date");
+    const endDate = dateField(formData.get("endDate"), "The end date");
+    if (startDate && endDate && endDate < startDate) throw new TripInputError("The end date can't be before the start date.");
 
-  let flyerUrl: string | null | undefined;
-  const flyer = formData.get("flyer");
-  if (flyer instanceof File && flyer.size > 0) {
-    flyerUrl = await uploadFlyer(flyer, "trip-flyers");
-  } else if (String(formData.get("removeFlyer") || "") === "true") {
-    flyerUrl = null;
-  }
+    let flyerUrl: string | null | undefined;
+    let uploadedUrl: string | null = null;
+    const flyer = formData.get("flyer");
+    if (flyer instanceof File && flyer.size > 0) {
+      try {
+        uploadedUrl = await uploadFlyer(flyer, "trip-flyers");
+      } catch (error) {
+        // uploadFlyer's messages (wrong type, too large) are written for the
+        // admin; a storage outage's is at least something to report.
+        const message = error instanceof Error ? error.message : "The flyer couldn't be uploaded. Try again.";
+        console.warn(`[trip flyer] upload refused or failed: ${message}`);
+        throw new TripInputError(message);
+      }
+      flyerUrl = uploadedUrl;
+    } else if (String(formData.get("removeFlyer") || "") === "true") {
+      flyerUrl = null;
+    }
 
-  const before = await prisma.tripPage.findUnique({
-    where: { id },
-    // flyerUrl so a flyer that's been replaced or removed can be deleted from
-    // Blob storage below rather than left public at its original URL.
-    select: { title: true, location: true, startDate: true, endDate: true, timeLabel: true, detailsHtml: true, flyerUrl: true },
+    let before;
+    try {
+      before = await prisma.$transaction(async (tx) => {
+        const current = await lockTripPage(tx, id);
+        if (!current) throw new TripInputError("This event's page no longer exists. Reload the page.");
+        await tx.tripPage.update({
+          where: { id },
+          data: {
+            title,
+            location: location || null,
+            startDate,
+            endDate,
+            timeLabel: timeLabel || null,
+            detailsHtml: detailsHtml || null,
+            ...(flyerUrl !== undefined ? { flyerUrl } : {}),
+          },
+        });
+        return current;
+      }, TRIP_TRANSACTION_OPTIONS);
+    } catch (error) {
+      // Nothing points at the new upload if the row wasn't saved.
+      if (uploadedUrl) await deleteUploadedBlob(uploadedUrl);
+      throw error;
+    }
+
+    // After the row is updated, same as albums.ts and events.ts: a flyer
+    // that's been replaced or removed is deleted from Blob storage rather
+    // than left public at its original URL.
+    if (flyerUrl !== undefined && before.flyerUrl && before.flyerUrl !== flyerUrl) {
+      await deleteUploadedBlob(before.flyerUrl);
+    }
+
+    await recordAudit(session, {
+      action: "trip.updateDetails",
+      summary: `Edited the trip details for “${title}”`,
+      entityType: "TripPage",
+      entityId: id,
+      details: [
+        ...changedFields({
+          Title: [before.title, title],
+          Location: [before.location, location || null],
+          "Start date": [before.startDate, startDate],
+          "End date": [before.endDate, endDate],
+          Time: [before.timeLabel, timeLabel || null],
+          Details: [before.detailsHtml, detailsHtml || null],
+        }),
+        ...(flyerUrl === undefined
+          ? []
+          : [{ label: "Flyer", from: "Previous", to: flyerUrl === null ? "—" : "Replaced" }]),
+      ],
+    });
+
+    revalidateTripPages();
   });
-
-  await prisma.tripPage.update({
-    where: { id },
-    data: {
-      title,
-      location: location || null,
-      startDate,
-      endDate,
-      timeLabel: timeLabel || null,
-      detailsHtml: detailsHtml || null,
-      ...(flyerUrl !== undefined ? { flyerUrl } : {}),
-    },
-  });
-
-  // After the row is updated, same as albums.ts and events.ts.
-  if (flyerUrl !== undefined && before?.flyerUrl && before.flyerUrl !== flyerUrl) {
-    await deleteUploadedBlob(before.flyerUrl);
-  }
-
-  await recordAudit(session, {
-    action: "trip.updateDetails",
-    summary: `Edited the trip details for “${title}”`,
-    entityType: "TripPage",
-    entityId: id,
-    details: [
-      ...changedFields({
-        Title: [before?.title, title],
-        Location: [before?.location, location || null],
-        "Start date": [before?.startDate, startDate],
-        "End date": [before?.endDate, endDate],
-        Time: [before?.timeLabel, timeLabel || null],
-        Details: [before?.detailsHtml, detailsHtml || null],
-      }),
-      ...(flyerUrl === undefined
-        ? []
-        : [{ label: "Flyer", from: "Previous", to: flyerUrl === null ? "—" : "Replaced" }]),
-    ],
-  });
-
-  revalidateTripPages();
 }
 
 export async function toggleTripPublishedAction(formData: FormData) {

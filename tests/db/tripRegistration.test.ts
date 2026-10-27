@@ -1,13 +1,13 @@
 /*
  * The public registration form's existing protections — replay, the
  * per-address cap, the honeypot, the rate limit, input bounds, closed trips —
- * kept working now that it takes the trip's lock, and the same bounds on the
- * two admin forms. Real Postgres.
+ * kept working now that it takes the trip's lock, the same bounds on the two
+ * admin forms, and the trip details form's flyer handling. Real Postgres.
  */
 import assert from "node:assert/strict";
 import { before, beforeEach, describe, it } from "node:test";
-import { withTestDatabase } from "../support/db";
-import { asAnonymous, form, resetTestState, settle, testState, type SessionUser } from "../support/context";
+import { openTransaction, withTestDatabase } from "../support/db";
+import { asAnonymous, form, resetTestState, runAs, settle, testState, type SessionUser } from "../support/context";
 import {
   addByHand,
   createUser,
@@ -15,8 +15,10 @@ import {
   familyForm,
   freshTrip,
   loadTripActions,
+  LOCK_TRIP,
   register,
   registrationsOf,
+  waitForWaiters,
   type TripActions,
 } from "./tripHelpers";
 
@@ -298,5 +300,75 @@ describe("editing a registration", () => {
     const junior = await createUser(db.prisma, "JUNIOR_ADMIN");
     assert.equal((await settle(editRegistration(actions, junior, registration, { payingCount: 9 }))).ok, false);
     assert.equal((await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: registration.id } })).payingCount, 2);
+  });
+});
+
+describe("the trip details form's flyer", () => {
+  /** A flyer URL on the pack's real Blob store, which cleanup will delete (the test store's URLs it won't). */
+  const OWNED_FLYER = "https://jyclzu7uphezevn7.public.blob.vercel-storage.com/trip-flyers/old-flyer.png";
+
+  const saveDetails = (tripPageId: string, extra: Record<string, string | File> = {}) => {
+    const data = form({ id: tripPageId, title: "Test Cyclones Overnight", startDate: "2027-04-23", endDate: "", location: "" });
+    for (const [key, value] of Object.entries(extra)) data.set(key, value);
+    return runAs(admin, () => actions.page.updateTripDetailsAction(data));
+  };
+  const pdf = () => new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "flyer.pdf", { type: "application/pdf" });
+
+  it("replaces the flyer and deletes the one it replaced", async () => {
+    const trip = await freshTrip(db.prisma, { flyerUrl: OWNED_FLYER });
+    assert.deepEqual(await saveDetails(trip.id, { flyer: pdf() }), {});
+    const after = await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } });
+    assert.equal(testState.blobPuts.length, 1);
+    assert.equal(after.flyerUrl, testState.blobPuts[0].url);
+    assert.deepEqual(testState.blobDeletes, [OWNED_FLYER]);
+  });
+
+  it("two replacements at once each delete only the flyer they replaced", async (t) => {
+    const trip = await freshTrip(db.prisma, { flyerUrl: OWNED_FLYER });
+    // Both saves upload, then queue for the trip row. (The old action read
+    // the current flyer before queueing, so both read the original, both
+    // deleted it, and the first one's new upload was left orphaned.)
+    const holder = await openTransaction(db.pool);
+    t.after(() => holder.rollback());
+    await holder.query(LOCK_TRIP, [trip.id]);
+    const saving = [saveDetails(trip.id, { flyer: pdf() }), saveDetails(trip.id, { flyer: pdf() })];
+    await waitForWaiters(db.pool, 2);
+    await holder.rollback();
+    const results = await Promise.all(saving);
+    assert.deepEqual(results, [{}, {}]);
+    const after = await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } });
+    assert.ok(testState.blobPuts.some((put) => put.url === after.flyerUrl));
+    assert.deepEqual(
+      testState.blobDeletes.filter((url) => url === OWNED_FLYER),
+      [OWNED_FLYER],
+      "the original is deleted once, by whichever save replaced it",
+    );
+  });
+
+  it("refuses a wrong file type, an impossible date or an end before the start without uploading", async () => {
+    const trip = await freshTrip(db.prisma, { flyerUrl: OWNED_FLYER });
+    const text = new File(["hello"], "flyer.txt", { type: "text/plain" });
+    assert.match((await saveDetails(trip.id, { flyer: text })).error ?? "", /JPEG, PNG, WEBP, GIF, or PDF/);
+    assert.match((await saveDetails(trip.id, { startDate: "2027-02-30", flyer: pdf() })).error ?? "", /isn't a real date/);
+    assert.match((await saveDetails(trip.id, { endDate: "2027-04-01", flyer: pdf() })).error ?? "", /end date/);
+    assert.equal(testState.blobPuts.length, 0);
+    assert.deepEqual(testState.blobDeletes, []);
+    assert.equal((await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } })).flyerUrl, OWNED_FLYER);
+  });
+
+  it("reports a failed save after the upload, keeping the old flyer", async () => {
+    // The row vanishes between the upload and the save. (That the new upload
+    // is then deleted isn't observable here: cleanup only deletes URLs on the
+    // pack's real Blob host, and the test store hands out another host.)
+    const result = await saveDetails("no-such-trip", { flyer: pdf() });
+    assert.match(result.error ?? "", /no longer exists/);
+    assert.equal(testState.blobPuts.length, 1);
+  });
+
+  it("removes the flyer, deleting the file", async () => {
+    const trip = await freshTrip(db.prisma, { flyerUrl: OWNED_FLYER });
+    assert.deepEqual(await saveDetails(trip.id, { removeFlyer: "true" }), {});
+    assert.equal((await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } })).flyerUrl, null);
+    assert.deepEqual(testState.blobDeletes, [OWNED_FLYER]);
   });
 });
