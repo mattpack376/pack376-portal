@@ -141,6 +141,11 @@ export async function toggleTripPublishedAction(formData: FormData) {
   const published = String(formData.get("published") || "") === "true";
   if (!id) throw new Error("Missing trip page id.");
 
+  // Sets the opposite of what the admin's page showed, so a second click from
+  // a stale page leaves it as intended rather than flipping it back. The
+  // UPDATE itself takes the TripPage row lock that registration holds (see
+  // lockTripPage), so a submission in progress finishes first, and one that
+  // starts after this reads the new state — no explicit lock needed.
   const trip = await prisma.tripPage.update({ where: { id }, data: { published: !published } });
 
   await recordAudit(session, {
