@@ -65,7 +65,8 @@ export type TestDatabase = {
 
 export function withTestDatabase(label: string): TestDatabase {
   const template = process.env.TEST_TEMPLATE_DB;
-  const name = `pack376_t_${label.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_${randomBytes(4).toString("hex")}`;
+  const namespace = process.env.TEST_DB_NAMESPACE || "pack376";
+  const name = `${namespace}_t_${label.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_${randomBytes(4).toString("hex")}`;
   let url = "";
   let pool: pg.Pool | null = null;
   let prisma: PrismaClient | null = null;

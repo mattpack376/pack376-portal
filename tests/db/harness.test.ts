@@ -18,7 +18,7 @@ before(async () => {
 describe("test harness", () => {
   it("uses its own database copy with every migration applied", async () => {
     const { rows } = await db.pool.query(`SELECT current_database() AS name, count(*)::int AS migrations FROM "_prisma_migrations"`);
-    assert.match(rows[0].name, /^pack376_t_harness_/);
+    assert.match(rows[0].name, /_t_harness_[0-9a-f]{8}$/);
     assert.ok(rows[0].migrations > 0);
   });
 

@@ -13,7 +13,14 @@ import { spawnSync } from "node:child_process";
 import pg from "pg";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
-const TEMPLATE = "pack376_test_template";
+// Separate namespaces let several checkouts share one test server without
+// dropping each other's databases (e.g. TEST_DB_NAMESPACE=wt_raffles).
+const NAMESPACE = process.env.TEST_DB_NAMESPACE || "pack376";
+if (!/^[a-z][a-z0-9_]{0,30}$/.test(NAMESPACE)) {
+  console.error("TEST_DB_NAMESPACE must be lowercase letters, digits and underscores.");
+  process.exit(1);
+}
+const TEMPLATE = `${NAMESPACE}_test_template`;
 
 const raw = process.env.TEST_DATABASE_URL;
 if (!raw) {
@@ -40,7 +47,7 @@ async function adminQuery(sql) {
 }
 
 // Leftovers from an interrupted earlier run.
-const stale = await adminQuery(`SELECT datname FROM pg_database WHERE datname LIKE 'pack376\\_t\\_%'`);
+const stale = await adminQuery(`SELECT datname FROM pg_database WHERE datname LIKE '${NAMESPACE.replace(/_/g, "\\_")}\\_t\\_%'`);
 for (const { datname } of stale.rows) await adminQuery(`DROP DATABASE IF EXISTS "${datname}" WITH (FORCE)`);
 
 await adminQuery(`DROP DATABASE IF EXISTS "${TEMPLATE}" WITH (FORCE)`);
@@ -78,6 +85,7 @@ const test = spawnSync(
       ...process.env,
       NODE_ENV: "test",
       TEST_TEMPLATE_DB: TEMPLATE,
+      TEST_DB_NAMESPACE: NAMESPACE,
       // Each test file points these at its own copy (tests/support/db.ts).
       // Until then they name a database that doesn't exist, so a stray value
       // from the shell can never reach the app under test.
