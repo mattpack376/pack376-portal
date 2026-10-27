@@ -4,6 +4,9 @@ import { getEvents } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
 import { DEADLINE_CATEGORY_LABELS, formatDueDate } from "@/lib/deadlineCategories";
 import { createEventAction, toggleEventVisibilityAction } from "@/lib/actions/events";
+import ActionForm from "@/components/ActionForm";
+import SubmitButton from "@/components/SubmitButton";
+import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 
 export default async function AdminEventsPage() {
   // Junior Admin reads every event's balances; only Admin changes anything.
@@ -91,10 +94,10 @@ export default async function AdminEventsPage() {
       {canEdit && (
       <div className="info-card" style={{ maxWidth: 460 }}>
         <h3>Add an Event</h3>
-        <form action={createEventAction}>
+        <ActionForm action={createEventAction}>
           <div className="form-field">
             <label htmlFor="title">Title</label>
-            <input id="title" name="title" required placeholder="e.g. Camp Conron Weekend" />
+            <input id="title" name="title" required maxLength={MAX_NAME_LENGTH} placeholder="e.g. Camp Conron Weekend" />
           </div>
           <div className="form-row">
             <div className="form-field">
@@ -126,15 +129,15 @@ export default async function AdminEventsPage() {
           </div>
           <div className="form-field">
             <label htmlFor="description">Description (optional)</label>
-            <textarea id="description" name="description" rows={2} />
+            <textarea id="description" name="description" rows={2} maxLength={MAX_NOTE_LENGTH} />
           </div>
           <div className="form-field">
             <label htmlFor="flyer">Flyer (optional)</label>
             <input id="flyer" name="flyer" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" />
             <p className="form-note">Image or PDF, up to 8MB. Shown in the Upcoming Events list on the Parent Dashboard and Family View.</p>
           </div>
-          <button type="submit" className="btn btn-primary">Create Event</button>
-        </form>
+          <SubmitButton className="btn btn-primary" pendingLabel="Creating…">Create Event</SubmitButton>
+        </ActionForm>
       </div>
       )}
     </>

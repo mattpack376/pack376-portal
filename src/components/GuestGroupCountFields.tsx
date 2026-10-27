@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { centsFieldText } from "@/lib/savedFormValues";
 
-/** Adults/Kids/Amount Owed fields for a guest group — Amount Owed auto-fills from the counts times the event's per-head fees, and stays editable afterward (recalculated whenever a count changes). */
+/** Adults/Kids/Amount Owed fields for a guest group — Amount Owed auto-fills from the counts times the event's per-head fees, and stays editable afterward (recalculated whenever a count changes). `maxPeople` is only a hint to the browser; the Server Action enforces the real limit. */
 export default function GuestGroupCountFields({
   idPrefix,
   adultFeeCents,
@@ -10,6 +11,7 @@ export default function GuestGroupCountFields({
   defaultAdultCount = 0,
   defaultChildCount = 0,
   defaultAmountOwedCents,
+  maxPeople,
 }: {
   idPrefix: string;
   adultFeeCents: number | null;
@@ -17,12 +19,15 @@ export default function GuestGroupCountFields({
   defaultAdultCount?: number;
   defaultChildCount?: number;
   defaultAmountOwedCents?: number;
+  maxPeople?: number;
 }) {
   const [adultCount, setAdultCount] = useState(defaultAdultCount);
   const [childCount, setChildCount] = useState(defaultChildCount);
   const [amount, setAmount] = useState(
+    // The saved amount exactly as the action compares it, so one saved above
+    // today's ceiling can still be sent back unchanged.
     defaultAmountOwedCents !== undefined
-      ? (defaultAmountOwedCents / 100).toFixed(2)
+      ? centsFieldText(defaultAmountOwedCents)
       : (
           (defaultAdultCount * (adultFeeCents ?? 0) + defaultChildCount * (guestChildFeeCents ?? 0)) /
           100
@@ -44,6 +49,7 @@ export default function GuestGroupCountFields({
             name="adultCount"
             type="number"
             min="0"
+            max={maxPeople}
             step="1"
             value={adultCount}
             onChange={(e) => {
@@ -60,6 +66,7 @@ export default function GuestGroupCountFields({
             name="childCount"
             type="number"
             min="0"
+            max={maxPeople}
             step="1"
             value={childCount}
             onChange={(e) => {

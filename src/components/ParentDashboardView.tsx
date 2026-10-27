@@ -14,11 +14,10 @@ import UpcomingEventsSection from "@/components/UpcomingEventsSection";
 import ConsentStatusBadge from "@/components/ConsentStatusBadge";
 import { RELATIONSHIP_LABELS } from "@/lib/photoConsentLabels";
 import { formatLongDate } from "@/lib/dateOnly";
-import {
-  registerMyScoutsForEventAction,
-  registerMyGuestGroupForEventAction,
-  removeMyGuestGroupAction,
-} from "@/lib/actions/events";
+import ActionForm from "@/components/ActionForm";
+import SubmitButton from "@/components/SubmitButton";
+import GuestSelfRegistrationForm from "@/components/GuestSelfRegistrationForm";
+import { registerMyScoutsForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
 import type { Rank } from "@/generated/prisma/enums";
 import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 
@@ -353,7 +352,7 @@ export default async function ParentDashboardView({
                   </p>
                 )}
                 {!readOnly && event.feeCents !== null && unregisteredScouts.length > 0 && (
-                  <form action={registerMyScoutsForEventAction} style={{ marginBottom: showGuestForm ? 14 : 0 }}>
+                  <ActionForm action={registerMyScoutsForEventAction} style={{ marginBottom: showGuestForm ? 14 : 0 }}>
                     <input type="hidden" name="eventId" value={event.id} />
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
                       {unregisteredScouts.map((s) => (
@@ -363,8 +362,10 @@ export default async function ParentDashboardView({
                         </label>
                       ))}
                     </div>
-                    <button type="submit" className="btn btn-primary btn-small">Register Scout(s)</button>
-                  </form>
+                    <SubmitButton className="btn btn-primary btn-small" pendingLabel="Registering…">
+                      Register Scout(s)
+                    </SubmitButton>
+                  </ActionForm>
                 )}
 
                 {showGuestForm && (
@@ -389,28 +390,18 @@ export default async function ParentDashboardView({
                         ))}
                       </div>
                     )}
-                    {!readOnly && <form action={registerMyGuestGroupForEventAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-                      <input type="hidden" name="eventId" value={event.id} />
-                      <div className="form-field" style={{ marginBottom: 0, flex: "1 1 200px" }}>
-                        <label htmlFor={`familyName-${event.id}`}>Family Name / Guest Name (guests attending)</label>
-                        <input id={`familyName-${event.id}`} name="familyName" required defaultValue={displayName} />
-                      </div>
-                      {event.adultFeeCents !== null && (
-                        <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
-                          <label htmlFor={`adultCount-${event.id}`}>Adults</label>
-                          <input id={`adultCount-${event.id}`} name="adultCount" type="number" min="0" step="1" defaultValue={1} />
-                        </div>
-                      )}
-                      {event.guestChildFeeCents !== null && (
-                        <div className="form-field" style={{ marginBottom: 0, flex: "1 1 90px" }}>
-                          <label htmlFor={`childCount-${event.id}`}>Kids</label>
-                          <input id={`childCount-${event.id}`} name="childCount" type="number" min="0" step="1" defaultValue={0} />
-                        </div>
-                      )}
-                      <button type="submit" className="btn btn-quiet btn-small">
-                        Add Guests
-                      </button>
-                    </form>}
+                    {!readOnly && (
+                      <GuestSelfRegistrationForm
+                        eventId={event.id}
+                        nameLabel="Family Name / Guest Name (guests attending)"
+                        defaultName={displayName}
+                        adults={event.adultFeeCents !== null}
+                        kids={event.guestChildFeeCents !== null}
+                        submitLabel="Add Guests"
+                        submitClassName="btn btn-quiet btn-small"
+                        groupsSignedUp={event.myGuestGroups.length}
+                      />
+                    )}
                   </div>
                 )}
               </div>

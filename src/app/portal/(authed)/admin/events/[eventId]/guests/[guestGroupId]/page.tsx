@@ -16,6 +16,10 @@ import {
 import GuestOfSelect from "@/components/GuestOfSelect";
 import GuestGroupCountFields from "@/components/GuestGroupCountFields";
 import { todayDateOnlyString } from "@/lib/dateOnly";
+import ActionForm from "@/components/ActionForm";
+import SubmitButton from "@/components/SubmitButton";
+import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
+import { ADMIN_GUEST_GROUP_MAX_PEOPLE, adminGuestGroupEditMaxPeople } from "@/lib/guestGroupLimits";
 
 export default async function AdminGuestGroupPage({
   params,
@@ -33,6 +37,13 @@ export default async function AdminGuestGroupPage({
 
   const guestOfOptions = await getGuestOfOptions({ scoutId: group.guestOfScoutId, userId: group.guestOfUserId });
   const guestOfDefault = group.guestOfScoutId ? `scout:${group.guestOfScoutId}` : group.guestOfUserId ? `user:${group.guestOfUserId}` : "";
+
+  // Saved before the edit form's limits existed: the form says so, and the
+  // action accepts the name as long as it comes back unchanged and the size
+  // as long as it doesn't grow.
+  const groupPeople = group.adultCount + group.childCount;
+  const editMaxPeople = adminGuestGroupEditMaxPeople(groupPeople);
+  const nameOverLimit = group.familyName.length > MAX_NAME_LENGTH;
 
   return (
     <>
@@ -62,7 +73,13 @@ export default async function AdminGuestGroupPage({
           <input type="hidden" name="eventId" value={eventId} />
           <div className="form-field">
             <label htmlFor="familyName">Family Name / Guest Name</label>
-            <input id="familyName" name="familyName" required defaultValue={group.familyName} />
+            <input id="familyName" name="familyName" required maxLength={MAX_NAME_LENGTH} defaultValue={group.familyName} />
+            {nameOverLimit && (
+              <p className="form-note">
+                Saved before names were limited to {MAX_NAME_LENGTH} characters. It can stay as it is; a changed name
+                has to fit.
+              </p>
+            )}
           </div>
           <div className="form-field">
             <label htmlFor="guestOf">Guest Of</label>
@@ -80,7 +97,14 @@ export default async function AdminGuestGroupPage({
             defaultAdultCount={group.adultCount}
             defaultChildCount={group.childCount}
             defaultAmountOwedCents={group.amountOwedCents}
+            maxPeople={editMaxPeople}
           />
+          {groupPeople > ADMIN_GUEST_GROUP_MAX_PEOPLE && (
+            <p className="form-note" style={{ marginTop: 0 }}>
+              Saved with {groupPeople} people, before a group was limited to {ADMIN_GUEST_GROUP_MAX_PEOPLE}. It can keep
+              that many or fewer, but not more.
+            </p>
+          )}
           <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
         </form>
         )}
@@ -102,23 +126,25 @@ export default async function AdminGuestGroupPage({
       {canEdit && (
       <div className="info-card" style={{ maxWidth: 420, marginBottom: 24 }}>
         <h3>Record a Payment</h3>
-        <form action={addGuestGroupPaymentAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <ActionForm action={addGuestGroupPaymentAction}>
           <input type="hidden" name="guestGroupId" value={group.id} />
           <input type="hidden" name="eventId" value={eventId} />
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
-            <label htmlFor="amount">Amount ($)</label>
-            <input id="amount" name="amount" type="number" min="0.01" step="0.01" required />
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
+              <label htmlFor="amount">Amount ($)</label>
+              <input id="amount" name="amount" type="number" min="0.01" step="0.01" required />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
+              <label htmlFor="paidOn">Date</label>
+              <input id="paidOn" name="paidOn" type="date" defaultValue={todayDateOnlyString()} />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
+              <label htmlFor="note">Note (optional)</label>
+              <input id="note" name="note" type="text" maxLength={MAX_NOTE_LENGTH} placeholder="Cash, check #, Venmo…" />
+            </div>
+            <SubmitButton className="btn btn-primary" pendingLabel="Adding…">Add Payment</SubmitButton>
           </div>
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
-            <label htmlFor="paidOn">Date</label>
-            <input id="paidOn" name="paidOn" type="date" defaultValue={todayDateOnlyString()} />
-          </div>
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
-            <label htmlFor="note">Note (optional)</label>
-            <input id="note" name="note" type="text" placeholder="Cash, check #, Venmo…" />
-          </div>
-          <button type="submit" className="btn btn-primary">Add Payment</button>
-        </form>
+        </ActionForm>
       </div>
       )}
 

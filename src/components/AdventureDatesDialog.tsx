@@ -93,7 +93,11 @@ export default function AdventureDatesDialog({
           </p>
         </div>
 
-        {error && <p className="form-error">{error}</p>}
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
 
         <div className="dates-dialog-actions">
           <button type="button" className="btn btn-quiet btn-small" onClick={onCancel}>
