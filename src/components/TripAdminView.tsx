@@ -1,6 +1,7 @@
 import SaveButton from "@/components/SaveButton";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
+import { FlyerLink } from "@/components/EventFlyer";
 import TripAdminForm from "@/components/TripAdminForm";
 import {
   getOrCreateTripPage,
@@ -418,9 +419,7 @@ export default async function TripAdminView({
                 <label htmlFor="flyer">Flyer</label>
                 {trip.flyerUrl && (
                   <p style={{ marginBottom: 8 }}>
-                    <a href={trip.flyerUrl} target="_blank" rel="noopener noreferrer" className="link">
-                      View current flyer →
-                    </a>
+                    <FlyerLink flyerUrl={trip.flyerUrl} title={trip.title} text="View current flyer" />
                   </p>
                 )}
                 <input id="flyer" name="flyer" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" />

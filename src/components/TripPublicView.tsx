@@ -1,6 +1,6 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import EnlargeableImage from "@/components/EnlargeableImage";
+import EventFlyer from "@/components/EventFlyer";
 import TripRegistrationForm from "@/components/TripRegistrationForm";
 import Linkify from "@/components/Linkify";
 import {
@@ -109,16 +109,17 @@ export default async function TripPublicView({ site }: { site: TripSite }) {
       <section style={{ paddingTop: 16 }}>
         <div className="container contact-grid">
           <div>
+            {/* An image flyer is shown large and enlargeable; a PDF one (the
+                upload form takes both) is a button-sized link instead, since
+                the image optimizer can't render a PDF. */}
             {trip.flyerUrl && (
               <div style={{ marginBottom: 24, textAlign: "center" }}>
-                <EnlargeableImage
-                  src={trip.flyerUrl}
-                  alt={`${trip.title} flyer`}
-                  width={360}
-                  height={465}
-                  enlargedWidth={680}
-                  enlargedHeight={880}
-                  fit="contain"
+                <EventFlyer
+                  flyerUrl={trip.flyerUrl}
+                  title={trip.title}
+                  size={{ width: 360, height: 465, enlargedWidth: 680, enlargedHeight: 880 }}
+                  style={{ marginBottom: 0 }}
+                  linkClassName="btn btn-primary"
                 />
               </div>
             )}

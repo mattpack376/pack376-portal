@@ -29,6 +29,7 @@ export default function EnlargeableImage({
         type="button"
         onClick={() => dialogRef.current?.showModal()}
         aria-label={`Enlarge: ${alt}`}
+        aria-haspopup="dialog"
         // maxWidth keeps the thumbnail (and the zoom badge pinned to its corner) inside a
         // narrow column instead of pushing its whole grid track past a phone's viewport.
         style={{ position: "relative", display: "inline-block", maxWidth: "100%", padding: 0, border: "none", background: "none", cursor: "zoom-in", lineHeight: 0 }}
@@ -68,9 +69,20 @@ export default function EnlargeableImage({
           🔍
         </span>
       </button>
-      <dialog ref={dialogRef} className="enlarge-dialog" onClick={(e) => {
-        if (e.target === dialogRef.current) dialogRef.current?.close();
-      }}>
+      {/*
+        A native modal <dialog> (showModal above): the browser moves focus into
+        it, keeps it there, and closes it on Escape, returning focus to the
+        button. Named by the image's alt text, so a screen reader announces
+        what opened rather than an unnamed dialog.
+      */}
+      <dialog
+        ref={dialogRef}
+        className="enlarge-dialog"
+        aria-label={alt}
+        onClick={(e) => {
+          if (e.target === dialogRef.current) dialogRef.current?.close();
+        }}
+      >
         <Image
           src={src}
           alt={alt}
