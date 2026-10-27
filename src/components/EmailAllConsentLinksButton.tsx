@@ -36,25 +36,32 @@ export default function EmailAllConsentLinksButton({ count, noEmailCount }: { co
             {pending ? "Sending…" : `Email All (${count})`}
           </button>
           {state.sent !== undefined && state.configured === false && (
-            <span style={{ fontSize: 14, color: "var(--ink-soft)" }}>
+            <span role="status" style={{ fontSize: 14, color: "var(--ink-soft)" }}>
               Email isn&apos;t configured — copy the links individually instead.
             </span>
           )}
           {state.sent !== undefined && state.configured !== false && (
-            <span style={{ fontSize: 14, fontWeight: 600, color: state.failed ? "var(--carnival-red)" : "var(--teal)" }}>
+            <span
+              role={state.failed ? "alert" : "status"}
+              style={{ fontSize: 14, fontWeight: 600, color: state.failed ? "var(--carnival-red)" : "var(--teal)" }}
+            >
               {state.sent === 0 && !state.failed
                 ? "Nobody left to email."
                 : `Sent to ${families(state.sent)}.`}
               {state.failed ? ` ${state.failed} didn't go through — use each scout's Copy Link instead.` : ""}
             </span>
           )}
-          {state.error && <span style={{ fontSize: 14, color: "var(--carnival-red)" }}>{state.error}</span>}
+          {state.error && (
+            <span role="alert" style={{ fontSize: 14, color: "var(--carnival-red)" }}>
+              {state.error}
+            </span>
+          )}
         </form>
       )}
       {noEmailCount > 0 && (
         <p className="form-note" style={{ marginTop: 8, marginBottom: 0 }}>
-          {noEmailCount} {noEmailCount === 1 ? "scout has" : "scouts have"} no parent email on file and won&apos;t be
-          emailed — share their links below by hand instead.
+          {noEmailCount} {noEmailCount === 1 ? "scout has" : "scouts have"} no usable parent email on file and won&apos;t
+          be emailed — share their links below by hand instead.
         </p>
       )}
     </div>

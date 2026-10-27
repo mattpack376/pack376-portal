@@ -2,21 +2,46 @@
 
 import { useState, useTransition } from "react";
 import { resendReceiptAction } from "@/lib/actions/receipts";
+import { MAX_EMAIL_LENGTH } from "@/lib/formValues";
+import { newReceiptRequestKey } from "@/lib/receipts";
 
-/** History row: emails a saved receipt again, defaulting to the address it last went to. */
-export default function ReceiptResendButton({ id, lastEmailedTo }: { id: string; lastEmailedTo: string | null }) {
+/**
+ * History row: emails a saved receipt again, defaulting to the address it
+ * last went to. As "Resend", each time the form opens it gets a new request
+ * key, so pressing Send again after a dropped connection doesn't email the
+ * receipt twice — but reopening it and sending is a deliberate new copy.
+ *
+ * As "Retry email" (`retryKey` given: the latest request didn't go out, or
+ * wasn't confirmed either way), it repeats that request instead — the same
+ * key, defaulting to the same address — so if the first try did reach the
+ * family after all, Resend returns that result rather than sending a second
+ * copy. Changing the address makes it a new request to the new address.
+ */
+export default function ReceiptResendButton({
+  id,
+  lastEmailedTo,
+  retryKey,
+}: {
+  id: string;
+  lastEmailedTo: string | null;
+  retryKey?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState(lastEmailedTo ?? "");
+  const [requestKey, setRequestKey] = useState("");
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   const send = () =>
     startTransition(async () => {
       setMessage(null);
-      const result = await resendReceiptAction(id, email);
+      const result = await resendReceiptAction(id, email, requestKey);
       if (!result.ok) return setMessage({ kind: "error", text: result.error });
       setOpen(false);
-      setMessage({ kind: "ok", text: `Sent to ${result.sentTo}.` });
+      setMessage({
+        kind: "ok",
+        text: result.alreadySent ? `Already sent to ${result.sentTo}; not sent again.` : `Sent to ${result.sentTo}.`,
+      });
     });
 
   if (!open) {
@@ -27,14 +52,18 @@ export default function ReceiptResendButton({ id, lastEmailedTo }: { id: string;
           className="btn btn-quiet btn-small"
           onClick={() => {
             setEmail(lastEmailedTo ?? "");
+            setRequestKey(retryKey ?? newReceiptRequestKey());
             setMessage(null);
             setOpen(true);
           }}
         >
-          Resend
+          {retryKey ? "Retry email" : "Resend"}
         </button>
         {message && (
-          <span role="status" style={{ fontSize: 13, fontWeight: 600, color: message.kind === "ok" ? "var(--teal)" : "var(--carnival-red)" }}>
+          <span
+            role={message.kind === "ok" ? "status" : "alert"}
+            style={{ fontSize: 13, fontWeight: 600, color: message.kind === "ok" ? "var(--teal)" : "var(--carnival-red)" }}
+          >
             {message.text}
           </span>
         )}
@@ -42,6 +71,7 @@ export default function ReceiptResendButton({ id, lastEmailedTo }: { id: string;
     );
   }
 
+  const errorId = `receipt-resend-error-${id}`;
   return (
     <form
       style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", width: "100%" }}
@@ -55,11 +85,12 @@ export default function ReceiptResendButton({ id, lastEmailedTo }: { id: string;
           type="email"
           inputMode="email"
           autoComplete="off"
-          maxLength={200}
+          maxLength={MAX_EMAIL_LENGTH}
           placeholder="Email address"
           aria-label="Email this receipt to"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          {...(message?.kind === "error" ? { "aria-invalid": true, "aria-describedby": errorId } : {})}
         />
       </div>
       <button type="submit" className="btn btn-primary btn-small" disabled={pending}>
@@ -69,7 +100,7 @@ export default function ReceiptResendButton({ id, lastEmailedTo }: { id: string;
         Cancel
       </button>
       {message?.kind === "error" && (
-        <span role="status" style={{ fontSize: 13, color: "var(--carnival-red)", flexBasis: "100%" }}>
+        <span id={errorId} role="alert" style={{ fontSize: 13, color: "var(--carnival-red)", flexBasis: "100%" }}>
           {message.text}
         </span>
       )}

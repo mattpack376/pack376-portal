@@ -1015,36 +1015,108 @@ model AuditLog {
 
 /**
  * A donation or payment receipt an Admin issued from /portal/admin/receipts.
- * Holds the fields the PDF is drawn from rather than the PDF itself, so any
- * receipt can be re-downloaded identically (createdAt is the "generated"
- * timestamp printed on it) without keeping binary files around. Only an
- * Admin can delete one (for a receipt entered by mistake); the audit log
- * keeps a line saying what was removed.
+ * Holds the fields the PDF is drawn from (createdAt is the "generated"
+ * timestamp printed on it). Receipts saved since issued PDFs started being kept
+ * also have that exact PDF in ReceiptDocument; older ones are rebuilt
+ * from these fields on download and say so. Only an Admin can delete one
+ * (for a receipt entered by mistake); the audit log keeps a line saying what
+ * was removed.
  */
 model Receipt {
-  id              String    @id @default(cuid())
-  createdAt       DateTime  @default(now())
+  id              String                @id @default(cuid())
+  createdAt       DateTime              @default(now())
   /// ReceiptKind in src/lib/receipts.ts: DONATION, DUES, CAMPING, EVENT, OTHER.
   kind            String
   receivedFrom    String
-  scoutName       String    @default("")
+  scoutName       String                @default("")
   purpose         String
-  season          String    @default("")
+  season          String                @default("")
   amountCents     Int
   /// The date paid/received as printed on the receipt.
-  receiptDate     DateTime  @db.Date
-  method          String    @default("")
+  receiptDate     DateTime              @db.Date
+  method          String                @default("")
   /// ReceiptStatus: FULL, PARTIAL, NONE.
-  status          String    @default("FULL")
+  status          String                @default("FULL")
   issuedByName    String
-  issuedByTitle   String    @default("")
+  issuedByTitle   String                @default("")
   /// Set once the receipt has been emailed; the most recent send if it went out more than once.
   emailedTo       String?
   emailedAt       DateTime?
   createdByUserId String?
-  createdByUser   User?     @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByUser   User?                 @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  /// The receipt form's submission key, so a retried Download or Email
+  /// finds this row instead of saving a second copy. Null on receipts saved
+  /// before keys existed (a unique index allows any number of nulls).
+  idempotencyKey  String?               @unique
+  document        ReceiptDocument?
+  /// Every email request made for this receipt since attempts were recorded.
+  emailAttempts   ReceiptEmailAttempt[]
 
   @@index([createdAt])
+}
+
+enum ReceiptEmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/**
+ * The PDF of a receipt exactly as it was issued, so a later download or
+ * resend is that same file rather than a rebuild with today's layout.
+ * Written in the same transaction as its Receipt and never changed after.
+ * sha256 is of `pdf`, checked before the file is served.
+ */
+model ReceiptDocument {
+  receiptId       String   @id
+  receipt         Receipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  pdf             Bytes
+  sha256          String
+  /// RECEIPT_TEMPLATE_VERSION in src/lib/receiptPdf.ts when it was drawn.
+  templateVersion Int
+  createdAt       DateTime @default(now())
+}
+
+/**
+ * One request to email a receipt: the request key of the form (or Resend
+ * form) that asked, and the address it named. The row is written as PENDING,
+ * under the receipt's row lock, before the email is handed to Resend, then
+ * marked SENT or FAILED. A retry of the same request (same key, same address
+ * in any letter case) finds this row, so it never sends a second copy,
+ * whatever other sends of the receipt happened in between.
+ */
+model ReceiptEmailAttempt {
+  id            String             @id @default(cuid())
+  receiptId     String
+  receipt       Receipt            @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  requestKey    String
+  /// The address as first entered (every try of this request goes to exactly
+  /// this spelling), and lowercased for matching a retry.
+  address       String
+  addressKey    String
+  status        ReceiptEmailStatus
+  /// Tries of this request so far. Each try's closing write names its own
+  /// number, so a late answer can't overwrite a newer try.
+  tryCount      Int                @default(1)
+  /// Resend's Idempotency-Key for the latest try, and when that key was first
+  /// used (Resend remembers a key for 24 hours).
+  providerKey   String
+  providerKeyAt DateTime
+  /// Set once a try ended without Resend confirming either way: no answer, a
+  /// server error, or the server stopped mid-send. From then on every try of
+  /// this request reuses providerKey with the same message, so Resend returns
+  /// the first result instead of sending again; once the key is too old to
+  /// rely on, the request isn't retried at all.
+  mayHaveSent   Boolean            @default(false)
+  /// The reply-to the latest try used. Part of the message Resend compares when a key is reused.
+  replyTo       String?
+  startedAt     DateTime
+  finishedAt    DateTime?
+  /// Resend's reason when the latest try FAILED, shortened.
+  error         String?
+  createdAt     DateTime           @default(now())
+
+  @@unique([receiptId, requestKey, addressKey])
 }
 
 enum RaffleStatus {

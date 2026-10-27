@@ -14,6 +14,7 @@ import SegmentedNav from "@/components/SegmentedNav";
 import FileExportButton from "@/components/FileExportButton";
 import EmailAllConsentLinksButton from "@/components/EmailAllConsentLinksButton";
 import { consentGroup, type ConsentGroup } from "@/lib/photoConsentGroups";
+import { consentLinkRecipient, noConsentRecipientNote } from "@/lib/photoConsentRecipients";
 
 type ConsentView = "all" | ConsentGroup;
 
@@ -76,12 +77,12 @@ export default async function PhotoConsentPage({
   // see status only — the link itself is what lets a parent sign.
   const canManageAny = dens.some((d) => canManagePhotoConsentForDen(session, d.id));
   // Email All's tally — the scouts its action will pick: unanswered, in a den
-  // this login manages, split by whether a parent email is on file.
+  // this login manages, split by whether a usable parent email is on file.
   const emailAllScouts = dens
     .filter((d) => canManagePhotoConsentForDen(session, d.id))
     .flatMap((d) => d.scouts)
     .filter((s) => consentGroup(s.photoConsent) === "unanswered");
-  const emailAllCount = emailAllScouts.filter((s) => s.parents.some((p) => p.email?.trim())).length;
+  const emailAllCount = emailAllScouts.filter((s) => consentLinkRecipient(s.parents)).length;
 
   return (
     <>
@@ -140,7 +141,8 @@ export default async function PhotoConsentPage({
                   <p style={{ marginBottom: 0, fontSize: 16 }}>No scouts yet.</p>
                 ) : (
                   den.scouts.map((scout) => {
-                    const parentEmail = scout.parents.find((p) => p.email)?.email;
+                    // The same address the send action will pick and accept.
+                    const parentEmail = consentLinkRecipient(scout.parents);
                     // Once a parent has answered, the link has done its job —
                     // Copy/Regenerate/Email only show while it's still pending.
                     const answered = consentGroup(scout.photoConsent) !== "unanswered";
@@ -209,7 +211,7 @@ export default async function PhotoConsentPage({
                                     <EmailConsentLinkButton scoutId={scout.id} parentEmail={parentEmail} />
                                   ) : (
                                     <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-                                      No parent email on file — copy the link above instead.
+                                      {noConsentRecipientNote(scout.parents)}
                                     </span>
                                   )}
                                 </div>

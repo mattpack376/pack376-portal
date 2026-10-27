@@ -1,13 +1,20 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { submitPhotoConsentAction, type SubmitConsentState } from "@/lib/actions/photoConsent";
+import {
+  submitPhotoConsentAction,
+  type ConsentField,
+  type SubmitConsentState,
+} from "@/lib/actions/photoConsent";
 import ConsentStatusBadge from "@/components/ConsentStatusBadge";
 import { formatLongDate } from "@/lib/dateOnly";
+import { MAX_NAME_LENGTH } from "@/lib/formValues";
 import { RELATIONSHIP_LABELS } from "@/lib/photoConsentLabels";
 import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
 
 const initialState: SubmitConsentState = {};
+
+const ERROR_ID = "photo-consent-error";
 
 /** signedDate comes in as YYYY-MM-DD (what <input type="date"> needs); parsed as UTC so the preview never drifts a day off. */
 function formatSignedDate(iso: string) {
@@ -29,26 +36,45 @@ const VENUES: { key: "facebook" | "website" | "fliers"; label: string; note: str
   },
 ];
 
+/** The id focus moves to when the server turns a field down; a choice group's is its first radio. */
+function focusId(field: ConsentField) {
+  return field === "facebook" || field === "website" || field === "fliers" ? `${field}-consent` : field;
+}
+
+/** aria-invalid/aria-describedby for the field an error is about, tying it to the message. */
+function errorProps(invalid: boolean) {
+  return invalid ? { "aria-invalid": true as const, "aria-describedby": ERROR_ID } : {};
+}
+
 function ChoiceGroup({
   name,
   label,
   note,
   defaultValue,
+  invalid,
 }: {
   name: string;
   label: string;
   note: string;
-  defaultValue?: ConsentStatus;
+  defaultValue?: string;
+  invalid: boolean;
 }) {
   return (
-    <div className="form-field">
-      <label>{label}</label>
+    <div className="form-field" role="radiogroup" aria-labelledby={`${name}-label`} {...errorProps(invalid)}>
+      <label id={`${name}-label`}>{label}</label>
       <p className="form-note" style={{ marginTop: -4, marginBottom: 4 }}>
         {note}
       </p>
       <div className="consent-choice-group">
         <label>
-          <input type="radio" name={name} value="CONSENT" required defaultChecked={defaultValue === "CONSENT"} />
+          <input
+            id={`${name}-consent`}
+            type="radio"
+            name={name}
+            value="CONSENT"
+            required
+            defaultChecked={defaultValue === "CONSENT"}
+          />
           Consent
         </label>
         <label>
@@ -82,6 +108,15 @@ export default function PhotoConsentForm({
   const [state, formAction, pending] = useActionState(submitPhotoConsentAction, initialState);
   const [dateValue, setDateValue] = useState(signedDate);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  // After a refusal, move focus to the field it's about (or the message
+  // itself), so a keyboard or screen-reader user lands where the fix is.
+  useEffect(() => {
+    if (!state.error) return;
+    const target = state.field ? document.getElementById(focusId(state.field)) : null;
+    (target ?? errorRef.current)?.focus();
+  }, [state]);
 
   // Same popup pattern as TripRegistrationForm: pushing the saved state out to
   // the <dialog> DOM API is the one thing here that belongs in an effect.
@@ -129,13 +164,75 @@ export default function PhotoConsentForm({
   }
 
   return (
+    <PhotoConsentFields
+      state={state}
+      formAction={formAction}
+      pending={pending}
+      token={token}
+      scoutFirstName={scoutFirstName}
+      onFile={{ facebook, website, fliers, signedByName, signedRelationship }}
+      dateValue={dateValue}
+      onDateChange={setDateValue}
+      errorRef={errorRef}
+    />
+  );
+}
+
+/**
+ * The form itself for a given action state — split out of PhotoConsentForm
+ * so its markup (which field is marked invalid, what's kept after an error)
+ * can be checked without a browser.
+ */
+export function PhotoConsentFields({
+  state,
+  formAction,
+  pending,
+  token,
+  scoutFirstName,
+  onFile,
+  dateValue,
+  onDateChange,
+  errorRef,
+}: {
+  state: SubmitConsentState;
+  formAction: (formData: FormData) => void;
+  pending: boolean;
+  token: string;
+  scoutFirstName: string;
+  /** The answers and signer already on file, shown until the parent submits. */
+  onFile: {
+    facebook: ConsentStatus;
+    website: ConsentStatus;
+    fliers: ConsentStatus;
+    signedByName: string | null;
+    signedRelationship: SignerRelationship | null;
+  };
+  dateValue: string;
+  onDateChange: (value: string) => void;
+  errorRef?: React.Ref<HTMLDivElement>;
+}) {
+  // What the parent entered, when the server sent it back with an error;
+  // otherwise what's on file. React resets the form after every submit, so
+  // the fields are remounted (keyed on these values) with them as defaults —
+  // the reset then restores the parent's answers instead of blanking them.
+  const values = state.values;
+  const formKey = values ? JSON.stringify(values) : "on-file";
+  const invalid = (field: ConsentField) => !!state.error && state.field === field;
+
+  return (
     <>
       <p className="sub">
         Please let us know whether we can use photos of <strong>{scoutFirstName}</strong> in each of the following
         places.
       </p>
-      <form action={formAction}>
+      <form action={formAction} key={formKey}>
         <input type="hidden" name="token" value={token} />
+
+        {state.error && (
+          <div id={ERROR_ID} ref={errorRef} className="form-error" role="alert" tabIndex={-1}>
+            {state.error}
+          </div>
+        )}
 
         {VENUES.map((venue) => (
           <ChoiceGroup
@@ -143,7 +240,8 @@ export default function PhotoConsentForm({
             name={venue.key}
             label={venue.label}
             note={venue.note}
-            defaultValue={venue.key === "facebook" ? facebook : venue.key === "website" ? website : fliers}
+            defaultValue={values ? values[venue.key] : onFile[venue.key]}
+            invalid={invalid(venue.key)}
           />
         ))}
 
@@ -154,17 +252,22 @@ export default function PhotoConsentForm({
               id="signedByName"
               name="signedByName"
               type="text"
-              defaultValue={signedByName ?? ""}
+              defaultValue={values ? values.signedByName : (onFile.signedByName ?? "")}
               placeholder="Parent / guardian name"
+              autoComplete="name"
+              maxLength={MAX_NAME_LENGTH}
               required
-              style={{ flex: 2 }}
+              style={{ flex: 2, ...(invalid("signedByName") ? { borderColor: "var(--carnival-red)" } : {}) }}
+              {...errorProps(invalid("signedByName"))}
             />
             <select
               id="signedRelationship"
               name="signedRelationship"
-              defaultValue={signedRelationship ?? ""}
+              aria-label="Your relationship to the scout"
+              defaultValue={values ? values.signedRelationship : (onFile.signedRelationship ?? "")}
               required
-              style={{ flex: 1 }}
+              style={{ flex: 1, ...(invalid("signedRelationship") ? { borderColor: "var(--carnival-red)" } : {}) }}
+              {...errorProps(invalid("signedRelationship"))}
             >
               <option value="" disabled>
                 Relationship
@@ -185,15 +288,15 @@ export default function PhotoConsentForm({
             name="signedDate"
             type="date"
             value={dateValue}
-            onChange={(e) => setDateValue(e.target.value)}
+            onChange={(e) => onDateChange(e.target.value)}
             required
+            style={invalid("signedDate") ? { borderColor: "var(--carnival-red)" } : undefined}
+            {...errorProps(invalid("signedDate"))}
           />
           <p className="form-note" style={{ marginTop: 4 }}>
             {formatSignedDate(dateValue)}
           </p>
         </div>
-
-        {state?.error && <div className="form-error">{state.error}</div>}
 
         <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={pending}>
           {pending ? "Saving…" : `Save Photo Consent for ${scoutFirstName}`}

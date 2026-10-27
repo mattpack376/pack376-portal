@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { RECEIPT_EMBLEM_PNG_BASE64 } from "@/lib/receiptEmblem";
 import {
@@ -35,6 +36,18 @@ const WHITE = rgb(1, 1, 1);
 
 const PACK_TIME_ZONE = "America/New_York";
 
+/**
+ * Saved with each issued receipt's PDF (ReceiptDocument.templateVersion).
+ * Bump it whenever a change here alters what a receipt looks like or says,
+ * so the stored copies record which layout they were drawn with.
+ */
+export const RECEIPT_TEMPLATE_VERSION = 1;
+
+/** Hex SHA-256 of a PDF, stored beside it and checked before it's served again. */
+export function receiptPdfSha256(pdf: Uint8Array) {
+  return createHash("sha256").update(pdf).digest("hex");
+}
+
 /** "09/29/2026 6:38 PM" in the pack's time zone — the server itself runs in UTC. */
 function generatedStamp(now: Date) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -66,6 +79,10 @@ export async function buildReceiptPdf(data: ReceiptData, now: Date = new Date())
   pdf.setTitle(`${RECEIPT_ORG_NAME} ${data.kind === "DONATION" ? "Donation" : "Payment"} Receipt`);
   pdf.setAuthor(RECEIPT_ORG_NAME);
   pdf.setCreator(RECEIPT_ORG_NAME);
+  // The file's own dates are the receipt's "generated" time rather than the
+  // moment it was drawn, so the same receipt drawn twice is the same file.
+  pdf.setCreationDate(now);
+  pdf.setModificationDate(now);
   const page = pdf.addPage([WIDTH, HEIGHT]);
 
   const fonts: Fonts = {

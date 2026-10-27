@@ -32,7 +32,11 @@ export default function ReceiptDeleteButton({
       <button type="button" className="btn btn-danger btn-small" disabled={pending} onClick={handleClick}>
         {pending ? "Deleting…" : "Delete"}
       </button>
-      {error && <span style={{ fontSize: 13, color: "var(--carnival-red)" }}>{error}</span>}
+      {error && (
+        <span role="alert" style={{ fontSize: 13, color: "var(--carnival-red)" }}>
+          {error}
+        </span>
+      )}
     </>
   );
 }

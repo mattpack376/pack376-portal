@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { emailReceiptAction, generateReceiptAction } from "@/lib/actions/receipts";
 import { base64PdfFile } from "@/lib/savePdf";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
+import { MAX_EMAIL_LENGTH } from "@/lib/formValues";
 import {
   RECEIPT_KINDS,
   RECEIPT_KIND_INFO,
@@ -11,6 +12,7 @@ import {
   RECEIPT_STATUSES,
   RECEIPT_STATUS_LABELS,
   isPaymentKind,
+  newReceiptRequestKey,
   seasonForDate,
   type ReceiptInput,
   type ReceiptKind,
@@ -23,6 +25,12 @@ type Message = { kind: "ok" | "error"; text: string } | null;
  * Server Actions directly rather than submitting a <form>: React 19 resets an
  * action form after every submit, which would wipe the fields right after a
  * Download — and the usual next step is to Email the same receipt.
+ *
+ * `requestKey` names the receipt on screen. Download and Email both send it,
+ * so Download-then-Email is one history entry and a retried click finds the
+ * receipt (and the email) it already made instead of making another. It
+ * changes whenever a printed field does; the email address isn't printed, so
+ * changing only that emails the same receipt to the new address.
  */
 export default function ReceiptForm({
   today,
@@ -47,15 +55,14 @@ export default function ReceiptForm({
   const [issuedByName, setIssuedByName] = useState(defaultIssuerName);
   const [issuedByTitle, setIssuedByTitle] = useState(defaultIssuerTitle);
   const [emailTo, setEmailTo] = useState("");
-  // The saved row for exactly what is on screen, so Download then Email is one history entry.
-  const [savedId, setSavedId] = useState<string | undefined>();
+  const [requestKey, setRequestKey] = useState(newReceiptRequestKey);
   const [message, setMessage] = useState<Message>(null);
   const [pending, startTransition] = useTransition();
 
   const payment = isPaymentKind(kind);
   const edited = (fn: () => void) => {
     fn();
-    setSavedId(undefined);
+    setRequestKey(newReceiptRequestKey());
     setMessage(null);
   };
 
@@ -93,12 +100,11 @@ export default function ReceiptForm({
     new Promise<File | null>((resolve) =>
       startTransition(async () => {
         setMessage(null);
-        const result = await generateReceiptAction(input(), savedId);
+        const result = await generateReceiptAction(input(), requestKey);
         if (!result.ok) {
           setMessage({ kind: "error", text: result.error });
           return resolve(null);
         }
-        setSavedId(result.id);
         setMessage({
           kind: "ok",
           text: mode === "share" ? "Receipt saved to the history below." : "Receipt downloaded and saved to the history below.",
@@ -111,10 +117,14 @@ export default function ReceiptForm({
     if (!window.confirm(`Email this receipt to ${emailTo.trim() || "the address entered"}? A copy also goes to ${recordsEmail}.`)) return;
     startTransition(async () => {
       setMessage(null);
-      const result = await emailReceiptAction(input(), savedId);
+      const result = await emailReceiptAction(input(), requestKey);
       if (!result.ok) return setMessage({ kind: "error", text: result.error });
-      setSavedId(result.id);
-      setMessage({ kind: "ok", text: `Emailed to ${result.sentTo}. A copy went to ${recordsEmail} and it's saved to the history below.` });
+      setMessage({
+        kind: "ok",
+        text: result.alreadySent
+          ? `This receipt was already emailed to ${result.sentTo}, so it wasn't sent again. To send another copy, use Resend in the history below.`
+          : `Emailed to ${result.sentTo}. A copy went to ${recordsEmail} and it's saved to the history below.`,
+      });
     });
   };
 
@@ -207,7 +217,18 @@ export default function ReceiptForm({
 
       <div className="form-field">
         <label htmlFor="receipt-email">Email receipt to (only needed to send it)</label>
-        <input id="receipt-email" type="email" inputMode="email" autoComplete="off" maxLength={200} value={emailTo} onChange={(e) => edited(() => setEmailTo(e.target.value))} />
+        <input
+          id="receipt-email"
+          type="email"
+          inputMode="email"
+          autoComplete="off"
+          maxLength={MAX_EMAIL_LENGTH}
+          value={emailTo}
+          onChange={(e) => {
+            setEmailTo(e.target.value);
+            setMessage(null);
+          }}
+        />
         <p className="form-note">Emailed receipts are BCC&apos;d to {recordsEmail}. Every receipt you download or email is also saved in the history below.</p>
       </div>
 
@@ -218,13 +239,15 @@ export default function ReceiptForm({
         </button>
       </div>
 
-      <p
-        role="status"
-        aria-live="polite"
-        style={{ marginTop: 12, fontSize: 14, fontWeight: 600, color: message?.kind === "error" ? "var(--carnival-red)" : "var(--teal)" }}
-      >
-        {message?.text}
+      {/* Two regions so each is announced the right way: an error interrupts, a confirmation waits its turn. */}
+      <p role="status" aria-live="polite" style={{ marginTop: 12, fontSize: 14, fontWeight: 600, color: "var(--teal)" }}>
+        {message?.kind === "ok" ? message.text : ""}
       </p>
+      {message?.kind === "error" && (
+        <p role="alert" style={{ marginTop: 0, fontSize: 14, fontWeight: 600, color: "var(--carnival-red)" }}>
+          {message.text}
+        </p>
+      )}
     </div>
   );
 }
