@@ -22,7 +22,7 @@ import {
 } from "@/lib/uploadValidation";
 
 const FLYER: UploadRules = { label: "Flyer", allowed: FLYER_MEDIA_TYPES };
-const COVER: UploadRules = { label: "Cover image", allowed: IMAGE_MEDIA_TYPES, maxStoredSide: 3000 };
+const COVER: UploadRules = { label: "Cover image", allowed: IMAGE_MEDIA_TYPES, maxStoredSide: 3000, requireMetadataRemoval: true };
 
 const bytes = (value: string) => Uint8Array.from(Buffer.from(value, "latin1"));
 const join = (...parts: Uint8Array[]) => Uint8Array.from(Buffer.concat(parts));
@@ -290,9 +290,11 @@ describe("prepareUploadBytes: what is kept", () => {
     const viaSharp = await prepareUploadBytes(webp, "image/webp", COVER, sharp);
     assert.equal(viaSharp.metadataRemoved, true);
     assert.equal((await sharp(viaSharp.bytes).metadata()).exif, undefined);
-    const fallback = await prepareUploadBytes(webp, "image/webp", COVER, null);
+    const fallback = await prepareUploadBytes(webp, "image/webp", FLYER, null);
     assert.equal(fallback.metadataRemoved, false);
     assert.deepEqual(fallback.bytes, webp);
+    // A cover photo is refused instead of being stored with its metadata.
+    assert.match(await rejection(prepareUploadBytes(webp, "image/webp", COVER, null)), /can't be processed right now/);
   });
 
   it("animations keep every frame", async () => {

@@ -35,14 +35,19 @@ export default function NewAlbumPage() {
             <input id="coverImage" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
             <p className="form-note">
               Upload a photo from your device (JPEG, PNG, WEBP, or GIF, up to 8MB) — download it from our
-              photo library first, don&apos;t paste a link. Leave blank to use the pack emblem.
+              photo library first, don&apos;t paste a link. Leave blank to use the pack emblem. The
+              photo&apos;s hidden details (like the location it was taken) are removed when it&apos;s saved.
             </p>
           </div>
           <div className="form-field">
             <label htmlFor="photoAlbumUrl">Photo Album Link</label>
             <input id="photoAlbumUrl" name="photoAlbumUrl" type="url" placeholder="https://photos.pack376nyc.org/s/…" required />
           </div>
-          {state?.error && <p className="form-error">{state.error}</p>}
+          {state?.error && (
+            <p className="form-error" role="alert">
+              {state.error}
+            </p>
+          )}
           <button type="submit" className="btn btn-primary" disabled={pending}>
             {pending ? "Saving…" : "Add Album"}
           </button>

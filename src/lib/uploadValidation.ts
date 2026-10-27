@@ -20,7 +20,8 @@ import { crc32 } from "node:zlib";
  * If sharp can't be loaded, JPEG and PNG metadata is still removed by
  * rewriting the file's segments without the metadata ones (see
  * stripJpegMetadata/stripPngMetadata); WEBP and GIF are then stored as they
- * came. PDFs never go through image processing: they're checked for a real
+ * came, or refused where the rules say metadata must go (album covers). PDFs
+ * never go through image processing: they're checked for a real
  * PDF signature and for scripts, attachments and launch actions, and are
  * stored as uploaded.
  */
@@ -81,6 +82,11 @@ export type UploadRules = {
   maxBytes?: number;
   /** Scale stored images down (never up) so neither side is longer than this. */
   maxStoredSide?: number;
+  /**
+   * Refuse an image whose metadata can't be removed (a WEBP or GIF when sharp
+   * isn't available) rather than store it with its EXIF. For photos of people.
+   */
+  requireMetadataRemoval?: boolean;
 };
 
 export type PreparedUpload = {
@@ -692,6 +698,11 @@ export async function prepareUploadBytes(
     throw new UploadRejectedError(unreadable(rules.label));
   }
   if (!stripped) {
+    if (rules.requireMetadataRemoval) {
+      throw new UploadRejectedError(
+        `${TYPE_NAMES[actual]} photos can't be processed right now. Save the photo as a JPEG or PNG and try again.`,
+      );
+    }
     console.warn(`[upload] ${TYPE_NAMES[actual]} stored without removing its metadata: the image library isn't available`);
   }
   return {

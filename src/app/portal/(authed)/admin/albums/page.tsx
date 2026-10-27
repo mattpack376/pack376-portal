@@ -62,6 +62,10 @@ export default async function AdminAlbumsPage() {
           <div className="eyebrow">Admin</div>
           <h2>Photo Albums</h2>
           <p>Link out to a photo album for each event — leaders keep the photos there, this just curates the list.</p>
+          <p className="form-note">
+            Hide takes an album off the public gallery, but its cover photo can still be opened by anyone who
+            already has the photo&apos;s direct link. To take a photo down for good, delete the album (Admin only).
+          </p>
         </div>
         <Link className="btn btn-primary" href="/portal/admin/albums/new">+ New Album</Link>
       </div>
