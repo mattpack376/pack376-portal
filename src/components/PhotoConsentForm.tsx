@@ -163,6 +163,54 @@ export default function PhotoConsentForm({
     );
   }
 
+  return (
+    <PhotoConsentFields
+      state={state}
+      formAction={formAction}
+      pending={pending}
+      token={token}
+      scoutFirstName={scoutFirstName}
+      onFile={{ facebook, website, fliers, signedByName, signedRelationship }}
+      dateValue={dateValue}
+      onDateChange={setDateValue}
+      errorRef={errorRef}
+    />
+  );
+}
+
+/**
+ * The form itself for a given action state — split out of PhotoConsentForm
+ * so its markup (which field is marked invalid, what's kept after an error)
+ * can be checked without a browser.
+ */
+export function PhotoConsentFields({
+  state,
+  formAction,
+  pending,
+  token,
+  scoutFirstName,
+  onFile,
+  dateValue,
+  onDateChange,
+  errorRef,
+}: {
+  state: SubmitConsentState;
+  formAction: (formData: FormData) => void;
+  pending: boolean;
+  token: string;
+  scoutFirstName: string;
+  /** The answers and signer already on file, shown until the parent submits. */
+  onFile: {
+    facebook: ConsentStatus;
+    website: ConsentStatus;
+    fliers: ConsentStatus;
+    signedByName: string | null;
+    signedRelationship: SignerRelationship | null;
+  };
+  dateValue: string;
+  onDateChange: (value: string) => void;
+  errorRef?: React.Ref<HTMLDivElement>;
+}) {
   // What the parent entered, when the server sent it back with an error;
   // otherwise what's on file. React resets the form after every submit, so
   // the fields are remounted (keyed on these values) with them as defaults —
@@ -170,7 +218,6 @@ export default function PhotoConsentForm({
   const values = state.values;
   const formKey = values ? JSON.stringify(values) : "on-file";
   const invalid = (field: ConsentField) => !!state.error && state.field === field;
-  const answerOnFile = { facebook, website, fliers };
 
   return (
     <>
@@ -193,7 +240,7 @@ export default function PhotoConsentForm({
             name={venue.key}
             label={venue.label}
             note={venue.note}
-            defaultValue={values ? values[venue.key] : answerOnFile[venue.key]}
+            defaultValue={values ? values[venue.key] : onFile[venue.key]}
             invalid={invalid(venue.key)}
           />
         ))}
@@ -205,7 +252,7 @@ export default function PhotoConsentForm({
               id="signedByName"
               name="signedByName"
               type="text"
-              defaultValue={values ? values.signedByName : (signedByName ?? "")}
+              defaultValue={values ? values.signedByName : (onFile.signedByName ?? "")}
               placeholder="Parent / guardian name"
               autoComplete="name"
               maxLength={MAX_NAME_LENGTH}
@@ -217,7 +264,7 @@ export default function PhotoConsentForm({
               id="signedRelationship"
               name="signedRelationship"
               aria-label="Your relationship to the scout"
-              defaultValue={values ? values.signedRelationship : (signedRelationship ?? "")}
+              defaultValue={values ? values.signedRelationship : (onFile.signedRelationship ?? "")}
               required
               style={{ flex: 1, ...(invalid("signedRelationship") ? { borderColor: "var(--carnival-red)" } : {}) }}
               {...errorProps(invalid("signedRelationship"))}
@@ -241,7 +288,7 @@ export default function PhotoConsentForm({
             name="signedDate"
             type="date"
             value={dateValue}
-            onChange={(e) => setDateValue(e.target.value)}
+            onChange={(e) => onDateChange(e.target.value)}
             required
             style={invalid("signedDate") ? { borderColor: "var(--carnival-red)" } : undefined}
             {...errorProps(invalid("signedDate"))}

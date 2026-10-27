@@ -289,3 +289,71 @@ describe("public consent submission", () => {
     }
   });
 });
+
+describe("consent form markup after a refusal", () => {
+  async function render(state: import("@/lib/actions/photoConsent").SubmitConsentState) {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { PhotoConsentFields } = await import("@/components/PhotoConsentForm");
+    return renderToStaticMarkup(
+      createElement(PhotoConsentFields, {
+        state,
+        formAction: () => {},
+        pending: false,
+        token: "t".repeat(43),
+        scoutFirstName: "Al",
+        onFile: { facebook: "PENDING", website: "PENDING", fliers: "PENDING", signedByName: "On File", signedRelationship: null },
+        dateValue: "2026-10-20",
+        onDateChange: () => {},
+      })
+    );
+  }
+  const tag = (html: string, pattern: RegExp) => html.match(pattern)?.[0] ?? "";
+
+  it("marks the refused field, ties it to the alert, and keeps what was entered", async () => {
+    const html = await render({
+      error: "Your name can be at most 120 characters.",
+      field: "signedByName",
+      values: {
+        facebook: "CONSENT",
+        website: "DECLINE",
+        fliers: "",
+        signedByName: `Pat "<Parent>"`,
+        signedRelationship: "GUARDIAN",
+        signedDate: "2026-10-20",
+      },
+    });
+    assert.match(html, /<div id="photo-consent-error" class="form-error" role="alert" tabindex="-1">Your name can be at most 120 characters\.<\/div>/);
+
+    const name = tag(html, /<input id="signedByName"[^>]*>/);
+    assert.match(name, /aria-invalid="true"/);
+    assert.match(name, /aria-describedby="photo-consent-error"/);
+    assert.match(name, /value="Pat &quot;&lt;Parent&gt;&quot;"/, "the typed name is kept (as text)");
+    assert.match(name, /maxLength="120"/i);
+    assert.doesNotMatch(tag(html, /<input id="signedDate"[^>]*>/), /aria-invalid/);
+    assert.doesNotMatch(tag(html, /<select id="signedRelationship"[^>]*>/), /aria-invalid/);
+
+    assert.match(tag(html, /<input id="facebook-consent"[^>]*>/), /checked=""/);
+    assert.match(tag(html, /<input[^>]*name="website"[^>]*value="DECLINE"[^>]*>/), /checked=""/);
+    assert.doesNotMatch(tag(html, /<input id="fliers-consent"[^>]*>/), /checked/);
+    const fliersDecline = tag(html, /<input[^>]*name="fliers"[^>]*value="DECLINE"[^>]*>/);
+    assert.ok(fliersDecline, "the Decline radio rendered");
+    assert.doesNotMatch(fliersDecline, /checked/);
+    assert.match(html, /<option value="GUARDIAN" selected="">/);
+  });
+
+  it("marks a whole choice group when that's what was missing", async () => {
+    const html = await render({ error: "Choose consent or decline for all three.", field: "website", values: undefined });
+    assert.match(
+      tag(html, /<div class="form-field" role="radiogroup" aria-labelledby="website-label"[^>]*>/),
+      /aria-invalid="true" aria-describedby="photo-consent-error"/
+    );
+    assert.doesNotMatch(tag(html, /<div class="form-field" role="radiogroup" aria-labelledby="facebook-label"[^>]*>/), /aria-invalid/);
+    assert.match(tag(html, /<input id="signedByName"[^>]*>/), /value="On File"/, "with nothing echoed, what's on file stays");
+  });
+
+  it("shows no alert and marks nothing before a submit", async () => {
+    const html = await render({});
+    assert.doesNotMatch(html, /role="alert"|aria-invalid/);
+  });
+});
