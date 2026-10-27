@@ -7,7 +7,7 @@ import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import { uploadFlyer } from "@/lib/flyerUpload";
 import { dollarsToCents } from "@/lib/formValues";
-import { todayDateOnlyString } from "@/lib/dateOnly";
+import { parseDateOnlyString, todayDateOnly } from "@/lib/dateOnly";
 import { revalidateTripAdminPages, revalidateTripPages } from "@/lib/tripRevalidate";
 import { currentTripPriceCents } from "@/lib/tripPageData";
 import { tripSiteBySlug } from "@/lib/tripSites";
@@ -33,10 +33,9 @@ export async function updateTripDetailsAction(formData: FormData) {
   const detailsHtml = String(formData.get("detailsHtml") || "").trim();
   if (!id || !title) throw new Error("Title is required.");
 
-  const startDate = startDateRaw ? new Date(`${startDateRaw}T00:00:00Z`) : null;
-  const endDate = endDateRaw ? new Date(`${endDateRaw}T00:00:00Z`) : null;
-  if (startDate && Number.isNaN(startDate.getTime())) throw new Error("Invalid start date.");
-  if (endDate && Number.isNaN(endDate.getTime())) throw new Error("Invalid end date.");
+  const startDate = parseDateOnlyString(startDateRaw, "Invalid start date.");
+  const endDate = parseDateOnlyString(endDateRaw, "Invalid end date.");
+  if (startDate && endDate && endDate < startDate) throw new Error("The end date can't be before the start date.");
 
   let flyerUrl: string | null | undefined;
   const flyer = formData.get("flyer");
@@ -136,8 +135,8 @@ export async function updateTripPricingAction(formData: FormData) {
   const earlyBirdPriceCents = earlyBirdPriceRaw.trim() ? dollarsToCents(earlyBirdPriceRaw) : null;
   if (earlyBirdPriceRaw.trim() && earlyBirdPriceCents === null) throw new Error("Invalid early-bird price.");
 
-  const earlyBirdDeadline = earlyBirdDeadlineRaw ? new Date(`${earlyBirdDeadlineRaw}T00:00:00Z`) : null;
-  const rsvpDeadline = rsvpDeadlineRaw ? new Date(`${rsvpDeadlineRaw}T00:00:00Z`) : null;
+  const earlyBirdDeadline = parseDateOnlyString(earlyBirdDeadlineRaw, "Invalid early-bird deadline.");
+  const rsvpDeadline = parseDateOnlyString(rsvpDeadlineRaw, "Invalid RSVP deadline.");
 
   let freeAgeAndUnder: number | null = null;
   if (freeAgeRaw) {
@@ -542,8 +541,7 @@ export async function addTripExpenseAction(formData: FormData) {
   if (!tripPageId || !description) throw new Error("Describe what the expense was for.");
   if (amountCents === null || amountCents === 0) throw new Error("A valid expense amount is required.");
 
-  const spentOn = new Date(spentOnRaw || todayDateOnlyString());
-  if (Number.isNaN(spentOn.getTime())) throw new Error("Invalid expense date.");
+  const spentOn = parseDateOnlyString(spentOnRaw, "Invalid expense date.") ?? todayDateOnly();
 
   const expense = await prisma.tripExpense.create({
     data: { tripPageId, description, amountCents, isCredit, spentOn, paidBy, recordedByUserId: session.userId },
@@ -583,8 +581,7 @@ export async function updateTripExpenseAction(formData: FormData) {
   if (amountCents === null || amountCents === 0) throw new Error("A valid expense amount is required.");
   if (!spentOnRaw) throw new Error("An expense date is required.");
 
-  const spentOn = new Date(spentOnRaw);
-  if (Number.isNaN(spentOn.getTime())) throw new Error("Invalid expense date.");
+  const spentOn = parseDateOnlyString(spentOnRaw, "Invalid expense date.") as Date;
 
   const before = await prisma.tripExpense.findUnique({
     where: { id },

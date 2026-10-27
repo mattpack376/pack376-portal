@@ -7,6 +7,7 @@ import { assertAdmin } from "@/lib/authorize";
 import { DEADLINE_CATEGORY_LABELS } from "@/lib/deadlineCategories";
 import { recordAudit, changedFields, auditDate } from "@/lib/audit";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
+import { parseDateOnlyString } from "@/lib/dateOnly";
 
 const PARENT_PORTAL_ADMIN_PATH = "/portal/admin/parent-portal";
 const PARENT_DASHBOARD_PATH = "/portal/parent";
@@ -115,8 +116,7 @@ export async function createDeadlineAction(formData: FormData) {
   const description = String(formData.get("description") || "").trim();
   if (!title || !dueDateStr) throw new Error("Title and due date are required.");
 
-  const dueDate = new Date(`${dueDateStr}T00:00:00Z`);
-  if (Number.isNaN(dueDate.getTime())) throw new Error("Invalid due date.");
+  const dueDate = parseDateOnlyString(dueDateStr, "Invalid due date.") as Date;
 
   const deadline = await prisma.deadline.create({
     data: { title, category, dueDate, description: description || null },
@@ -152,8 +152,7 @@ export async function updateDeadlineAction(formData: FormData) {
   if (!id) throw new Error("Missing deadline id.");
   if (!title || !dueDateStr) throw new Error("Title and due date are required.");
 
-  const dueDate = new Date(`${dueDateStr}T00:00:00Z`);
-  if (Number.isNaN(dueDate.getTime())) throw new Error("Invalid due date.");
+  const dueDate = parseDateOnlyString(dueDateStr, "Invalid due date.") as Date;
 
   const before = await prisma.deadline.findUnique({
     where: { id },

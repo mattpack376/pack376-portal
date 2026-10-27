@@ -10,6 +10,7 @@ import { sendPhotoConsentLinkEmail, sendPhotoConsentLinkEmails } from "@/lib/ema
 import { consentGroup } from "@/lib/photoConsentGroups";
 import { recordAudit } from "@/lib/audit";
 import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
+import { isDateOnlyString } from "@/lib/dateOnly";
 
 const RELATIONSHIPS: SignerRelationship[] = ["PARENT", "GUARDIAN", "GRANDPARENT", "AUNT_UNCLE", "ADULT_SIBLING"];
 
@@ -49,13 +50,10 @@ export async function submitPhotoConsentAction(
   if (!token) return { error: "Missing or invalid link." };
   if (!signedByName) return { error: "Enter your name." };
   if (!RELATIONSHIPS.includes(signedRelationship)) return { error: "Choose your relationship to the scout." };
-  // Date() normalizes overflowing calendar dates instead of rejecting them —
-  // e.g. "2026-02-31" silently becomes March 3rd — so a signer could end up
-  // with a stored date that doesn't match what they typed. Round-tripping
-  // back through toISOString() catches anything that got normalized.
-  const signedDateCandidate = /^\d{4}-\d{2}-\d{2}$/.test(signedDateRaw) ? new Date(`${signedDateRaw}T00:00:00Z`) : null;
-  const signedDate =
-    signedDateCandidate && signedDateCandidate.toISOString().slice(0, 10) === signedDateRaw ? signedDateCandidate : null;
+  // isDateOnlyString rejects dates Date() would quietly roll over (Feb 31 →
+  // Mar 3) and ones it can't parse at all (month 13), so a malformed value is
+  // a readable error rather than a wrong stored date or a RangeError.
+  const signedDate = isDateOnlyString(signedDateRaw) ? new Date(`${signedDateRaw}T00:00:00.000Z`) : null;
   if (!signedDate) return { error: "Enter a valid date." };
   const valid = (v: string): v is "CONSENT" | "DECLINE" => v === "CONSENT" || v === "DECLINE";
   if (!valid(facebook) || !valid(website) || !valid(fliers)) {

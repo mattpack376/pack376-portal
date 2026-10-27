@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { dollarsToCents } from "@/lib/formValues";
-import { todayDateOnlyString } from "@/lib/dateOnly";
+import { parseDateOnlyString, todayDateOnly } from "@/lib/dateOnly";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 
 /** "Tommy Smith" for audit summaries, or the raw id if the scout is already gone. */
@@ -103,8 +103,7 @@ export async function addDuesPaymentAction(formData: FormData) {
     throw new Error("A valid payment amount is required.");
   }
 
-  const paidOn = new Date(paidOnRaw || todayDateOnlyString());
-  if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
+  const paidOn = parseDateOnlyString(paidOnRaw, "Invalid payment date.") ?? todayDateOnly();
 
   const payment = await prisma.duesPayment.create({
     data: { scoutId, amountCents, paidOn, note, recordedByUserId: session.userId },

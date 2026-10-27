@@ -10,7 +10,7 @@ import { tripSiteBySlug } from "@/lib/tripSites";
 import { revalidateTripAdminPages, revalidateTripPages } from "@/lib/tripRevalidate";
 import { formatPhoneNumber } from "@/lib/phone";
 import { dollarsToCents, parseCount } from "@/lib/formValues";
-import { todayDateOnlyString } from "@/lib/dateOnly";
+import { parseDateOnlyString, todayDateOnly } from "@/lib/dateOnly";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import type { TripAffiliation } from "@/generated/prisma/enums";
 
@@ -368,8 +368,7 @@ export async function addTripPaymentAction(formData: FormData) {
     throw new Error("A valid payment amount is required.");
   }
 
-  const paidOn = new Date(paidOnRaw || todayDateOnlyString());
-  if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
+  const paidOn = parseDateOnlyString(paidOnRaw, "Invalid payment date.") ?? todayDateOnly();
 
   const payment = await prisma.tripPayment.create({
     data: { tripRegistrationId, amountCents, paidOn, note, recordedByUserId: session.userId },

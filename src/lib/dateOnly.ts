@@ -17,17 +17,62 @@ export function toDateOnlyString(date: Date | null | undefined): string | null {
 }
 
 /**
- * YYYY-MM-DD (as typed into a date input) back to the UTC-midnight Date the
- * column stores. Blank means "not set"; anything else malformed throws, so a
- * junk value fails the save instead of silently clearing the field.
+ * Years a date field may hold. Wide enough for any real record (old
+ * registrations, imported raffles, trips a year or two out), narrow enough to
+ * catch a mistyped year.
  */
-export function parseDateOnlyString(raw: string | null | undefined): Date | null {
+const MIN_YEAR = 1900;
+const MAX_YEAR = 2200;
+
+/** Thrown by parseDateOnlyString for a value that isn't a real calendar date. */
+export class InvalidDateError extends Error {
+  constructor(message = "Invalid date.") {
+    super(message);
+    this.name = "InvalidDateError";
+  }
+}
+
+/**
+ * True for a real calendar date written as YYYY-MM-DD. Date() quietly rolls
+ * an impossible date forward ("2026-02-31" becomes March 3), so the parsed
+ * value has to print back as exactly what was typed — that rejects February
+ * 30/31, April 31, February 29 outside leap years, month 00/13 and day 00/32.
+ */
+export function isDateOnlyString(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const year = Number(value.slice(0, 4));
+  if (year < MIN_YEAR || year > MAX_YEAR) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+/**
+ * YYYY-MM-DD (as typed into a date input) back to the UTC-midnight Date the
+ * column stores. Blank means "not set"; anything else that isn't a real
+ * calendar date throws InvalidDateError (with `message`, so each form can
+ * name its field), so a junk value fails the save instead of silently
+ * clearing or shifting the field.
+ */
+export function parseDateOnlyString(raw: string | null | undefined, message = "Invalid date."): Date | null {
   const trimmed = (raw ?? "").trim();
   if (!trimmed) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) throw new Error("Invalid date.");
-  const parsed = new Date(`${trimmed}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) throw new Error("Invalid date.");
-  return parsed;
+  if (!isDateOnlyString(trimmed)) throw new InvalidDateError(message);
+  return new Date(`${trimmed}T00:00:00.000Z`);
+}
+
+/**
+ * parseDateOnlyString for a form field whose caller reports problems by
+ * returning a message instead of throwing: `{ date }` (null when blank) or
+ * `{ error }` naming the field.
+ */
+export function readDateOnlyField(
+  raw: FormDataEntryValue | null | undefined,
+  label: string,
+): { date: Date | null; error?: undefined } | { date?: undefined; error: string } {
+  const trimmed = typeof raw === "string" ? raw.trim() : "";
+  if (!trimmed) return { date: null };
+  if (!isDateOnlyString(trimmed)) return { error: `${label} isn't a real date.` };
+  return { date: new Date(`${trimmed}T00:00:00.000Z`) };
 }
 
 /** "2026-08-12" -> "Aug 12, 2026". */

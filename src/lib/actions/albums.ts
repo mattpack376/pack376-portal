@@ -8,6 +8,7 @@ import { getSession } from "@/lib/auth";
 import { assertAdmin, assertAlbumEditAccess } from "@/lib/authorize";
 import { recordAudit, changedFields, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
+import { isDateOnlyString } from "@/lib/dateOnly";
 
 export type AlbumActionState = { error?: string };
 
@@ -80,8 +81,8 @@ export async function createAlbumAction(
   if (!title || !eventDateRaw || !photoAlbumUrl) {
     return { error: "Title, event date, and photo album link are required." };
   }
-  const eventDate = new Date(eventDateRaw);
-  if (Number.isNaN(eventDate.getTime())) {
+  const eventDate = isDateOnlyString(eventDateRaw) ? new Date(`${eventDateRaw}T00:00:00.000Z`) : null;
+  if (!eventDate) {
     return { error: "Enter a valid event date." };
   }
   if (!isSafeHttpUrl(photoAlbumUrl)) {
@@ -142,8 +143,8 @@ export async function updateAlbumAction(
   if (!title || !eventDateRaw || !photoAlbumUrl) {
     return { error: "Title, event date, and photo album link are required." };
   }
-  const eventDate = new Date(eventDateRaw);
-  if (Number.isNaN(eventDate.getTime())) {
+  const eventDate = isDateOnlyString(eventDateRaw) ? new Date(`${eventDateRaw}T00:00:00.000Z`) : null;
+  if (!eventDate) {
     return { error: "Enter a valid event date." };
   }
   if (!isSafeHttpUrl(photoAlbumUrl)) {

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { recordAudit, changedFields } from "@/lib/audit";
+import { parseDateOnlyString } from "@/lib/dateOnly";
 
 const HOMEPAGE_EVENTS_ADMIN_PATH = "/portal/admin/homepage-events";
 const HOME_PATH = "/";
@@ -22,8 +23,7 @@ export async function createHomepageEventAction(formData: FormData) {
     throw new Error("Date label, title, and sort date are required.");
   }
 
-  const sortDate = new Date(`${sortDateRaw}T00:00:00Z`);
-  if (Number.isNaN(sortDate.getTime())) throw new Error("Invalid sort date.");
+  const sortDate = parseDateOnlyString(sortDateRaw, "Invalid sort date.") as Date;
 
   const event = await prisma.homepageEvent.create({
     data: { dateLabel, title, description: description || null, sortDate },
@@ -59,8 +59,7 @@ export async function updateHomepageEventAction(formData: FormData) {
     throw new Error("Date label, title, and sort date are required.");
   }
 
-  const sortDate = new Date(`${sortDateRaw}T00:00:00Z`);
-  if (Number.isNaN(sortDate.getTime())) throw new Error("Invalid sort date.");
+  const sortDate = parseDateOnlyString(sortDateRaw, "Invalid sort date.") as Date;
 
   const before = await prisma.homepageEvent.findUnique({
     where: { id },

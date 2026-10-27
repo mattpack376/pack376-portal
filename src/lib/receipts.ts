@@ -5,6 +5,7 @@
  * receive whatever a caller sends.
  */
 import { dollarsToCents } from "@/lib/formValues";
+import { isDateOnlyString } from "@/lib/dateOnly";
 
 /**
  * What the IRS letter (Banking/IRS Determination Letter 501c(3).pdf) lists for
@@ -148,7 +149,7 @@ export function validateReceiptInput(input: ReceiptInput, opts: { requireEmail: 
   if (amountCents > MAX_AMOUNT_CENTS) return { ok: false, error: "That amount is too large for a receipt." };
 
   const date = clean(input.date, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00.000Z`).getTime())) {
+  if (!isDateOnlyString(date)) {
     return { ok: false, error: "Enter a valid date." };
   }
 

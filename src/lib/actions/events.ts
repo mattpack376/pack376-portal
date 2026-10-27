@@ -11,7 +11,7 @@ import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
 import { uploadFlyer } from "@/lib/flyerUpload";
 import { dollarsToCents, parseCount } from "@/lib/formValues";
-import { todayDateOnlyString } from "@/lib/dateOnly";
+import { parseDateOnlyString, todayDateOnly } from "@/lib/dateOnly";
 import { upcomingVisibleEventWhere } from "@/lib/eventsData";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 
@@ -55,8 +55,7 @@ export async function createEventAction(formData: FormData) {
   const guestChildFeeRaw = String(formData.get("guestChildFee") || "");
   if (!title || !eventDateRaw) throw new Error("Title and event date are required.");
 
-  const eventDate = new Date(`${eventDateRaw}T00:00:00Z`);
-  if (Number.isNaN(eventDate.getTime())) throw new Error("Invalid event date.");
+  const eventDate = parseDateOnlyString(eventDateRaw, "Invalid event date.") as Date;
 
   const feeCents = feeRaw.trim() ? dollarsToCents(feeRaw) : null;
   if (feeRaw.trim() && feeCents === null) throw new Error("Invalid fee amount.");
@@ -116,8 +115,7 @@ export async function updateEventAction(formData: FormData) {
   const guestChildFeeRaw = String(formData.get("guestChildFee") || "");
   if (!id || !title || !eventDateRaw) throw new Error("Title and event date are required.");
 
-  const eventDate = new Date(`${eventDateRaw}T00:00:00Z`);
-  if (Number.isNaN(eventDate.getTime())) throw new Error("Invalid event date.");
+  const eventDate = parseDateOnlyString(eventDateRaw, "Invalid event date.") as Date;
 
   const feeCents = feeRaw.trim() ? dollarsToCents(feeRaw) : null;
   if (feeRaw.trim() && feeCents === null) throw new Error("Invalid fee amount.");
@@ -446,8 +444,7 @@ export async function addEventPaymentAction(formData: FormData) {
   if (!registration) throw new Error("Registration not found.");
   assertAdmin(session);
 
-  const paidOn = new Date(paidOnRaw || todayDateOnlyString());
-  if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
+  const paidOn = parseDateOnlyString(paidOnRaw, "Invalid payment date.") ?? todayDateOnly();
 
   const payment = await prisma.eventPayment.create({
     data: { eventRegistrationId: registrationId, amountCents, paidOn, note, recordedByUserId: session.userId },
@@ -874,8 +871,7 @@ export async function addGuestGroupPaymentAction(formData: FormData) {
   if (!guestGroup) throw new Error("Guest group not found.");
   assertAdmin(session);
 
-  const paidOn = new Date(paidOnRaw || todayDateOnlyString());
-  if (Number.isNaN(paidOn.getTime())) throw new Error("Invalid payment date.");
+  const paidOn = parseDateOnlyString(paidOnRaw, "Invalid payment date.") ?? todayDateOnly();
 
   const payment = await prisma.eventGuestGroupPayment.create({
     data: { eventGuestGroupId: guestGroupId, amountCents, paidOn, note, recordedByUserId: session.userId },

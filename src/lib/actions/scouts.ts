@@ -7,6 +7,7 @@ import { assertAdmin } from "@/lib/authorize";
 import { deleteScoutCascade } from "@/lib/scoutDeletion";
 import { denDisplayName } from "@/lib/rankConfig";
 import { recordAudit, changedFields } from "@/lib/audit";
+import { parseDateOnlyString } from "@/lib/dateOnly";
 
 /**
  * Full scout edit from the admin Users → Scouts screen — name, den, and the
@@ -29,9 +30,7 @@ export async function updateScoutAction(formData: FormData) {
     throw new Error("First name, last name, and den are required.");
   }
 
-  const registrationExpiresOn = registrationExpiresOnRaw
-    ? new Date(`${registrationExpiresOnRaw}T00:00:00.000Z`)
-    : null;
+  const registrationExpiresOn = parseDateOnlyString(registrationExpiresOnRaw, "Invalid registration expiration date.");
 
   const previous = await prisma.scout.findUnique({
     where: { id: scoutId },
