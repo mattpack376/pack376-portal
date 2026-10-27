@@ -265,10 +265,10 @@ recovery path) and on GitHub, Vercel, the database provider and Resend.
 password if the last sign-in was more than ~10 minutes ago before: creating,
 promoting or demoting an Admin; resetting someone else's password; deleting a
 user; Start a Fresh Year; deleting anything with money attached (payments,
-events or trip registrations with payments, scouts with dues, raffles,
-receipts); whole-pack contact exports. Build it as one server-side check every
-such Server Action calls (a short-lived "confirmed at" stamp in the session),
-not as a dialog alone.
+events or trip registrations with payments, scouts with dues or event
+payments, raffles, receipts); whole-pack contact exports. Build it as one
+server-side check every such Server Action calls (a short-lived "confirmed at"
+stamp in the session), not as a dialog alone.
 
 **Phase 2 — second factor for Admin, Junior Admin and the master account.**
 Prefer passkeys (they can't be phished); offer an authenticator app (TOTP) as
@@ -341,11 +341,23 @@ automatically while trips and events don't.
 Today, deleting one of these also deletes its payment history (the audit log
 keeps a one-line summary, not the payments):
 
-- a scout → their dues payments
+- **Start a Fresh Year** (master only) → every scout in that season, each
+  with everything in the next item. One action removes a whole season's dues
+  and event payment history. Its audit entry mentions advancement,
+  attendance, dues and parent contacts, but not the event registrations and
+  payments that go with them.
+- a scout (den roster **Remove**, or Users → Scouts **Delete**) → their dues
+  payments, their event registrations and those registrations' payments, plus
+  advancement, attendance, photo consent and parent contacts. Guest groups
+  attending with that scout are kept, unlinked from the scout.
 - an event → its registrations, guest groups and all their payments
+- a guest group → its payments
 - a trip registration → its payments
 - a raffle → its buyers, boxes and payments (raffle payments are otherwise
   voided, never deleted)
+
+Single payments can also be deleted outright (dues, event, guest-group and
+trip payments; trip expenses), with an audit entry but no void-and-keep step.
 
 Saved receipts are not linked to payments and are kept. Nothing about this was
 changed in this round. Questions for the pack's leadership and treasurer:
@@ -358,6 +370,12 @@ changed in this round. Questions for the pack's leadership and treasurer:
    password (section 4, Phase 1)?
 4. How long must payment history be kept (council or treasurer rules are often
    several years)?
+5. Start a Fresh Year: should it keep the season's payment history — archive
+   the scouts instead of deleting them, or at least offer a dues and
+   event-payment ledger to download first — rather than erase it with the
+   roster? There is no dues or scout event-payment download today, so until
+   this is decided, have the database backed up (section 2.4) and save or
+   print the Dues and Events pages before using it.
 
 A likely answer: archive instead of delete for anything with payments, and
 change the payment tables' links to "restrict" so a delete with payments
