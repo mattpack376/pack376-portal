@@ -1,7 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { registerForTripAction } from "@/lib/actions/tripRegistration";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
+import {
+  registerForTripAction,
+  type RegisterForTripState,
+  type TripRegistrationField,
+} from "@/lib/actions/tripRegistration";
+import { MAX_EMAIL_LENGTH, MAX_NAME_LENGTH, MAX_PHONE_LENGTH } from "@/lib/formValues";
 
 /**
  * Public registration form for a TripPage — no account required. Selecting
@@ -36,6 +41,9 @@ export default function TripRegistrationForm({
 }) {
   const [state, formAction, isPending] = useActionState(registerForTripAction, {});
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const errorId = useId();
+  const dialogTitleId = useId();
 
   /*
    * Opening the <dialog> is the one thing here that belongs in an effect:
@@ -47,6 +55,16 @@ export default function TripRegistrationForm({
     if (state.success && state.submissionId) dialogRef.current?.showModal();
   }, [state.success, state.submissionId]);
 
+  /*
+   * Same reasoning for a refusal: focus moves to the message, so a keyboard
+   * or screen-reader user hears what went wrong instead of being left on a
+   * Register button that seems to have done nothing. Every result is a new
+   * state object, so the same message twice in a row is focused both times.
+   */
+  useEffect(() => {
+    if (state.error) errorRef.current?.focus();
+  }, [state]);
+
   return (
     <>
       <form action={formAction}>
@@ -56,7 +74,11 @@ export default function TripRegistrationForm({
           <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
         </div>
 
-        {state.error && <div className="form-error">{state.error}</div>}
+        {state.error && (
+          <div ref={errorRef} id={errorId} className="form-error" role="alert" tabIndex={-1}>
+            {state.error}
+          </div>
+        )}
 
         {/*
          * Clearing the form after a successful submission is this key, not an
@@ -64,9 +86,10 @@ export default function TripRegistrationForm({
          * state, which is exactly what "empty form, ready for the next
          * family" means. A failed submission keeps the previous id, so an
          * error leaves the attendee counts the visitor entered in place for
-         * them to correct. (React resets a form's uncontrolled inputs itself
-         * on any submit through an action, which is why there's no reset()
-         * call to go with this.)
+         * them to correct — and the name, email and phone too, which are
+         * controlled for exactly that reason. (React resets a form's
+         * uncontrolled inputs itself on any submit through an action, which
+         * is why there's no reset() call to go with this.)
          */}
         <TripRegistrationFields
           key={state.submissionId ?? "first"}
@@ -76,12 +99,17 @@ export default function TripRegistrationForm({
           freeAgeAndUnder={freeAgeAndUnder}
           priceTbd={priceTbd}
           isPending={isPending}
+          errorField={state.error ? state.field : undefined}
+          errorId={errorId}
+          result={state}
         />
       </form>
 
-      <dialog ref={dialogRef} className="confirm-dialog">
-        <p style={{ fontSize: 32, margin: "0 0 8px" }}>🎉</p>
-        <h3>Registration Submitted!</h3>
+      <dialog ref={dialogRef} className="confirm-dialog" aria-labelledby={dialogTitleId}>
+        <p style={{ fontSize: 32, margin: "0 0 8px" }} aria-hidden="true">
+          🎉
+        </p>
+        <h3 id={dialogTitleId}>Registration Submitted!</h3>
         <p>Thanks — your family is registered for {registeredFor}.</p>
         {priceTbd ? (
           <p style={{ fontWeight: 700 }}>
@@ -105,7 +133,8 @@ export default function TripRegistrationForm({
 
 /**
  * The fields themselves, split out from the form so that remounting them
- * (see the key above) is what resets the three that are controlled — the
+ * (see the key above) is what resets the ones that are controlled — the
+ * name, email and phone (so a refused submission keeps them), the
  * affiliation driving the payment notice, and the two counts driving the
  * running total.
  */
@@ -116,6 +145,9 @@ function TripRegistrationFields({
   freeAgeAndUnder,
   priceTbd,
   isPending,
+  errorField,
+  errorId,
+  result,
 }: {
   currentPriceCents: number;
   packPaymentInstructions: string | null;
@@ -123,8 +155,19 @@ function TripRegistrationFields({
   freeAgeAndUnder: number | null;
   priceTbd: boolean;
   isPending: boolean;
+  /** The field the current error is about, if it's about one: marked invalid and pointed at the message. */
+  errorField: TripRegistrationField | undefined;
+  /** The error message's id, for aria-describedby. */
+  errorId: string;
+  /** The latest result from the action — a new object after every submit. */
+  result: RegisterForTripState;
 }) {
+  const [familyName, setFamilyName] = useState("");
+  const [guestOfName, setGuestOfName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [affiliation, setAffiliation] = useState("");
+  const affiliationRef = useRef<HTMLSelectElement>(null);
   // Kept as strings (not numbers) so the field can go genuinely empty while
   // typing on mobile — type="number" inputs don't support .select()/select-
   // on-focus in any major mobile browser, so overwriting a pre-filled "0"
@@ -135,33 +178,98 @@ function TripRegistrationFields({
 
   const totalCents = (Number(payingCount) || 0) * currentPriceCents;
   const notice = affiliation === "PACK" ? packPaymentInstructions : affiliation === "TROOP" ? troopPaymentInstructions : null;
+  /*
+   * React resets the form after every submit through an action. A controlled
+   * text input survives that (React mirrors its value into the attribute the
+   * reset restores), but a controlled <select> goes back to the option it
+   * started on while its state still says "Pack 376" — so after a refusal it
+   * showed "Select one…", and fixing the other field and resubmitting was
+   * refused again for the affiliation. The reset has happened by the time
+   * effects run, so this puts the select back to what the state says.
+   */
+  useEffect(() => {
+    if (affiliationRef.current && affiliationRef.current.value !== affiliation) {
+      affiliationRef.current.value = affiliation;
+    }
+  }, [result, affiliation]);
+
+  /** aria-invalid/aria-describedby for one field, set only while the error is about it. */
+  const errorProps = (field: TripRegistrationField) =>
+    errorField === field ? { "aria-invalid": true as const, "aria-describedby": errorId } : {};
 
   return (
     <>
       <div className="form-field">
         <label htmlFor="familyName">Family / Registrant Name</label>
-        <input id="familyName" name="familyName" required placeholder="e.g. The Smith Family" />
+        <input
+          id="familyName"
+          name="familyName"
+          required
+          maxLength={MAX_NAME_LENGTH}
+          placeholder="e.g. The Smith Family"
+          value={familyName}
+          onChange={(e) => setFamilyName(e.target.value)}
+          {...errorProps("familyName")}
+        />
       </div>
 
       <div className="form-field">
         <label htmlFor="guestOfName">Scout/Leader You Are a Guest Of</label>
-        <input id="guestOfName" name="guestOfName" required placeholder="e.g. Timmy Test (Wolf Den)" />
+        <input
+          id="guestOfName"
+          name="guestOfName"
+          required
+          maxLength={MAX_NAME_LENGTH}
+          placeholder="e.g. Timmy Test (Wolf Den)"
+          value={guestOfName}
+          onChange={(e) => setGuestOfName(e.target.value)}
+          {...errorProps("guestOfName")}
+        />
       </div>
 
       <div className="form-row">
         <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
           <label htmlFor="contactEmail">Email</label>
-          <input id="contactEmail" name="contactEmail" type="email" required />
+          <input
+            id="contactEmail"
+            name="contactEmail"
+            type="email"
+            required
+            maxLength={MAX_EMAIL_LENGTH}
+            autoComplete="email"
+            value={contactEmail}
+            onChange={(e) => setContactEmail(e.target.value)}
+            {...errorProps("contactEmail")}
+          />
         </div>
         <div className="form-field">
           <label htmlFor="contactPhone">Phone</label>
-          <input id="contactPhone" name="contactPhone" type="tel" required placeholder="(212)555-1234" />
+          <input
+            id="contactPhone"
+            name="contactPhone"
+            type="tel"
+            required
+            maxLength={MAX_PHONE_LENGTH}
+            autoComplete="tel"
+            placeholder="(212)555-1234"
+            value={contactPhone}
+            onChange={(e) => setContactPhone(e.target.value)}
+            {...errorProps("contactPhone")}
+          />
         </div>
       </div>
 
       <div className="form-field">
         <label htmlFor="affiliation">Affiliated With</label>
-        <select id="affiliation" name="affiliation" required value={affiliation} onChange={(e) => setAffiliation(e.target.value)}>
+        <select
+          ref={affiliationRef}
+          id="affiliation"
+          name="affiliation"
+          required
+          value={affiliation}
+          onChange={(e) => setAffiliation(e.target.value)}
+          {...errorProps("affiliation")}
+        >
           {/*
            * Disabled only once there's something to go back from. A disabled
            * placeholder can't be what a browser lands on when it resets a
@@ -196,6 +304,7 @@ function TripRegistrationFields({
             value={payingCount}
             onChange={(e) => setPayingCount(e.target.value.replace(/\D/g, ""))}
             onFocus={(e) => e.target.select()}
+            {...errorProps("payingCount")}
           />
         </div>
         {freeAgeAndUnder !== null ? (
@@ -211,6 +320,7 @@ function TripRegistrationFields({
               value={freeCount}
               onChange={(e) => setFreeCount(e.target.value.replace(/\D/g, ""))}
               onFocus={(e) => e.target.select()}
+              {...errorProps("freeCount")}
             />
           </div>
         ) : (

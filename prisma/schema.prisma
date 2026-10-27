@@ -775,6 +775,7 @@ model TripPage {
   timeLabel                String?
   flyerUrl                 String?
   detailsHtml              String?
+  // Both prices are CHECKed non-negative (20261027140000_trip_money_checks).
   regularPriceCents        Int                @default(0)
   // True while the price hasn't been released: the public page shows the
   // site's priceTbdMessage (tripSites.ts) instead of a price, and registrations
@@ -821,7 +822,10 @@ model TripRegistration {
   amountOwedCents Int
   // Registered while the trip's price was TBD, so amountOwedCents (0) is a
   // placeholder, not "owes nothing". Posting the price fills it in and clears
-  // this, as does an admin typing an amount.
+  // this, as does an admin typing an amount. CHECK constraints (migration
+  // 20261027140000_trip_money_checks, not expressible here) hold
+  // amountOwedCents at 0 while this is set, and keep amounts and headcounts
+  // non-negative.
   owedPending     Boolean         @default(false)
   createdAt       DateTime        @default(now())
   payments        TripPayment[]

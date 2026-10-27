@@ -2,6 +2,7 @@ import { formatCents } from "@/lib/duesData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import Linkify from "@/components/Linkify";
+import { FlyerLink } from "@/components/EventFlyer";
 import TripExpenseList, { tripExpenseGroupLabel } from "@/components/TripExpenseList";
 import TripAffiliationSummary from "@/components/TripAffiliationSummary";
 import { balanceClass } from "@/lib/paymentStatus";
@@ -191,9 +192,7 @@ export default function TripViewerView({
         {trip.detailsHtml && <p>{trip.detailsHtml}</p>}
         {trip.flyerUrl && (
           <p style={{ marginBottom: 0 }}>
-            <a href={trip.flyerUrl} target="_blank" rel="noopener noreferrer" className="link">
-              View flyer →
-            </a>
+            <FlyerLink flyerUrl={trip.flyerUrl} title={trip.title} text="View flyer" />
           </p>
         )}
       </div>

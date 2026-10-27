@@ -1,5 +1,8 @@
 import SaveButton from "@/components/SaveButton";
+import SubmitButton from "@/components/SubmitButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
+import { FlyerLink } from "@/components/EventFlyer";
+import TripAdminForm from "@/components/TripAdminForm";
 import {
   getOrCreateTripPage,
   getTripMeals,
@@ -32,6 +35,7 @@ import CopyAddressesButton from "@/components/CopyAddressesButton";
 import {
   updateTripDetailsAction,
   updateTripPricingAction,
+  settleWaitingTripRegistrationsAction,
   updateTripPaymentInstructionsAction,
   updateTripMealsAction,
   createDutySlotAction,
@@ -123,6 +127,10 @@ export default async function TripAdminView({
   const totalKids = registrations.reduce((sum, r) => sum + r.freeCount, 0);
   const paidRegistrations = registrations.filter(isPaidInFull);
   const awaitingPrice = registrations.filter((r) => r.owedPending).length;
+  // Registrations still waiting although the price is posted: left behind by
+  // a race before price posting and registration took the same lock. Listed
+  // with what each would be charged, for the admin to review and settle.
+  const stranded = trip.priceTbd ? [] : registrations.filter((r) => r.owedPending);
   const paidAdults = paidRegistrations.reduce((sum, r) => sum + r.payingCount, 0);
   const paidKids = paidRegistrations.reduce((sum, r) => sum + r.freeCount, 0);
 
@@ -168,6 +176,46 @@ export default async function TripAdminView({
           </form>
         )}
       </div>
+
+      {stranded.length > 0 && (
+        <div
+          className="info-card"
+          style={{ marginBottom: 24, maxWidth: CARD_WIDTH, borderLeft: "4px solid var(--carnival-red)" }}
+        >
+          <h3 style={{ marginTop: 0 }}>
+            {stranded.length === 1
+              ? "1 registration is still waiting for a price"
+              : `${stranded.length} registrations are still waiting for a price`}
+          </h3>
+          <p>
+            The price is posted, but {stranded.length === 1 ? "this one was" : "these were"} saved while it was TBD and
+            never charged, so {stranded.length === 1 ? "it shows" : "they show"} $0 owed. Charging sets each amount owed
+            to paying attendees × {formatCents(priceCents)}/person:
+          </p>
+          <ul style={{ marginTop: 0 }}>
+            {stranded.map((r) => (
+              <li key={r.id}>
+                {`${r.familyName} — ${r.payingCount} × ${formatCents(priceCents)} = ${formatCents(r.payingCount * priceCents)}`}
+              </li>
+            ))}
+          </ul>
+          <TripAdminForm action={settleWaitingTripRegistrationsAction}>
+            <input type="hidden" name="id" value={trip.id} />
+            <input type="hidden" name="pricePerPersonCents" value={priceCents} />
+            {/* What was listed, so a change since the page loaded is turned down rather than charged unseen. */}
+            {stranded.map((r) => (
+              <input key={r.id} type="hidden" name="waiting" value={`${r.id}:${r.payingCount}`} />
+            ))}
+            <ConfirmSubmitButton
+              className="btn btn-primary btn-small"
+              pendingLabel="Charging…"
+              message={`Set the amount owed on ${stranded.length === 1 ? "this registration" : `these ${stranded.length} registrations`} at ${formatCents(priceCents)}/person? Each one is recorded in the audit log.`}
+            >
+              {`Charge ${stranded.length === 1 ? "It" : "Them"} ${formatCents(priceCents)}/Person`}
+            </ConfirmSubmitButton>
+          </TripAdminForm>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
         <div className="info-card" style={{ flex: "1 1 320px" }}>
@@ -343,7 +391,7 @@ export default async function TripAdminView({
       <div style={{ marginBottom: 24 }}>
         <CollapsibleGroup defaultOpen={groupsOpen} label="Event Details">
           <div className="info-card" style={{ marginTop: 8, maxWidth: CARD_WIDTH }}>
-            <form action={updateTripDetailsAction}>
+            <TripAdminForm action={updateTripDetailsAction}>
               <input type="hidden" name="id" value={trip.id} />
               <div className="form-field">
                 <label htmlFor="title">Title</label>
@@ -375,9 +423,7 @@ export default async function TripAdminView({
                 <label htmlFor="flyer">Flyer</label>
                 {trip.flyerUrl && (
                   <p style={{ marginBottom: 8 }}>
-                    <a href={trip.flyerUrl} target="_blank" rel="noopener noreferrer" className="link">
-                      View current flyer →
-                    </a>
+                    <FlyerLink flyerUrl={trip.flyerUrl} title={trip.title} text="View current flyer" />
                   </p>
                 )}
                 <input id="flyer" name="flyer" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" />
@@ -390,7 +436,7 @@ export default async function TripAdminView({
                 )}
               </div>
               <SaveButton className="btn btn-primary">Save Details</SaveButton>
-            </form>
+            </TripAdminForm>
           </div>
         </CollapsibleGroup>
         <CollapsibleGroup defaultOpen={groupsOpen} label="Price Structure">
@@ -406,7 +452,7 @@ export default async function TripAdminView({
                 </>
               )}
             </p>
-            <form action={updateTripPricingAction}>
+            <TripAdminForm action={updateTripPricingAction}>
               <input type="hidden" name="id" value={trip.id} />
               {site.priceTbdMessage && (
                 <div className="form-field">
@@ -468,7 +514,7 @@ export default async function TripAdminView({
                 />
               </div>
               <SaveButton className="btn btn-primary">Save Pricing</SaveButton>
-            </form>
+            </TripAdminForm>
           </div>
         </CollapsibleGroup>
         <CollapsibleGroup defaultOpen={groupsOpen} label="Payment Instructions">
@@ -851,7 +897,7 @@ export default async function TripAdminView({
                       <p>{tripBalanceLine(reg)}</p>
 
                       {isAdmin ? (
-                        <form action={updateTripRegistrationAction} style={{ marginBottom: 16 }}>
+                        <TripAdminForm action={updateTripRegistrationAction} style={{ marginBottom: 16 }}>
                           <input type="hidden" name="id" value={reg.id} />
                           <div className="form-row">
                             <div className="form-field" style={{ flex: 1, minWidth: 180 }}>
@@ -887,20 +933,26 @@ export default async function TripAdminView({
                               />
                             </div>
                           </div>
+                          {/* Keyed by what's stored, so the fields start over from the saved
+                              counts and amount when those change under them — charged by
+                              posting the price or the Charge button, or saved in another tab
+                              — instead of keeping the amount they first loaded with. */}
                           <TripRegistrationCountFields
+                            key={`${reg.owedPending}:${reg.amountOwedCents}:${reg.payingCount}:${reg.freeCount}`}
                             idPrefix={`reg-${reg.id}`}
                             pricePerPersonCents={priceCents}
                             defaultPayingCount={reg.payingCount}
                             defaultFreeCount={reg.freeCount}
                             defaultAmountOwedCents={reg.amountOwedCents}
                             owedPending={reg.owedPending}
+                            priceTbd={trip.priceTbd}
                             freeAgeAndUnder={trip.freeAgeAndUnder}
                           />
                           <p className="form-note" style={{ marginTop: -8 }}>
                             Registered {reg.createdAt.toLocaleDateString("en-US", { timeZone: "UTC" })}.
                           </p>
                           <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
-                        </form>
+                        </TripAdminForm>
                       ) : (
                         <p>
                           {reg.contactEmail}
@@ -1012,7 +1064,7 @@ export default async function TripAdminView({
                   ? "The price isn't released yet, so the amount owed stays pending until you post it."
                   : "The amount owed is calculated at today's price — edit it afterwards if they were promised the early-bird rate."}
               </p>
-              <form action={addTripRegistrationAction}>
+              <TripAdminForm action={addTripRegistrationAction}>
                 <input type="hidden" name="tripPageId" value={trip.id} />
                 <div className="form-row">
                   <div className="form-field" style={{ flex: 1, minWidth: 180 }}>
@@ -1053,8 +1105,10 @@ export default async function TripAdminView({
                     </div>
                   )}
                 </div>
-                <button type="submit" className="btn btn-primary">Add Registration</button>
-              </form>
+                <SubmitButton className="btn btn-primary" pendingLabel="Adding…">
+                  Add Registration
+                </SubmitButton>
+              </TripAdminForm>
             </div>
           </CollapsibleGroup>
         </>
