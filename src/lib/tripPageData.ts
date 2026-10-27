@@ -6,6 +6,7 @@ import type { TripDay, TripMealType } from "@/generated/prisma/enums";
 import { CAMP_CONRON_SITE, CYCLONES_SITE, tripSiteBySlug } from "@/lib/tripSites";
 import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
 import { formatCents } from "@/lib/duesData";
+import { revalidateTripAdminPages } from "@/lib/tripRevalidate";
 
 /** Every lookup below is keyed by slug, so each event's micro-site (see TRIP_SITES in tripSites.ts) reuses this same model without a schema change. */
 export const CAMP_CONRON_SLUG = CAMP_CONRON_SITE.slug;
@@ -133,14 +134,20 @@ export type TripFormResult = { error?: string };
  */
 export class TripInputError extends Error {}
 
-/** Runs an admin trip action, turning a TripInputError into { error } for the form. */
+/**
+ * Runs an admin trip action, turning a TripInputError into { error } for the
+ * form. A refusal is often about something that changed after the page
+ * loaded (the price was posted, a registration was removed), so the admin
+ * pages are refreshed with it: the message arrives next to the current state.
+ */
 export async function tripFormResult(work: () => Promise<void>): Promise<TripFormResult> {
   try {
     await work();
     return {};
   } catch (error) {
-    if (error instanceof TripInputError) return { error: error.message };
-    throw error;
+    if (!(error instanceof TripInputError)) throw error;
+    revalidateTripAdminPages();
+    return { error: error.message };
   }
 }
 

@@ -22,7 +22,7 @@
 import assert from "node:assert/strict";
 import { before, beforeEach, describe, it } from "node:test";
 import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
-import { form, resetTestState, runAs, settle, type SessionUser } from "../support/context";
+import { form, resetTestState, runAs, settle, testState, type SessionUser } from "../support/context";
 import {
   addByHand,
   assertAllCharged,
@@ -565,6 +565,7 @@ describe("registrations already left waiting on a priced trip", () => {
     const { trip, stranded } = await strandedTrip();
     const result = await settleAs(admin, trip.id, 3500);
     assert.match(result.error ?? "", /now \$40\.00\/person/);
+    assert.ok(testState.revalidated.includes("/portal/admin/cyclones"), "the page is refreshed to show the current price");
     const after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: stranded.id } });
     assert.equal(after.owedPending, true);
     assert.equal(await db.prisma.auditLog.count({ where: { action: "tripRegistration.settlePrice", entityId: stranded.id } }), 0);
