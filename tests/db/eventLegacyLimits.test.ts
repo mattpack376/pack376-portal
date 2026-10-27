@@ -16,12 +16,14 @@ import { packFixtures } from "./fixtures/pack";
 
 const db = withTestDatabase("event_legacy_limits");
 let events: typeof import("@/lib/actions/events");
+let guestGroupEditVersion: typeof import("@/lib/eventEditVersion").guestGroupEditVersion;
 let fx: ReturnType<typeof packFixtures>;
 let admin: SessionUser;
 
 before(async () => {
   await db.ready;
   events = await import("@/lib/actions/events");
+  ({ guestGroupEditVersion } = await import("@/lib/eventEditVersion"));
   fx = packFixtures(db.prisma);
   admin = await fx.user("ADMIN");
 });
@@ -233,12 +235,15 @@ describe("a guest group saved before the limits", () => {
     return { event, group };
   }
 
-  function editGroup(eventId: string, guestGroupId: string, fields: Fields = {}) {
+  /** The group's edit form as its page fills it in (version and all), then `fields`. */
+  async function editGroup(eventId: string, guestGroupId: string, fields: Fields = {}) {
+    const saved = await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: guestGroupId } });
     return runAs(admin, () =>
       events.updateGuestGroupAction(
         form({
           guestGroupId,
           eventId,
+          version: guestGroupEditVersion(saved),
           familyName: LONG_NAME,
           adultCount: 250,
           childCount: 30,
@@ -282,9 +287,8 @@ describe("a guest group saved before the limits", () => {
       [{ amountOwed: "2000000" }, /amount owed/],
     ];
     for (const [fields, message] of refusals) {
-      const outcome = await settle(editGroup(event.id, group.id, fields));
-      assert.equal(outcome.ok, false, JSON.stringify(fields).slice(0, 80));
-      assert.match(outcome.ok ? "" : outcome.error.message, message, JSON.stringify(fields).slice(0, 80));
+      const result = await editGroup(event.id, group.id, fields);
+      assert.match(result.error ?? "(no error)", message, JSON.stringify(fields).slice(0, 80));
     }
     let saved = await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } });
     assert.deepEqual(
@@ -297,20 +301,23 @@ describe("a guest group saved before the limits", () => {
     await editGroup(event.id, group.id, { adultCount: 200, childCount: 50 });
     saved = await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } });
     assert.equal(saved.adultCount + saved.childCount, 250);
-    const regrow = await settle(editGroup(event.id, group.id, { adultCount: 250, childCount: 30 }));
-    assert.match(regrow.ok ? "" : regrow.error.message, /saved with 250 people/);
+    const regrow = await editGroup(event.id, group.id, { adultCount: 250, childCount: 30 });
+    assert.match(regrow.error ?? "(no error)", /saved with 250 people/);
 
     // Once it's within the Admin ceiling, that ceiling is what holds.
     await editGroup(event.id, group.id, { adultCount: 150, childCount: 40, amountOwed: "1900.00" });
-    const over = await settle(editGroup(event.id, group.id, { adultCount: 150, childCount: 51, amountOwed: "1900.00" }));
-    assert.match(over.ok ? "" : over.error.message, /at most 200 people/);
+    const over = await editGroup(event.id, group.id, { adultCount: 150, childCount: 51, amountOwed: "1900.00" });
+    assert.match(over.error ?? "(no error)", /at most 200 people/);
 
     // And a name brought within the limit stays there.
     await editGroup(event.id, group.id, { familyName: "The Extended Family", adultCount: 150, childCount: 40, amountOwed: "1900.00" });
-    const rename = await settle(
-      editGroup(event.id, group.id, { familyName: LONG_NAME, adultCount: 150, childCount: 40, amountOwed: "1900.00" }),
-    );
-    assert.match(rename.ok ? "" : rename.error.message, /name to 120 characters/);
+    const rename = await editGroup(event.id, group.id, {
+      familyName: LONG_NAME,
+      adultCount: 150,
+      childCount: 40,
+      amountOwed: "1900.00",
+    });
+    assert.match(rename.error ?? "(no error)", /name to 120 characters/);
     saved = await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } });
     assert.deepEqual(
       [saved.familyName, saved.adultCount, saved.childCount, saved.amountOwedCents],

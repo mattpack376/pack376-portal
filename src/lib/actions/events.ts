@@ -30,6 +30,7 @@ import {
   isSubmissionKey,
 } from "@/lib/guestGroupLimits";
 import { centsFieldText, isUnchangedText, textLengthAsTyped } from "@/lib/savedFormValues";
+import { guestGroupEditVersion, registrationEditVersion } from "@/lib/eventEditVersion";
 import type { Prisma } from "@/generated/prisma/client";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 import type { SessionPayload } from "@/lib/session";
@@ -686,52 +687,76 @@ export async function registerScoutForEventAction(formData: FormData): Promise<E
   return {};
 }
 
-export async function updateRegistrationAmountAction(formData: FormData) {
+/**
+ * A scout registration's amount owed, from its Manage Payments page
+ * (TripAdminForm). The form carries registrationEditVersion of the amount it
+ * loaded with. If another Admin changed the amount since, the save is
+ * refused and the page refreshed: the new figure was decided against one
+ * that's no longer there, and saving it anyway would quietly replace the
+ * other Admin's change (a discount, a correction) with neither of them
+ * knowing.
+ */
+export async function updateRegistrationAmountAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-
-  const registrationId = String(formData.get("registrationId") || "");
-  const eventId = String(formData.get("eventId") || "");
-  const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
-  if (!registrationId || amountOwedCents === null) {
-    throw new Error("A valid amount owed is required.");
-  }
-
-  const registration = await prisma.eventRegistration.findUnique({
-    where: { id: registrationId },
-    select: { scout: { select: { denId: true } } },
-  });
-  if (!registration) throw new Error("Registration not found.");
   assertAdmin(session);
 
-  const before = await prisma.eventRegistration.findUnique({
-    where: { id: registrationId },
-    select: { amountOwedCents: true },
-  });
+  const registrationId = idField(formData.get("registrationId"));
+  const eventId = idField(formData.get("eventId"));
+  if (!registrationId) throw new Error("Missing registration id.");
 
-  await prisma.eventRegistration.update({
-    where: { id: registrationId },
-    data: { amountOwedCents },
-  });
+  const result = await asResult(async () => {
+    const version = textField(formData.get("version"));
 
-  const context = await registrationContext(registrationId);
-  await recordAudit(session, {
-    action: "eventRegistration.updateAmount",
-    summary: `Changed what ${context.scoutName} owes for “${context.eventTitle}” to ${auditMoney(amountOwedCents)}`,
-    entityType: "EventRegistration",
-    entityId: registrationId,
-    denId: context.denId,
-    details: changedFields({
-      "Amount owed": [
-        before ? auditMoney(before.amountOwedCents) : null,
-        auditMoney(amountOwedCents),
-      ],
-    }),
+    await prisma.$transaction(async (tx) => {
+      // The same row lock recording a payment takes, held until the new
+      // amount and its audit entry commit.
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "EventRegistration" WHERE id = ${registrationId} FOR UPDATE`;
+      if (locked.length === 0) throw new EventInputError("This registration no longer exists.", { stale: true });
+      const registration = await tx.eventRegistration.findUniqueOrThrow({
+        where: { id: registrationId },
+        select: {
+          amountOwedCents: true,
+          event: { select: { title: true } },
+          scout: { select: { firstName: true, lastName: true, denId: true } },
+        },
+      });
+      // Before the amount is read: a page that's out of date says so, rather
+      // than that what was typed doesn't fit.
+      if (registrationEditVersion(registration) !== version) {
+        throw new EventInputError(
+          `Someone changed this amount owed after this page loaded (it's now ${auditMoney(
+            registration.amountOwedCents,
+          )}). Nothing was saved — the page now shows the current amount; change it again if it still needs changing.`,
+          { stale: true },
+        );
+      }
+      const amountOwedCents = readAmountOwed(formData, registration.amountOwedCents);
+      const scoutName = `${registration.scout.firstName} ${registration.scout.lastName}`;
+
+      await tx.eventRegistration.update({ where: { id: registrationId }, data: { amountOwedCents } });
+
+      await recordAuditInTransaction(tx, session, {
+        action: "eventRegistration.updateAmount",
+        summary: `Changed what ${scoutName} owes for “${registration.event.title}” to ${auditMoney(amountOwedCents)}`,
+        entityType: "EventRegistration",
+        entityId: registrationId,
+        denId: registration.scout.denId,
+        details: changedFields({
+          "Amount owed": [auditMoney(registration.amountOwedCents), auditMoney(amountOwedCents)],
+        }),
+      });
+    }, TX);
   });
+  // A refusal about what was typed leaves the page as it loaded, so the
+  // Admin's entry goes back over it; a stale one refreshes it.
+  if (result.error && !result.stale) return result;
 
   revalidatePath(`/portal/admin/events/${eventId}/${registrationId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
+  return result;
 }
 
 export async function removeRegistrationAction(formData: FormData) {
@@ -1209,9 +1234,20 @@ export async function addGuestGroupAction(formData: FormData): Promise<EventForm
   return {};
 }
 
-// The edit form uses SaveButton (see updateEventAction), so bad input is
-// still thrown, before anything is written.
-export async function updateGuestGroupAction(formData: FormData) {
+/** "2 adults, 1 kid" */
+function headcountText(adultCount: number, childCount: number) {
+  return `${adultCount} adult${adultCount === 1 ? "" : "s"}, ${childCount} kid${childCount === 1 ? "" : "s"}`;
+}
+
+/**
+ * An Admin's edit of a guest group: its name, Guest Of link, headcounts and
+ * amount owed (TripAdminForm on the group's page). The form carries
+ * guestGroupEditVersion of the values it was filled in with. If another
+ * Admin changed any of them since, the save is refused and the page
+ * refreshed, rather than putting this page's old values back over theirs —
+ * a discount on the amount owed quietly undone by someone fixing the name.
+ */
+export async function updateGuestGroupAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
@@ -1219,47 +1255,75 @@ export async function updateGuestGroupAction(formData: FormData) {
   const guestGroupId = idField(formData.get("guestGroupId"));
   const eventId = idField(formData.get("eventId"));
   if (!guestGroupId) throw new Error("Missing guest group id.");
-  const guestOf = readGuestOf(formData.get("guestOf"));
 
-  await prisma.$transaction(async (tx) => {
-    const locked = await tx.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "EventGuestGroup" WHERE id = ${guestGroupId} FOR UPDATE`;
-    if (locked.length === 0) throw new Error("Guest group not found.");
-    const existing = await tx.eventGuestGroup.findUniqueOrThrow({
-      where: { id: guestGroupId },
-      select: { familyName: true, adultCount: true, childCount: true, amountOwedCents: true, eventId: true },
-    });
-    // Checked against the group as it's saved now, under the lock, so a name,
-    // size or amount saved before the limits can stay as it is (see "Reading
-    // form fields" above). A refusal here writes nothing.
-    const familyName = readGroupName(formData, existing.familyName);
-    const { adultCount, childCount } = readEditedHeadcounts(formData, existing);
-    const amountOwedCents = readAmountOwed(formData, existing.amountOwedCents);
-    await assertGuestOfExists(tx, guestOf);
+  const result = await asResult(async () => {
+    const version = textField(formData.get("version"));
 
-    await tx.eventGuestGroup.update({
-      where: { id: guestGroupId },
-      data: { familyName, adultCount, childCount, amountOwedCents, ...guestOf },
-    });
+    await prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "EventGuestGroup" WHERE id = ${guestGroupId} FOR UPDATE`;
+      if (locked.length === 0) throw new EventInputError("This guest group no longer exists.", { stale: true });
+      const existing = await tx.eventGuestGroup.findUniqueOrThrow({
+        where: { id: guestGroupId },
+        select: {
+          familyName: true,
+          adultCount: true,
+          childCount: true,
+          amountOwedCents: true,
+          guestOfScoutId: true,
+          guestOfUserId: true,
+          eventId: true,
+        },
+      });
+      // Before the fields are read: a page that's out of date says so, rather
+      // than that what was typed doesn't fit.
+      if (guestGroupEditVersion(existing) !== version) {
+        throw new EventInputError(
+          `Someone changed this guest group after this page loaded (it's now ${existing.familyName}: ${headcountText(
+            existing.adultCount,
+            existing.childCount,
+          )}, ${auditMoney(existing.amountOwedCents)} owed). Nothing was saved — the page now shows the current ` +
+            "details; make your change again.",
+          { stale: true },
+        );
+      }
+      // Checked against the group as it's saved now, under the lock, so a
+      // name, size or amount saved before the limits can stay as it is (see
+      // "Reading form fields" above). A refusal here writes nothing.
+      const familyName = readGroupName(formData, existing.familyName);
+      const guestOf = readGuestOf(formData.get("guestOf"));
+      const { adultCount, childCount } = readEditedHeadcounts(formData, existing);
+      const amountOwedCents = readAmountOwed(formData, existing.amountOwedCents);
+      await assertGuestOfExists(tx, guestOf);
 
-    await recordAuditInTransaction(tx, session, {
-      action: "guestGroup.update",
-      summary: `Edited the guest group “${familyName}” on “${await eventTitle(existing.eventId, tx)}”`,
-      entityType: "EventGuestGroup",
-      entityId: guestGroupId,
-      details: changedFields({
-        "Guest group": [existing.familyName, familyName],
-        Adults: [existing.adultCount, adultCount],
-        Children: [existing.childCount, childCount],
-        "Amount owed": [auditMoney(existing.amountOwedCents), auditMoney(amountOwedCents)],
-      }),
-    });
-  }, TX);
+      await tx.eventGuestGroup.update({
+        where: { id: guestGroupId },
+        data: { familyName, adultCount, childCount, amountOwedCents, ...guestOf },
+      });
+
+      await recordAuditInTransaction(tx, session, {
+        action: "guestGroup.update",
+        summary: `Edited the guest group “${familyName}” on “${await eventTitle(existing.eventId, tx)}”`,
+        entityType: "EventGuestGroup",
+        entityId: guestGroupId,
+        details: changedFields({
+          "Guest group": [existing.familyName, familyName],
+          Adults: [existing.adultCount, adultCount],
+          Children: [existing.childCount, childCount],
+          "Amount owed": [auditMoney(existing.amountOwedCents), auditMoney(amountOwedCents)],
+        }),
+      });
+    }, TX);
+  });
+  // A refusal about what was typed leaves the page as it loaded, so the
+  // Admin's entries go back over it; a stale one refreshes it.
+  if (result.error && !result.stale) return result;
 
   revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
   revalidatePath("/portal/admin/events/guests");
+  return result;
 }
 
 export async function removeGuestGroupAction(formData: FormData) {

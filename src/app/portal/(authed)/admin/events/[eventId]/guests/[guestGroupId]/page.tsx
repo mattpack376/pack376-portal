@@ -17,9 +17,11 @@ import GuestOfSelect from "@/components/GuestOfSelect";
 import GuestGroupCountFields from "@/components/GuestGroupCountFields";
 import { todayDateOnlyString } from "@/lib/dateOnly";
 import ActionForm from "@/components/ActionForm";
+import TripAdminForm from "@/components/TripAdminForm";
 import SubmitButton from "@/components/SubmitButton";
 import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { ADMIN_GUEST_GROUP_MAX_PEOPLE, adminGuestGroupEditMaxPeople } from "@/lib/guestGroupLimits";
+import { guestGroupEditVersion } from "@/lib/eventEditVersion";
 
 export default async function AdminGuestGroupPage({
   params,
@@ -68,9 +70,14 @@ export default async function AdminGuestGroupPage({
           {group.remainingCents < 0 && ` — overpaid by ${formatCents(-group.remainingCents)}`}
         </p>
         {canEdit && (
-        <form action={updateGuestGroupAction}>
+        // TripAdminForm: a refusal is shown above the fields. One about what was
+        // typed puts the entries back; one because another Admin changed the
+        // group since this page loaded (the version below no longer matches)
+        // shows the group as it now stands instead.
+        <TripAdminForm action={updateGuestGroupAction}>
           <input type="hidden" name="guestGroupId" value={group.id} />
           <input type="hidden" name="eventId" value={eventId} />
+          <input type="hidden" name="version" value={guestGroupEditVersion(group)} />
           <div className="form-field">
             <label htmlFor="familyName">Family Name / Guest Name</label>
             <input id="familyName" name="familyName" required maxLength={MAX_NAME_LENGTH} defaultValue={group.familyName} />
@@ -106,7 +113,7 @@ export default async function AdminGuestGroupPage({
             </p>
           )}
           <SaveButton className="btn btn-quiet btn-small">Save Changes</SaveButton>
-        </form>
+        </TripAdminForm>
         )}
         {canEdit && (
           <form action={removeGuestGroupAction} style={{ marginTop: 12 }}>

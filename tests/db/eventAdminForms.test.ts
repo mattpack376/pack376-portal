@@ -8,17 +8,20 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { before, beforeEach, describe, it } from "node:test";
 import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
-import { form, resetTestState, runAs, settle, type SessionUser } from "../support/context";
+import { form, resetTestState, runAs, settle, testState, type SessionUser } from "../support/context";
 import { packFixtures } from "./fixtures/pack";
 
 const db = withTestDatabase("event_admin_forms");
 let events: typeof import("@/lib/actions/events");
+let guestGroupEditVersion: typeof import("@/lib/eventEditVersion").guestGroupEditVersion;
+let registrationEditVersion: typeof import("@/lib/eventEditVersion").registrationEditVersion;
 let fx: ReturnType<typeof packFixtures>;
 let admin: SessionUser;
 
 before(async () => {
   await db.ready;
   events = await import("@/lib/actions/events");
+  ({ guestGroupEditVersion, registrationEditVersion } = await import("@/lib/eventEditVersion"));
   fx = packFixtures(db.prisma);
   admin = await fx.user("ADMIN");
 });
@@ -37,6 +40,17 @@ async function writeCounts() {
 }
 
 type Fields = Record<string, string | number | string[] | undefined>;
+
+/**
+ * The guest group's edit form as its page fills it in: `version` is the
+ * fingerprint of the group as it's saved now (unless `fields` says otherwise).
+ */
+async function editGroup(eventId: string, guestGroupId: string, fields: Fields) {
+  const saved = await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: guestGroupId } });
+  return runAs(admin, () =>
+    events.updateGuestGroupAction(form({ guestGroupId, eventId, version: guestGroupEditVersion(saved), ...fields })),
+  );
+}
 
 function addGroup(eventId: string, fields: Fields, as: SessionUser = admin) {
   return runAs(as, () =>
@@ -112,23 +126,24 @@ describe("Admin guest groups", () => {
     const event = await fx.event();
     await addGroup(event.id, { familyName: "Before", adultCount: 2, amountOwed: "20" });
     const group = await db.prisma.eventGuestGroup.findFirstOrThrow({ where: { eventId: event.id } });
-    const edit = (fields: Fields) =>
-      runAs(admin, () =>
-        events.updateGuestGroupAction(
-          form({ guestGroupId: group.id, eventId: event.id, familyName: "After", adultCount: 3, amountOwed: "30", ...fields }),
-        ),
-      );
+    const edit = (fields: Fields) => editGroup(event.id, group.id, { familyName: "After", adultCount: 3, amountOwed: "30", ...fields });
 
-    for (const fields of [
-      { adultCount: 201 },
-      { adultCount: 100, childCount: 101 },
-      { adultCount: "1e2" },
-      { familyName: "n".repeat(121) },
-      { amountOwed: "1e3" },
-      { guestOf: "scout:does-not-exist" },
-    ] as Fields[]) {
-      assert.equal((await settle(edit(fields))).ok, false, JSON.stringify(fields));
+    resetTestState();
+    for (const [fields, message] of [
+      [{ adultCount: 201 }, /at most 200 people/],
+      [{ adultCount: 100, childCount: 101 }, /at most 200 people/],
+      [{ adultCount: "1e2" }, /as a whole number/],
+      [{ familyName: "n".repeat(121) }, /120 characters/],
+      [{ amountOwed: "1e3" }, /amount owed/],
+      [{ guestOf: "scout:does-not-exist" }, /no longer on the roster/],
+      [{ guestOf: "family:abc" }, /Guest Of option/],
+    ] as [Fields, RegExp][]) {
+      // Shown on the form, with the Admin's entries put back over the page.
+      const result = await edit(fields);
+      assert.match(result.error ?? "(no error)", message, JSON.stringify(fields));
+      assert.equal(result.stale, undefined, JSON.stringify(fields));
     }
+    assert.deepEqual(testState.revalidated, [], "a refusal about the entries doesn't refresh the page under them");
     const unchanged = await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } });
     assert.equal(unchanged.familyName, "Before");
     assert.equal(unchanged.adultCount, 2);
@@ -141,6 +156,159 @@ describe("Admin guest groups", () => {
     assert.equal(edited.amountOwedCents, 200_000);
     const audit = await db.prisma.auditLog.findFirstOrThrow({ where: { action: "guestGroup.update", entityId: group.id } });
     assert.match(JSON.stringify(audit.details), /\$20\.00/);
+  });
+});
+
+describe("an edit from a page loaded before another Admin's change", () => {
+  async function pricedGroup() {
+    const event = await fx.event();
+    await addGroup(event.id, { familyName: "The Smiths", adultCount: 2, childCount: 1, amountOwed: "25.00" });
+    const group = await db.prisma.eventGuestGroup.findFirstOrThrow({ where: { eventId: event.id } });
+    return { event, group, loaded: guestGroupEditVersion(group) };
+  }
+
+  it("refuses a guest group edit that would put back the amount owed another Admin changed", async () => {
+    const { event, group, loaded } = await pricedGroup();
+    // Admin B gives the family a discount.
+    assert.deepEqual(await editGroup(event.id, group.id, { familyName: "The Smiths", adultCount: 2, childCount: 1, amountOwed: "15.00" }), {});
+    const audits = await db.prisma.auditLog.count({ where: { action: "guestGroup.update", entityId: group.id } });
+    resetTestState();
+
+    // Admin A, from the page loaded before that, fixes the name: the form
+    // resends the amount it loaded with.
+    const stale = await editGroup(event.id, group.id, {
+      version: loaded,
+      familyName: "The Smith Family",
+      adultCount: 2,
+      childCount: 1,
+      amountOwed: "25.00",
+    });
+    assert.equal(stale.stale, true);
+    assert.match(stale.error ?? "", /Someone changed this guest group after this page loaded/);
+    assert.match(stale.error ?? "", /The Smiths: 2 adults, 1 kid, \$15\.00 owed/);
+    const kept = await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } });
+    assert.equal(kept.amountOwedCents, 1500, "the discount stands");
+    assert.equal(kept.familyName, "The Smiths");
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "guestGroup.update", entityId: group.id } }), audits);
+    assert.ok(testState.revalidated.includes(`/portal/admin/events/${event.id}/guests/${group.id}`), "the page is refreshed");
+
+    // The refreshed page carries the current version: the fix goes through.
+    assert.deepEqual(
+      await editGroup(event.id, group.id, { familyName: "The Smith Family", adultCount: 2, childCount: 1, amountOwed: "15.00" }),
+      {},
+    );
+    const fixed = await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } });
+    assert.equal(fixed.familyName, "The Smith Family");
+    assert.equal(fixed.amountOwedCents, 1500);
+  });
+
+  it("checks the version under the group's lock, against a change that commits while it waits", async (t) => {
+    const { event, group, loaded } = await pricedGroup();
+    const other = await openTransaction(db.pool);
+    t.after(() => other.rollback());
+    await other.query(`SELECT id FROM "EventGuestGroup" WHERE id = $1 FOR UPDATE`, [group.id]);
+    await other.query(`UPDATE "EventGuestGroup" SET "amountOwedCents" = 1000 WHERE id = $1`, [group.id]);
+
+    const pending = editGroup(event.id, group.id, {
+      version: loaded,
+      familyName: "Renamed",
+      adultCount: 2,
+      childCount: 1,
+      amountOwed: "25.00",
+    });
+    await waitForLockWait(db.pool);
+    await other.commit();
+
+    const result = await pending;
+    assert.equal(result.stale, true);
+    const saved = await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } });
+    assert.deepEqual([saved.familyName, saved.amountOwedCents], ["The Smiths", 1000]);
+  });
+
+  it("stays usable while payments are recorded, and refuses a form with no version or a removed group", async () => {
+    const { event, group, loaded } = await pricedGroup();
+    assert.deepEqual(
+      await runAs(admin, () => events.addGuestGroupPaymentAction(form({ guestGroupId: group.id, eventId: event.id, amount: "5" }))),
+      {},
+    );
+    const fields = { familyName: "The Smiths", adultCount: 3, childCount: 1, amountOwed: "35.00" };
+    assert.deepEqual(await editGroup(event.id, group.id, { version: loaded, ...fields }), {});
+    assert.equal((await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } })).amountOwedCents, 3500);
+
+    // A page from before this check (or a hand-built request) has no version.
+    const noVersion = await editGroup(event.id, group.id, { ...fields, version: "", amountOwed: "1.00" });
+    assert.equal(noVersion.stale, true);
+    assert.equal((await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } })).amountOwedCents, 3500);
+
+    await db.prisma.eventGuestGroup.delete({ where: { id: group.id } });
+    const gone = await runAs(admin, () =>
+      events.updateGuestGroupAction(form({ guestGroupId: group.id, eventId: event.id, version: loaded, ...fields })),
+    );
+    assert.deepEqual(gone, { error: "This guest group no longer exists.", stale: true });
+  });
+
+  it("refuses a scout's amount owed saved over another Admin's change, and saves it from a current page", async () => {
+    const event = await fx.event();
+    const den = await fx.den("BEAR");
+    const scout = await fx.scout(den.id);
+    const registration = await db.prisma.eventRegistration.create({
+      data: { eventId: event.id, scoutId: scout.id, amountOwedCents: 4000 },
+    });
+    const loaded = registrationEditVersion(registration);
+    const setAmount = (amountOwed: string, version: string, as: SessionUser = admin) =>
+      runAs(as, () =>
+        events.updateRegistrationAmountAction(form({ registrationId: registration.id, eventId: event.id, amountOwed, version })),
+      );
+
+    // Admin B corrects the amount; Admin A, from the page loaded before
+    // that, enters another.
+    assert.deepEqual(await setAmount("30.00", loaded), {});
+    resetTestState();
+    const stale = await setAmount("35.00", loaded);
+    assert.equal(stale.stale, true);
+    assert.match(stale.error ?? "", /Someone changed this amount owed after this page loaded \(it's now \$30\.00\)/);
+    assert.equal((await db.prisma.eventRegistration.findUniqueOrThrow({ where: { id: registration.id } })).amountOwedCents, 3000);
+    assert.ok(testState.revalidated.includes(`/portal/admin/events/${event.id}/${registration.id}`), "the page is refreshed");
+
+    // A mistake in the amount is shown on the form, without refreshing it.
+    resetTestState();
+    const current = registrationEditVersion({ amountOwedCents: 3000 });
+    for (const typed of ["", "1e3", "-5", "1000000.01"]) {
+      const refused = await setAmount(typed, current);
+      assert.match(refused.error ?? "(no error)", /amount owed/, typed);
+      assert.equal(refused.stale, undefined, typed);
+    }
+    assert.deepEqual(testState.revalidated, []);
+    assert.equal((await setAmount("1.00", "")).stale, true, "no version: a page from before this check");
+
+    // From the refreshed page it saves, with an audit entry in the same commit.
+    assert.deepEqual(await setAmount("35.00", current), {});
+    assert.equal((await db.prisma.eventRegistration.findUniqueOrThrow({ where: { id: registration.id } })).amountOwedCents, 3500);
+    const audits = await db.prisma.auditLog.findMany({
+      where: { action: "eventRegistration.updateAmount", entityId: registration.id },
+    });
+    assert.equal(audits.length, 2, "one for each save that went through");
+    const latest = audits.find((audit) => /to \$35\.00/.test(audit.summary));
+    assert.ok(latest);
+    assert.match(JSON.stringify(latest.details), /\$30\.00/);
+    assert.equal(latest.denId, den.id);
+
+    // Recording a payment leaves the page's version current.
+    assert.deepEqual(
+      await runAs(admin, () =>
+        events.addEventPaymentAction(form({ registrationId: registration.id, eventId: event.id, amount: "10" })),
+      ),
+      {},
+    );
+    assert.deepEqual(await setAmount("32.00", registrationEditVersion({ amountOwedCents: 3500 })), {});
+
+    // Admin-only, and a removed registration is reported as such.
+    const juniorAdmin = await fx.user("JUNIOR_ADMIN");
+    const notAdmin = await settle(setAmount("1.00", registrationEditVersion({ amountOwedCents: 3200 }), juniorAdmin));
+    assert.equal(notAdmin.ok, false);
+    assert.equal((await db.prisma.eventRegistration.findUniqueOrThrow({ where: { id: registration.id } })).amountOwedCents, 3200);
+    await db.prisma.eventRegistration.delete({ where: { id: registration.id } });
+    assert.deepEqual(await setAmount("1.00", current), { error: "This registration no longer exists.", stale: true });
   });
 });
 
