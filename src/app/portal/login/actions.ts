@@ -7,8 +7,13 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionCookie, isLockedOut, lockedUntilForCount } from "@/lib/auth";
 import { recordAuditAs, clientIpFromHeaders, UNKNOWN_ACCOUNT_ACTOR, type AuditActor } from "@/lib/audit";
 import { clientDeviceFromHeaders, clientLocationFromHeaders } from "@/lib/clientInfo";
+import { MAX_SIGN_IN_PASSWORD_LENGTH, MAX_USERNAME_LENGTH } from "@/lib/credentialInput";
 
-export type LoginState = { error?: string };
+/**
+ * `username` is what was typed, normalized, handed back after a refusal so
+ * the form can keep it filled in. The password never comes back.
+ */
+export type LoginState = { error?: string; username?: string };
 
 // A real cost-12 bcrypt hash used only to equalize response time when the
 // username doesn't exist. Without it, "no such user" returns before any bcrypt
@@ -46,11 +51,22 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     location: clientLocationFromHeaders(headerList),
   };
 
-  const username = String(formData.get("username") || "").trim().toLowerCase();
-  const password = String(formData.get("password") || "");
+  const rawUsername = formData.get("username");
+  const rawPassword = formData.get("password");
+  const username = typeof rawUsername === "string" ? rawUsername.trim().toLowerCase() : "";
+  const password = typeof rawPassword === "string" ? rawPassword : "";
+
+  // Nothing longer than these can be a real login, so it's refused before the
+  // database or bcrypt sees it. Not audited, like the rate-limited case above:
+  // an entry per junk request would be the flood's amplifier, and these can
+  // never sign in anyway. No account is looked up, so the reply says nothing
+  // about which usernames exist.
+  if (username.length > MAX_USERNAME_LENGTH || password.length > MAX_SIGN_IN_PASSWORD_LENGTH) {
+    return { error: "Invalid username or password." };
+  }
 
   if (!username || !password) {
-    return { error: "Enter a username and password." };
+    return { error: "Enter a username and password.", username };
   }
 
   const user = await prisma.user.findUnique({ where: { username } });
@@ -62,7 +78,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       summary: "Failed sign-in for a username that doesn't match any account",
       ...clientInfo,
     });
-    return { error: "Invalid username or password." };
+    return { error: "Invalid username or password.", username };
   }
 
   // Every entry below is about this account, but says nothing about who was at
@@ -84,7 +100,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       entityId: user.id,
       ...clientInfo,
     });
-    return { error: "Too many failed attempts. Try again in about 15 minutes." };
+    return { error: "Too many failed attempts. Try again in about 15 minutes.", username };
   }
 
   // A lock that has since expired otherwise leaves failedLoginCount sitting
@@ -126,8 +142,8 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       details: [{ label: "Consecutive failures", from: String(failedLoginCount - 1), to: String(failedLoginCount) }],
     });
     return lockedUntil
-      ? { error: "Too many failed attempts. Try again in about 15 minutes." }
-      : { error: "Invalid username or password." };
+      ? { error: "Too many failed attempts. Try again in about 15 minutes.", username }
+      : { error: "Invalid username or password.", username };
   }
 
   // Checked only after the password is right, so a wrong guess can't be used
@@ -140,7 +156,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       entityId: user.id,
       ...clientInfo,
     });
-    return { error: "This account is inactive. Ask an admin to make it active again." };
+    return { error: "This account is inactive. Ask an admin to make it active again.", username };
   }
 
   await prisma.user.update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null } });
