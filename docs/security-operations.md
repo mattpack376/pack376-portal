@@ -13,7 +13,18 @@ Last reviewed: October 27, 2026 (security review of the same date).
 ## 1. After every release
 
 Try a release on a preview deployment first when it touches sign-in, money,
-uploads or the database. Then, on production:
+uploads or the database. Previews never migrate a database by themselves, so
+for a release that adds migrations (new folders under `prisma/migrations`),
+first bring the **preview's own** database up to date from your computer:
+
+```bash
+MIGRATION_DATABASE_URL='<the preview database URL>' npm run db:migrate:deploy
+```
+
+Never point that at the production database. A preview whose database is
+behind the code fails at sign-in and on other pages ("column … does not
+exist"); that says nothing about production, which migrates as it deploys.
+Then, on production:
 
 ### 1.1 The right code on the right runtime
 
@@ -21,10 +32,21 @@ uploads or the database. Then, on production:
       commit you meant to ship (same short SHA as the top of `main`).
 - [ ] Its build log has a line like `[vercel-build] Node v24.22.1; VERCEL_ENV=production`.
       The Node version must be **24.22.1 or newer** (October 21, 2026 security
-      release). A `WARNING: Node … predates …` line means: Vercel → Settings →
-      Build and Deployment → Node.js Version, pick the latest 24.x, redeploy.
+      release). Vercel picks only the major version (24.x, set by `engines` in
+      package.json) and rolls out patch releases itself. A
+      `WARNING: Node … predates …` line means its rollout hasn't reached this
+      project yet: redeploy a day later, and if it persists, check Vercel's
+      status page or ask Vercel support.
 - [ ] The build log shows `prisma migrate deploy` ran and finished (production
       only; previews never migrate).
+- [ ] The build log says `[schema guards] all … guarded database checks are in
+      place.` A few migrations add a database check only if no existing row
+      breaks it, and otherwise skip it quietly (the app still enforces the
+      same rule). A `[schema guards] WARNING` line names the skipped ones: find
+      the rows that break the rule (the migration file of that name explains
+      it), fix them, then re-run that migration's `DO $$ … $$` block in the
+      database console and confirm with
+      `MIGRATION_DATABASE_URL='…' node scripts/check-schema-guards.mjs`.
 - [ ] Versions on that commit (`npm ls next react react-dom sharp undici @vercel/blob prisma`):
       next 16.4.3, react / react-dom 19.2.9, sharp 0.35.5, undici 6.29.1
       (under @vercel/blob 2.7.0), prisma / @prisma/client 7.10.0 — or newer

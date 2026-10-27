@@ -16,6 +16,7 @@
  * without the running site ever holding it.
  */
 import { spawnSync } from "node:child_process";
+import { reportSchemaGuards } from "./schema-guards.mjs";
 
 // Node's October 21, 2026 security release for the 24.x line.
 const PATCHED_NODE = [24, 22, 1];
@@ -47,18 +48,26 @@ if (olderThan(process.version, PATCHED_NODE)) {
 }
 
 if (vercelEnv === "production") {
-  run("npx", ["prisma", "migrate", "deploy"]);
-} else if (process.env.VERCEL && !vercelEnv) {
-  // On Vercel but unable to tell production from preview: refuse rather than
-  // guess. Skipping would ship code ahead of its schema; migrating could
-  // change the live database from a preview. A failed build is never promoted.
+  run("npx", ["--no-install", "prisma", "migrate", "deploy"]);
+  await reportSchemaGuards(process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL_UNPOOLED);
+} else if (vercelEnv === "preview" || vercelEnv === "development") {
+  console.log(
+    `[vercel-build] ${vercelEnv} deploy — skipping database migrations. If this release adds migrations, ` +
+      "migrate the preview's own database first (docs/security-operations.md §1.1), or sign-in and other pages will fail on it.",
+  );
+} else {
+  // Unable to tell production from preview: refuse rather than guess.
+  // Skipping would ship code ahead of its schema; migrating could change the
+  // live database from a preview. A failed build is never promoted. (Only
+  // vercel.json runs this script; locally, use `npm run build`.) VERCEL_ENV
+  // is missing when the project's system environment variables are hidden —
+  // and so is VERCEL, so that can't be used to tell this apart from a laptop.
   console.error(
-    "[vercel-build] VERCEL_ENV is not available, so this build cannot tell whether to migrate. " +
-      'Enable "Automatically expose System Environment Variables" in the Vercel project settings.',
+    `[vercel-build] VERCEL_ENV is ${vercelEnv ? `"${vercelEnv}"` : "not set"}, so this build cannot tell whether to migrate. ` +
+      'In Vercel → Settings → Environment Variables, turn on "Enable access to System Environment Variables". ' +
+      "To build on your own computer, use `npm run build`.",
   );
   process.exit(1);
-} else {
-  console.log("[vercel-build] Not a production deploy — skipping database migrations.");
 }
 
-run("npx", ["next", "build"]);
+run("npx", ["--no-install", "next", "build"]);
