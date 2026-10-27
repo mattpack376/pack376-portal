@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 import {
   MAX_PASSWORD_BYTES,
   MAX_PASSWORD_INPUT_LENGTH,
+  MAX_USERNAME_LENGTH,
+  isUsernameTooLong,
   isWellFormedResetToken,
   newPasswordProblem,
   oversizePasswordProblem,
@@ -105,5 +107,28 @@ describe("oversizePasswordProblem", () => {
       if (password.length >= 8) assert.deepEqual(early, newPasswordProblem(password, confirm));
     }
     assert.equal(oversizePasswordProblem("short", huge)?.field, "confirmPassword");
+  });
+});
+
+describe("isUsernameTooLong", () => {
+  it("allows up to the limit in UTF-8 bytes and nothing past it", () => {
+    assert.equal(isUsernameTooLong("a".repeat(MAX_USERNAME_LENGTH)), false);
+    assert.equal(isUsernameTooLong("a".repeat(MAX_USERNAME_LENGTH + 1)), true);
+    assert.equal(isUsernameTooLong("é".repeat(127)), false, "254 bytes");
+    assert.equal(isUsernameTooLong("é".repeat(128)), true, "128 characters but 256 bytes");
+    assert.equal(isUsernameTooLong("😀".repeat(63)), false, "252 bytes");
+    assert.equal(isUsernameTooLong("😀".repeat(64)), true, "256 bytes");
+    assert.equal(isUsernameTooLong("x".repeat(100_000)), true);
+  });
+
+  it("never allows a name sign-in would refuse for its length", () => {
+    // Sign-in counts UTF-16 units; a UTF-8 byte count is never smaller.
+    const pieces = ["a", "é", "日", "😀", "\ud800"];
+    for (let round = 0; round < 2000; round++) {
+      let name = "";
+      const size = 1 + Math.floor(Math.random() * 300);
+      for (let i = 0; i < size; i++) name += pieces[Math.floor(Math.random() * pieces.length)];
+      if (!isUsernameTooLong(name)) assert.ok(name.length <= MAX_USERNAME_LENGTH, JSON.stringify(name));
+    }
   });
 });

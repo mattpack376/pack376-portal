@@ -23,7 +23,7 @@ import { formatPhoneNumber } from "@/lib/phone";
 import { denDisplayName } from "@/lib/rankConfig";
 import { recordAudit, recordAuditInTransaction, changedFields } from "@/lib/audit";
 import { isValidEmail, MAX_NAME_LENGTH } from "@/lib/formValues";
-import { MAX_USERNAME_LENGTH } from "@/lib/credentialInput";
+import { isUsernameTooLong, USERNAME_TOO_LONG_MESSAGE } from "@/lib/credentialInput";
 import type { CreatedInvite } from "@/lib/actions/dens";
 import type { Rank } from "@/generated/prisma/enums";
 
@@ -64,9 +64,8 @@ export async function createAdminAction(
   const name = displayName.trim();
   const cleanEmail = email?.trim() || null;
   if (!clean || !name) return { ok: false as const, error: "Username and display name are required." };
-  if (clean.length > MAX_USERNAME_LENGTH) {
-    return { ok: false as const, error: `Usernames can be at most ${MAX_USERNAME_LENGTH} characters.` };
-  }
+  // Sign-in won't look up a longer name, so the login could never be used.
+  if (isUsernameTooLong(clean)) return { ok: false as const, error: USERNAME_TOO_LONG_MESSAGE };
   if (name.length > MAX_NAME_LENGTH) {
     return { ok: false as const, error: `Display names can be at most ${MAX_NAME_LENGTH} characters.` };
   }

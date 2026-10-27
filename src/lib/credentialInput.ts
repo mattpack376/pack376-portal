@@ -25,7 +25,12 @@ export const MAX_PASSWORD_BYTES = 72;
  */
 export const MAX_PASSWORD_INPUT_LENGTH = 1024;
 
-/** Parent Portal logins are email addresses, so a username can be as long as one. */
+/**
+ * Parent Portal logins are email addresses, so a username can be as long as
+ * one. Sign-in refuses anything longer before looking it up, and the
+ * database refuses to store anything longer (the User_username_length_check
+ * constraint), so every login that exists can sign in.
+ */
 export const MAX_USERNAME_LENGTH = MAX_EMAIL_LENGTH;
 
 /** Every reset/invite link carries randomBytes(32) in base64url: 43 characters. */
@@ -60,6 +65,20 @@ export type DeadLinkReason = keyof typeof DEAD_LINK_TEXT;
 export function utf8ByteLength(value: string) {
   return new TextEncoder().encode(value).byteLength;
 }
+
+/**
+ * True for a (trimmed, lowercased) new username too long to sign in with.
+ * Counted in UTF-8 bytes, as the database's constraint counts it: never fewer
+ * than the characters sign-in counts, so a name that passes here always
+ * passes there. Every screen that creates a login should check this first,
+ * so the database's refusal is never what the Admin sees.
+ */
+export function isUsernameTooLong(username: string) {
+  return username.length > MAX_USERNAME_LENGTH || utf8ByteLength(username) > MAX_USERNAME_LENGTH;
+}
+
+/** The message for isUsernameTooLong, in the words the password limit uses. */
+export const USERNAME_TOO_LONG_MESSAGE = `Usernames can be at most ${MAX_USERNAME_LENGTH} characters (accented letters and emoji count as more than one).`;
 
 export type NewPasswordProblem = { error: string; field: "password" | "confirmPassword" };
 

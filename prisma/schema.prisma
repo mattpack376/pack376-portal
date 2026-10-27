@@ -69,6 +69,9 @@ enum SignerRelationship {
 
 model User {
   id                       String                   @id @default(cuid())
+  // At most 254 bytes, the longest sign-in will look up, enforced by the
+  // User_username_length_check constraint (migration
+  // 20261027150001_limit_username_length; Prisma can't declare CHECKs).
   username                 String                   @unique
   passwordHash             String
   role                     Role
