@@ -1,7 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
-import { registerForTripAction, type TripRegistrationField } from "@/lib/actions/tripRegistration";
+import {
+  registerForTripAction,
+  type RegisterForTripState,
+  type TripRegistrationField,
+} from "@/lib/actions/tripRegistration";
 import { MAX_EMAIL_LENGTH, MAX_NAME_LENGTH, MAX_PHONE_LENGTH } from "@/lib/formValues";
 
 /**
@@ -97,6 +101,7 @@ export default function TripRegistrationForm({
           isPending={isPending}
           errorField={state.error ? state.field : undefined}
           errorId={errorId}
+          result={state}
         />
       </form>
 
@@ -142,6 +147,7 @@ function TripRegistrationFields({
   isPending,
   errorField,
   errorId,
+  result,
 }: {
   currentPriceCents: number;
   packPaymentInstructions: string | null;
@@ -153,12 +159,15 @@ function TripRegistrationFields({
   errorField: TripRegistrationField | undefined;
   /** The error message's id, for aria-describedby. */
   errorId: string;
+  /** The latest result from the action — a new object after every submit. */
+  result: RegisterForTripState;
 }) {
   const [familyName, setFamilyName] = useState("");
   const [guestOfName, setGuestOfName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [affiliation, setAffiliation] = useState("");
+  const affiliationRef = useRef<HTMLSelectElement>(null);
   // Kept as strings (not numbers) so the field can go genuinely empty while
   // typing on mobile — type="number" inputs don't support .select()/select-
   // on-focus in any major mobile browser, so overwriting a pre-filled "0"
@@ -169,6 +178,21 @@ function TripRegistrationFields({
 
   const totalCents = (Number(payingCount) || 0) * currentPriceCents;
   const notice = affiliation === "PACK" ? packPaymentInstructions : affiliation === "TROOP" ? troopPaymentInstructions : null;
+  /*
+   * React resets the form after every submit through an action. A controlled
+   * text input survives that (React mirrors its value into the attribute the
+   * reset restores), but a controlled <select> goes back to the option it
+   * started on while its state still says "Pack 376" — so after a refusal it
+   * showed "Select one…", and fixing the other field and resubmitting was
+   * refused again for the affiliation. The reset has happened by the time
+   * effects run, so this puts the select back to what the state says.
+   */
+  useEffect(() => {
+    if (affiliationRef.current && affiliationRef.current.value !== affiliation) {
+      affiliationRef.current.value = affiliation;
+    }
+  }, [result, affiliation]);
+
   /** aria-invalid/aria-describedby for one field, set only while the error is about it. */
   const errorProps = (field: TripRegistrationField) =>
     errorField === field ? { "aria-invalid": true as const, "aria-describedby": errorId } : {};
@@ -238,6 +262,7 @@ function TripRegistrationFields({
       <div className="form-field">
         <label htmlFor="affiliation">Affiliated With</label>
         <select
+          ref={affiliationRef}
           id="affiliation"
           name="affiliation"
           required
