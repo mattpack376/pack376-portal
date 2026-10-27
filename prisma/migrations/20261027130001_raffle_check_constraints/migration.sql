@@ -10,17 +10,18 @@
 --  - RaffleBox: box numbers start at 1.
 --  - RafflePayment: an amount above zero (an IOU is not a payment row).
 --
--- Each is added on its own. If existing data breaks one, adding that one
--- fails, the failure is caught, and the migration carries on without it
--- rather than failing the deploy. Prisma's schema doesn't describe CHECK
--- constraints and `prisma migrate diff` leaves them alone.
+-- Each is added on its own. If adding one fails for any reason — existing
+-- data that breaks it, or a constraint of that name already added by hand —
+-- the failure is caught and the migration carries on without it rather than
+-- failing the deploy. Prisma's schema doesn't describe CHECK constraints and
+-- `prisma migrate diff` leaves them alone.
 DO $$
 BEGIN
   ALTER TABLE "Raffle" ADD CONSTRAINT "Raffle_terms_check"
     CHECK ("boxCount" >= 1 AND "priceCents" > 0 AND "prizePercent" BETWEEN 0 AND 100 AND ("prizeCents" IS NULL OR "prizeCents" >= 0));
 EXCEPTION
-  WHEN check_violation THEN
-    RAISE NOTICE 'Raffle_terms_check was not added: an existing raffle breaks it.';
+  WHEN OTHERS THEN
+    RAISE NOTICE 'Raffle_terms_check was not added (%: %).', SQLSTATE, SQLERRM;
 END $$;
 
 DO $$
@@ -32,22 +33,22 @@ BEGIN
       AND (NOT "prizePaid" OR "winningBox" IS NOT NULL)
     );
 EXCEPTION
-  WHEN check_violation THEN
-    RAISE NOTICE 'Raffle_drawing_check was not added: an existing raffle breaks it.';
+  WHEN OTHERS THEN
+    RAISE NOTICE 'Raffle_drawing_check was not added (%: %).', SQLSTATE, SQLERRM;
 END $$;
 
 DO $$
 BEGIN
   ALTER TABLE "RaffleBox" ADD CONSTRAINT "RaffleBox_number_check" CHECK ("number" >= 1);
 EXCEPTION
-  WHEN check_violation THEN
-    RAISE NOTICE 'RaffleBox_number_check was not added: an existing box breaks it.';
+  WHEN OTHERS THEN
+    RAISE NOTICE 'RaffleBox_number_check was not added (%: %).', SQLSTATE, SQLERRM;
 END $$;
 
 DO $$
 BEGIN
   ALTER TABLE "RafflePayment" ADD CONSTRAINT "RafflePayment_amountCents_check" CHECK ("amountCents" > 0);
 EXCEPTION
-  WHEN check_violation THEN
-    RAISE NOTICE 'RafflePayment_amountCents_check was not added: an existing payment breaks it.';
+  WHEN OTHERS THEN
+    RAISE NOTICE 'RafflePayment_amountCents_check was not added (%: %).', SQLSTATE, SQLERRM;
 END $$;

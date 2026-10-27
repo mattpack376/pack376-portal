@@ -257,6 +257,38 @@ describe("guarded migrations", () => {
     assert.equal(await hasIndex("RaffleEntry_raffleId_name_key"), true);
   });
 
+  it("the buyer-name index is skipped, not failed, when an existing name is too long to index", async () => {
+    // Names had no length limit before this branch. One past Postgres's
+    // ~2.7 KB index-entry limit made CREATE INDEX fail with
+    // program_limit_exceeded, which the first version's handler (unique
+    // violations only) let through, failing the deploy.
+    await db.pool.query(`DROP INDEX "RaffleEntry_raffleId_name_key"`);
+    const raffle = await kit.makeRaffle();
+    const longId = newId("entry");
+    await db.pool.query(
+      `INSERT INTO "RaffleEntry" (id, "raffleId", name)
+       SELECT $1, $2, string_agg(md5(i::text), '') FROM generate_series(1, 120) AS i`,
+      [longId, raffle.id],
+    );
+
+    await db.pool.query(nameIndexSql); // no error
+    assert.equal(await hasIndex("RaffleEntry_raffleId_name_key"), false);
+
+    await db.pool.query(`DELETE FROM "RaffleEntry" WHERE id = $1`, [longId]);
+    // CREATE INDEX also indexes rows deleted so recently that an older
+    // snapshot could still see them, so the long name has to be vacuumed away.
+    await db.pool.query(`VACUUM "RaffleEntry"`);
+    await db.pool.query(nameIndexSql);
+    assert.equal(await hasIndex("RaffleEntry_raffleId_name_key"), true);
+  });
+
+  it("running either migration again on a database that already has them changes nothing and doesn't fail", async () => {
+    await db.pool.query(nameIndexSql);
+    await db.pool.query(checksSql);
+    assert.equal(await hasIndex("RaffleEntry_raffleId_name_key"), true);
+    assert.deepEqual(await constraints(), CHECKS.map(([, name]) => name).sort());
+  });
+
   it("each CHECK constraint is skipped, not failed, when existing rows break it", async () => {
     assert.deepEqual(await constraints(), CHECKS.map(([, name]) => name).sort(), "added by the migration on a clean database");
     for (const [table, name] of CHECKS) await db.pool.query(`ALTER TABLE "${table}" DROP CONSTRAINT "${name}"`);

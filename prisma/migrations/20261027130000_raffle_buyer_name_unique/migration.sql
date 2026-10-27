@@ -8,16 +8,20 @@
 -- here. (`prisma migrate diff` leaves expression indexes alone, so a later
 -- migration won't drop it.)
 --
--- Existing data decides whether it can be added. If any raffle already has two
--- buyers whose names differ only in case, building the index fails; that is
--- caught below and the migration carries on WITHOUT the index rather than
--- failing the deploy. The portal's own check still applies either way. To add
--- the index later, rename one of each pair on the raffle page (a last name or
--- initial) and run the CREATE UNIQUE INDEX statement below by hand.
+-- Existing data decides whether it can be added, and this migration must
+-- never fail a deploy over it: the index is only a backup. If building it
+-- fails for any reason — most likely two buyers on one raffle whose names
+-- differ only in case, or a name too long for an index entry (names had no
+-- length limit before) — the error is caught and the migration carries on
+-- WITHOUT the index. The portal's own check applies either way. To add the
+-- index later, fix the names on the raffle page (a last name or initial for
+-- namesakes) and run the CREATE UNIQUE INDEX statement below by hand. (After
+-- shortening a too-long name, run VACUUM "RaffleEntry" first: building an
+-- index also reads the old version of a row changed only a moment ago.)
 DO $$
 BEGIN
   CREATE UNIQUE INDEX "RaffleEntry_raffleId_name_key" ON "RaffleEntry" ("raffleId", lower(btrim("name")));
 EXCEPTION
-  WHEN unique_violation THEN
-    RAISE NOTICE 'RaffleEntry_raffleId_name_key was not created: some raffle has two buyers with the same name (ignoring case). Rename them, then create the index by hand.';
+  WHEN OTHERS THEN
+    RAISE NOTICE 'RaffleEntry_raffleId_name_key was not created (%: %). Rename the buyers involved, then create the index by hand.', SQLSTATE, SQLERRM;
 END $$;
