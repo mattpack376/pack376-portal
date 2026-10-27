@@ -143,6 +143,9 @@ function readAdminRegistrationFields(formData: FormData): RegistrationFields {
 
 const ADMIN_TOO_MANY_ATTENDEES = `That's more than ${MAX_ATTENDEES} attendees for one registration — split the group into two registrations.`;
 const REGISTRATION_GONE = "This registration has been removed. Reload the page.";
+/** What the public form says when the save itself fails — a database hiccup, or a wait for the trip's lock that ran out. */
+const REGISTRATION_NOT_SAVED =
+  "We couldn't save your registration just now. Please try again in a moment — if it keeps happening, contact us and we'll add your group.";
 /** Only reachable with a per-person price in the tens of thousands of dollars, but a total has to fit what a form can store. */
 const TOTAL_TOO_LARGE = "That total is more than $1,000,000.00 — check the attendee counts and the price.";
 
@@ -258,7 +261,20 @@ async function submitTripRegistration(formData: FormData): Promise<RegisterForTr
       data: { tripPageId, ...fields, amountOwedCents, owedPending },
     });
     return { kind: "created" } as const;
-  }, TRIP_TRANSACTION_OPTIONS);
+  }, TRIP_TRANSACTION_OPTIONS).catch((error: unknown) => {
+    // Every submission to a trip queues for its lock, so a burst — or a price
+    // posting charging many families — can outlast the transaction's time
+    // limit, and the database can fail like any other. That's not the
+    // visitor's doing, and a generic error page would lose what they typed:
+    // say so on the form and let them try again. Nothing was saved (the
+    // transaction rolled back), and if it had been, the retry is a replay.
+    // The log line leaves out the error's structured details, which for a
+    // database error can repeat the family's row back.
+    const code = typeof error === "object" && error && "code" in error ? ` [${String(error.code)}]` : "";
+    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+    console.error(`[trip registration] couldn't save a registration${code}: ${message}`);
+    return { kind: "failed" } as const;
+  });
 
   switch (outcome.kind) {
     case "closed":
@@ -272,6 +288,8 @@ async function submitTripRegistration(formData: FormData): Promise<RegisterForTr
       return { error: `This email already has several registrations for this ${outcome.noun}. Please contact us to add more.` };
     case "tooLarge":
       return { error: "That total is more than we can take online — email us instead and we'll add your group." };
+    case "failed":
+      return { error: REGISTRATION_NOT_SAVED };
     case "replay":
       return { success: true };
     case "created":

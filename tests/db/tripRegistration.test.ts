@@ -85,6 +85,42 @@ describe("the public registration form", () => {
     assert.equal((await registrationsOf(db.prisma, trip.id)).length, 0);
   });
 
+  it("says to try again when the save itself fails, instead of going to an error page", async (t) => {
+    const trip = await freshTrip(db.prisma);
+    const values = familyForm(trip.id, { contactEmail: "retry.family@example.test" });
+    const logged = t.mock.method(console, "error", () => {});
+
+    // The submission queues behind a lock on the trip, and its query is then
+    // cancelled — the same way a transaction timing out or a dropped
+    // connection ends it. (The old code let that error through to the
+    // generic error page, losing what the family typed.)
+    const holder = await openTransaction(db.pool);
+    t.after(() => holder.rollback());
+    await holder.query(LOCK_TRIP, [trip.id]);
+    const submitting = register(actions, values);
+    await waitForWaiters(db.pool, 1);
+    const { rows } = await db.pool.query(
+      `SELECT pg_cancel_backend(pid) AS cancelled FROM pg_stat_activity
+        WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`,
+    );
+    assert.deepEqual(rows.map((row) => row.cancelled), [true]);
+    await holder.rollback();
+
+    const result = await submitting;
+    assert.match(result.error ?? "", /couldn't save your registration just now/);
+    assert.equal(result.success, undefined);
+    assert.equal((await registrationsOf(db.prisma, trip.id)).length, 0, "nothing half-saved");
+    assert.equal(logged.mock.callCount(), 1);
+    const line = String(logged.mock.calls[0].arguments[0]);
+    assert.match(line, /^\[trip registration\] couldn't save a registration/);
+    assert.doesNotMatch(line, /retry\.family/, "the log line doesn't repeat the family's details");
+
+    // Trying again goes through, once.
+    assert.equal((await register(actions, values)).success, true);
+    assert.equal((await register(actions, values)).success, true);
+    assert.equal((await registrationsOf(db.prisma, trip.id)).length, 1);
+  });
+
   it("turns away a rate-limited connection before saving anything", async () => {
     const trip = await freshTrip(db.prisma);
     testState.rateLimited = true;
