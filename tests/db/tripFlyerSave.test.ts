@@ -32,7 +32,15 @@ const saveDetails = (tripPageId: string, extra: Record<string, string | File> = 
   for (const [key, value] of Object.entries(extra)) data.set(key, value);
   return runAs(admin, () => actions.page.updateTripDetailsAction(data));
 };
-const pdf = () => new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "flyer.pdf", { type: "application/pdf" });
+/**
+ * A small but real PDF — its signature at the start and an end-of-file
+ * marker — so it passes the upload-validation module's checks of what a file
+ * really is, as well as flyerUpload.ts's type check.
+ */
+const pdf = () =>
+  new File(["%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n"], "flyer.pdf", {
+    type: "application/pdf",
+  });
 const flyerOf = async (tripPageId: string) => (await db.prisma.tripPage.findUniqueOrThrow({ where: { id: tripPageId } })).flyerUrl;
 
 describe("the trip details form's flyer", () => {
@@ -125,9 +133,12 @@ describe("the trip details form's flyer", () => {
   it("explains a refused file in the admin's terms, and never shows storage errors' own text", async () => {
     const trip = await freshTrip(db.prisma, { flyerUrl: OWNED_FLYER });
 
-    // flyerUpload.ts's own type check (before the upload-validation module, a plain Error).
+    // A file of the wrong type: before the upload-validation module, a plain
+    // Error from flyerUpload.ts, answered with the general message (which
+    // says what a flyer has to be); with it, its own wording. Either way the
+    // admin is told the types a flyer can be.
     const text = new File(["hello"], "flyer.txt", { type: "text/plain" });
-    assert.match((await saveDetails(trip.id, { flyer: text })).error ?? "", /JPEG, PNG, WEBP, GIF, or PDF of 8MB or less/);
+    assert.match((await saveDetails(trip.id, { flyer: text })).error ?? "", /a JPEG, PNG, WEBP, GIF, or PDF/);
 
     // A rejection the upload-validation module words for the admin is shown as written.
     rejectNextUpload("Flyer looks like a web page, not a PDF. Choose the flyer file itself.");
