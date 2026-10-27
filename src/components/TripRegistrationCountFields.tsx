@@ -1,8 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { amountAfterCountChange, amountFieldText, amountFollowsCount } from "@/lib/tripAmountOwedField";
 
-/** Paying/free count + Amount Owed fields for editing a trip registration — Amount Owed auto-fills from paying count × the trip's current per-person price, and stays editable afterward (recalculated whenever the paying count changes). */
+/**
+ * Paying/free count + Amount Owed fields for editing a trip registration.
+ * Amount Owed moves with the paying count only while it is paying count × the
+ * trip's current per-person price; an amount set at signup at another rate
+ * (early bird) or typed by an admin stays as it is when the count changes,
+ * and so does every amount while the price is TBD. See tripAmountOwedField.ts.
+ */
 export default function TripRegistrationCountFields({
   idPrefix,
   pricePerPersonCents,
@@ -36,10 +43,23 @@ export default function TripRegistrationCountFields({
   // (inputMode) does support selection, letting a tap-and-type replace it.
   const [payingCount, setPayingCount] = useState(String(defaultPayingCount));
   const [freeCount, setFreeCount] = useState(String(defaultFreeCount));
-  const [amount, setAmount] = useState(owedPending ? "" : (defaultAmountOwedCents / 100).toFixed(2));
+  const [amount, setAmount] = useState(owedPending ? "" : amountFieldText(defaultAmountOwedCents));
   const showFree = freeAgeAndUnder !== null || defaultFreeCount > 0;
   const uncharged = owedPending && !priceTbd;
-  const chargeText = `$${((Number(payingCount || 0) * pricePerPersonCents) / 100).toFixed(2)}`;
+  const paying = Number(payingCount || 0);
+  const priceText = `$${amountFieldText(pricePerPersonCents)}`;
+  const chargeText = `$${amountFieldText(paying * pricePerPersonCents)}`;
+  const follows = amountFollowsCount(amount, paying, pricePerPersonCents, priceTbd);
+
+  const note = uncharged
+    ? `Not charged yet. Leave blank to charge paying count × the posted price (${priceText}/person = ${chargeText}), or type an amount.`
+    : owedPending
+      ? "Waiting for the price — it fills in (attendees × price) when you post it. Type an amount to set it now."
+      : priceTbd
+        ? "The price isn't posted yet, so this amount stays as it is when the attendee count changes — edit it here if it should change."
+        : follows
+          ? `Paying count × the current price (${priceText}/person) — it follows the paying count until you type a different amount.`
+          : `Set at signup or by hand, so it stays as it is when the paying count changes. At today's price (${priceText}/person), ${paying} paying would be ${chargeText} — type it in if that's what they owe.`;
 
   return (
     <>
@@ -56,9 +76,10 @@ export default function TripRegistrationCountFields({
             value={payingCount}
             onChange={(e) => {
               const next = e.target.value.replace(/\D/g, "");
+              setAmount(
+                amountAfterCountChange({ amount, previousCount: paying, nextCount: Number(next || 0), pricePerPersonCents, priceTbd }),
+              );
               setPayingCount(next);
-              // Nothing to multiply by while the price is unreleased.
-              if (!owedPending) setAmount(((Number(next || 0) * pricePerPersonCents) / 100).toFixed(2));
             }}
             onFocus={(e) => e.target.select()}
           />
@@ -96,13 +117,10 @@ export default function TripRegistrationCountFields({
           placeholder={uncharged ? chargeText : owedPending ? "Pending price" : undefined}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
+          aria-describedby={`${idPrefix}-amountOwed-note`}
         />
-        <p className="form-note" style={{ marginTop: 4, marginBottom: 0 }}>
-          {uncharged
-            ? `Not charged yet. Leave blank to charge paying count × the posted price ($${(pricePerPersonCents / 100).toFixed(2)}/person = ${chargeText}), or type an amount.`
-            : owedPending
-              ? "Waiting for the price — it fills in (attendees × price) when you post it. Type an amount to set it now."
-              : `Auto-filled from paying count × the current price ($${(pricePerPersonCents / 100).toFixed(2)}/person) — edit freely.`}
+        <p id={`${idPrefix}-amountOwed-note`} className="form-note" style={{ marginTop: 4, marginBottom: 0 }}>
+          {note}
         </p>
       </div>
     </>
