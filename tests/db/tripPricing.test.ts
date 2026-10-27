@@ -265,6 +265,8 @@ describe("price posting vs. an admin editing a waiting registration", () => {
     const [posted, edited] = await Promise.all([posting, editing]);
     assert.deepEqual(posted, {});
     assert.match(edited.error ?? "", /reload the page/i);
+    assert.match(edited.error ?? "", /set to \$80\.00 after this page loaded/);
+    assert.equal(edited.stale, true);
     const after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: registration.id } });
     assert.equal(after.familyName, registration.familyName, "nothing from the refused edit was saved");
     assert.equal(after.payingCount, 2);
@@ -432,6 +434,7 @@ describe("posting the price again, and retrying", () => {
     const trip = await tripWithWaiting(2);
     const refused = await savePricing(actions, admin, trip.id, { regularPrice: "0" });
     assert.match(refused.error ?? "", /still \$0\.00/);
+    assert.equal(refused.stale, undefined, "a refusal about what was typed keeps the admin's entries");
     assert.equal((await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } })).priceTbd, true);
     assert.ok((await registrationsOf(db.prisma, trip.id)).every((r) => r.owedPending && r.amountOwedCents === 0));
     assert.equal((await pricingAudits(trip.id)).length, 0);

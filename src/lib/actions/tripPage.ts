@@ -14,6 +14,7 @@ import {
   lockTripPage,
   tripFormResult,
   TripInputError,
+  TRIP_PAGE_GONE,
   TRIP_TRANSACTION_OPTIONS,
   type TripFormResult,
 } from "@/lib/tripPageData";
@@ -80,7 +81,7 @@ export async function updateTripDetailsAction(formData: FormData): Promise<TripF
     try {
       before = await prisma.$transaction(async (tx) => {
         const current = await lockTripPage(tx, id);
-        if (!current) throw new TripInputError("This event's page no longer exists. Reload the page.");
+        if (!current) throw new TripInputError(TRIP_PAGE_GONE, { stale: true });
         await tx.tripPage.update({
           where: { id },
           data: {
@@ -207,7 +208,7 @@ export async function updateTripPricingAction(formData: FormData): Promise<TripF
 
     await prisma.$transaction(async (tx) => {
       const before = await lockTripPage(tx, id);
-      if (!before) throw new TripInputError("This event's page no longer exists. Reload the page.");
+      if (!before) throw new TripInputError(TRIP_PAGE_GONE, { stale: true });
 
       // Only an event whose site has a TBD message has the toggle on its form,
       // so for any other this is always false.
@@ -278,21 +279,23 @@ export async function settleWaitingTripRegistrationsAction(formData: FormData): 
   return tripFormResult(async () => {
     const id = textField(formData.get("id"));
     const shownPriceRaw = textField(formData.get("pricePerPersonCents"));
-    if (!id || !/^\d{1,9}$/.test(shownPriceRaw)) throw new TripInputError("Missing trip page id or price. Reload the page.");
+    if (!id || !/^\d{1,9}$/.test(shownPriceRaw)) throw new TripInputError("Missing trip page id or price. Reload the page.", { stale: true });
     const shownPriceCents = Number(shownPriceRaw);
 
     await prisma.$transaction(async (tx) => {
       const trip = await lockTripPage(tx, id);
-      if (!trip) throw new TripInputError("This event's page no longer exists. Reload the page.");
+      if (!trip) throw new TripInputError(TRIP_PAGE_GONE, { stale: true });
       if (trip.priceTbd) {
         throw new TripInputError(
           "The price is TBD again, so these registrations wait for it. Post the price under Price Structure and they're filled in then.",
+          { stale: true },
         );
       }
       const pricePerPersonCents = currentTripPriceCents(trip);
       if (pricePerPersonCents !== shownPriceCents) {
         throw new TripInputError(
           `The price is now ${auditMoney(pricePerPersonCents)}/person, not ${auditMoney(shownPriceCents)}. Review it and try again.`,
+          { stale: true },
         );
       }
 

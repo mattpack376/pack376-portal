@@ -11,6 +11,7 @@ import {
   registrationClosed,
   tripFormResult,
   TripInputError,
+  TRIP_PAGE_GONE,
   TRIP_TRANSACTION_OPTIONS,
   type TripFormResult,
 } from "@/lib/tripPageData";
@@ -305,7 +306,7 @@ export async function addTripRegistrationAction(formData: FormData): Promise<Tri
       // (see registerForTripAction), so a family added while the price is
       // being posted is either filled in by the posting or priced here.
       const trip = await lockTripPage(tx, tripPageId);
-      if (!trip) throw new TripInputError("This event's page no longer exists. Reload the page.");
+      if (!trip) throw new TripInputError(TRIP_PAGE_GONE, { stale: true });
 
       // A late addition costs what the tier in effect today costs (or stays
       // pending while the price is TBD). Edit the amount afterwards if this
@@ -368,7 +369,7 @@ export async function updateTripRegistrationAction(formData: FormData): Promise<
     // A registration never moves to another trip, so which trip to lock can
     // be read before the lock; everything else is re-read under it.
     const registration = await prisma.tripRegistration.findUnique({ where: { id }, select: { tripPageId: true } });
-    if (!registration) throw new TripInputError(REGISTRATION_GONE);
+    if (!registration) throw new TripInputError(REGISTRATION_GONE, { stale: true });
 
     await prisma.$transaction(async (tx) => {
       const trip = await lockTripPage(tx, registration.tripPageId);
@@ -386,7 +387,7 @@ export async function updateTripRegistrationAction(formData: FormData): Promise<
           owedPending: true,
         },
       });
-      if (!trip || !before) throw new TripInputError(REGISTRATION_GONE);
+      if (!trip || !before) throw new TripInputError(REGISTRATION_GONE, { stale: true });
 
       // A group already over the ceiling (added before it applied to admins)
       // can still be edited, as long as its counts stay as they are.
@@ -419,7 +420,8 @@ export async function updateTripRegistrationAction(formData: FormData): Promise<
         // posted after the page loaded. Its amount is not overwritten from a
         // stale form — the admin sees the new amount and makes the change again.
         throw new TripInputError(
-          "Enter the amount owed. If the price was just posted, reload the page to see this registration's new amount, then make your change again.",
+          `This registration's amount owed was set to ${auditMoney(before.amountOwedCents)} after this page loaded — the price was posted, or someone entered it. Review it on the refreshed page (reload the page if it hasn't updated), then make your change again.`,
+          { stale: true },
         );
       }
 
@@ -429,7 +431,7 @@ export async function updateTripRegistrationAction(formData: FormData): Promise<
         where: { id },
         data: { ...fields, amountOwedCents, owedPending },
       });
-      if (count === 0) throw new TripInputError(REGISTRATION_GONE);
+      if (count === 0) throw new TripInputError(REGISTRATION_GONE, { stale: true });
 
       await recordAuditInTransaction(tx, session, {
         action: "tripRegistration.update",

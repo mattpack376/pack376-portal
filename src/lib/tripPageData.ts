@@ -122,17 +122,30 @@ export async function getOrCreateTripPage(slug: string) {
   });
 }
 
-/** What an admin trip form gets back: nothing when it saved, `error` when it was turned down (TripAdminForm shows it). */
-export type TripFormResult = { error?: string };
+/**
+ * What an admin trip form gets back: nothing when it saved, `error` when it
+ * was turned down (TripAdminForm shows it). `stale` marks a refusal about
+ * something that changed after the page loaded rather than about what was
+ * typed: the form then shows the refreshed page as it now stands instead of
+ * putting the admin's entries back.
+ */
+export type TripFormResult = { error?: string; stale?: boolean };
 
 /**
- * A problem with what was entered, or a change someone else made first — the
- * expected kind of failure, shown on the form. Thrown rather than returned so
- * that, thrown inside a transaction, it also rolls back everything that
- * transaction wrote. Anything else is a real fault and still throws to the
- * error page.
+ * A problem with what was entered, or (`stale`) a change someone else made
+ * first — the expected kinds of failure, shown on the form. Thrown rather
+ * than returned so that, thrown inside a transaction, it also rolls back
+ * everything that transaction wrote. Anything else is a real fault and still
+ * throws to the error page.
  */
-export class TripInputError extends Error {}
+export class TripInputError extends Error {
+  readonly stale: boolean;
+
+  constructor(message: string, options: { stale?: boolean } = {}) {
+    super(message);
+    this.stale = options.stale ?? false;
+  }
+}
 
 /**
  * Runs an admin trip action, turning a TripInputError into { error } for the
@@ -147,9 +160,12 @@ export async function tripFormResult(work: () => Promise<void>): Promise<TripFor
   } catch (error) {
     if (!(error instanceof TripInputError)) throw error;
     revalidateTripAdminPages();
-    return { error: error.message };
+    return error.stale ? { error: error.message, stale: true } : { error: error.message };
   }
 }
+
+/** The refusal for a trip page that was removed while its admin page was open. */
+export const TRIP_PAGE_GONE = "This event's page no longer exists. Reload the page.";
 
 /** Options for every transaction that locks a TripPage: short, and never queued for long behind another. */
 export const TRIP_TRANSACTION_OPTIONS = { timeout: 15000, maxWait: 10000 };
