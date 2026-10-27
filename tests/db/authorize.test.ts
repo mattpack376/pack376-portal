@@ -117,7 +117,11 @@ describe("requireRosterSession", () => {
 });
 
 describe("page guards are never looser than the proxy", () => {
-  // Each guarded page (and admin export route), with the guard its own code calls.
+  // Each guarded page (and admin export route), with the guard it uses — for
+  // the client page dens/new, the guard its Server Action relies on. This
+  // checks the guard functions; tests/db/pageGuards.test.ts and
+  // tests/unit/pageGuards.test.ts check that each page really calls its guard,
+  // first.
   const PAGES: { path: string; guard: () => Promise<unknown> }[] = [
     { path: "/portal/roster", guard: () => authz.requireRosterSession() },
     { path: "/portal/roster/leaders", guard: () => authz.requireLeaderContactsSession() },
