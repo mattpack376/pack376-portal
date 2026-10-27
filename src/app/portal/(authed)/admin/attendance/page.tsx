@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { getAdminScoutingYears, getAdminMeetingOverview } from "@/lib/attendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
-import { getSession } from "@/lib/auth";
-import { canAccessLeaderAttendance } from "@/lib/authorize";
+import { canAccessLeaderAttendance, requireAttendanceSession } from "@/lib/authorize";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import FileExportButton from "@/components/FileExportButton";
 import MeetingTimeline from "@/components/MeetingTimeline";
@@ -12,12 +11,15 @@ export default async function AdminAttendancePage({
 }: {
   searchParams: Promise<{ year?: string }>;
 }) {
-  const [years, session] = await Promise.all([getAdminScoutingYears(), getSession()]);
+  // Checked here as well as in the layout: a layout isn't re-run on every
+  // navigation and doesn't stop this page rendering, so the page guards its own data.
+  const session = await requireAttendanceSession();
+  const years = await getAdminScoutingYears();
   const { year: requestedYear } = await searchParams;
   const scoutingYear = requestedYear && years.includes(requestedYear) ? requestedYear : years[0];
   // Committee Members take scout attendance but not leader attendance, so
   // they get no tab to switch to.
-  const showLeaderTab = !!session && canAccessLeaderAttendance(session);
+  const showLeaderTab = canAccessLeaderAttendance(session);
 
   if (!scoutingYear) {
     // Leader attendance doesn't need a den, so keep it reachable from here.

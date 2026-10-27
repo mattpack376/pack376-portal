@@ -447,13 +447,29 @@ export async function requireRaffleAccess(): Promise<{ session: SessionPayload; 
 }
 
 /**
- * For Server Components / pages: the pack-wide roster (every den, leader, and
- * scout name) — every staff role, but never a PARENT account. The parent nav
- * never links here, but that alone doesn't stop a direct visit.
+ * Who may open the pack-wide roster (every den, leader, and scout name):
+ * every staff level — Admin, Junior Admin, Committee Member, Den Leader,
+ * Attendance Only and Photographer. Never a PARENT account, and never the
+ * shared Trip Viewer login. Mirrors the /portal/roster rule in src/proxy.ts.
+ *
+ * Spelled out role by role rather than "anyone but a PARENT", which is what
+ * this used to be: that let the Trip Viewer login through here and left the
+ * proxy as the only thing turning it away. A role added later is now kept out
+ * until someone decides it belongs on this list.
  */
+export const ROSTER_ROLES: SessionPayload["role"][] = [
+  "ADMIN",
+  "JUNIOR_ADMIN",
+  "COMMITTEE",
+  "DEN",
+  "ATTENDANCE_ADMIN",
+  "PHOTOGRAPHER",
+];
+
+/** For Server Components / pages: the pack-wide roster — see ROSTER_ROLES. */
 export async function requireRosterSession(): Promise<SessionPayload> {
   const session = await requireSession();
-  if (session.role === "PARENT") redirect(homeForRole(session.role));
+  if (!ROSTER_ROLES.includes(session.role)) redirect(homeForRole(session.role));
   return session;
 }
 
@@ -461,10 +477,9 @@ export async function requireRosterSession(): Promise<SessionPayload> {
  * For Server Components / pages: the Committee & Leaders contact list — every
  * staff level (Admin, Junior Admin, Committee Member, Den Leader, Attendance
  * Only, Photographer), view-only except through the Admin-only Manage page.
- * Spelled out role by role rather than "not a PARENT" like the roster, since
- * this is people's personal phone numbers and email addresses and the shared
- * Trip Viewer login mustn't see them. Mirrors the /portal/roster rule in
- * src/proxy.ts.
+ * Spelled out role by role, like ROSTER_ROLES, since this is people's personal
+ * phone numbers and email addresses and the shared Trip Viewer login mustn't
+ * see them. Mirrors the /portal/roster rule in src/proxy.ts.
  */
 export const LEADER_CONTACT_ROLES: SessionPayload["role"][] = [
   "ADMIN",

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getLeaderScoutingYears, getAdultLeaderMeetingOverview } from "@/lib/adultLeaderAttendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
-import { getSession } from "@/lib/auth";
+import { requireLeaderAttendanceSession } from "@/lib/authorize";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import FileExportButton from "@/components/FileExportButton";
 import MeetingTimeline from "@/components/MeetingTimeline";
@@ -11,10 +11,13 @@ export default async function AdminLeaderAttendancePage({
 }: {
   searchParams: Promise<{ year?: string }>;
 }) {
-  const [years, session] = await Promise.all([getLeaderScoutingYears(), getSession()]);
+  // Checked here as well as in the layout: a layout isn't re-run on every
+  // navigation and doesn't stop this page rendering, so the page guards its own data.
+  const session = await requireLeaderAttendanceSession();
+  const years = await getLeaderScoutingYears();
   const { year: requestedYear } = await searchParams;
   const scoutingYear = requestedYear && years.includes(requestedYear) ? requestedYear : years[0];
-  const canManage = session?.role === "ADMIN";
+  const canManage = session.role === "ADMIN";
 
   const { activeCount, dates } = await getAdultLeaderMeetingOverview(scoutingYear);
 

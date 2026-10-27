@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { updateAlbumAction, type AlbumActionState } from "@/lib/actions/albums";
 import { toDateOnlyString } from "@/lib/dateOnly";
+import { ALBUM_FIELD_LIMITS } from "@/lib/albumFields";
 
 const initialState: AlbumActionState = {};
 
@@ -26,7 +27,14 @@ export default function EditAlbumForm({
         <input type="hidden" name="albumId" value={album.id} />
         <div className="form-field">
           <label htmlFor="title">Event Title</label>
-          <input id="title" name="title" type="text" defaultValue={album.title} required />
+          <input
+            id="title"
+            name="title"
+            type="text"
+            defaultValue={album.title}
+            maxLength={ALBUM_FIELD_LIMITS.title}
+            required
+          />
         </div>
         <div className="form-field">
           <label htmlFor="eventDate">Event Date</label>
@@ -34,7 +42,13 @@ export default function EditAlbumForm({
         </div>
         <div className="form-field">
           <label htmlFor="description">Description (optional)</label>
-          <textarea id="description" name="description" rows={3} defaultValue={album.description ?? ""} />
+          <textarea
+            id="description"
+            name="description"
+            rows={3}
+            defaultValue={album.description ?? ""}
+            maxLength={ALBUM_FIELD_LIMITS.description}
+          />
         </div>
         <div className="form-field">
           <label htmlFor="coverImage">Cover Image (optional)</label>
@@ -49,14 +63,26 @@ export default function EditAlbumForm({
           <input id="coverImage" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
           <p className="form-note">
             Upload a photo from your device (JPEG, PNG, WEBP, or GIF, up to 8MB) — download it from our
-            photo library first, don&apos;t paste a link. Leave blank to keep the current cover image.
+            photo library first, don&apos;t paste a link. Leave blank to keep the current cover image. The
+            photo&apos;s hidden details (like the location it was taken) are removed when it&apos;s saved.
           </p>
         </div>
         <div className="form-field">
           <label htmlFor="photoAlbumUrl">Photo Album Link</label>
-          <input id="photoAlbumUrl" name="photoAlbumUrl" type="url" defaultValue={album.photoAlbumUrl} required />
+          <input
+            id="photoAlbumUrl"
+            name="photoAlbumUrl"
+            type="url"
+            defaultValue={album.photoAlbumUrl}
+            maxLength={ALBUM_FIELD_LIMITS.photoAlbumUrl}
+            required
+          />
         </div>
-        {state?.error && <p className="form-error">{state.error}</p>}
+        {state?.error && (
+          <p className="form-error" role="alert">
+            {state.error}
+          </p>
+        )}
         <button type="submit" className="btn btn-primary" disabled={pending}>
           {pending ? "Saving…" : "Save Changes"}
         </button>

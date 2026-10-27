@@ -441,6 +441,32 @@ model PhotoAlbum {
 }
 
 /**
+ * Uploaded Blob objects (album covers, event and trip flyers) still waiting
+ * to be deleted: a delete that failed (a storage outage), or a fresh upload
+ * whose database save failed and that couldn't be removed straight away. A
+ * few at a time are retried whenever a later upload or deletion happens —
+ * see processPendingBlobDeletions in src/lib/blobCleanup.ts — so nothing
+ * needs a cron job. Before each try the URL is checked against every column
+ * that stores one, and an object still in use is never deleted.
+ */
+model PendingBlobDeletion {
+  id            String   @id @default(cuid())
+  url           String   @unique
+  // Why it was queued, for whoever looks at the table: "replaced or removed",
+  // "upload whose save failed", …
+  reason        String
+  attempts      Int      @default(0)
+  lastError     String?
+  // Not tried again before this. Also the claim: a worker moves it forward
+  // before trying, so two requests never work on the same row at once.
+  nextAttemptAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([nextAttemptAt])
+}
+
+/**
  * Pack-wide notice shown to every family on the Parent Dashboard.
  */
 model Announcement {
