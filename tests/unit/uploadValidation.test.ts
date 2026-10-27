@@ -11,7 +11,9 @@ import {
   FLYER_MEDIA_TYPES,
   IMAGE_MEDIA_TYPES,
   MAX_IMAGE_SIDE,
+  MAX_UPLOAD_BYTES,
   UploadRejectedError,
+  findPdfActiveFeature,
   prepareUpload,
   prepareUploadBytes,
   readImageInfo,
@@ -204,6 +206,55 @@ describe("prepareUploadBytes: what is turned away", () => {
   it("a PDF with no end-of-file marker", async () => {
     const truncated = bytes("%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n");
     assert.match(await rejection(prepareUploadBytes(truncated, "application/pdf", FLYER, sharp)), /couldn't be read/);
+  });
+
+  it("an action can't hide behind a stream that never ends", async () => {
+    // No endstream after it: the rest of the file is checked as ordinary objects.
+    const unclosed = minimalPdf("4 0 obj << /Length 9 >>\nstream\nxxxxxxxxx\n5 0 obj << /S /JavaScript >> endobj\n");
+    assert.equal(findPdfActiveFeature(unclosed), "JavaScript");
+    // A closed stream first, then an unclosed one: only the closed body is skipped.
+    const mixed = minimalPdf(
+      "4 0 obj << /Length 3 >>\nstream\n/JS\nendstream\nendobj\n" + "5 0 obj << /Length 1 >>\r\nstream\r\nx /Launch\n",
+    );
+    assert.equal(findPdfActiveFeature(mixed), "Launch");
+    // Each kind of line ending after `stream` starts a body; the body ends at the first endstream.
+    for (const eol of ["\r\n", "\n", "\r"]) {
+      const closed = minimalPdf(`4 0 obj << /Length 3 >> stream${eol}/JS endstream /Launch\nendobj\n`);
+      assert.equal(findPdfActiveFeature(closed), "Launch", JSON.stringify(eol));
+    }
+  });
+
+  it("checks a full-size file of unclosed streams quickly (once took minutes)", async () => {
+    // The worst case for the old lazy regex: every `stream` rescanned the whole
+    // rest of the file looking for an endstream that wasn't there.
+    const opener = ">>\nstream\n";
+    const head = "%PDF-1.4\n";
+    const tail = "%%EOF\n";
+    const crafted = (size: number) =>
+      bytes(head + opener.repeat(Math.floor((size - head.length - tail.length) / opener.length)) + tail);
+    const timed = <T>(fn: () => T) => {
+      const started = performance.now();
+      const value = fn();
+      return { value, ms: performance.now() - started };
+    };
+
+    // 1MB first: the old regex took about 20 seconds on this, so a return to
+    // it fails here quickly instead of hanging on the full-size file below.
+    // The bounds are loose so a slow test machine can't make this flaky;
+    // the linear scan takes a few milliseconds.
+    const small = timed(() => findPdfActiveFeature(crafted(1024 * 1024)));
+    assert.equal(small.value, null);
+    assert.ok(small.ms < 2000, `1MB took ${Math.round(small.ms)} ms`);
+
+    // The largest file accepted, through the whole PDF path: size, signature,
+    // markup, end marker and actions.
+    const full = crafted(MAX_UPLOAD_BYTES);
+    assert.ok(full.length > MAX_UPLOAD_BYTES - opener.length && full.length <= MAX_UPLOAD_BYTES);
+    const started = performance.now();
+    const prepared = await prepareUploadBytes(full, "application/pdf", FLYER, null);
+    const elapsed = performance.now() - started;
+    assert.equal(prepared.contentType, "application/pdf");
+    assert.ok(elapsed < 5000, `8MB took ${Math.round(elapsed)} ms`);
   });
 });
 

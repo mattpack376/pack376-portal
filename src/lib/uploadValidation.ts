@@ -321,15 +321,48 @@ function latin1(bytes: Uint8Array) {
 }
 
 /**
+ * The PDF's text with each stream body (from the line after `>> stream` up to
+ * its `endstream`) cut out.
+ *
+ * Written as a single forward pass rather than one regex with a lazy
+ * `[\s\S]*?endstream`: that regex rescans the rest of the file for every
+ * `stream` that has no `endstream` after it, so a crafted 8MB file of
+ * unclosed streams took many minutes. Here every search starts where the last
+ * one stopped. Once a stream has no `endstream` after it, none of the later
+ * ones can either, so the rest of the file is kept and checked as it is — the
+ * same result the regex gave, and the strict choice: nothing is hidden by a
+ * stream that never ends.
+ */
+function pdfTextOutsideStreams(text: string): string {
+  const streamStart = />>\s*stream(?:\r\n|\n|\r)/g;
+  const kept: string[] = [];
+  let from = 0;
+  for (;;) {
+    streamStart.lastIndex = from;
+    const start = streamStart.exec(text);
+    if (!start) break;
+    const bodyStart = start.index + start[0].length;
+    const end = text.indexOf("endstream", bodyStart);
+    if (end < 0) break;
+    // Keep everything up to and including the line ending after `stream`, so
+    // the next kept piece can't run into a name from this one.
+    kept.push(text.slice(from, bodyStart));
+    from = end + "endstream".length;
+  }
+  kept.push(text.slice(from));
+  return kept.join("");
+}
+
+/**
  * The first active PDF feature named outside the file's streams, or null.
  * Stream bodies (fonts, pictures, page drawing — compressed binary) are
  * skipped so a chance byte pattern inside one can't trip this; names written
  * with #xx escapes are decoded first. Dictionaries packed inside compressed
  * object streams aren't looked into, so this is a filter, not a guarantee —
- * see docs/security-operations.md.
+ * see docs/security-operations.md. Runs in time proportional to the file's size.
  */
 export function findPdfActiveFeature(bytes: Uint8Array): string | null {
-  const outsideStreams = latin1(bytes).replace(/(>>\s*)stream(?:\r\n|\n|\r)[\s\S]*?endstream/g, "$1stream endstream");
+  const outsideStreams = pdfTextOutsideStreams(latin1(bytes));
   for (const match of outsideStreams.matchAll(/\/((?:[^\s/<>[\](){}%#]|#[0-9A-Fa-f]{2})+)/g)) {
     const name = match[1].replace(/#([0-9A-Fa-f]{2})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
     if (PDF_ACTIVE_NAMES.has(name)) return name;
