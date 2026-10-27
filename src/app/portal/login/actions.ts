@@ -9,11 +9,26 @@ import { recordAuditAs, clientIpFromHeaders, UNKNOWN_ACCOUNT_ACTOR, type AuditAc
 import { clientDeviceFromHeaders, clientLocationFromHeaders } from "@/lib/clientInfo";
 import { MAX_PASSWORD_INPUT_LENGTH, MAX_USERNAME_LENGTH } from "@/lib/credentialInput";
 
+export type LoginField = "username" | "password";
+
 /**
  * `username` is what was typed, normalized, handed back after a refusal so
- * the form can keep it filled in. The password never comes back.
+ * the form can keep it filled in. The password never comes back. `fields`
+ * names the inputs the error is about, so the form marks those and no others;
+ * a refusal that isn't about what was typed (rate limit, lockout, inactive
+ * account) names none.
  */
-export type LoginState = { error?: string; username?: string };
+export type LoginState = { error?: string; username?: string; fields?: LoginField[] };
+
+/**
+ * The one reply for a username/password pair that doesn't sign in, whatever
+ * the reason. It never says which of the two was wrong (that would tell a
+ * stranger which usernames exist), so it marks both, the same way every time.
+ */
+function wrongCredentials(username?: string): LoginState {
+  const state: LoginState = { error: "Invalid username or password.", fields: ["username", "password"] };
+  return username === undefined ? state : { ...state, username };
+}
 
 // A real cost-12 bcrypt hash used only to equalize response time when the
 // username doesn't exist. Without it, "no such user" returns before any bcrypt
@@ -62,11 +77,14 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   // never sign in anyway. No account is looked up, so the reply says nothing
   // about which usernames exist.
   if (username.length > MAX_USERNAME_LENGTH || password.length > MAX_PASSWORD_INPUT_LENGTH) {
-    return { error: "Invalid username or password." };
+    return wrongCredentials();
   }
 
   if (!username || !password) {
-    return { error: "Enter a username and password.", username };
+    const fields: LoginField[] = [];
+    if (!username) fields.push("username");
+    if (!password) fields.push("password");
+    return { error: "Enter a username and password.", username, fields };
   }
 
   const user = await prisma.user.findUnique({ where: { username } });
@@ -78,7 +96,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
       summary: "Failed sign-in for a username that doesn't match any account",
       ...clientInfo,
     });
-    return { error: "Invalid username or password.", username };
+    return wrongCredentials(username);
   }
 
   // Every entry below is about this account, but says nothing about who was at
@@ -143,7 +161,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     });
     return lockedUntil
       ? { error: "Too many failed attempts. Try again in about 15 minutes.", username }
-      : { error: "Invalid username or password.", username };
+      : wrongCredentials(username);
   }
 
   // Checked only after the password is right, so a wrong guess can't be used
