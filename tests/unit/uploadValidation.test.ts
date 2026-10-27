@@ -14,6 +14,7 @@ import {
   MAX_UPLOAD_BYTES,
   UploadRejectedError,
   findPdfActiveFeature,
+  isLosslessWebp,
   prepareUpload,
   prepareUploadBytes,
   readImageInfo,
@@ -354,6 +355,41 @@ describe("prepareUploadBytes: what is kept", () => {
     const meta = await sharp(prepared.bytes, { animated: true }).metadata();
     assert.equal(meta.pages, 3);
     assert.equal(prepared.contentType, "image/gif");
+  });
+
+  it("a lossless WEBP stays lossless, pixel for pixel; a lossy one stays lossy", async () => {
+    // Sharp-edged lettering on white, the kind of flyer export that blurs when re-saved lossy.
+    const raw = Buffer.alloc(32 * 32 * 3, 255);
+    for (let y = 8; y < 24; y++) for (let x = 6; x < 26; x += 3) raw.set([0, 0, 0], (y * 32 + x) * 3);
+    const pixels = sharp(raw, { raw: { width: 32, height: 32, channels: 3 } });
+
+    const lossless = new Uint8Array(
+      await pixels.clone().webp({ lossless: true }).withExif({ IFD0: { Copyright: "x" } }).toBuffer(),
+    );
+    assert.equal(isLosslessWebp(lossless), true);
+    const kept = await prepareUploadBytes(lossless, "image/webp", FLYER, sharp);
+    assert.equal(isLosslessWebp(kept.bytes), true);
+    assert.equal((await sharp(kept.bytes).metadata()).exif, undefined);
+    const decoded = await sharp(kept.bytes).removeAlpha().raw().toBuffer();
+    assert.deepEqual(decoded, raw, "every pixel is unchanged");
+
+    const lossy = new Uint8Array(await pixels.clone().webp({ quality: 80 }).toBuffer());
+    assert.equal(isLosslessWebp(lossy), false);
+    assert.equal(isLosslessWebp((await prepareUploadBytes(lossy, "image/webp", FLYER, sharp)).bytes), false);
+
+    // Extended files: one with an alpha channel and EXIF (VP8X), and an animation (frames inside ANMF chunks).
+    const withAlpha = new Uint8Array(
+      await pixels.clone().ensureAlpha().webp({ lossless: true }).withExif({ IFD0: { Copyright: "x" } }).toBuffer(),
+    );
+    assert.equal(String.fromCharCode(...withAlpha.subarray(12, 16)), "VP8X");
+    assert.equal(isLosslessWebp(withAlpha), true);
+    const animation = new Uint8Array(await sharp(await animatedGif(2), { animated: true }).webp({ lossless: true }).toBuffer());
+    assert.equal(isLosslessWebp(animation), true);
+    const keptAnimation = await prepareUploadBytes(animation, "image/webp", FLYER, sharp);
+    assert.equal(isLosslessWebp(keptAnimation.bytes), true);
+    assert.equal((await sharp(keptAnimation.bytes, { animated: true }).metadata()).pages, 2);
+    const lossyAnimation = new Uint8Array(await sharp(await animatedGif(2), { animated: true }).webp({ quality: 80 }).toBuffer());
+    assert.equal(isLosslessWebp(lossyAnimation), false);
   });
 
   it("covers are scaled down to the stored size; flyers keep theirs", async () => {

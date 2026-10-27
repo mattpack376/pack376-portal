@@ -303,6 +303,28 @@ function webpInfo(b: Uint8Array): ImageInfo | null {
   return null;
 }
 
+/**
+ * Whether a WEBP stores its picture losslessly (a VP8L chunk) rather than as
+ * lossy VP8. In an extended (VP8X) file the first picture chunk decides — for
+ * an animation, the one inside its first frame.
+ */
+export function isLosslessWebp(b: Uint8Array): boolean {
+  const first = ascii(b, 12, 4);
+  if (first === "VP8L") return true;
+  if (first !== "VP8X") return false;
+  const end = Math.min(b.length, u32le(b, 4) + 8);
+  let i = 12;
+  while (i + 8 <= end) {
+    const type = ascii(b, i, 4);
+    const size = u32le(b, i + 4);
+    if (type === "VP8L") return true;
+    if (type === "VP8 ") return false;
+    // An animation frame: 16 bytes of position and timing, then its own chunks.
+    i += type === "ANMF" ? 8 + 16 : 8 + size + (size & 1);
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Content that has no business in a flyer or a photo
 
@@ -613,7 +635,9 @@ async function reencodeImage(
         pipeline = pipeline.png(metadata.isPalette ? { palette: true, dither: 0 } : {});
         break;
       case "image/webp":
-        pipeline = pipeline.webp({ quality: 88, ...timing });
+        // A lossless WEBP (common for flyers exported with text) stays
+        // lossless, or its lettering would blur, as a palette PNG stays one.
+        pipeline = pipeline.webp(isLosslessWebp(bytes) ? { lossless: true, ...timing } : { quality: 88, ...timing });
         break;
       case "image/gif":
         pipeline = pipeline.gif(timing);
