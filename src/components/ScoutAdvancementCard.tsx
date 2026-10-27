@@ -89,12 +89,19 @@ export default function ScoutAdvancementCard({
     if (!isDirty || isPending) return;
     const changes = dirtyIds.map((adventureId) => ({ adventureId, ...draftState[adventureId] }));
     startTransition(async () => {
-      const result = await applyAdventureChangesAction(scout.id, changes);
-      if (result.ok) {
-        setSavedState(draftState);
-        setError(null);
-      } else {
-        setError(result.error ?? "Save failed — try again.");
+      try {
+        const result = await applyAdventureChangesAction(scout.id, changes);
+        if (result.ok) {
+          setSavedState(draftState);
+          setError(null);
+        } else {
+          // Nothing was saved: the server checks the whole Apply before
+          // writing any of it, so the draft stays as it is to fix or discard.
+          setError(result.error);
+        }
+      } catch {
+        // A dropped connection or a server error, rather than the error page.
+        setError("Save failed — check your connection and try again.");
       }
     });
   }
@@ -145,7 +152,11 @@ export default function ScoutAdvancementCard({
 
       {editable && (
         <div className="advancement-apply-row">
-          {error && <span className="advancement-apply-error">{error}</span>}
+          {error && (
+            <span className="advancement-apply-error" role="alert">
+              {error}
+            </span>
+          )}
           {isDirty && !isPending && (
             <button type="button" className="btn-link" onClick={handleDiscard}>
               Discard changes
