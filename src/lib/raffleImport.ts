@@ -1,13 +1,21 @@
 import { MAX_RAFFLE_BOXES, isRaffleMethod, prizeForSales, type RaffleMethod } from "@/lib/raffleMath";
+import { MAX_CENTS, MAX_NAME_LENGTH, MAX_NOTE_LENGTH, multiplyCents } from "@/lib/formValues";
+import { isDateOnlyString } from "@/lib/dateOnly";
 
 /*
  * Reads a raffle record file — the way a raffle that was run on paper (or in
  * a chat) before this page existed gets into the portal as a finished record.
  *
  * The file is checked in full before anything is saved: a box given to two
- * buyers, a box number off the board, or a winning box nobody bought stops
- * the import with a message saying which line is wrong, rather than saving
- * most of a raffle.
+ * buyers, two buyers with the same name, a box number off the board, a date
+ * that isn't on the calendar, text or an amount beyond what the forms accept,
+ * or a winning box nobody bought stops the import with a message saying which
+ * line is wrong, rather than saving most of a raffle (or failing halfway with
+ * a database error).
+ *
+ * Buyers are told apart by name on the raffle pages (see the note at the top
+ * of src/lib/actions/raffles.ts), so two people who share a name have to be
+ * written into the file with names that differ — a last name or initial.
  *
  * Buyer names and payment details live in that file, never in this repo,
  * which is public.
@@ -63,19 +71,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function text(value: unknown, what: string): string {
-  if (typeof value !== "string" || !value.trim()) fail(`${what} is missing.`);
-  return value.trim();
+/** The same limits the raffle forms enforce, so an imported record can be edited on the page afterwards. */
+function bounded(value: string, what: string, max: number): string {
+  if (value.length > max) fail(`${what} can be at most ${max} characters.`);
+  // Postgres can't store a NUL in text; refuse it here rather than mid-import.
+  if (value.includes("\u0000")) fail(`${what} can't be saved with an invisible NUL character in it.`);
+  return value;
 }
 
-function optionalText(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+function text(value: unknown, what: string, max = MAX_NAME_LENGTH): string {
+  if (typeof value !== "string" || !value.trim()) fail(`${what} is missing.`);
+  return bounded(value.trim(), what, max);
+}
+
+function optionalText(value: unknown, what: string, max: number): string | null {
+  return typeof value === "string" && value.trim() ? bounded(value.trim(), what, max) : null;
 }
 
 function optionalDate(value: unknown, what: string): string | null {
   if (value === null || value === undefined || value === "") return null;
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
-    fail(`${what} should be a date like 2026-10-10.`);
+  // A real calendar date: Date.parse would quietly turn 2026-02-31 into March 3.
+  if (typeof value !== "string" || !isDateOnlyString(value)) {
+    fail(`${what} should be a real date like 2026-10-10.`);
   }
   return value;
 }
@@ -89,7 +106,9 @@ function wholeNumber(value: unknown, what: string, min: number, max: number): nu
 
 function dollars(value: unknown, what: string): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) fail(`${what} should be a dollar amount above zero.`);
-  return Math.round(value * 100);
+  const cents = Math.round(value * 100);
+  if (cents < 1 || cents > MAX_CENTS) fail(`${what} should be a dollar amount from $0.01 to $1,000,000.`);
+  return cents;
 }
 
 function method(value: unknown, what: string): RaffleMethod {
@@ -114,13 +133,22 @@ export function parseRaffleImport(source: string): RaffleImportResult {
     const name = text(data.name, "The raffle name");
     const boxCount = wholeNumber(data.boxCount, "The number of boxes", 1, MAX_RAFFLE_BOXES);
     const priceCents = dollars(data.priceDollars, "The price per box");
+    // Same rule as starting a raffle on the page: a full board fits in one amount.
+    if (multiplyCents(boxCount, priceCents) === null) fail("The number of boxes times the price comes to more than $1,000,000.");
     const prizePercent = wholeNumber(data.prizePercent ?? 50, "The prize percentage", 0, 100);
 
     if (!Array.isArray(data.buyers)) fail("The list of buyers is missing.");
     const holders = new Map<number, string>();
+    const names = new Map<string, string>();
     const buyers = data.buyers.map((raw, index): RaffleImportBuyer => {
       if (!isRecord(raw)) fail(`Buyer ${index + 1} couldn't be read.`);
       const buyerName = text(raw.name, `Buyer ${index + 1}'s name`);
+      // Compared the way the raffle pages compare names: ignoring case.
+      const sameName = names.get(buyerName.toLowerCase());
+      if (sameName) {
+        fail(`${sameName} and ${buyerName} are listed as two buyers with the same name. Give each a name that tells them apart, like a last name or initial.`);
+      }
+      names.set(buyerName.toLowerCase(), buyerName);
       if (!Array.isArray(raw.boxes) || raw.boxes.length === 0) fail(`${buyerName} has no boxes listed.`);
       const boxes = raw.boxes.map((box) => wholeNumber(box, `A box number for ${buyerName}`, 1, boxCount));
       for (const box of boxes) {
@@ -135,13 +163,18 @@ export function parseRaffleImport(source: string): RaffleImportResult {
         return {
           method: method(payment.method, `The payment method for ${buyerName}`),
           amountCents: dollars(payment.amountDollars, `A payment amount for ${buyerName}`),
-          payerName: optionalText(payment.payerName),
+          payerName: optionalText(payment.payerName, `A payer's name for ${buyerName}`, MAX_NAME_LENGTH),
           receivedOn: optionalDate(payment.receivedOn, `A payment date for ${buyerName}`),
-          note: optionalText(payment.note),
+          note: optionalText(payment.note, `A payment note for ${buyerName}`, MAX_NOTE_LENGTH),
           verified: payment.verified === true,
         };
       });
-      return { name: buyerName, notes: optionalText(raw.notes), boxes: boxes.sort((a, b) => a - b), payments };
+      return {
+        name: buyerName,
+        notes: optionalText(raw.notes, `The notes for ${buyerName}`, MAX_NOTE_LENGTH),
+        boxes: boxes.sort((a, b) => a - b),
+        payments,
+      };
     });
 
     let winner: RaffleImport["winner"] = null;
@@ -157,7 +190,7 @@ export function parseRaffleImport(source: string): RaffleImportResult {
           : dollars(data.winner.prizeDollars, "The prize amount");
       winner = {
         box,
-        name: optionalText(data.winner.name) ?? holder,
+        name: optionalText(data.winner.name, "The winner's name", MAX_NAME_LENGTH) ?? holder,
         prizeCents,
         paid: data.winner.paid === true,
         paidOn: optionalDate(data.winner.paidOn, "The date the prize was paid"),
@@ -177,7 +210,7 @@ export function parseRaffleImport(source: string): RaffleImportResult {
         priceCents,
         prizePercent,
         closed: data.closed === true,
-        notes: optionalText(data.notes),
+        notes: optionalText(data.notes, "The raffle notes", MAX_NOTE_LENGTH),
         winner,
         buyers,
       },

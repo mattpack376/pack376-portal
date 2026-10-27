@@ -142,18 +142,19 @@ export async function getPayerHistory(payerNames: string[]) {
   const history = new Map<string, string>();
   if (wanted.length === 0) return history;
 
-  const matched = await prisma.rafflePayment.findMany({
-    where: {
-      OR: wanted.map((name) => ({ payerName: { equals: name, mode: "insensitive" as const } })),
-      entryId: { not: null },
-      voidedAt: null,
-    },
-    select: { payerName: true, entry: { select: { name: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  // Compared in SQL rather than with Prisma's `mode: "insensitive"` equals,
+  // which is an ILIKE: a payer name with "%" or "_" in it would match other
+  // people's names.
+  const matched = await prisma.$queryRaw<{ payerName: string; entryName: string }[]>`
+    SELECT p."payerName", e."name" AS "entryName"
+    FROM "RafflePayment" p
+    JOIN "RaffleEntry" e ON e."id" = p."entryId"
+    WHERE lower(btrim(p."payerName")) = ANY(${wanted}::text[])
+      AND p."voidedAt" IS NULL
+    ORDER BY p."createdAt" DESC, p."id" DESC`;
   for (const payment of matched) {
-    const key = payment.payerName?.trim().toLowerCase();
-    if (key && payment.entry && !history.has(key)) history.set(key, payment.entry.name);
+    const key = payment.payerName.trim().toLowerCase();
+    if (key && !history.has(key)) history.set(key, payment.entryName);
   }
   return history;
 }
