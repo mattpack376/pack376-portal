@@ -530,42 +530,52 @@ export async function deleteEventAction(formData: FormData) {
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const id = String(formData.get("id") || "");
+  const id = idField(formData.get("id"));
   if (!id) throw new Error("Missing event id.");
 
-  const event = await prisma.event.findUnique({
-    where: { id },
-    select: {
-      title: true,
-      eventDate: true,
-      flyerUrl: true,
-      _count: { select: { registrations: true, guestGroups: true } },
-    },
-  });
+  const deleted = await prisma.$transaction(async (tx) => {
+    // The same lock updateEventAction takes, and the flyer read under it. An
+    // edit that's replacing the flyer right now finishes first; it deletes
+    // the flyer it replaced, and this then deletes the one it left. Read
+    // before the lock, this would delete the replaced one a second time and
+    // leave the new upload public with nothing pointing at it.
+    if (!(await lockEvent(tx, id))) return null; // Already gone (a second click, or another Admin).
+    const event = await tx.event.findUniqueOrThrow({
+      where: { id },
+      select: {
+        title: true,
+        eventDate: true,
+        flyerUrl: true,
+        _count: { select: { registrations: true, guestGroups: true } },
+      },
+    });
 
-  await prisma.event.delete({ where: { id } });
+    await tx.event.delete({ where: { id } });
+
+    await recordAuditInTransaction(tx, session, {
+      action: "event.delete",
+      summary: `Deleted the event “${event.title}”${
+        event._count.registrations + event._count.guestGroups > 0
+          ? ` — along with ${event._count.registrations} scout registration(s), ${event._count.guestGroups} guest group(s) and their payments`
+          : ""
+      }`,
+      entityType: "Event",
+      entityId: id,
+      details: [
+        { label: "Title", from: event.title, to: "—" },
+        { label: "Event date", from: auditDate(event.eventDate), to: "—" },
+        { label: "Scout registrations", from: String(event._count.registrations), to: "—" },
+        { label: "Guest groups", from: String(event._count.guestGroups), to: "—" },
+      ],
+    });
+    return event;
+  }, TX);
+
   // The uploaded flyer goes with the event; otherwise it stays public at its
-  // original URL with nothing left linking to it.
-  await deleteUploadedBlob(event?.flyerUrl);
-
-  await recordAudit(session, {
-    action: "event.delete",
-    summary: `Deleted the event “${event?.title ?? id}”${
-      event && event._count.registrations + event._count.guestGroups > 0
-        ? ` — along with ${event._count.registrations} scout registration(s), ${event._count.guestGroups} guest group(s) and their payments`
-        : ""
-    }`,
-    entityType: "Event",
-    entityId: id,
-    details: event
-      ? [
-          { label: "Title", from: event.title, to: "—" },
-          { label: "Event date", from: auditDate(event.eventDate), to: "—" },
-          { label: "Scout registrations", from: String(event._count.registrations), to: "—" },
-          { label: "Guest groups", from: String(event._count.guestGroups), to: "—" },
-        ]
-      : null,
-  });
+  // original URL with nothing left linking to it. After the commit, like
+  // every other cleanup: a stray object is a better failure than a row
+  // pointing at a flyer that's already gone.
+  if (deleted) await deleteUploadedBlob(deleted.flyerUrl);
 
   revalidatePath("/portal/admin/events");
   redirect("/portal/admin/events");

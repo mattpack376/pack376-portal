@@ -162,6 +162,46 @@ describe("event flyers", () => {
     assert.equal(saved.flyerUrl, old);
   });
 
+  it("deletes the event's flyer, with the event, after the delete commits", async () => {
+    const flyer = "https://example.test/event-flyers/delete-me.png";
+    const event = await fx.event({ title: "Deleted with its flyer", flyerUrl: flyer });
+    const outcome = await settle(runAs(admin, () => events.deleteEventAction(form({ id: event.id }))));
+    assert.equal(outcome.ok ? "" : (outcome.error as { redirect?: string }).redirect, "/portal/admin/events");
+    assert.equal(await db.prisma.event.count({ where: { id: event.id } }), 0);
+    assert.deepEqual(cleanupCalls(), [flyer]);
+    const audit = await db.prisma.auditLog.findFirstOrThrow({ where: { action: "event.delete", entityId: event.id } });
+    assert.match(audit.summary, /Deleted with its flyer/);
+
+    // A second click (or another Admin) finds it gone: nothing more to do.
+    cleanupCalls().length = 0;
+    const again = await settle(runAs(admin, () => events.deleteEventAction(form({ id: event.id }))));
+    assert.equal(again.ok ? "" : (again.error as { redirect?: string }).redirect, "/portal/admin/events");
+    assert.deepEqual(cleanupCalls(), []);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "event.delete", entityId: event.id } }), 1);
+  });
+
+  it("deletes the flyer an edit just put in place, when the delete waited for that edit", async (t) => {
+    // Another Admin's edit is replacing the flyer and holds the event's row:
+    // it has already uploaded the new flyer, and deletes the old one itself
+    // once it commits. The delete has to find the new one.
+    const oldFlyer = "https://example.test/event-flyers/replaced.png";
+    const newFlyer = "https://example.test/event-flyers/replacement.png";
+    const event = await fx.event({ title: "Delete during an edit", flyerUrl: oldFlyer });
+    const edit = await openTransaction(db.pool);
+    t.after(() => edit.rollback());
+    await edit.query(`SELECT id FROM "Event" WHERE id = $1 FOR UPDATE`, [event.id]);
+    await edit.query(`UPDATE "Event" SET "flyerUrl" = $2 WHERE id = $1`, [event.id, newFlyer]);
+
+    const pending = settle(runAs(admin, () => events.deleteEventAction(form({ id: event.id }))));
+    await waitForLockWait(db.pool);
+    await edit.commit();
+
+    const outcome = await pending;
+    assert.equal(outcome.ok ? "" : (outcome.error as { redirect?: string }).redirect, "/portal/admin/events");
+    assert.equal(await db.prisma.event.count({ where: { id: event.id } }), 0);
+    assert.deepEqual(cleanupCalls(), [newFlyer], "the replacement is deleted, not the replaced flyer a second time");
+  });
+
   it("uploads nothing for an event that no longer exists", async () => {
     const outcome = await settle(
       runAs(admin, () => events.updateEventAction(eventForm({ id: "gone", title: "Whatever" }, flyerFile()))),
