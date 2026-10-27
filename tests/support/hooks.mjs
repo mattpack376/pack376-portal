@@ -19,6 +19,9 @@ globalThis.__pack376Test ??= {
   revalidated: [],
   rateLimited: false,
   failBlobPut: false,
+  failBlobDel: false,
+  blobHost: "test.public.blob.vercel-storage.com",
+  resendQueue: [],
   pauses: {},
 };
 

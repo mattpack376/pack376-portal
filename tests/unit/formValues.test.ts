@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { MAX_CENTS, dollarsToCents, isValidEmail, multiplyCents, parseCount, textField } from "@/lib/formValues";
+import {
+  MAX_CENTS,
+  dollarsToCents,
+  hasControlCharacters,
+  isValidEmail,
+  multiplyCents,
+  parseCount,
+  textField,
+} from "@/lib/formValues";
 
 describe("dollarsToCents", () => {
   it("converts ordinary amounts", () => {
@@ -77,8 +85,24 @@ describe("isValidEmail", () => {
       "@b.com",
       'a"@b.com',
       `${"a".repeat(250)}@b.com`,
+      "a\u0000@b.com",
+      "a@b.com\u0007",
+      "a@b\u0085.com",
     ]) {
       assert.equal(isValidEmail(raw), false, raw);
+    }
+  });
+});
+
+describe("hasControlCharacters", () => {
+  it("flags NUL, line breaks and other control characters", () => {
+    for (const raw of ["a\u0000b", "line\nbreak", "cr\r", "tab\t", "del\u007f", "c1\u0085"]) {
+      assert.equal(hasControlCharacters(raw), true, JSON.stringify(raw));
+    }
+  });
+  it("leaves ordinary names alone", () => {
+    for (const raw of ["Frank Interdonatti", "O'Brien-Smith", "José Hernández", "Zoë & Ana <3"]) {
+      assert.equal(hasControlCharacters(raw), false, raw);
     }
   });
 });

@@ -63,6 +63,15 @@ export function multiplyCents(count: number, unitCents: number): number | null {
   return total;
 }
 
+/**
+ * True when text holds a control character (NUL, BEL, a lone CR/LF, DEL, the
+ * C1 range…). Postgres refuses a NUL byte outright — an unhandled error —
+ * and the others have no business in a name, address or one-line note.
+ */
+export function hasControlCharacters(value: string): boolean {
+  return /[\u0000-\u001f\u007f-\u009f]/.test(value);
+}
+
 /** Trimmed text from a form field ("" when missing or a file). */
 export function textField(raw: FormDataEntryValue | null | undefined): string {
   return typeof raw === "string" ? raw.trim() : "";
@@ -75,5 +84,5 @@ export function textField(raw: FormDataEntryValue | null | undefined): string {
 const EMAIL_PATTERN = /^[^\s@,;<>()"]+@[^\s@,;<>()"]+\.[^\s@,;<>()"]+$/;
 
 export function isValidEmail(value: string): boolean {
-  return value.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(value);
+  return value.length <= MAX_EMAIL_LENGTH && !hasControlCharacters(value) && EMAIL_PATTERN.test(value);
 }

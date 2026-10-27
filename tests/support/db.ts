@@ -137,13 +137,19 @@ export function withTestDatabase(label: string): TestDatabase {
   };
 }
 
+const quietClients = new WeakSet<pg.PoolClient>();
+
 /**
  * Opens a transaction on its own connection and returns controls for it. Use
  * it to hold locks or uncommitted writes while an action runs concurrently.
  */
 export async function openTransaction(pool: pg.Pool) {
   const client = await pool.connect();
-  client.on("error", () => {}); // ended by the final DROP if a test never finished it
+  // Pooled clients are reused, so attach the handler once per client.
+  if (!quietClients.has(client)) {
+    quietClients.add(client);
+    client.on("error", () => {}); // ended by the final DROP if a test never finished it
+  }
   await client.query("BEGIN");
   let done = false;
   return {
@@ -175,13 +181,22 @@ export async function openTransaction(pool: pg.Pool) {
  * must wait for the transaction a test is holding open.
  */
 export async function waitForLockWait(pool: pg.Pool, timeoutMs = 5000) {
+  return waitForLockWaiters(pool, 1, timeoutMs);
+}
+
+/**
+ * Resolves once at least `count` other backends are waiting on a lock — e.g.
+ * two concurrently started actions both queued behind a transaction the test
+ * is holding open.
+ */
+export async function waitForLockWaiters(pool: pg.Pool, count: number, timeoutMs = 5000) {
   const started = Date.now();
   for (;;) {
     const { rows } = await pool.query(
       `SELECT count(*)::int AS waiting FROM pg_stat_activity
         WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`,
     );
-    if (rows[0].waiting > 0) return;
+    if (rows[0].waiting >= count) return;
     if (Date.now() - started > timeoutMs) throw new Error("Timed out waiting for a concurrent action to block on a lock");
     await new Promise((resolve) => setTimeout(resolve, 20));
   }

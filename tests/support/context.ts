@@ -13,10 +13,21 @@ export type SentEmail = {
   from?: string;
   to: string | string[];
   bcc?: string | string[];
+  replyTo?: string | string[];
   subject: string;
   html?: string;
   text?: string;
+  attachments?: { filename: string; content: Buffer | string }[];
+  headers?: Record<string, string>;
+  /** The second argument to send(), e.g. { idempotencyKey }. */
+  sendOptions?: Record<string, unknown>;
 };
+
+/** One scripted outcome for the next fake Resend call (see mocks/resend.mjs). */
+export type ResendBehavior =
+  | { error: { name: string; message: string } }
+  | { throws: string }
+  | { pause: () => Promise<void> };
 
 type TestState = {
   als: AsyncLocalStorage<RequestStore>;
@@ -26,6 +37,10 @@ type TestState = {
   revalidated: string[];
   rateLimited: boolean;
   failBlobPut: boolean;
+  failBlobDel: boolean;
+  /** Host used in fake Blob URLs (see mocks/blob.mjs). */
+  blobHost: string;
+  resendQueue: ResendBehavior[];
   /** Named pause points tests can install; see pausePoint(). */
   pauses: Record<string, (() => Promise<void>) | undefined>;
 };
@@ -107,5 +122,8 @@ export function resetTestState() {
   testState.revalidated.length = 0;
   testState.rateLimited = false;
   testState.failBlobPut = false;
+  testState.failBlobDel = false;
+  testState.blobHost = "test.public.blob.vercel-storage.com";
+  testState.resendQueue.length = 0;
   testState.pauses = {};
 }
