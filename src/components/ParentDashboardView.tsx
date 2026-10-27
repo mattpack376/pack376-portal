@@ -399,6 +399,7 @@ export default async function ParentDashboardView({
                         kids={event.guestChildFeeCents !== null}
                         submitLabel="Add Guests"
                         submitClassName="btn btn-quiet btn-small"
+                        groupsSignedUp={event.myGuestGroups.length}
                       />
                     )}
                   </div>

@@ -483,6 +483,7 @@ export default async function FamilyViewPage({
                     kids={event.guestChildFeeCents !== null}
                     submitLabel="Register"
                     submitClassName="btn btn-primary btn-small"
+                    groupsSignedUp={event.myGuestGroups.length}
                   />
                 </div>
               ))}
