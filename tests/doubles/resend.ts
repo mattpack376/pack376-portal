@@ -23,7 +23,7 @@ export type ResendBehavior = {
   /** For a batch send: these indexes are reported as refused (permissive validation). */
   batchErrors?: { index: number; message: string }[];
   /**
-   * For a single send: the email reaches Resend and goes out (its key is
+   * The email (or batch) reaches Resend and goes out (its key is
    * remembered), then the answer is lost — the caller gets `error` or
    * `throws` instead, like a connection dropped after Resend accepted it.
    */

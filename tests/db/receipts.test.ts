@@ -11,9 +11,10 @@
 import assert from "node:assert/strict";
 import { afterEach, before, describe, it, mock } from "node:test";
 import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
-import { gate, resetTestState, runAs, testState, type SessionUser } from "../support/context";
+import { asAnonymous, gate, resetTestState, runAs, testState, type SessionUser } from "../support/context";
 import { installControllableResend, resetResendControl, type ResendCall } from "../doubles/resend";
 import { emailAttemptView, newReceiptRequestKey, type ReceiptInput } from "@/lib/receipts";
+import { SIGNED_OUT_HINT } from "@/lib/requestKey";
 
 const resend = installControllableResend();
 const db = withTestDatabase("receipts");
@@ -42,6 +43,8 @@ afterEach(async () => {
 });
 
 const ADDRESS = "donor@example.com";
+const SIGNED_OUT = "You've been signed out, so this didn't go through. Reload the page to sign in again.";
+const ADMINS_ONLY = "Only Admins can use receipts, so this didn't go through.";
 
 const input = (overrides: Partial<ReceiptInput> = {}): ReceiptInput => ({
   kind: "DONATION",
@@ -131,8 +134,8 @@ describe("saving a receipt (Download)", () => {
     for (const key of ["", "abc", "Z".repeat(32), `${newReceiptRequestKey()}x`]) {
       assert.equal((await generate(key)).ok, false, key);
     }
-    await assert.rejects(runAs(juniorAdmin, () => receipts.generateReceiptAction(input(), newReceiptRequestKey())), /Not authorized/);
-    await assert.rejects(runAs(juniorAdmin, () => receipts.emailReceiptAction(input(), newReceiptRequestKey())), /Not authorized/);
+    assert.deepEqual(await runAs(juniorAdmin, () => receipts.generateReceiptAction(input(), newReceiptRequestKey())), { ok: false, error: ADMINS_ONLY });
+    assert.deepEqual(await runAs(juniorAdmin, () => receipts.emailReceiptAction(input(), newReceiptRequestKey())), { ok: false, error: ADMINS_ONLY });
     assert.equal(await db.prisma.receipt.count(), before);
   });
 
@@ -568,7 +571,7 @@ describe("history: Resend, Download, Delete", () => {
     const entry = await db.prisma.auditLog.findFirstOrThrow({ where: { action: "receipt.delete", entityId: saved.id } });
     assert.match(entry.summary, /^Deleted a donation receipt for Pat <b>Donor<\/b> & "Co" \(\$90\.00\) dated 2026-10-20$/);
     assert.deepEqual(await runAs(admin, () => receipts.deleteReceiptAction(saved.id)), { ok: false, error: "That receipt was already deleted." });
-    await assert.rejects(runAs(juniorAdmin, () => receipts.deleteReceiptAction("anything")), /Not authorized/);
+    assert.deepEqual(await runAs(juniorAdmin, () => receipts.deleteReceiptAction("anything")), { ok: false, error: ADMINS_ONLY });
   });
 });
 
@@ -962,5 +965,143 @@ describe("deleting a receipt while it's being emailed", () => {
       if (exists) await deleteIt(saved.id);
     }
     process.stdout.write(`# delete-vs-resend outcomes seen: ${[...outcomes].sort().join(", ")}\n`);
+  });
+});
+
+/*
+ * The page's side of a request whose answer never arrives — a phone losing
+ * signal, a timeout, an error page instead of a result. The call rejects,
+ * and each receipt control turns that into a message instead of letting it
+ * reach the page's error screen (which would take the form and its request
+ * key with it). Pressing the same button again then repeats the same
+ * request, and nothing is saved or sent twice.
+ */
+describe("when the server's answer never arrives", () => {
+  let form: typeof import("@/components/ReceiptForm");
+  let resendButton: typeof import("@/components/ReceiptResendButton");
+  let downloadButton: typeof import("@/components/ReceiptDownloadButton");
+  let deleteButton: typeof import("@/components/ReceiptDeleteButton");
+  before(async () => {
+    form = await import("@/components/ReceiptForm");
+    resendButton = await import("@/components/ReceiptResendButton");
+    downloadButton = await import("@/components/ReceiptDownloadButton");
+    deleteButton = await import("@/components/ReceiptDeleteButton");
+  });
+
+  /** The request runs to the end on the server, then its answer is lost on the way back. */
+  const answerLost = <T>(request: Promise<T>) =>
+    request.then(() => {
+      throw new TypeError("Failed to fetch");
+    });
+  const neverReached = () => Promise.reject(new TypeError("Failed to fetch"));
+
+  it("Email PDF: says it doesn't know, and pressing Email PDF again doesn't email the family twice", async () => {
+    const key = newReceiptRequestKey();
+    const first = await form.emailReceiptOutcome(() => answerLost(emailIt(key)), ADDRESS, "records@example.com");
+    assert.deepEqual(first, {
+      kind: "error",
+      text: `Couldn't get an answer from the server, so we don't know whether the email to ${ADDRESS} went out. Press Email PDF again to retry: if it did go out, it won't be sent twice. ${SIGNED_OUT_HINT}`,
+    });
+    assert.deepEqual(delivered(), [ADDRESS], "it did go out");
+
+    // The form kept its key, so the next press is the same request.
+    const again = await form.emailReceiptOutcome(() => emailIt(key), ADDRESS, "records@example.com");
+    assert.equal(again?.kind, "ok");
+    assert.match(again?.text ?? "", /^This receipt was already emailed to donor@example\.com, so it wasn't sent again\./);
+    assert.deepEqual(delivered(), [ADDRESS], "no second copy");
+    assert.equal(await db.prisma.receipt.count({ where: { idempotencyKey: key } }), 1, "one receipt");
+  });
+
+  it("Download PDF: hands over no file and says so, and pressing it again doesn't save a second receipt", async () => {
+    const key = newReceiptRequestKey();
+    const first = await form.receiptPdfOutcome(() => answerLost(generate(key)), "download");
+    assert.equal(first.file, null, "the button goes back to Download PDF");
+    assert.equal(first.message?.kind, "error");
+    assert.equal(
+      first.message?.text,
+      `Couldn't get an answer from the server, so we don't know whether the receipt was saved. Press Download PDF again: it won't be saved twice. ${SIGNED_OUT_HINT}`
+    );
+
+    const again = await form.receiptPdfOutcome(() => generate(key), "download");
+    assert.ok(again.file instanceof File);
+    assert.equal(again.file.type, "application/pdf");
+    const row = await byKey(key);
+    assert.equal(Buffer.from(await again.file.arrayBuffer()).toString("base64"), Buffer.from(row.document!.pdf).toString("base64"));
+    assert.equal(await db.prisma.receipt.count({ where: { idempotencyKey: key } }), 1, "one receipt");
+    assert.deepEqual(again.message, { kind: "ok", text: "Receipt downloaded and saved to the history below." });
+  });
+
+  it("Resend: keeps the form open and says it doesn't know; pressing Send again doesn't email it twice", async () => {
+    const saved = await generate(newReceiptRequestKey());
+    assert.ok(saved.ok);
+    const key = newReceiptRequestKey();
+    const first = await resendButton.resendOutcome(() => answerLost(resendIt(saved.id, key)));
+    assert.deepEqual(first, {
+      done: false,
+      message: {
+        kind: "error",
+        text: `Couldn't get an answer from the server, so we don't know whether it went out. Press Send again to retry: if it did go out, it won't be sent twice. ${SIGNED_OUT_HINT}`,
+      },
+    });
+    assert.deepEqual(delivered(), [ADDRESS]);
+
+    const again = await resendButton.resendOutcome(() => resendIt(saved.id, key));
+    assert.deepEqual(again, { done: true, message: { kind: "ok", text: `Already sent to ${ADDRESS}; not sent again.` } });
+    assert.deepEqual(delivered(), [ADDRESS], "no second copy");
+  });
+
+  it("the history's Download and Delete say so too, and nothing sticks", async () => {
+    const lostDownload = await downloadButton.savedReceiptPdf(neverReached);
+    assert.deepEqual(lostDownload, {
+      file: null,
+      error: `Couldn't get an answer from the server. Check your connection and press Download PDF again. ${SIGNED_OUT_HINT}`,
+    });
+
+    const saved = await generate(newReceiptRequestKey());
+    assert.ok(saved.ok);
+    const download = await downloadButton.savedReceiptPdf(() => runAs(admin, () => receipts.downloadSavedReceiptAction(saved.id)));
+    assert.equal(download.error, "");
+    assert.ok(download.file instanceof File);
+
+    const lostDelete = await deleteButton.deleteReceiptError(() => answerLost(deleteIt(saved.id)));
+    assert.equal(lostDelete, "Couldn't get an answer from the server, so we don't know whether it was deleted. Reload the page to check.");
+    assert.equal(await db.prisma.receipt.count({ where: { id: saved.id } }), 0, "it was deleted");
+    assert.equal(await deleteButton.deleteReceiptError(() => deleteIt(saved.id)), "That receipt was already deleted.");
+  });
+
+  it("a server error (thrown, not returned) is a message too, not the error page, and mentions signing out", async () => {
+    // What the call rejects with when the portal answered with the sign-in page instead of running it.
+    const unexpected = () => Promise.reject(new Error("An unexpected response was received from the server."));
+    const shown = await form.emailReceiptOutcome(unexpected, ADDRESS, "records@example.com");
+    assert.equal(shown?.kind, "error");
+    assert.match(shown?.text ?? "", /^Couldn't get an answer from the server/);
+    assert.ok(shown?.text.endsWith(` ${SIGNED_OUT_HINT}`));
+    assert.equal(resend.calls.length, 0);
+  });
+
+  it("a signed-out or non-Admin press is told so for certain — never 'we don't know, press again'", async () => {
+    const saved = await generate(newReceiptRequestKey());
+    assert.ok(saved.ok);
+    const receiptsBefore = await db.prisma.receipt.count();
+    const presses = {
+      download: (key: string) => form.receiptPdfOutcome(() => receipts.generateReceiptAction(input(), key), "download"),
+      email: (key: string) => form.emailReceiptOutcome(() => receipts.emailReceiptAction(input(), key), ADDRESS, "records@example.com"),
+      resend: (key: string) => resendButton.resendOutcome(() => receipts.resendReceiptAction(saved.id, ADDRESS, key)),
+      historyDownload: () => downloadButton.savedReceiptPdf(() => receipts.downloadSavedReceiptAction(saved.id)),
+      delete: () => deleteButton.deleteReceiptError(() => receipts.deleteReceiptAction(saved.id)),
+    };
+    for (const [who, expected, run] of [
+      ["signed out", SIGNED_OUT, async <T>(fn: () => Promise<T>) => (await asAnonymous(fn)).result],
+      ["Junior Admin", ADMINS_ONLY, <T>(fn: () => Promise<T>) => runAs(juniorAdmin, fn)],
+    ] as const) {
+      const key = newReceiptRequestKey();
+      assert.deepEqual(await run(() => presses.download(key)), { message: { kind: "error", text: expected }, file: null }, who);
+      assert.deepEqual(await run(() => presses.email(key)), { kind: "error", text: expected }, who);
+      assert.deepEqual(await run(() => presses.resend(key)), { done: false, message: { kind: "error", text: expected } }, who);
+      assert.deepEqual(await run(presses.historyDownload), { file: null, error: expected }, who);
+      assert.equal(await run(presses.delete), expected, who);
+    }
+    assert.equal(resend.calls.length, 0, "nothing sent");
+    assert.equal(await db.prisma.receipt.count(), receiptsBefore, "nothing saved or deleted");
   });
 });

@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { emailReceiptAction, generateReceiptAction } from "@/lib/actions/receipts";
+import {
+  emailReceiptAction,
+  generateReceiptAction,
+  type EmailReceiptResult,
+  type GenerateReceiptResult,
+} from "@/lib/actions/receipts";
 import { base64PdfFile } from "@/lib/savePdf";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
 import { MAX_EMAIL_LENGTH } from "@/lib/formValues";
+import { SIGNED_OUT_HINT } from "@/lib/requestKey";
 import {
   RECEIPT_KINDS,
   RECEIPT_KIND_INFO,
@@ -20,6 +26,67 @@ import {
 
 type Message = { kind: "ok" | "error"; text: string } | null;
 
+/*
+ * A Server Action call that gets no answer at all — a dropped connection, a
+ * timeout, an error page instead of a result — rejects. Left alone inside a
+ * transition, that would replace the whole page with the error screen and
+ * take the form, its fields and its request key with it. The two calls below
+ * catch it instead and say so, leaving the form as it was: pressing the same
+ * button again then repeats the same request under the same key, which the
+ * server already makes safe.
+ */
+
+/** Download PDF's result: the message to show, and the file to hand over (null when there's none). */
+export async function receiptPdfOutcome(
+  call: () => Promise<GenerateReceiptResult>,
+  mode: "share" | "download"
+): Promise<{ message: Message; file: File | null }> {
+  let result: GenerateReceiptResult;
+  try {
+    result = await call();
+  } catch {
+    return {
+      message: {
+        kind: "error",
+        text: `Couldn't get an answer from the server, so we don't know whether the receipt was saved. Press Download PDF again: it won't be saved twice. ${SIGNED_OUT_HINT}`,
+      },
+      file: null,
+    };
+  }
+  if (!result.ok) return { message: { kind: "error", text: result.error }, file: null };
+  return {
+    message: {
+      kind: "ok",
+      text: mode === "share" ? "Receipt saved to the history below." : "Receipt downloaded and saved to the history below.",
+    },
+    file: base64PdfFile(result.pdfBase64, result.filename),
+  };
+}
+
+/** Email PDF's message. `to` is the address as typed, for when the server never answered. */
+export async function emailReceiptOutcome(
+  call: () => Promise<EmailReceiptResult>,
+  to: string,
+  recordsEmail: string
+): Promise<Message> {
+  let result: EmailReceiptResult;
+  try {
+    result = await call();
+  } catch {
+    return {
+      kind: "error",
+      text: `Couldn't get an answer from the server, so we don't know whether the email to ${to || "that address"} went out. Press Email PDF again to retry: if it did go out, it won't be sent twice. ${SIGNED_OUT_HINT}`,
+    };
+  }
+  if (!result.ok) return { kind: "error", text: result.error };
+  return {
+    kind: "ok",
+    text: result.alreadySent
+      ? `This receipt was already emailed to ${result.sentTo}, so it wasn't sent again. To send another copy, use Resend in the history below.`
+      : `Emailed to ${result.sentTo}. A copy went to ${recordsEmail} and it's saved to the history below.`,
+  };
+}
+
 /**
  * The receipt builder. Fields live in plain state and the buttons call the
  * Server Actions directly rather than submitting a <form>: React 19 resets an
@@ -27,10 +94,13 @@ type Message = { kind: "ok" | "error"; text: string } | null;
  * Download — and the usual next step is to Email the same receipt.
  *
  * `requestKey` names the receipt on screen. Download and Email both send it,
- * so Download-then-Email is one history entry and a retried click finds the
- * receipt (and the email) it already made instead of making another. It
- * changes whenever a printed field does; the email address isn't printed, so
- * changing only that emails the same receipt to the new address.
+ * so Download-then-Email is one history entry and pressing either again on
+ * this page — a double click, or a retry after the server's answer was lost —
+ * finds the receipt (and the email) it already made instead of making
+ * another. It changes whenever a printed field does; the email address isn't
+ * printed, so changing only that emails the same receipt to the new address.
+ * It isn't kept anywhere but this page: after a reload, the history below is
+ * what shows whether a receipt was saved or emailed.
  */
 export default function ReceiptForm({
   today,
@@ -95,21 +165,16 @@ export default function ReceiptForm({
 
   // Builds the PDF and saves it to the history; PdfDownloadButton then
   // downloads it, or on a phone opens the share sheet with it. Inside the
-  // transition so Email waits while it builds.
+  // transition so Email waits while it builds. receiptPdfOutcome turns every
+  // answer, even none, into a message, so the promise always settles and the
+  // button never sticks on "Preparing…".
   const buildPdf = (mode: "share" | "download") =>
     new Promise<File | null>((resolve) =>
       startTransition(async () => {
         setMessage(null);
-        const result = await generateReceiptAction(input(), requestKey);
-        if (!result.ok) {
-          setMessage({ kind: "error", text: result.error });
-          return resolve(null);
-        }
-        setMessage({
-          kind: "ok",
-          text: mode === "share" ? "Receipt saved to the history below." : "Receipt downloaded and saved to the history below.",
-        });
-        resolve(base64PdfFile(result.pdfBase64, result.filename));
+        const { message: next, file } = await receiptPdfOutcome(() => generateReceiptAction(input(), requestKey), mode);
+        setMessage(next);
+        resolve(file);
       })
     );
 
@@ -117,14 +182,7 @@ export default function ReceiptForm({
     if (!window.confirm(`Email this receipt to ${emailTo.trim() || "the address entered"}? A copy also goes to ${recordsEmail}.`)) return;
     startTransition(async () => {
       setMessage(null);
-      const result = await emailReceiptAction(input(), requestKey);
-      if (!result.ok) return setMessage({ kind: "error", text: result.error });
-      setMessage({
-        kind: "ok",
-        text: result.alreadySent
-          ? `This receipt was already emailed to ${result.sentTo}, so it wasn't sent again. To send another copy, use Resend in the history below.`
-          : `Emailed to ${result.sentTo}. A copy went to ${recordsEmail} and it's saved to the history below.`,
-      });
+      setMessage(await emailReceiptOutcome(() => emailReceiptAction(input(), requestKey), emailTo.trim(), recordsEmail));
     });
   };
 

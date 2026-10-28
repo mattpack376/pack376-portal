@@ -1,15 +1,47 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { resendReceiptAction } from "@/lib/actions/receipts";
+import { resendReceiptAction, type EmailReceiptResult } from "@/lib/actions/receipts";
 import { MAX_EMAIL_LENGTH } from "@/lib/formValues";
 import { newReceiptRequestKey } from "@/lib/receipts";
+import { SIGNED_OUT_HINT } from "@/lib/requestKey";
+
+type Message = { kind: "ok" | "error"; text: string };
+
+/**
+ * Send's result: whether it's done (the form closes) and what to say. A call
+ * that gets no answer at all — a dropped connection, a timeout, an error page
+ * instead of a result — rejects; caught here, it leaves the form open with
+ * its request key, rather than the page's error screen taking both away, so
+ * pressing Send again repeats the same request.
+ */
+export async function resendOutcome(call: () => Promise<EmailReceiptResult>): Promise<{ done: boolean; message: Message }> {
+  let result: EmailReceiptResult;
+  try {
+    result = await call();
+  } catch {
+    return {
+      done: false,
+      message: {
+        kind: "error",
+        text: `Couldn't get an answer from the server, so we don't know whether it went out. Press Send again to retry: if it did go out, it won't be sent twice. ${SIGNED_OUT_HINT}`,
+      },
+    };
+  }
+  if (!result.ok) return { done: false, message: { kind: "error", text: result.error } };
+  return {
+    done: true,
+    message: { kind: "ok", text: result.alreadySent ? `Already sent to ${result.sentTo}; not sent again.` : `Sent to ${result.sentTo}.` },
+  };
+}
 
 /**
  * History row: emails a saved receipt again, defaulting to the address it
  * last went to. As "Resend", each time the form opens it gets a new request
- * key, so pressing Send again after a dropped connection doesn't email the
- * receipt twice — but reopening it and sending is a deliberate new copy.
+ * key, and pressing Send again while it's still open — after an error, or
+ * after the server's answer was lost — repeats that request, so it doesn't
+ * email the receipt twice; reopening it and sending is a deliberate new copy.
+ * The key lives only in the open form: a reload starts over.
  *
  * As "Retry email" (`retryKey` given: the latest request didn't go out, or
  * wasn't confirmed either way), it repeats that request instead — the same
@@ -30,18 +62,14 @@ export default function ReceiptResendButton({
   const [email, setEmail] = useState(lastEmailedTo ?? "");
   const [requestKey, setRequestKey] = useState("");
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<Message | null>(null);
 
   const send = () =>
     startTransition(async () => {
       setMessage(null);
-      const result = await resendReceiptAction(id, email, requestKey);
-      if (!result.ok) return setMessage({ kind: "error", text: result.error });
-      setOpen(false);
-      setMessage({
-        kind: "ok",
-        text: result.alreadySent ? `Already sent to ${result.sentTo}; not sent again.` : `Sent to ${result.sentTo}.`,
-      });
+      const outcome = await resendOutcome(() => resendReceiptAction(id, email, requestKey));
+      if (outcome.done) setOpen(false);
+      setMessage(outcome.message);
     });
 
   if (!open) {

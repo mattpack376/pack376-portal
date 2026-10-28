@@ -115,24 +115,16 @@ export type ReceiptData = {
 const MAX_AMOUNT_CENTS = 100_000_00;
 
 /*
- * Request keys. The form makes one per receipt it shows (a new one whenever a
- * printed field changes) and each Resend makes one when it opens, so a
- * retried Download/Email/Send — a double click, a reload after a dropped
- * connection — is recognized as the same request: it finds the receipt it
- * already saved, and an email that already went out isn't sent again.
+ * Request keys (see requestKey.ts). The form makes one per receipt it shows
+ * (a new one whenever a printed field changes) and each Resend makes one when
+ * it opens, so pressing Download/Email/Send again on the same page — a double
+ * click, or a retry after the server's answer was lost — is recognized as the
+ * same request: it finds the receipt it already saved, and an email that
+ * already went out isn't sent again. The key lives only in the page, so a
+ * reload starts a new one; after a reload the history below is what shows
+ * whether a receipt was saved or emailed.
  */
-const REQUEST_KEY_PATTERN = /^[0-9a-f]{32}$/;
-
-/** 128 random bits as hex. getRandomValues rather than randomUUID, which some browsers only offer on https. */
-export function newReceiptRequestKey() {
-  const bytes = new Uint8Array(16);
-  globalThis.crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-export function isReceiptRequestKey(value: unknown): value is string {
-  return typeof value === "string" && REQUEST_KEY_PATTERN.test(value);
-}
+export { newRequestKey as newReceiptRequestKey, isRequestKey as isReceiptRequestKey } from "@/lib/requestKey";
 
 /**
  * How long an email attempt can sit at PENDING before it's treated as one

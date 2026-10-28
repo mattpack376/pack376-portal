@@ -1,15 +1,22 @@
 /*
  * Photo consent against a real database: consent-link emails only go to a
- * parent address on file for that scout (one-scout and Email All), and the
- * public submission is bounded before any database work and records exactly
- * once per link, even when the same link is submitted twice at once.
+ * parent address on file for that scout (one-scout and Email All), a send
+ * Resend didn't confirm is reported as that — not as "didn't go through" —
+ * and repeating the same press doesn't email a family twice; and the public
+ * submission is bounded before any database work and records exactly once
+ * per link, even when the same link is submitted twice at once. Resend is the
+ * controllable stand-in from tests/doubles (which keeps Resend's
+ * idempotency-key rule), so failures can be simulated and nothing is sent.
  */
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { afterEach, before, describe, it, mock } from "node:test";
 import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
-import { form, resetTestState, runAs, testState, type SessionUser } from "../support/context";
+import { asAnonymous, form, resetTestState, runAs, testState, type SessionUser } from "../support/context";
+import { installControllableResend, resetResendControl } from "../doubles/resend";
+import { SIGNED_OUT_HINT, newRequestKey } from "@/lib/requestKey";
 
+const resend = installControllableResend();
 const db = withTestDatabase("photo_consent");
 let consent: typeof import("@/lib/actions/photoConsent");
 
@@ -45,7 +52,10 @@ before(async () => {
   };
 });
 
-afterEach(() => resetTestState());
+afterEach(() => {
+  resetTestState();
+  resetResendControl(resend);
+});
 
 const token = () => randomBytes(32).toString("base64url");
 
@@ -85,8 +95,14 @@ async function makeScout(opts: {
   return { scout, record };
 }
 
-const sendOne = (user: SessionUser, scoutId: string, parentEmail: string) =>
-  runAs(user, () => consent.sendPhotoConsentLinkEmailAction({}, form({ scoutId, parentEmail })));
+const sendOne = (user: SessionUser, scoutId: string, parentEmail: string, requestKey = newRequestKey()) =>
+  runAs(user, () => consent.sendPhotoConsentLinkEmailAction({}, form({ scoutId, parentEmail, requestKey })));
+/** `requestKey` null leaves it out of the form. */
+const emailAll = (user: SessionUser, requestKey: string | null = newRequestKey()) =>
+  runAs(user, () => consent.emailAllUnansweredConsentLinksAction({}, form({ requestKey })));
+
+/** The SDK's answer for a connection that dropped (it returns this rather than throwing). */
+const DROPPED = { name: "application_error", statusCode: null, message: "Unable to fetch data. The request could not be resolved." };
 
 describe("single consent-link email: address on file only", () => {
   it("sends to the stored parent address the button named, matched without regard to case", async () => {
@@ -162,8 +178,8 @@ describe("Email All: address on file only", () => {
     await makeScout({ emails: ["inactive@example.com"], active: false });
     await makeScout({ denId: fx.denB, emails: ["other-den@example.com"] });
 
-    const result = await runAs(fx.leaderA, () => consent.emailAllUnansweredConsentLinksAction());
-    assert.deepEqual(result, { sent: 3, failed: 0, configured: true });
+    const result = await emailAll(fx.leaderA);
+    assert.deepEqual(result, { sent: 3, failed: 0, unconfirmed: 0, configured: true });
 
     const sent = new Map(testState.emails.map((m) => [m.to as string, m]));
     assert.deepEqual([...sent.keys()].sort(), ["new@example.com", "plain@example.com", "usable@example.com"]);
@@ -176,6 +192,250 @@ describe("Email All: address on file only", () => {
     assert.ok(sent.get("new@example.com")?.html?.includes(`/consent/${generated.token}`));
     // Nothing went anywhere for the scout whose only addresses aren't usable.
     assert.equal(await db.prisma.auditLog.count({ where: { action: "photoConsent.emailLink", entityId: noneUsable.scout.id } }), 0);
+  });
+});
+
+describe("single consent-link email: an outcome Resend didn't confirm", () => {
+  let buttons: typeof import("@/components/EmailConsentLinkButton");
+  before(async () => {
+    buttons = await import("@/components/EmailConsentLinkButton");
+  });
+
+  it("refuses a missing or malformed request key without sending", async () => {
+    const { scout } = await makeScout({ emails: ["pat@example.com"] });
+    for (const requestKey of [undefined, "", "not-a-key", "A".repeat(32), `${"a".repeat(32)}x`]) {
+      const result = await runAs(fx.admin, () =>
+        consent.sendPhotoConsentLinkEmailAction({}, form({ scoutId: scout.id, parentEmail: "pat@example.com", requestKey }))
+      );
+      assert.deepEqual(result, { error: "This page is out of date. Reload it and try again." }, String(requestKey));
+    }
+    assert.equal(resend.calls.length, 0);
+  });
+
+  it("says Resend didn't confirm it, and the same press again doesn't email the family twice", async () => {
+    const { scout } = await makeScout({ emails: ["pat@example.com"] });
+    const key = newRequestKey();
+    // It reached the family, but Resend's answer was lost on the way back.
+    resend.queue.push({ delivered: true, error: DROPPED });
+    const first = await sendOne(fx.admin, scout.id, "pat@example.com", key);
+    assert.deepEqual(first, { sent: false, configured: true, uncertain: true, reason: DROPPED.message });
+    assert.equal(buttons.consentLinkOutcomeUnknown(first), true);
+    const shown = buttons.consentLinkMessage(first);
+    assert.equal(shown?.tone, "alert");
+    assert.match(shown?.text ?? "", /^Resend didn't confirm whether it went out, so it may have\. Press the button again/);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "photoConsent.emailLinkUnconfirmed", entityId: scout.id } }), 1);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "photoConsent.emailLink", entityId: scout.id } }), 0);
+
+    const again = await sendOne(fx.admin, scout.id, "pat@example.com", key);
+    assert.deepEqual(again, { sent: true, configured: true });
+    assert.deepEqual(testState.emails.map((m) => m.to), ["pat@example.com"], "one copy");
+    const keys = resend.calls.map((c) => c.options?.idempotencyKey);
+    assert.equal(keys.length, 2);
+    assert.ok(keys[0]?.includes(key));
+    assert.equal(keys[1], keys[0], "both tries under one Resend key");
+  });
+
+  it("a refusal says it didn't go out, with Resend's reason, and isn't offered as a repeat", async () => {
+    const { scout } = await makeScout({ emails: ["pat@example.com"] });
+    resend.queue.push({ error: { name: "validation_error", statusCode: 422, message: "Invalid `to` field." } });
+    const result = await sendOne(fx.admin, scout.id, "pat@example.com");
+    assert.deepEqual(result, { sent: false, configured: true, reason: "Invalid `to` field." });
+    assert.equal(buttons.consentLinkOutcomeUnknown(result), false);
+    assert.deepEqual(buttons.consentLinkMessage(result), { tone: "alert", text: "It didn't go out (Invalid `to` field) — copy the link instead." });
+    assert.equal(await db.prisma.auditLog.count({ where: { entityId: scout.id, action: { startsWith: "photoConsent.emailLink" } } }), 0);
+  });
+});
+
+describe("Email All: an outcome Resend didn't confirm", () => {
+  let buttons: typeof import("@/components/EmailAllConsentLinksButton");
+  before(async () => {
+    buttons = await import("@/components/EmailAllConsentLinksButton");
+  });
+
+  async function threeFamilies() {
+    await db.prisma.scout.deleteMany({});
+    return [
+      await makeScout({ emails: ["a@example.com"] }),
+      await makeScout({ emails: ["b@example.com"] }),
+      await makeScout({ emails: ["c@example.com"] }),
+    ];
+  }
+
+  it("refuses a missing or malformed request key without sending", async () => {
+    await threeFamilies();
+    for (const requestKey of [null, "", "not-a-key"]) {
+      assert.deepEqual(await emailAll(fx.admin, requestKey), { error: "This page is out of date. Reload it and try again." });
+    }
+    assert.equal(resend.calls.length, 0);
+  });
+
+  it("a lost answer is reported as unconfirmed, not 'didn't go through', and the same press again emails nobody twice", async () => {
+    const families = await threeFamilies();
+    const key = newRequestKey();
+    resend.queue.push({ delivered: true, error: DROPPED });
+    const first = await emailAll(fx.admin, key);
+    assert.deepEqual(first, { sent: 0, failed: 0, unconfirmed: 3, configured: true, repeatable: true });
+    assert.equal(testState.emails.length, 3, "it did go out");
+    assert.equal(buttons.emailAllOutcomeUnknown(first), true);
+    const shown = buttons.emailAllMessage(first);
+    assert.equal(shown?.tone, "alert");
+    assert.doesNotMatch(shown?.text ?? "", /didn't go through/);
+    assert.equal(
+      shown?.text,
+      "Resend didn't confirm whether the emails to 3 families went out, so they may have. Press Email All again to retry: any family the last try did reach won't get a second copy."
+    );
+    assert.equal(
+      await db.prisma.auditLog.count({
+        where: { action: "photoConsent.emailLinkUnconfirmed", entityId: { in: families.map((f) => f.scout.id) } },
+      }),
+      3
+    );
+
+    const again = await emailAll(fx.admin, key);
+    assert.deepEqual(again, { sent: 3, failed: 0, unconfirmed: 0, configured: true });
+    assert.equal(testState.emails.length, 3, "one copy each");
+    assert.deepEqual(
+      resend.calls.map((c) => c.options?.idempotencyKey),
+      [`pack376-consent-all/${key}/1`, `pack376-consent-all/${key}/1`]
+    );
+    assert.equal(buttons.emailAllMessage(again)?.text, "Sent to 3 families.");
+  });
+
+  it("a refusal of the whole batch is reported as didn't go through", async () => {
+    await threeFamilies();
+    resend.queue.push({ error: { name: "validation_error", statusCode: 422, message: "Invalid `from` field." } });
+    const result = await emailAll(fx.admin);
+    assert.deepEqual(result, { sent: 0, failed: 3, unconfirmed: 0, configured: true });
+    assert.equal(buttons.emailAllOutcomeUnknown(result), false);
+    assert.equal(buttons.emailAllMessage(result)?.text, "3 didn't go through — use each scout's Copy Link instead.");
+  });
+
+  it("once the list has changed, a repeat is refused rather than emailing everyone again, and isn't offered again", async () => {
+    const [answered] = await threeFamilies();
+    const key = newRequestKey();
+    resend.queue.push({ delivered: true, error: DROPPED });
+    await emailAll(fx.admin, key);
+    // One family answers in between, so the list (and the batch) changes.
+    await db.prisma.photoConsent.update({
+      where: { id: answered.record!.id },
+      data: { facebook: "CONSENT", website: "CONSENT", fliers: "CONSENT" },
+    });
+
+    const again = await emailAll(fx.admin, key);
+    assert.deepEqual(again, { sent: 0, failed: 0, unconfirmed: 0, listChanged: 2, configured: true });
+    assert.equal(testState.emails.length, 3, "nobody emailed twice");
+    assert.equal(buttons.emailAllOutcomeUnknown(again), false, "the next press is a new request");
+    assert.match(buttons.emailAllMessage(again)?.text ?? "", /^The list has changed since the last try, so this time nothing was sent to 2 families\./);
+  });
+
+  it("a family added since the last try isn't told it 'may have' been emailed, and the next press warns of second copies", async () => {
+    await db.prisma.scout.deleteMany({});
+    const a = await makeScout({ emails: ["a@example.com"] });
+    const b = await makeScout({ emails: ["b@example.com"] });
+    const key = newRequestKey();
+    // a and b are emailed, but Resend's answer is lost.
+    resend.queue.push({ delivered: true, error: DROPPED });
+    const first = await emailAll(fx.admin, key);
+    assert.deepEqual(first, { sent: 0, failed: 0, unconfirmed: 2, configured: true, repeatable: true });
+
+    // A new unanswered scout joins before the same press is repeated.
+    const added = await makeScout({ emails: ["new@example.com"] });
+    const again = await emailAll(fx.admin, key);
+    assert.deepEqual(again, { sent: 0, failed: 0, unconfirmed: 0, listChanged: 3, configured: true });
+    assert.deepEqual(testState.emails.map((m) => m.to).sort(), ["a@example.com", "b@example.com"], "nothing sent this time");
+
+    const shown = buttons.emailAllMessage(again);
+    assert.deepEqual(shown, {
+      tone: "alert",
+      text:
+        "The list has changed since the last try, so this time nothing was sent to 3 families. The last try may have reached some of them, but any family added since then hasn't been emailed at all. " +
+        "Pressing Email All again emails everyone on the list now, so any family the last try did reach will get a second copy.",
+    });
+    assert.doesNotMatch(shown.text, /didn't confirm|may have\./);
+
+    // The audit log says only what happened: the first try's two unconfirmed
+    // sends, and nothing at all for the family this press never emailed.
+    const unconfirmedEntries = await db.prisma.auditLog.findMany({
+      where: { action: "photoConsent.emailLinkUnconfirmed", entityId: { in: [a.scout.id, b.scout.id, added.scout.id] } },
+    });
+    assert.deepEqual(unconfirmedEntries.map((e) => e.entityId).sort(), [a.scout.id, b.scout.id].sort());
+    assert.equal(await db.prisma.auditLog.count({ where: { entityId: added.scout.id, action: { startsWith: "photoConsent.emailLink" } } }), 0);
+
+    // The next press is a new request, and its prompt says what that means.
+    assert.equal(buttons.emailAllOutcomeUnknown(again), false);
+    assert.equal(
+      buttons.emailAllConfirmQuestion(again, false, 3),
+      "Email 3 families their scout's photo consent link? Each family gets their own link. Scouts without a link yet will get one generated. Any family the last try did reach will get a second copy."
+    );
+  });
+
+  it("the confirm prompt: a repeat, a fresh press, and a fresh press after an unknown outcome", () => {
+    assert.equal(buttons.emailAllConfirmQuestion({ unconfirmed: 2, repeatable: true, sent: 0 }, true, 2), "Try Email All again? Any family the last try already reached won't get a second copy.");
+    assert.equal(
+      buttons.emailAllConfirmQuestion({}, false, 1),
+      "Email 1 family their scout's photo consent link? Each family gets their own link. Scouts without a link yet will get one generated."
+    );
+    assert.equal(
+      buttons.emailAllConfirmQuestion({ sent: 3, failed: 0, unconfirmed: 0, configured: true }, false, 2),
+      "Email 2 families their scout's photo consent link? Each family gets their own link. Scouts without a link yet will get one generated."
+    );
+    for (const last of [{ unreachable: true }, { sent: 0, unconfirmed: 1, repeatable: true }, { sent: 0, listChanged: 2 }]) {
+      assert.match(buttons.emailAllConfirmQuestion(last, false, 2), / Any family the last try did reach will get a second copy\.$/, JSON.stringify(last));
+    }
+  });
+
+  it("says 'unconfirmed' alongside what did go out and what didn't", () => {
+    assert.equal(
+      buttons.emailAllMessage({ sent: 5, failed: 1, unconfirmed: 1, configured: true, repeatable: true })?.text,
+      "Sent to 5 families. 1 didn't go through — use each scout's Copy Link instead. Resend didn't confirm whether the email to 1 family went out, so it may have. Press Email All again to retry: any family the last try did reach won't get a second copy."
+    );
+    assert.deepEqual(buttons.emailAllMessage({ sent: 0, failed: 0, unconfirmed: 0, configured: true }), { tone: "ok", text: "Nobody left to email." });
+    assert.equal(buttons.emailAllMessage({}), null);
+  });
+});
+
+describe("the consent buttons when the server never answers", () => {
+  it("a rejected call comes back as unreachable instead of reaching the page's error screen", async () => {
+    const { orUnreachable } = await import("@/lib/requestKey");
+    const dropped = orUnreachable<{ unreachable?: boolean; sent?: boolean }>(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    assert.deepEqual(await dropped({}, new FormData()), { unreachable: true });
+    const answered = orUnreachable<{ unreachable?: boolean; sent?: boolean }>(async () => ({ sent: true }));
+    assert.deepEqual(await answered({}, new FormData()), { sent: true });
+
+    const single = await import("@/components/EmailConsentLinkButton");
+    const all = await import("@/components/EmailAllConsentLinksButton");
+    assert.equal(single.consentLinkOutcomeUnknown({ unreachable: true }), true);
+    assert.equal(all.emailAllOutcomeUnknown({ unreachable: true }), true);
+    assert.match(single.consentLinkMessage({ unreachable: true })?.text ?? "", /we don't know whether it went out/);
+    assert.match(all.emailAllMessage({ unreachable: true })?.text ?? "", /we don't know whether the emails went out/);
+    // A signed-out page can get no answer too, and pressing again never helps that.
+    assert.ok(single.consentLinkMessage({ unreachable: true })?.text.endsWith(` ${SIGNED_OUT_HINT}`));
+    assert.ok(all.emailAllMessage({ unreachable: true })?.text.endsWith(` ${SIGNED_OUT_HINT}`));
+  });
+
+  it("a signed-out press is told so for certain, not 'we don't know whether it went out'", async () => {
+    const { scout } = await makeScout({ emails: ["pat@example.com"] });
+    const signedOut = { error: "You've been signed out, so this didn't go through. Reload the page to sign in again." };
+    const single = await asAnonymous(() =>
+      consent.sendPhotoConsentLinkEmailAction({}, form({ scoutId: scout.id, parentEmail: "pat@example.com", requestKey: newRequestKey() }))
+    );
+    assert.deepEqual(single.result, signedOut);
+    const all = await asAnonymous(() => consent.emailAllUnansweredConsentLinksAction({}, form({ requestKey: newRequestKey() })));
+    assert.deepEqual(all.result, signedOut);
+    const buttons = await import("@/components/EmailConsentLinkButton");
+    assert.deepEqual(buttons.consentLinkMessage(single.result), { tone: "alert", text: signedOut.error });
+    assert.equal(resend.calls.length, 0);
+  });
+
+  it("the next press repeats the last one's key only while its outcome is unknown and Resend still remembers it", async () => {
+    const { REPEAT_WINDOW_MS, isRequestKey, keyForPress } = await import("@/lib/requestKey");
+    const first = keyForPress(null, true, 1_000);
+    assert.ok(isRequestKey(first.key));
+    assert.equal(keyForPress(first, true, 1_000 + REPEAT_WINDOW_MS - 1), first, "a repeat");
+    assert.notEqual(keyForPress(first, false, 2_000).key, first.key, "a known outcome: a new request");
+    assert.notEqual(keyForPress(first, true, 1_000 + REPEAT_WINDOW_MS).key, first.key, "too old to repeat safely");
   });
 });
 
