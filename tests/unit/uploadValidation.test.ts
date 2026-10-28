@@ -21,6 +21,7 @@ import {
   sniffMediaType,
   stripJpegMetadata,
   stripPngMetadata,
+  type SharpConstructor,
   type UploadRules,
 } from "@/lib/uploadValidation";
 
@@ -195,13 +196,49 @@ describe("prepareUploadBytes: what is turned away", () => {
     assert.match(await rejection(prepareUploadBytes(gifHeaders(250, 500, 500), "image/gif", COVER, sharp)), /across 250 frames/);
   });
 
-  it("damaged files", async () => {
+  it("damaged files", async (t) => {
+    const logged = t.mock.method(console, "error", () => {});
     const jpeg = new Uint8Array(await solid(50, 50).jpeg().toBuffer());
     const cut = jpeg.subarray(0, jpeg.length - 40);
     assert.match(await rejection(prepareUploadBytes(cut, "image/jpeg", COVER, sharp)), /couldn't be read/);
     assert.match(await rejection(prepareUploadBytes(cut, "image/jpeg", COVER, null)), /couldn't be read/);
     assert.match(await rejection(prepareUploadBytes(jpeg.subarray(0, 20), "image/jpeg", COVER, sharp)), /couldn't be read/);
     assert.match(await rejection(prepareUploadBytes(pngHeader(10, 10), "image/png", COVER, sharp)), /couldn't be read/);
+    // The two the image library failed on are logged with its error; the
+    // others were turned away by the header checks before it saw them.
+    assert.deepEqual(
+      logged.mock.calls.map(({ arguments: [message, error] }) => [
+        /^\[upload\] the image library couldn't re-save an? (\w+) /.exec(String(message))?.[1],
+        error instanceof Error,
+      ]),
+      [
+        ["JPEG", true],
+        ["PNG", true],
+      ],
+    );
+  });
+
+  it("an image library that fails on this server is logged, not only reported as a damaged file", async (t) => {
+    const logged = t.mock.method(console, "error", () => {});
+    const photo = await phoneJpeg(); // carries a comment: "Taken at Prospect Park"
+    const failure = new Error("VipsForeignLoad: jpegload_buffer is not available in this build");
+    const missingCodec = (() => ({ metadata: () => Promise.reject(failure) })) as unknown as SharpConstructor;
+    assert.match(await rejection(prepareUploadBytes(photo, "image/jpeg", COVER, missingCodec)), /couldn't be read — the file may be damaged/);
+
+    // Reading the file as some other format than its signature says is logged too.
+    const confused = (() => ({ metadata: async () => ({ format: "png" }) })) as unknown as SharpConstructor;
+    assert.match(await rejection(prepareUploadBytes(photo, "image/jpeg", COVER, confused)), /couldn't be read/);
+
+    assert.equal(logged.mock.callCount(), 2);
+    const [first, second] = logged.mock.calls.map((call) => call.arguments);
+    assert.equal(
+      first[0],
+      `[upload] the image library couldn't re-save a JPEG (40 × 20 pixels, 1 frame, ${photo.length} bytes); refused as unreadable`,
+    );
+    assert.equal(first[1], failure);
+    assert.match(String(second[1]), /sharp read the file as png/);
+    // What's logged says what kind of file it was, never what was in it.
+    for (const args of [first, second]) assert.doesNotMatch(args.map(String).join(" "), /Prospect Park|ftypmp42/);
   });
 
   it("PDFs that run scripts, launch programs or carry attachments, however the name is spelled", async () => {

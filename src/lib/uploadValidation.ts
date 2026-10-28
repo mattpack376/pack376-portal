@@ -618,7 +618,9 @@ async function reencodeImage(
       limitInputPixels: MAX_IMAGE_PIXELS,
     });
     const metadata = await input.metadata();
-    if (metadata.format !== SHARP_FORMATS[type]) throw new UploadRejectedError(unreadable(rules.label));
+    // The header checks already agreed on the format, so a different answer
+    // here is worth a line in the log (below), not just a refusal.
+    if (metadata.format !== SHARP_FORMATS[type]) throw new Error(`sharp read the file as ${metadata.format ?? "nothing it knows"}`);
 
     let pipeline = input;
     if (rules.maxStoredSide) {
@@ -653,7 +655,17 @@ async function reencodeImage(
     return output;
   } catch (error) {
     if (error instanceof UploadRejectedError) throw error;
-    // A file that passed the header checks but can't actually be decoded.
+    // Usually a file that passed the header checks but can't actually be
+    // decoded. It could also be the image library failing on this server — a
+    // missing codec, running out of memory — and then every upload would be
+    // turned away as damaged, so say what happened in the logs: the error and
+    // what kind of file it was, never anything from inside the file.
+    console.error(
+      `[upload] the image library couldn't re-save ${article(TYPE_NAMES[type])} ` +
+        `(${info.width} × ${info.height} pixels, ${info.frames} frame${info.frames === 1 ? "" : "s"}, ${bytes.length} bytes); ` +
+        `refused as unreadable`,
+      error,
+    );
     throw new UploadRejectedError(unreadable(rules.label));
   }
 }
