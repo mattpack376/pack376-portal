@@ -76,12 +76,14 @@ export default async function AdminDenDetailPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+        {/* Folded by default so the advancement cards sit near the top; open it to rename, deactivate, remove or add scouts. */}
+        <details open={scouts.length === 0}>
+        <summary className="roster-summary">
           <h3>Roster</h3>
           <span className="badge-pill badge-den badge-count" style={{ whiteSpace: "nowrap" }}>
             {scouts.length} scout{scouts.length === 1 ? "" : "s"}
           </span>
-        </div>
+        </summary>
         {scouts.length === 0 && <p>No scouts yet.</p>}
         {scouts.length > 0 && (
           <div className="table-scroll" style={{ marginBottom: 20 }}>
@@ -217,6 +219,7 @@ export default async function AdminDenDetailPage({
             <button type="submit" className="btn btn-primary">Add Scout</button>
           </form>
         )}
+        </details>
       </div>
 
       <ScoutChecklist scouts={scouts} editable collapsible />

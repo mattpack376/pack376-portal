@@ -1847,6 +1847,13 @@ details[open] > .scout-card-summary::before { transform: rotate(90deg); }
 .scout-card-unsaved { font-size: 12.5px; font-weight: 700; color: var(--carnival-red-dark); }
 .scout-card-body { padding: 0 20px 20px; }
 .scout-checklist:has(.scout-card-collapsible) { gap: 10px; }
+/* Admin den page Roster card: heading + count pill is the toggle. */
+.roster-summary { display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; user-select: none; }
+.roster-summary::-webkit-details-marker { display: none; }
+.roster-summary::before { content: "▸"; display: inline-block; width: 12px; color: var(--ink-soft); transition: transform 0.15s ease; }
+details[open] > .roster-summary::before { transform: rotate(90deg); }
+.roster-summary h3 { margin: 0; flex: 1 1 auto; }
+details[open] > .roster-summary { margin-bottom: 14px; }
 .progress-pill { font-size: 12.5px; font-weight: 700; color: var(--scout-blue-dark); background: var(--cream-dark); padding: 4px 12px; border-radius: 999px; }
 .adventure-group-label { font-family: var(--font-display); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); margin: 14px 0 8px; }
 .adventure-checklist { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
