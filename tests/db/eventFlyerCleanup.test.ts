@@ -232,18 +232,19 @@ describe("event flyers", () => {
   });
 
   it("answers a refused flyer on the Edit Event form, uploading and changing nothing", async () => {
-    // A screenshot saved as flyer.jpg: allowed bytes (PNG) under another
-    // allowed label (JPEG). The upload checks refuse it; the edit form has to
-    // say why rather than throw to the generic error page.
+    // A web page saved as flyer.jpg: the upload checks refuse it, and the
+    // edit form has to say why rather than throw to the generic error page.
+    // (A real image under the wrong image label is accepted and stored as
+    // what it is — see the end of this test.)
     const old = "https://example.test/event-flyers/kept.png";
     const event = await fx.event({ title: "Keeps its flyer", flyerUrl: old });
     const png = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#123456" } }).png().toBuffer();
-    const mislabeled = new File([png], "flyer.jpg", { type: "image/jpeg" });
+    const webPage = new File(["<!doctype html><html><body>flyer</body></html>"], "flyer.jpg", { type: "image/jpeg" });
 
     const result = await runAs(admin, () =>
-      events.updateEventAction(eventForm({ id: event.id, title: "New title", adultFee: "12.00" }, mislabeled)),
+      events.updateEventAction(eventForm({ id: event.id, title: "New title", adultFee: "12.00" }, webPage)),
     );
-    assert.match(result.error ?? "(no error)", /labeled as a JPEG but the file is really a PNG/);
+    assert.match(result.error ?? "(no error)", /web page/);
     assert.equal(result.stale, undefined, "a refusal about the entries: the form puts them back");
     assert.equal(testState.blobPuts.length, 0);
     assert.deepEqual(cleanupCalls(), []);
@@ -266,12 +267,18 @@ describe("event flyers", () => {
     }
     assert.equal((await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } })).title, "Keeps its flyer");
 
-    // The same file saved as what it really is goes through.
-    const asPng = new File([png], "flyer.png", { type: "image/png" });
-    assert.deepEqual(await runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: "New title" }, asPng))), {});
+    // A screenshot saved as flyer.jpg (PNG bytes under a JPEG label) goes
+    // through and is stored as the PNG it really is.
+    const mislabeled = new File([png], "flyer.jpg", { type: "image/jpeg" });
+    assert.deepEqual(
+      await runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: "New title" }, mislabeled))),
+      {},
+    );
     const saved = await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } });
     assert.equal(saved.title, "New title");
     assert.equal(saved.flyerUrl, testState.blobPuts[0].url);
+    assert.match(testState.blobPuts[0].pathname, /\.png$/);
+    assert.equal(testState.blobPuts[0].options?.contentType, "image/png");
     assert.deepEqual(cleanupCalls(), [old]);
   });
 });
