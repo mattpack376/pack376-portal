@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import { before, beforeEach, describe, it } from "node:test";
 import { openTransaction, withTestDatabase } from "../support/db";
-import { asAnonymous, form, resetTestState, settle, testState, type SessionUser } from "../support/context";
+import { asAnonymous, form, resetTestState, runAs, settle, testState, type SessionUser } from "../support/context";
 import {
   addByHand,
   createUser,
@@ -337,5 +337,134 @@ describe("editing a registration", () => {
     const junior = await createUser(db.prisma, "JUNIOR_ADMIN");
     assert.equal((await settle(editRegistration(actions, junior, registration, { payingCount: 9 }))).ok, false);
     assert.equal((await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: registration.id } })).payingCount, 2);
+  });
+});
+
+/*
+ * An edit form resubmits everything it was loaded with, Amount Owed included
+ * (the field is required once a registration has an amount). One loaded
+ * before another Admin's change used to write all of it back (review
+ * 2026-10-27): a discount entered in one tab was undone by a phone-number fix
+ * from another. Now the form carries a fingerprint of the registration it
+ * showed, and a save from an out-of-date one is turned down. Against the old
+ * action each of these saves goes through.
+ */
+describe("an edit form loaded before another change to the registration", () => {
+  /** A family of 2 registered at $40/person, as the edit form would load it. */
+  async function pricedRegistration() {
+    const trip = await freshTrip(db.prisma, { slug: "camp-conron", priceTbd: false, regularPriceCents: 4000 });
+    assert.equal((await register(actions, familyForm(trip.id, { payingCount: 2 }))).success, true);
+    const [loaded] = await registrationsOf(db.prisma, trip.id);
+    assert.equal(loaded.amountOwedCents, 8000);
+    return { trip, loaded };
+  }
+  const current = (id: string) => db.prisma.tripRegistration.findUniqueOrThrow({ where: { id } });
+  const edits = (id: string) => db.prisma.auditLog.count({ where: { action: "tripRegistration.update", entityId: id } });
+
+  it("can't put another Admin's amount owed back", async () => {
+    const { loaded } = await pricedRegistration();
+    // Another Admin gives the family a discount...
+    assert.deepEqual(await editRegistration(actions, admin, loaded, { amountOwed: "60.00" }), {});
+    // ...and this tab, still showing $80.00, fixes the phone number.
+    const result = await editRegistration(actions, admin, loaded, { contactPhone: "2125550199" });
+    assert.match(result.error ?? "", /changed after this page loaded — it now has 2 paying, 0 free and owes \$60\.00/);
+    assert.match(result.error ?? "", /Nothing was saved/);
+    assert.equal(result.stale, true, "the form shows the refreshed registration, not the old entries");
+    assert.ok(testState.revalidated.includes("/portal/admin/camp-conron"), "the page is refreshed to show it");
+
+    let after = await current(loaded.id);
+    assert.equal(after.amountOwedCents, 6000);
+    assert.equal(after.contactPhone, loaded.contactPhone, "nothing from the refused edit was saved");
+    assert.equal(await edits(loaded.id), 1);
+
+    // Reloaded, the form shows $60.00, and the phone fix goes through on its own.
+    assert.deepEqual(await editRegistration(actions, admin, after, { contactPhone: "2125550199" }), {});
+    after = await current(loaded.id);
+    assert.equal(after.amountOwedCents, 6000);
+    assert.equal(after.contactPhone, "(212)555-0199");
+  });
+
+  it("can't overwrite it with an amount typed on the old form either", async () => {
+    const { loaded } = await pricedRegistration();
+    assert.deepEqual(await editRegistration(actions, admin, loaded, { amountOwed: "60.00" }), {});
+    const result = await editRegistration(actions, admin, loaded, { amountOwed: "70.00" });
+    assert.equal(result.stale, true);
+    assert.equal((await current(loaded.id)).amountOwedCents, 6000);
+  });
+
+  it("is out of date after a change to any field it edits, and the other change is kept", async () => {
+    const { loaded } = await pricedRegistration();
+    assert.deepEqual(await editRegistration(actions, admin, loaded, { contactPhone: "2125550199" }), {});
+    const result = await editRegistration(actions, admin, loaded, { familyName: "Renamed" });
+    assert.equal(result.stale, true);
+    const after = await current(loaded.id);
+    assert.equal(after.familyName, loaded.familyName);
+    assert.equal(after.contactPhone, "(212)555-0199");
+  });
+
+  it("stays usable after a payment is recorded", async () => {
+    const { loaded } = await pricedRegistration();
+    await runAs(admin, () =>
+      actions.registration.addTripPaymentAction(form({ tripRegistrationId: loaded.id, amount: "20.00", paidOn: "2026-10-01" })),
+    );
+    assert.deepEqual(await editRegistration(actions, admin, loaded, { contactPhone: "2125550199" }), {});
+    assert.equal((await current(loaded.id)).amountOwedCents, 8000);
+  });
+
+  it("reports an out-of-date form ahead of a typo in it", async () => {
+    const { loaded } = await pricedRegistration();
+    assert.deepEqual(await editRegistration(actions, admin, loaded, { amountOwed: "60.00" }), {});
+    const result = await editRegistration(actions, admin, loaded, { contactEmail: "x" });
+    assert.match(result.error ?? "", /changed after this page loaded/);
+    assert.equal(result.stale, true);
+    // From a current form, the same typo is about the entry, and keeps it.
+    const typo = await editRegistration(actions, admin, await current(loaded.id), { contactEmail: "x" });
+    assert.match(typo.error ?? "", /valid email/);
+    assert.equal(typo.stale, undefined);
+  });
+
+  it("refuses a form that doesn't say what it was loaded with", async () => {
+    const { loaded } = await pricedRegistration();
+    const result = await editRegistration(actions, admin, loaded, { version: "", amountOwed: "60.00" });
+    assert.match(result.error ?? "", /out of date\. Reload the page/);
+    assert.equal(result.stale, true);
+    assert.equal((await current(loaded.id)).amountOwedCents, 8000);
+    assert.equal(await edits(loaded.id), 0);
+  });
+
+  it("won't drop an amount that's been set — a blank one is an entry to fix", async () => {
+    const { loaded } = await pricedRegistration();
+    const result = await editRegistration(actions, admin, loaded, { amountOwed: "" });
+    assert.match(result.error ?? "", /Enter the amount owed/);
+    assert.equal(result.stale, undefined);
+    const after = await current(loaded.id);
+    assert.equal(after.amountOwedCents, 8000);
+    assert.equal(after.owedPending, false);
+  });
+
+  it("two tabs saving at once: one goes through, the other is turned down", async (t) => {
+    const { trip, loaded } = await pricedRegistration();
+    const holder = await openTransaction(db.pool);
+    t.after(() => holder.rollback());
+    await holder.query(LOCK_TRIP, [trip.id]);
+
+    const first = editRegistration(actions, admin, loaded, { amountOwed: "60.00" });
+    await waitForWaiters(db.pool, 1);
+    const second = editRegistration(actions, admin, loaded, { amountOwed: "70.00", contactPhone: "2125550199" });
+    await waitForWaiters(db.pool, 2);
+    await holder.rollback();
+
+    const results = await Promise.all([first, second]);
+    assert.equal(results.filter((r) => r.error === undefined).length, 1);
+    assert.equal(results.filter((r) => r.stale).length, 1);
+    const after = await current(loaded.id);
+    if (results[0].error === undefined) {
+      assert.equal(after.amountOwedCents, 6000);
+      assert.equal(after.contactPhone, loaded.contactPhone);
+    } else {
+      assert.equal(after.amountOwedCents, 7000);
+      assert.equal(after.contactPhone, "(212)555-0199");
+    }
+    assert.equal(await edits(loaded.id), 1);
   });
 });

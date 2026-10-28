@@ -11,10 +11,12 @@ import {
   registrationClosed,
   tripFormResult,
   TripInputError,
+  TRIP_FORM_OUT_OF_DATE,
   TRIP_PAGE_GONE,
   TRIP_TRANSACTION_OPTIONS,
   type TripFormResult,
 } from "@/lib/tripPageData";
+import { tripRegistrationEditVersion } from "@/lib/tripEditVersion";
 import { tripSiteBySlug } from "@/lib/tripSites";
 import { revalidateTripAdminPages, revalidateTripPages } from "@/lib/tripRevalidate";
 import { formatPhoneNumber } from "@/lib/phone";
@@ -366,8 +368,16 @@ export async function addTripRegistrationAction(formData: FormData): Promise<Tri
  * still waiting for a price stays waiting while it's TBD, and is charged
  * attendees × the price once it's posted. An attendee change that commits
  * before the price is posted is therefore what the posting charges for, and
- * one that arrives after it either carries an amount or is turned down — it
- * never puts a priced registration back to $0.
+ * one that arrives after it is turned down — it never puts a priced
+ * registration back to $0.
+ *
+ * The form sends back a fingerprint of the registration it was filled in
+ * with (tripRegistrationEditVersion). If the registration changed after the
+ * page loaded — another Admin's correction or discount, the price being
+ * posted, a save from another tab — the edit is refused rather than writing
+ * back the Amount Owed and everything else the form still showed. That holds
+ * even when the amount was retyped here: it was typed without seeing the
+ * change it would replace.
  */
 export async function updateTripRegistrationAction(formData: FormData): Promise<TripFormResult> {
   const session = await getSession();
@@ -377,17 +387,8 @@ export async function updateTripRegistrationAction(formData: FormData): Promise<
   return tripFormResult(async () => {
     const id = textField(formData.get("id"));
     if (!id) throw new TripInputError("Missing registration id.");
-    const fields = readAdminRegistrationFields(formData);
-    const amountOwedRaw = textField(formData.get("amountOwed"));
-    const typedAmountCents = amountOwedRaw === "" ? null : dollarsToCents(amountOwedRaw);
-    if (amountOwedRaw !== "" && typedAmountCents === null) {
-      throw new TripInputError("Enter a valid amount owed (up to $1,000,000.00).");
-    }
-    // The per-person price the form said a blank amount would be charged at
-    // — sent only by a form that said so (TripRegistrationCountFields), for a
-    // registration still waiting on a trip whose price is posted.
-    const shownChargeRaw = textField(formData.get("chargePricePerPersonCents"));
-    const shownChargeCents = /^\d{1,9}$/.test(shownChargeRaw) ? Number(shownChargeRaw) : null;
+    const version = textField(formData.get("version"));
+    if (!version) throw new TripInputError(TRIP_FORM_OUT_OF_DATE, { stale: true });
 
     // A registration never moves to another trip, so which trip to lock can
     // be read before the lock; everything else is re-read under it.
@@ -411,6 +412,28 @@ export async function updateTripRegistrationAction(formData: FormData): Promise<
         },
       });
       if (!trip || !before) throw new TripInputError(REGISTRATION_GONE, { stale: true });
+      if (tripRegistrationEditVersion(before) !== version) {
+        const owes = before.owedPending ? "is still waiting for the price" : `owes ${auditMoney(before.amountOwedCents)}`;
+        throw new TripInputError(
+          `This registration was changed after this page loaded — it now has ${before.payingCount} paying, ${before.freeCount} free and ${owes}. Nothing was saved. Review it on the refreshed page (reload the page if it hasn't updated), then make your change again.`,
+          { stale: true },
+        );
+      }
+
+      // Read only after that check, for the reason updateTripPricingAction
+      // gives: a refusal about what was typed puts the entries back next to
+      // the refreshed page's fingerprint, so it must come from a current form.
+      const fields = readAdminRegistrationFields(formData);
+      const amountOwedRaw = textField(formData.get("amountOwed"));
+      const typedAmountCents = amountOwedRaw === "" ? null : dollarsToCents(amountOwedRaw);
+      if (amountOwedRaw !== "" && typedAmountCents === null) {
+        throw new TripInputError("Enter a valid amount owed (up to $1,000,000.00).");
+      }
+      // The per-person price the form said a blank amount would be charged at
+      // — sent only by a form that said so (TripRegistrationCountFields), for a
+      // registration still waiting on a trip whose price is posted.
+      const shownChargeRaw = textField(formData.get("chargePricePerPersonCents"));
+      const shownChargeCents = /^\d{1,9}$/.test(shownChargeRaw) ? Number(shownChargeRaw) : null;
 
       // A group already over the ceiling (added before it applied to admins)
       // can still be edited, as long as its counts stay as they are.
@@ -451,14 +474,12 @@ export async function updateTripRegistrationAction(formData: FormData): Promise<
         amountOwedCents = priced;
         owedPending = false;
       } else {
-        // Already priced, and the form left the amount blank. The form only
-        // does that for a registration it showed as waiting, so the price was
-        // posted after the page loaded. Its amount is not overwritten from a
-        // stale form — the admin sees the new amount and makes the change again.
-        throw new TripInputError(
-          `This registration's amount owed was set to ${auditMoney(before.amountOwedCents)} after this page loaded — the price was posted, or someone entered it. Review it on the refreshed page (reload the page if it hasn't updated), then make your change again.`,
-          { stale: true },
-        );
+        // Already priced, and the amount left blank. A form loaded while the
+        // registration was waiting has already been turned away as out of
+        // date above (its fingerprint says "waiting"), and a current form for
+        // a priced registration requires the field — so this is a cleared
+        // field the browser let through, never a reason to drop the amount.
+        throw new TripInputError("Enter the amount owed — once a registration has one, it can't be left blank.");
       }
 
       // Removing a registration doesn't take the trip's lock, so it can still

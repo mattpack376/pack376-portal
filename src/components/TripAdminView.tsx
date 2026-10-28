@@ -22,7 +22,7 @@ import {
   MEAL_TYPE_LABELS,
   TRIP_DAY_ORDER,
 } from "@/lib/tripPageData";
-import { tripPricingVersion } from "@/lib/tripEditVersion";
+import { tripPricingVersion, tripRegistrationEditVersion } from "@/lib/tripEditVersion";
 import { describeHeadcountWithTotal, type TripSite } from "@/lib/tripSites";
 import type { Role } from "@/generated/prisma/enums";
 import { formatCents } from "@/lib/duesData";
@@ -902,6 +902,8 @@ export default async function TripAdminView({
                       {isAdmin ? (
                         <TripAdminForm action={updateTripRegistrationAction} style={{ marginBottom: 16 }}>
                           <input type="hidden" name="id" value={reg.id} />
+                          {/* What this form was filled in with, so a save from it after another change to this registration is turned down rather than putting the old amount (or anything else) back. */}
+                          <input type="hidden" name="version" value={tripRegistrationEditVersion(reg)} />
                           <div className="form-row">
                             <div className="form-field" style={{ flex: 1, minWidth: 180 }}>
                               <label htmlFor={`familyName-${reg.id}`}>Family / Registrant Name</label>

@@ -266,7 +266,7 @@ describe("price posting vs. an admin editing a waiting registration", () => {
     const [posted, edited] = await Promise.all([posting, editing]);
     assert.deepEqual(posted, {});
     assert.match(edited.error ?? "", /reload the page/i);
-    assert.match(edited.error ?? "", /set to \$80\.00 after this page loaded/);
+    assert.match(edited.error ?? "", /changed after this page loaded — it now has 2 paying, 0 free and owes \$80\.00/);
     assert.equal(edited.stale, true);
     const after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: registration.id } });
     assert.equal(after.familyName, registration.familyName, "nothing from the refused edit was saved");
@@ -275,7 +275,7 @@ describe("price posting vs. an admin editing a waiting registration", () => {
     assert.equal(await db.prisma.auditLog.count({ where: { action: "tripRegistration.update", entityId: registration.id } }), 0);
 
     // Reloaded, the form now carries the amount, and the change goes through.
-    assert.deepEqual(await editRegistration(actions, admin, registration, { payingCount: 3, amountOwed: "120.00" }), {});
+    assert.deepEqual(await editRegistration(actions, admin, after, { payingCount: 3, amountOwed: "120.00" }), {});
     const fixed = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: registration.id } });
     assert.equal(fixed.amountOwedCents, 12000);
   });
