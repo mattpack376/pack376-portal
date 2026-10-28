@@ -24,6 +24,18 @@ export function emailAllOutcomeUnknown(state: EmailAllConsentLinksState) {
   return !!state.unreachable || (!!state.unconfirmed && state.repeatable === true);
 }
 
+/**
+ * The confirm prompt. `repeat`: this press repeats the last one under its key.
+ * A new press after one that may have reached some families says plainly
+ * that those families get a second copy.
+ */
+export function emailAllConfirmQuestion(state: EmailAllConsentLinksState, repeat: boolean, count: number) {
+  if (repeat) return "Try Email All again? Any family the last try already reached won't get a second copy.";
+  const question = `Email ${families(count)} their scout's photo consent link? Each family gets their own link. Scouts without a link yet will get one generated.`;
+  const lastTryMayHaveReached = !!(state.unreachable || state.unconfirmed || state.listChanged);
+  return lastTryMayHaveReached ? `${question} Any family the last try did reach will get a second copy.` : question;
+}
+
 export type EmailAllNote = { tone: "ok" | "note" | "alert"; text: string };
 
 /** What the button says after a press (nothing before one). */
@@ -40,20 +52,28 @@ export function emailAllMessage(state: EmailAllConsentLinksState): EmailAllNote 
 
   const failed = state.failed ?? 0;
   const unconfirmed = state.unconfirmed ?? 0;
-  if (state.sent === 0 && !failed && !unconfirmed) return { tone: "ok", text: "Nobody left to email." };
+  const listChanged = state.listChanged ?? 0;
+  if (state.sent === 0 && !failed && !unconfirmed && !listChanged) return { tone: "ok", text: "Nobody left to email." };
   const parts: string[] = [];
   if (state.sent) parts.push(`Sent to ${families(state.sent)}.`);
   if (failed) parts.push(`${failed} didn't go through — use each scout's Copy Link instead.`);
   if (unconfirmed) {
     // Not "didn't go through": Resend may well have sent these.
     parts.push(
-      `Resend didn't confirm whether the email${unconfirmed === 1 ? "" : "s"} to ${families(unconfirmed)} went out, so ${unconfirmed === 1 ? "it" : "they"} may have.`,
-      state.repeatable
-        ? "Press Email All again to retry: any family the last try did reach won't get a second copy."
-        : "The list has changed since that try, so pressing Email All again would email every family on it again. Use each scout's Copy Link for anyone who says they didn't get it."
+      `Resend didn't confirm whether the email${unconfirmed === 1 ? "" : "s"} to ${families(unconfirmed)} went out, so ${unconfirmed === 1 ? "it" : "they"} may have.`
+    );
+    // Not repeatable only alongside listChanged, whose note below covers the next press.
+    if (state.repeatable) parts.push("Press Email All again to retry: any family the last try did reach won't get a second copy.");
+  }
+  if (listChanged) {
+    // Not "may have gone out": this try sent them nothing, and some of them
+    // (any family added since) weren't on the last try's list at all.
+    parts.push(
+      `The list has changed since the last try, so this time nothing was sent to ${families(listChanged)}. The last try may have reached some of them, but any family added since then hasn't been emailed at all.`,
+      "Pressing Email All again emails everyone on the list now, so any family the last try did reach will get a second copy."
     );
   }
-  return { tone: failed || unconfirmed ? "alert" : "ok", text: parts.join(" ") };
+  return { tone: failed || unconfirmed || listChanged ? "alert" : "ok", text: parts.join(" ") };
 }
 
 const NOTE_STYLE = {
@@ -86,11 +106,7 @@ export default function EmailAllConsentLinksButton({ count, noEmailCount }: { co
           action={formAction}
           onSubmit={(e) => {
             const press = keyForPress(lastPress.current, emailAllOutcomeUnknown(state));
-            const question =
-              press === lastPress.current
-                ? "Try Email All again? Any family the last try already reached won't get a second copy."
-                : `Email ${families(count)} their scout's photo consent link? Each family gets their own link. Scouts without a link yet will get one generated.`;
-            if (!window.confirm(question)) return e.preventDefault();
+            if (!window.confirm(emailAllConfirmQuestion(state, press === lastPress.current, count))) return e.preventDefault();
             lastPress.current = press;
             // Set on the field itself: React reads the form's data right after this handler.
             if (keyInput.current) keyInput.current.value = press.key;

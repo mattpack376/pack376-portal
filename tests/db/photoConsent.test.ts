@@ -322,10 +322,66 @@ describe("Email All: an outcome Resend didn't confirm", () => {
     });
 
     const again = await emailAll(fx.admin, key);
-    assert.deepEqual(again, { sent: 0, failed: 0, unconfirmed: 2, configured: true, repeatable: false });
+    assert.deepEqual(again, { sent: 0, failed: 0, unconfirmed: 0, listChanged: 2, configured: true });
     assert.equal(testState.emails.length, 3, "nobody emailed twice");
     assert.equal(buttons.emailAllOutcomeUnknown(again), false, "the next press is a new request");
-    assert.match(buttons.emailAllMessage(again)?.text ?? "", /The list has changed since that try, so pressing Email All again would email every family on it again\./);
+    assert.match(buttons.emailAllMessage(again)?.text ?? "", /^The list has changed since the last try, so this time nothing was sent to 2 families\./);
+  });
+
+  it("a family added since the last try isn't told it 'may have' been emailed, and the next press warns of second copies", async () => {
+    await db.prisma.scout.deleteMany({});
+    const a = await makeScout({ emails: ["a@example.com"] });
+    const b = await makeScout({ emails: ["b@example.com"] });
+    const key = newRequestKey();
+    // a and b are emailed, but Resend's answer is lost.
+    resend.queue.push({ delivered: true, error: DROPPED });
+    const first = await emailAll(fx.admin, key);
+    assert.deepEqual(first, { sent: 0, failed: 0, unconfirmed: 2, configured: true, repeatable: true });
+
+    // A new unanswered scout joins before the same press is repeated.
+    const added = await makeScout({ emails: ["new@example.com"] });
+    const again = await emailAll(fx.admin, key);
+    assert.deepEqual(again, { sent: 0, failed: 0, unconfirmed: 0, listChanged: 3, configured: true });
+    assert.deepEqual(testState.emails.map((m) => m.to).sort(), ["a@example.com", "b@example.com"], "nothing sent this time");
+
+    const shown = buttons.emailAllMessage(again);
+    assert.deepEqual(shown, {
+      tone: "alert",
+      text:
+        "The list has changed since the last try, so this time nothing was sent to 3 families. The last try may have reached some of them, but any family added since then hasn't been emailed at all. " +
+        "Pressing Email All again emails everyone on the list now, so any family the last try did reach will get a second copy.",
+    });
+    assert.doesNotMatch(shown.text, /didn't confirm|may have\./);
+
+    // The audit log says only what happened: the first try's two unconfirmed
+    // sends, and nothing at all for the family this press never emailed.
+    const unconfirmedEntries = await db.prisma.auditLog.findMany({
+      where: { action: "photoConsent.emailLinkUnconfirmed", entityId: { in: [a.scout.id, b.scout.id, added.scout.id] } },
+    });
+    assert.deepEqual(unconfirmedEntries.map((e) => e.entityId).sort(), [a.scout.id, b.scout.id].sort());
+    assert.equal(await db.prisma.auditLog.count({ where: { entityId: added.scout.id, action: { startsWith: "photoConsent.emailLink" } } }), 0);
+
+    // The next press is a new request, and its prompt says what that means.
+    assert.equal(buttons.emailAllOutcomeUnknown(again), false);
+    assert.equal(
+      buttons.emailAllConfirmQuestion(again, false, 3),
+      "Email 3 families their scout's photo consent link? Each family gets their own link. Scouts without a link yet will get one generated. Any family the last try did reach will get a second copy."
+    );
+  });
+
+  it("the confirm prompt: a repeat, a fresh press, and a fresh press after an unknown outcome", () => {
+    assert.equal(buttons.emailAllConfirmQuestion({ unconfirmed: 2, repeatable: true, sent: 0 }, true, 2), "Try Email All again? Any family the last try already reached won't get a second copy.");
+    assert.equal(
+      buttons.emailAllConfirmQuestion({}, false, 1),
+      "Email 1 family their scout's photo consent link? Each family gets their own link. Scouts without a link yet will get one generated."
+    );
+    assert.equal(
+      buttons.emailAllConfirmQuestion({ sent: 3, failed: 0, unconfirmed: 0, configured: true }, false, 2),
+      "Email 2 families their scout's photo consent link? Each family gets their own link. Scouts without a link yet will get one generated."
+    );
+    for (const last of [{ unreachable: true }, { sent: 0, unconfirmed: 1, repeatable: true }, { sent: 0, listChanged: 2 }]) {
+      assert.match(buttons.emailAllConfirmQuestion(last, false, 2), / Any family the last try did reach will get a second copy\.$/, JSON.stringify(last));
+    }
   });
 
   it("says 'unconfirmed' alongside what did go out and what didn't", () => {

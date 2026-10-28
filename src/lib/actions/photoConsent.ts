@@ -302,6 +302,12 @@ export type EmailAllConsentLinksState = {
   failed?: number;
   /** Resend didn't confirm whether these went out (no answer, a server error), so they may have. */
   unconfirmed?: number;
+  /**
+   * Nothing went to these this time: the press repeated an earlier one under
+   * its key, but the list had changed since, so Resend refused it. The
+   * earlier try may have reached some of them; others were never emailed.
+   */
+  listChanged?: number;
   configured?: boolean;
   /**
    * The unconfirmed ones can be retried by repeating this request under the
@@ -374,7 +380,7 @@ export async function emailAllUnansweredConsentLinksAction(
     });
   }
 
-  const { sent, unconfirmed, configured, keyConflict } = await sendPhotoConsentLinkEmails(
+  const { sent, unconfirmed, listChanged, configured } = await sendPhotoConsentLinkEmails(
     targets.map((s) => ({ to: s.email, scoutFirstName: s.firstName, url: consentLinkUrl(tokens.get(s.id)!) })),
     { requestKey }
   );
@@ -397,16 +403,20 @@ export async function emailAllUnansweredConsentLinksAction(
         denId: scout.denId,
       });
     }
+    // Nothing is recorded for listChanged: this request sent them nothing,
+    // and the earlier try that may have has its own entries.
   }
 
   revalidatePath(ADMIN_PAGE_PATH);
   const sentCount = sent.filter(Boolean).length;
   const unconfirmedCount = unconfirmed.filter(Boolean).length;
+  const listChangedCount = listChanged.filter(Boolean).length;
   return {
     sent: sentCount,
-    failed: targets.length - sentCount - unconfirmedCount,
+    failed: targets.length - sentCount - unconfirmedCount - listChangedCount,
     unconfirmed: unconfirmedCount,
+    ...(listChangedCount > 0 ? { listChanged: listChangedCount } : {}),
     configured,
-    ...(unconfirmedCount > 0 ? { repeatable: !keyConflict } : {}),
+    ...(unconfirmedCount > 0 ? { repeatable: listChangedCount === 0 } : {}),
   };
 }

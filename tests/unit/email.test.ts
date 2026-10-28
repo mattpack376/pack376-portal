@@ -265,8 +265,8 @@ describe("senders", () => {
       assert.deepEqual(await email.sendPhotoConsentLinkEmails([{ to: "pat@example.com", scoutFirstName: "Sam", url: CONSENT_URL }]), {
         sent: [false],
         unconfirmed: [false],
+        listChanged: [false],
         configured: false,
-        keyConflict: false,
       });
     } finally {
       process.env.RESEND_API_KEY = key;
@@ -288,8 +288,8 @@ describe("sendPhotoConsentLinkEmails (Email All)", () => {
     assert.deepEqual(result, {
       sent: [true, false, false, false, true],
       unconfirmed: [false, false, false, false, false],
+      listChanged: [false, false, false, false, false],
       configured: true,
-      keyConflict: false,
     });
 
     assert.equal(resend.calls.length, 1);
@@ -312,7 +312,7 @@ describe("sendPhotoConsentLinkEmails (Email All)", () => {
   it("reports a batch whose call threw as unconfirmed, not as not sent, without throwing", async () => {
     resend.queue.push({ throws: new Error("connection reset") });
     const result = await email.sendPhotoConsentLinkEmails([{ to: "a@example.com", scoutFirstName: "A", url: CONSENT_URL }]);
-    assert.deepEqual(result, { sent: [false], unconfirmed: [true], configured: true, keyConflict: false });
+    assert.deepEqual(result, { sent: [false], unconfirmed: [true], listChanged: [false], configured: true });
   });
 });
 
@@ -330,7 +330,7 @@ describe("sendPhotoConsentLinkEmails: a batch that fails as a whole", () => {
     ]) {
       resend.queue.push(behavior);
       const result = await email.sendPhotoConsentLinkEmails(three());
-      assert.deepEqual(result, { sent: [false, false, false], unconfirmed: [true, true, true], configured: true, keyConflict: false });
+      assert.deepEqual(result, { sent: [false, false, false], unconfirmed: [true, true, true], listChanged: [false, false, false], configured: true });
     }
     assert.equal(testState.emails.length, 0);
 
@@ -348,7 +348,7 @@ describe("sendPhotoConsentLinkEmails: a batch that fails as a whole", () => {
     ]) {
       resend.queue.push({ error });
       const result = await email.sendPhotoConsentLinkEmails(three());
-      assert.deepEqual(result, { sent: [false, false, false], unconfirmed: [false, false, false], configured: true, keyConflict: false });
+      assert.deepEqual(result, { sent: [false, false, false], unconfirmed: [false, false, false], listChanged: [false, false, false], configured: true });
     }
   });
 
@@ -381,7 +381,7 @@ describe("sendPhotoConsentLinkEmails: a batch that fails as a whole", () => {
     assert.equal(testState.emails.length, 3, "it did go out");
 
     const again = await email.sendPhotoConsentLinkEmails(three(), { requestKey: key });
-    assert.deepEqual(again, { sent: [true, true, true], unconfirmed: [false, false, false], configured: true, keyConflict: false });
+    assert.deepEqual(again, { sent: [true, true, true], unconfirmed: [false, false, false], listChanged: [false, false, false], configured: true });
     assert.equal(testState.emails.length, 3, "no second copy");
   });
 
@@ -390,8 +390,24 @@ describe("sendPhotoConsentLinkEmails: a batch that fails as a whole", () => {
     resend.queue.push({ delivered: true, error: DROPPED });
     await email.sendPhotoConsentLinkEmails(three(), { requestKey: key });
     const changed = await email.sendPhotoConsentLinkEmails(three().slice(1), { requestKey: key });
-    assert.deepEqual(changed, { sent: [false, false], unconfirmed: [true, true], configured: true, keyConflict: true });
+    assert.deepEqual(changed, { sent: [false, false], unconfirmed: [false, false], listChanged: [true, true], configured: true });
     assert.equal(testState.emails.length, 3, "nothing sent twice");
+  });
+
+  it("a family added since the last try is reported as not sent this time, never as 'may have gone out'", async () => {
+    const key = "44444444444444444444444444444444";
+    resend.queue.push({ delivered: true, error: DROPPED });
+    await email.sendPhotoConsentLinkEmails(three(), { requestKey: key });
+    const grown = await email.sendPhotoConsentLinkEmails([...three(), { to: "new@example.com", scoutFirstName: "New", url: CONSENT_URL }], {
+      requestKey: key,
+    });
+    assert.deepEqual(grown, {
+      sent: [false, false, false, false],
+      unconfirmed: [false, false, false, false],
+      listChanged: [true, true, true, true],
+      configured: true,
+    });
+    assert.deepEqual(testState.emails.map((m) => m.to), ["a@example.com", "b@example.com", "c@example.com"]);
   });
 });
 

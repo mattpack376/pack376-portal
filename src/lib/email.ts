@@ -363,13 +363,17 @@ export type BatchSendResult = {
    * certainly didn't: a refused address or link, or a refusal from Resend.
    */
   unconfirmed: boolean[];
-  configured: boolean;
   /**
-   * Resend refused a batch because an earlier request under the same key had
-   * a different list of emails. That earlier request reached Resend, and
-   * repeating this one under the same key will only be refused again.
+   * listChanged[i]: this request sent nothing to messages[i], because Resend
+   * refused its batch: the press's key had already been used for a batch with
+   * a different list of emails (a family answered, or was added, since that
+   * try). Whether that earlier try reached messages[i] is the earlier try's
+   * own outcome — it may have, if they were on that list, or they may never
+   * have been emailed at all. Repeating the request under the same key will
+   * only be refused again.
    */
-  keyConflict: boolean;
+  listChanged: boolean[];
+  configured: boolean;
 };
 
 /**
@@ -388,7 +392,9 @@ export type BatchSendResult = {
  * result back instead of a second copy for every family. The key isn't tied
  * to the list: if the list has changed since (a family answered, so its link
  * changed), Resend refuses the batch rather than emailing everyone in it
- * again, and `keyConflict` says so.
+ * again. That refusal sent nothing, so its emails are reported as
+ * `listChanged` rather than unconfirmed: some of those families may never
+ * have been emailed by any try.
  */
 export async function sendPhotoConsentLinkEmails(
   messages: { to: string; scoutFirstName: string; url: string }[],
@@ -396,11 +402,11 @@ export async function sendPhotoConsentLinkEmails(
 ): Promise<BatchSendResult> {
   const resend = getClient();
   const none = () => messages.map(() => false);
-  if (!resend) return { sent: none(), unconfirmed: none(), configured: false, keyConflict: false };
+  if (!resend) return { sent: none(), unconfirmed: none(), listChanged: none(), configured: false };
 
   const sent = none();
   const unconfirmed = none();
-  let keyConflict = false;
+  const listChanged = none();
   const ready: { index: number; to: string; content: EmailContent }[] = [];
   for (const [index, m] of messages.entries()) {
     if (!isDeliverableAddress(m.to)) {
@@ -434,8 +440,11 @@ export async function sendPhotoConsentLinkEmails(
     const { data, error } = response;
     if (error) {
       console.error("sendPhotoConsentLinkEmails batch failed:", describeError(error));
-      if (error.name === "invalid_idempotent_request") keyConflict = true;
-      if (isUnconfirmedFailure(error)) markAll(unconfirmed);
+      // Checked before isUnconfirmedFailure, which counts this name as
+      // unconfirmed: for a batch keyed by its number, the clash is with an
+      // earlier batch of other emails, and this request itself sent nothing.
+      if (error.name === "invalid_idempotent_request") markAll(listChanged);
+      else if (isUnconfirmedFailure(error)) markAll(unconfirmed);
       continue;
     }
     if (!data) {
@@ -454,7 +463,7 @@ export async function sendPhotoConsentLinkEmails(
     });
   }
 
-  return { sent, unconfirmed, configured: true, keyConflict };
+  return { sent, unconfirmed, listChanged, configured: true };
 }
 
 /**
