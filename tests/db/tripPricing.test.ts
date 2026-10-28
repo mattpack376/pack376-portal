@@ -35,6 +35,7 @@ import {
   LOCK_EMAIL,
   LOCK_REGISTRATION,
   LOCK_TRIP,
+  pricingVersionOf,
   register,
   registrationsOf,
   savePricing,
@@ -265,7 +266,7 @@ describe("price posting vs. an admin editing a waiting registration", () => {
     const [posted, edited] = await Promise.all([posting, editing]);
     assert.deepEqual(posted, {});
     assert.match(edited.error ?? "", /reload the page/i);
-    assert.match(edited.error ?? "", /set to \$80\.00 after this page loaded/);
+    assert.match(edited.error ?? "", /changed after this page loaded — it now has 2 paying, 0 free and owes \$80\.00/);
     assert.equal(edited.stale, true);
     const after = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: registration.id } });
     assert.equal(after.familyName, registration.familyName, "nothing from the refused edit was saved");
@@ -274,7 +275,7 @@ describe("price posting vs. an admin editing a waiting registration", () => {
     assert.equal(await db.prisma.auditLog.count({ where: { action: "tripRegistration.update", entityId: registration.id } }), 0);
 
     // Reloaded, the form now carries the amount, and the change goes through.
-    assert.deepEqual(await editRegistration(actions, admin, registration, { payingCount: 3, amountOwed: "120.00" }), {});
+    assert.deepEqual(await editRegistration(actions, admin, after, { payingCount: 3, amountOwed: "120.00" }), {});
     const fixed = await db.prisma.tripRegistration.findUniqueOrThrow({ where: { id: registration.id } });
     assert.equal(fixed.amountOwedCents, 12000);
   });
@@ -418,13 +419,18 @@ describe("posting the price again, and retrying", () => {
   it("two postings at once charge each registration exactly once", async () => {
     for (let round = 0; round < 10; round++) {
       const trip = await tripWithWaiting(3);
+      // Two tabs, both loaded while the price was TBD. Whichever saves second
+      // is out of date by then, and is turned down rather than saved again.
+      const version = await pricingVersionOf(actions, trip.id);
       const results = await Promise.all([
-        savePricing(actions, admin, trip.id, { regularPrice: "40" }),
-        savePricing(actions, admin, trip.id, { regularPrice: "40" }),
+        savePricing(actions, admin, trip.id, { regularPrice: "40", version }),
+        savePricing(actions, admin, trip.id, { regularPrice: "40", version }),
       ]);
-      assert.deepEqual(results, [{}, {}]);
+      assert.equal(results.filter((r) => r.error === undefined).length, 1, `round ${round}`);
+      assert.match(results.find((r) => r.error)?.error ?? "", /changed after this page loaded \(the price is now \$40\.00\/person\)/);
       await assertAllCharged(db.prisma, trip.id, 4000);
       const audits = await pricingAudits(trip.id);
+      assert.equal(audits.length, 1, `round ${round}: the refused save recorded nothing`);
       assert.equal(audits.filter((a) => a.summary.startsWith("Posted the price")).length, 1, `round ${round}`);
       assert.equal(audits.flatMap(chargedFamilies).length, 3, `round ${round}`);
     }
@@ -511,6 +517,160 @@ describe("posting the price again, and retrying", () => {
     }
     assert.equal((await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } })).priceTbd, true);
     assert.equal((await pricingAudits(trip.id)).length, 0);
+  });
+});
+
+/*
+ * The Price Structure form writes every pricing field back as it has them. A
+ * form loaded before someone else's save used to do that regardless (review
+ * 2026-10-27): one still showing "TBD" and $0.00, saved only to move the RSVP
+ * deadline, put a posted price back to TBD at $0 — and every family after
+ * that was saved as owing nothing yet. Now the form carries a fingerprint of
+ * the pricing it showed, and a save from an out-of-date one is turned down.
+ * Against the old action each of these saves goes through.
+ */
+describe("a Price Structure form loaded before someone else's save", () => {
+  it("can't put a posted price back to TBD at $0", async () => {
+    const trip = await freshTrip(db.prisma);
+    assert.equal((await register(actions, familyForm(trip.id, { payingCount: 2 }))).success, true);
+    // This tab loads the form while the price is TBD...
+    const loadedAtTbd = await pricingVersionOf(actions, trip.id);
+    // ...and another Admin posts the price.
+    assert.deepEqual(await savePricing(actions, admin, trip.id, { regularPrice: "40" }), {});
+
+    // The first tab, its TBD box still ticked and $0.00 still filled in, is
+    // saved to change only the RSVP deadline.
+    const result = await savePricing(actions, admin, trip.id, {
+      regularPrice: "0",
+      priceTbd: true,
+      rsvpDeadline: "2027-04-01",
+      version: loadedAtTbd,
+    });
+    assert.match(result.error ?? "", /pricing was changed after this page loaded \(the price is now \$40\.00\/person\)/);
+    assert.match(result.error ?? "", /Nothing was saved/);
+    assert.equal(result.stale, true, "the form shows the refreshed pricing, not the old entries");
+    assert.ok(testState.revalidated.includes("/portal/admin/cyclones"), "the page is refreshed to show it");
+
+    const after = await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } });
+    assert.equal(after.priceTbd, false);
+    assert.equal(after.regularPriceCents, 4000);
+    assert.equal(after.rsvpDeadline, null, "nothing from the refused save was written");
+    assert.equal((await pricingAudits(trip.id)).length, 1);
+
+    // A family registering afterwards is charged the posted price.
+    assert.equal((await register(actions, familyForm(trip.id, { payingCount: 3 }))).success, true);
+    await assertAllCharged(db.prisma, trip.id, 4000);
+
+    // Reloaded, the form shows the posted price, and the deadline change goes through.
+    assert.deepEqual(await savePricing(actions, admin, trip.id, { regularPrice: "40", rsvpDeadline: "2027-04-01" }), {});
+    const moved = await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } });
+    assert.equal(moved.priceTbd, false);
+    assert.equal(moved.rsvpDeadline?.toISOString(), "2027-04-01T00:00:00.000Z");
+  });
+
+  it("can't put an old price back", async () => {
+    const trip = await freshTrip(db.prisma, { slug: "camp-conron", priceTbd: false, regularPriceCents: 4000 });
+    const loadedAt40 = await pricingVersionOf(actions, trip.id);
+    assert.deepEqual(await savePricing(actions, admin, trip.id, { regularPrice: "50" }), {});
+
+    // The older tab, still showing $40, changes the free age.
+    const result = await savePricing(actions, admin, trip.id, { regularPrice: "40", freeAgeAndUnder: "4", version: loadedAt40 });
+    assert.match(result.error ?? "", /the price is now \$50\.00\/person/);
+    assert.equal(result.stale, true);
+    const after = await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } });
+    assert.equal(after.regularPriceCents, 5000);
+    assert.equal(after.freeAgeAndUnder, null);
+
+    assert.equal((await register(actions, familyForm(trip.id, { payingCount: 2 }))).success, true);
+    const [row] = await registrationsOf(db.prisma, trip.id);
+    assert.equal(row.amountOwedCents, 10000, "charged the current price, not the one the old form showed");
+  });
+
+  it("is out of date after a change to any pricing field, not just the price", async () => {
+    const trip = await freshTrip(db.prisma, { slug: "camp-conron", priceTbd: false, regularPriceCents: 4000 });
+    const loaded = await pricingVersionOf(actions, trip.id);
+    assert.deepEqual(await savePricing(actions, admin, trip.id, { regularPrice: "40", rsvpDeadline: "2026-12-01" }), {});
+
+    const result = await savePricing(actions, admin, trip.id, { regularPrice: "45", version: loaded });
+    assert.equal(result.stale, true);
+    const after = await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } });
+    assert.equal(after.regularPriceCents, 4000);
+    assert.equal(after.rsvpDeadline?.toISOString(), "2026-12-01T00:00:00.000Z", "the other Admin's deadline is kept");
+  });
+
+  it("stays usable through changes outside the pricing", async () => {
+    const trip = await freshTrip(db.prisma, { slug: "camp-conron", priceTbd: false, regularPriceCents: 4000 });
+    const loaded = await pricingVersionOf(actions, trip.id);
+    // A registration, a title change and unpublishing don't touch the pricing.
+    assert.equal((await register(actions, familyForm(trip.id))).success, true);
+    await db.prisma.tripPage.update({ where: { id: trip.id }, data: { title: "Renamed Trip" } });
+    await runAs(admin, () => actions.page.toggleTripPublishedAction(form({ id: trip.id, published: "true" })));
+
+    assert.deepEqual(await savePricing(actions, admin, trip.id, { regularPrice: "45", version: loaded }), {});
+    assert.equal((await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } })).regularPriceCents, 4500);
+  });
+
+  it("reports an out-of-date form ahead of a typo in it", async () => {
+    // A typo refusal puts the admin's entries back next to the refreshed
+    // page's fingerprint; from an out-of-date form that would let the
+    // corrected save go through over the change it never showed.
+    const trip = await freshTrip(db.prisma, { slug: "camp-conron", priceTbd: false, regularPriceCents: 4000 });
+    const loaded = await pricingVersionOf(actions, trip.id);
+    assert.deepEqual(await savePricing(actions, admin, trip.id, { regularPrice: "50" }), {});
+
+    const result = await savePricing(actions, admin, trip.id, { regularPrice: "40", earlyBirdPrice: "abc", version: loaded });
+    assert.match(result.error ?? "", /changed after this page loaded/);
+    assert.equal(result.stale, true);
+    // From a current form, the same typo is about the entry, and keeps it.
+    const typo = await savePricing(actions, admin, trip.id, { regularPrice: "50", earlyBirdPrice: "abc" });
+    assert.match(typo.error ?? "", /valid early-bird price/);
+    assert.equal(typo.stale, undefined);
+  });
+
+  it("refuses a form that doesn't say what it was loaded with", async () => {
+    const trip = await freshTrip(db.prisma);
+    for (const version of ["", "   "]) {
+      const result = await savePricing(actions, admin, trip.id, { regularPrice: "40", version });
+      assert.match(result.error ?? "", /out of date\. Reload the page/);
+      assert.equal(result.stale, true);
+    }
+    assert.equal((await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } })).priceTbd, true);
+    assert.equal((await pricingAudits(trip.id)).length, 0);
+  });
+
+  it("a save queued behind another is checked against the pricing it waited for", async (t) => {
+    const trip = await freshTrip(db.prisma);
+    const loadedAtTbd = await pricingVersionOf(actions, trip.id);
+    const holder = await openTransaction(db.pool);
+    t.after(() => holder.rollback());
+    await holder.query(LOCK_TRIP, [trip.id]);
+
+    // Both tabs loaded at TBD: one posts $40, the other (queued behind it)
+    // only moves the deadline and still has TBD ticked.
+    const posting = savePricing(actions, admin, trip.id, { regularPrice: "40", version: loadedAtTbd });
+    await waitForWaiters(db.pool, 1);
+    const moving = savePricing(actions, admin, trip.id, {
+      regularPrice: "0",
+      priceTbd: true,
+      rsvpDeadline: "2027-04-01",
+      version: loadedAtTbd,
+    });
+    await waitForWaiters(db.pool, 2);
+    await holder.rollback();
+
+    const results = await Promise.all([posting, moving]);
+    const after = await db.prisma.tripPage.findUniqueOrThrow({ where: { id: trip.id } });
+    // Whichever got the lock first saved; the other found it changed.
+    assert.equal(results.filter((r) => r.error === undefined).length, 1);
+    assert.equal(results.filter((r) => r.stale).length, 1);
+    if (results[0].error === undefined) {
+      assert.equal(after.priceTbd, false);
+      assert.equal(after.regularPriceCents, 4000);
+      assert.equal(after.rsvpDeadline, null);
+    } else {
+      assert.equal(after.priceTbd, true);
+      assert.equal(after.rsvpDeadline?.toISOString(), "2027-04-01T00:00:00.000Z");
+    }
   });
 });
 

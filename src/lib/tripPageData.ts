@@ -167,6 +167,9 @@ export async function tripFormResult(work: () => Promise<void>): Promise<TripFor
 /** The refusal for a trip page that was removed while its admin page was open. */
 export const TRIP_PAGE_GONE = "This event's page no longer exists. Reload the page.";
 
+/** The refusal for an edit form that doesn't say what it was loaded with (tripEditVersion.ts) — one from a page older than that check. */
+export const TRIP_FORM_OUT_OF_DATE = "This form is out of date. Reload the page, then make your change again.";
+
 /** Options for every transaction that locks a TripPage: short, and never queued for long behind another. */
 export const TRIP_TRANSACTION_OPTIONS = { timeout: 15000, maxWait: 10000 };
 
