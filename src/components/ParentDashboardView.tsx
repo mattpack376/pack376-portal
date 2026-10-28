@@ -197,7 +197,7 @@ export default async function ParentDashboardView({
           ) : (
             <div className="resource-grid">
               {volunteerNeeds.map((need) => (
-                <div className="resource-card" key={need.id}>
+                <div className="resource-card rc-head" key={need.id}>
                   <div className="icon-badge">🙋</div>
                   <div>
                     <h3>{need.title}</h3>
@@ -222,7 +222,7 @@ export default async function ParentDashboardView({
           ) : (
             <div className="resource-grid">
               {deadlines.map((d) => (
-                <div className="resource-card" key={d.id}>
+                <div className="resource-card rc-head" key={d.id}>
                   <div className="icon-badge">{DEADLINE_CATEGORY_ICONS[d.category]}</div>
                   <div>
                     <p className="form-note" style={{ marginBottom: 4 }}>{DEADLINE_CATEGORY_LABELS[d.category].toUpperCase()}</p>
@@ -248,7 +248,8 @@ export default async function ParentDashboardView({
           <p>Nothing to show until a scout is linked to your account.</p>
         </div>
       ) : (
-        scouts.map((scout) => (
+        <div className="pd-scout-grid">
+        {scouts.map((scout) => (
           <div className="info-card" key={scout.id} style={{ marginBottom: 20 }}>
             <h3>{scout.firstName} {scout.lastName}</h3>
 
@@ -256,7 +257,7 @@ export default async function ParentDashboardView({
             {scout.photoConsent === null ? (
               <p>No forms pending — your den leader will send a link if one is needed.</p>
             ) : scout.photoConsent.needsSignature ? (
-              <p>
+              <p className="pill-lead">
                 <span className="badge-pill badge-pending" style={{ marginRight: 8 }}>Action Needed</span>
                 {hideConsentToken ? (
                   <span>
@@ -271,11 +272,11 @@ export default async function ParentDashboardView({
               </p>
             ) : (
               <>
-                <p style={{ marginBottom: 8 }}>
+                <p className="pill-lead" style={{ marginBottom: 8 }}>
                   <span className="badge-pill badge-consent" style={{ marginRight: 8 }}>Complete</span>
                   Photo consent form on file — here&apos;s what you told us:
                 </p>
-                <div style={{ marginBottom: 8 }}>
+                <div className="consent-pills" style={{ marginBottom: 8 }}>
                   <ConsentStatusBadge label="Instagram/Facebook" status={scout.photoConsent.facebook} />
                   <ConsentStatusBadge label="Website" status={scout.photoConsent.website} />
                   <ConsentStatusBadge label="Fliers" status={scout.photoConsent.fliers} />
@@ -306,7 +307,7 @@ export default async function ParentDashboardView({
                 {formatCents(scout.dues.paidCents)} paid.
               </p>
             ) : (
-              <p style={{ marginBottom: 0 }}>
+              <p className="pill-lead" style={{ marginBottom: 0 }}>
                 <span className="badge-pill badge-pending" style={{ marginRight: 8 }}>
                   {formatCents(scout.dues.remainingCents ?? 0)} Due
                 </span>
@@ -317,7 +318,8 @@ export default async function ParentDashboardView({
             </>
             )}
           </div>
-        ))
+        ))}
+        </div>
       )}
 
       <div className="section-head">
@@ -356,7 +358,7 @@ export default async function ParentDashboardView({
                     <input type="hidden" name="eventId" value={event.id} />
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
                       {unregisteredScouts.map((s) => (
-                        <label key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                        <label key={s.id} className="scout-check-row" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
                           <input type="checkbox" name="scoutId" value={s.id} defaultChecked={unregisteredScouts.length === 1} />
                           {s.firstName} {s.lastName}
                         </label>

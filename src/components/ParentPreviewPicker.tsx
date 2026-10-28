@@ -27,7 +27,7 @@ export default function ParentPreviewPicker({
   }, new Map());
 
   return (
-    <div className="form-field no-print" style={{ maxWidth: 340, marginBottom: 24 }}>
+    <div className="form-field no-print preview-picker" style={{ maxWidth: 340, marginBottom: 24 }}>
       <label htmlFor="parent-preview-scout">See a family&apos;s Parent Dashboard</label>
       <select
         id="parent-preview-scout"

@@ -52,8 +52,8 @@ export default function GuestSelfRegistrationForm({
     <ActionForm action={registerMyGuestGroupForEventAction}>
       <input type="hidden" name="eventId" value={eventId} />
       <input type="hidden" name="submissionKey" value={newSubmissionKey()} />
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-        <div className="form-field" style={{ marginBottom: 0, flex: "1 1 200px" }}>
+      <div className="guest-reg-row" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="form-field guest-reg-name" style={{ marginBottom: 0, flex: "1 1 200px" }}>
           <label htmlFor={`familyName-${eventId}`}>{nameLabel}</label>
           <input
             id={`familyName-${eventId}`}

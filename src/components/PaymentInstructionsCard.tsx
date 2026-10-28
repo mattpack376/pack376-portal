@@ -5,7 +5,7 @@ export default function PaymentInstructionsCard() {
     <div className="info-card">
       <h3>💳 How to Pay</h3>
       <p>Pay by cash to Dianaliz or Matt at any meeting, or send a Zelle payment using the QR code below.</p>
-      <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="pay-qr-row" style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
         <EnlargeableImage
           src="/zelle-payment-qr.png"
           alt="Zelle QR code for GNYC BSA Pack 3376F — Matt.pack376@gmail.com"

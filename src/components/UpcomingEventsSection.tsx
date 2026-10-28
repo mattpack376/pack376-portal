@@ -21,11 +21,11 @@ export default function UpcomingEventsSection({ items }: { items: UpcomingItem[]
           <p>No upcoming events posted right now.</p>
         </div>
       ) : (
-        <div className="resource-grid" style={{ marginBottom: 12 }}>
+        <div className="resource-grid rg-duo" style={{ marginBottom: 12 }}>
           {items.map((item) => {
             if (item.kind === "event") {
               return (
-                <div className="resource-card" key={`event-${item.id}`}>
+                <div className="resource-card rc-head" key={`event-${item.id}`}>
                   <div className="icon-badge">{DEADLINE_CATEGORY_ICONS[item.category]}</div>
                   <div>
                     <p className="form-note" style={{ marginBottom: 4 }}>
@@ -41,7 +41,7 @@ export default function UpcomingEventsSection({ items }: { items: UpcomingItem[]
             const { event } = item;
             const pill = CATEGORY_PILL[event.category];
             return (
-              <div className="resource-card" key={`calendar-${item.key}`}>
+              <div className="resource-card rc-head" key={`calendar-${item.key}`}>
                 <div className="icon-badge">{pill?.icon ?? "📅"}</div>
                 <div>
                   <p className="form-note" style={{ marginBottom: 4 }}>

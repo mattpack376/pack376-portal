@@ -113,7 +113,7 @@ export default async function FamilyViewPage({
 
     return (
       <>
-        <div className="page-head">
+        <div className="page-head preview-head">
           <div>
             <div className="eyebrow">Parent Preview</div>
             <h2>{childName}&apos;s Parent Dashboard</h2>
@@ -273,7 +273,7 @@ export default async function FamilyViewPage({
       ) : (
         <div className="resource-grid" style={{ marginBottom: 32 }}>
           {volunteerNeeds.map((need) => (
-            <div className="resource-card" key={need.id}>
+            <div className="resource-card rc-head" key={need.id}>
               <div className="icon-badge">🙋</div>
               <div>
                 <h3>{need.title}</h3>
@@ -296,7 +296,7 @@ export default async function FamilyViewPage({
       ) : (
         <div className="resource-grid" style={{ marginBottom: 32 }}>
           {deadlines.map((d) => (
-            <div className="resource-card" key={d.id}>
+            <div className="resource-card rc-head" key={d.id}>
               <div className="icon-badge">{DEADLINE_CATEGORY_ICONS[d.category]}</div>
               <div>
                 <p className="form-note" style={{ marginBottom: 4 }}>{DEADLINE_CATEGORY_LABELS[d.category].toUpperCase()}</p>
