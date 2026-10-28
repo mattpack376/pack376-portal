@@ -13,6 +13,7 @@ import { recordAudit } from "@/lib/audit";
 import type { ConsentStatus, SignerRelationship } from "@/generated/prisma/enums";
 import { isDateOnlyString } from "@/lib/dateOnly";
 import { MAX_EMAIL_LENGTH, MAX_NAME_LENGTH, textField } from "@/lib/formValues";
+import { isRequestKey } from "@/lib/requestKey";
 
 const RELATIONSHIPS: SignerRelationship[] = ["PARENT", "GUARDIAN", "GRANDPARENT", "AUNT_UNCLE", "ADULT_SIBLING"];
 const VENUES = ["facebook", "website", "fliers"] as const;
@@ -200,7 +201,19 @@ export async function regeneratePhotoConsentTokenAction(scoutId: string) {
   revalidatePath(ADMIN_PAGE_PATH);
 }
 
-export type SendConsentEmailState = { error?: string; sent?: boolean; configured?: boolean };
+export type SendConsentEmailState = {
+  error?: string;
+  sent?: boolean;
+  configured?: boolean;
+  /** The send failed, but not in a way that proves nothing went out (no answer from Resend, a server error). */
+  uncertain?: boolean;
+  /** What Resend (or the address check) said, when a configured send didn't go out. */
+  reason?: string;
+  /** Set by the page, not this action: the request never got an answer from the server. */
+  unreachable?: boolean;
+};
+
+const STALE_PAGE = "This page is out of date. Reload it and try again.";
 
 /**
  * Admin/den-leader — emails the existing consent link to a parent's address
@@ -208,6 +221,10 @@ export type SendConsentEmailState = { error?: string; sent?: boolean; configured
  * used to pick which stored Parent email of this scout to send to (matched
  * without regard to case), never sent to as typed, so a tampered request
  * can't mail a scout's consent link anywhere else.
+ *
+ * `requestKey` names the press (see requestKey.ts): after a send Resend
+ * didn't confirm, the button sends the same key again, and Resend then
+ * returns the first result rather than emailing the family a second copy.
  */
 export async function sendPhotoConsentLinkEmailAction(
   _prevState: SendConsentEmailState,
@@ -219,6 +236,8 @@ export async function sendPhotoConsentLinkEmailAction(
   const scoutId = textField(formData.get("scoutId"));
   const requestedEmail = textField(formData.get("parentEmail"));
   if (!scoutId || !requestedEmail) return { error: "Missing scout or parent email." };
+  const requestKey = textField(formData.get("requestKey"));
+  if (!isRequestKey(requestKey)) return { error: STALE_PAGE };
 
   const scout = await prisma.scout.findUnique({
     where: { id: scoutId },
@@ -244,12 +263,13 @@ export async function sendPhotoConsentLinkEmailAction(
     return { error: "That address isn't a parent email on file for this scout. Refresh the page and try again." };
   }
 
-  const { sent, configured } = await sendPhotoConsentLinkEmail(to, {
+  const result = await sendPhotoConsentLinkEmail(to, {
     scoutFirstName: scout.firstName,
     url: consentLinkUrl(scout.photoConsent.token),
+    requestKey,
   });
 
-  if (sent) {
+  if (result.sent) {
     await recordAudit(session, {
       action: "photoConsent.emailLink",
       summary: `Emailed ${scout.firstName}'s photo consent link to ${to}`,
@@ -257,12 +277,41 @@ export async function sendPhotoConsentLinkEmailAction(
       entityId: scoutId,
       denId: scout.denId,
     });
+  } else if (result.uncertain) {
+    await recordAudit(session, {
+      action: "photoConsent.emailLinkUnconfirmed",
+      summary: `Tried to email ${scout.firstName}'s photo consent link to ${to}, but Resend didn't confirm whether it went out`,
+      entityType: "PhotoConsent",
+      entityId: scoutId,
+      denId: scout.denId,
+    });
   }
 
-  return { sent, configured };
+  return {
+    sent: result.sent,
+    configured: result.configured,
+    ...(result.uncertain ? { uncertain: true } : {}),
+    ...(result.error ? { reason: result.error } : {}),
+  };
 }
 
-export type EmailAllConsentLinksState = { error?: string; sent?: number; failed?: number; configured?: boolean };
+export type EmailAllConsentLinksState = {
+  error?: string;
+  sent?: number;
+  /** Certainly didn't go out: a refused address or link, or a refusal from Resend. */
+  failed?: number;
+  /** Resend didn't confirm whether these went out (no answer, a server error), so they may have. */
+  unconfirmed?: number;
+  configured?: boolean;
+  /**
+   * The unconfirmed ones can be retried by repeating this request under the
+   * same key, which Resend answers with the first result rather than a second
+   * copy. False once Resend has refused the key because the list changed.
+   */
+  repeatable?: boolean;
+  /** Set by the page, not this action: the request never got an answer from the server. */
+  unreachable?: boolean;
+};
 
 /**
  * Admin/den-leader — the Not Answered tab's Email All: sends every unanswered
@@ -270,13 +319,19 @@ export type EmailAllConsentLinksState = { error?: string; sent?: number; failed?
  * first where none exists yet. Goes to the scout's first parent with a usable
  * email on file (consentLinkRecipient), same as the per-scout Email Link
  * button; scouts with none are skipped (the page lists how many). Recomputes
- * the list server-side rather than trusting anything from the form.
+ * the list server-side rather than trusting anything from the form — the
+ * form only sends `requestKey`, which names the press: repeating a press
+ * that Resend didn't confirm sends the same key, so a family it did reach
+ * isn't emailed twice (see sendPhotoConsentLinkEmails).
  */
-// Takes no arguments: useActionState passes (prevState, formData), and neither
-// is needed since the recipient list is rebuilt here from the database.
-export async function emailAllUnansweredConsentLinksAction(): Promise<EmailAllConsentLinksState> {
+export async function emailAllUnansweredConsentLinksAction(
+  _prevState: EmailAllConsentLinksState,
+  formData: FormData
+): Promise<EmailAllConsentLinksState> {
   const session = await getSession();
   if (!session) return { error: "Not authorized." };
+  const requestKey = textField(formData.get("requestKey"));
+  if (!isRequestKey(requestKey)) return { error: STALE_PAGE };
 
   const dens = await prisma.den.findMany({ select: { id: true } });
   const denIds = dens.map((d) => d.id).filter((id) => canManagePhotoConsentForDen(session, id));
@@ -284,6 +339,8 @@ export async function emailAllUnansweredConsentLinksAction(): Promise<EmailAllCo
 
   const scouts = await prisma.scout.findMany({
     where: { denId: { in: denIds }, active: true },
+    // A fixed order, so a repeat of the same press builds the same batches.
+    orderBy: { id: "asc" },
     select: {
       id: true,
       denId: true,
@@ -297,7 +354,7 @@ export async function emailAllUnansweredConsentLinksAction(): Promise<EmailAllCo
     .filter((s) => consentGroup(s.photoConsent) === "unanswered")
     .map((s) => ({ ...s, email: consentLinkRecipient(s.parents) }))
     .filter((s): s is typeof s & { email: string } => !!s.email);
-  if (targets.length === 0) return { sent: 0, failed: 0, configured: true };
+  if (targets.length === 0) return { sent: 0, failed: 0, unconfirmed: 0, configured: true };
 
   // Scouts with no link yet get one now, same as clicking Generate Link.
   const tokens = new Map(targets.flatMap((s) => (s.photoConsent ? [[s.id, s.photoConsent.token] as const] : [])));
@@ -317,22 +374,39 @@ export async function emailAllUnansweredConsentLinksAction(): Promise<EmailAllCo
     });
   }
 
-  const { sent, configured } = await sendPhotoConsentLinkEmails(
-    targets.map((s) => ({ to: s.email, scoutFirstName: s.firstName, url: consentLinkUrl(tokens.get(s.id)!) }))
+  const { sent, unconfirmed, configured, keyConflict } = await sendPhotoConsentLinkEmails(
+    targets.map((s) => ({ to: s.email, scoutFirstName: s.firstName, url: consentLinkUrl(tokens.get(s.id)!) })),
+    { requestKey }
   );
 
   for (const [i, scout] of targets.entries()) {
-    if (!sent[i]) continue;
-    await recordAudit(session, {
-      action: "photoConsent.emailLink",
-      summary: `Emailed ${scout.firstName}'s photo consent link to ${scout.email} (Email All)`,
-      entityType: "PhotoConsent",
-      entityId: scout.id,
-      denId: scout.denId,
-    });
+    if (sent[i]) {
+      await recordAudit(session, {
+        action: "photoConsent.emailLink",
+        summary: `Emailed ${scout.firstName}'s photo consent link to ${scout.email} (Email All)`,
+        entityType: "PhotoConsent",
+        entityId: scout.id,
+        denId: scout.denId,
+      });
+    } else if (unconfirmed[i]) {
+      await recordAudit(session, {
+        action: "photoConsent.emailLinkUnconfirmed",
+        summary: `Tried to email ${scout.firstName}'s photo consent link to ${scout.email} (Email All), but Resend didn't confirm whether it went out`,
+        entityType: "PhotoConsent",
+        entityId: scout.id,
+        denId: scout.denId,
+      });
+    }
   }
 
   revalidatePath(ADMIN_PAGE_PATH);
   const sentCount = sent.filter(Boolean).length;
-  return { sent: sentCount, failed: targets.length - sentCount, configured };
+  const unconfirmedCount = unconfirmed.filter(Boolean).length;
+  return {
+    sent: sentCount,
+    failed: targets.length - sentCount - unconfirmedCount,
+    unconfirmed: unconfirmedCount,
+    configured,
+    ...(unconfirmedCount > 0 ? { repeatable: !keyConflict } : {}),
+  };
 }

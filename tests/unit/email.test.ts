@@ -264,7 +264,9 @@ describe("senders", () => {
       });
       assert.deepEqual(await email.sendPhotoConsentLinkEmails([{ to: "pat@example.com", scoutFirstName: "Sam", url: CONSENT_URL }]), {
         sent: [false],
+        unconfirmed: [false],
         configured: false,
+        keyConflict: false,
       });
     } finally {
       process.env.RESEND_API_KEY = key;
@@ -283,7 +285,12 @@ describe("sendPhotoConsentLinkEmails (Email All)", () => {
       { to: "d@example.com", scoutFirstName: "D", url: "https://example.invalid/consent/d" },
       { to: "e@example.com", scoutFirstName: "E", url: CONSENT_URL },
     ]);
-    assert.deepEqual(result, { sent: [true, false, false, false, true], configured: true });
+    assert.deepEqual(result, {
+      sent: [true, false, false, false, true],
+      unconfirmed: [false, false, false, false, false],
+      configured: true,
+      keyConflict: false,
+    });
 
     assert.equal(resend.calls.length, 1);
     const batch = resend.calls[0].batch ?? [];
@@ -302,10 +309,121 @@ describe("sendPhotoConsentLinkEmails (Email All)", () => {
     assert.deepEqual(resend.calls.map((c) => c.batch?.length), [100, 1]);
   });
 
-  it("reports a whole failed batch as not sent, without throwing", async () => {
+  it("reports a batch whose call threw as unconfirmed, not as not sent, without throwing", async () => {
     resend.queue.push({ throws: new Error("connection reset") });
     const result = await email.sendPhotoConsentLinkEmails([{ to: "a@example.com", scoutFirstName: "A", url: CONSENT_URL }]);
-    assert.deepEqual(result, { sent: [false], configured: true });
+    assert.deepEqual(result, { sent: [false], unconfirmed: [true], configured: true, keyConflict: false });
+  });
+});
+
+describe("sendPhotoConsentLinkEmails: a batch that fails as a whole", () => {
+  // What resend@6's fetchRequest returns when the connection drops: no status.
+  const DROPPED = { name: "application_error", statusCode: null, message: "Unable to fetch data. The request could not be resolved." };
+  const three = (prefix = "") =>
+    ["a", "b", "c"].map((n) => ({ to: `${prefix}${n}@example.com`, scoutFirstName: n.toUpperCase(), url: CONSENT_URL }));
+
+  it("no answer, a server error or an empty answer leaves every email in it unconfirmed", async () => {
+    for (const behavior of [
+      { error: DROPPED },
+      { error: { name: "internal_server_error", statusCode: 500, message: "Internal server error" } },
+      { error: { name: "concurrent_idempotent_requests", statusCode: 409, message: "In progress" } },
+    ]) {
+      resend.queue.push(behavior);
+      const result = await email.sendPhotoConsentLinkEmails(three());
+      assert.deepEqual(result, { sent: [false, false, false], unconfirmed: [true, true, true], configured: true, keyConflict: false });
+    }
+    assert.equal(testState.emails.length, 0);
+
+    // An answer with neither a result nor an error (here, after it did go out).
+    resend.queue.push({ delivered: true });
+    const empty = await email.sendPhotoConsentLinkEmails(three());
+    assert.deepEqual(empty.unconfirmed, [true, true, true]);
+    assert.deepEqual(empty.sent, [false, false, false]);
+  });
+
+  it("a named refusal means none of it went out", async () => {
+    for (const error of [
+      { name: "validation_error", statusCode: 422, message: "Invalid `from` field." },
+      { name: "rate_limit_exceeded", statusCode: 429, message: "Too many requests" },
+    ]) {
+      resend.queue.push({ error });
+      const result = await email.sendPhotoConsentLinkEmails(three());
+      assert.deepEqual(result, { sent: [false, false, false], unconfirmed: [false, false, false], configured: true, keyConflict: false });
+    }
+  });
+
+  it("only the failed batch is unconfirmed; the others keep their own results", async () => {
+    const messages = Array.from({ length: 150 }, (_, i) => ({ to: `p${i}@example.com`, scoutFirstName: `S${i}`, url: CONSENT_URL }));
+    resend.queue.push({}, { error: DROPPED });
+    const result = await email.sendPhotoConsentLinkEmails(messages);
+    assert.equal(result.sent.filter(Boolean).length, 100);
+    assert.deepEqual(result.unconfirmed.map((u, i) => (u ? i : -1)).filter((i) => i >= 0), Array.from({ length: 50 }, (_, i) => 100 + i));
+  });
+
+  it("sends each batch under the press's key and the batch's number", async () => {
+    const key = "0123456789abcdef0123456789abcdef";
+    const messages = Array.from({ length: 101 }, (_, i) => ({ to: `p${i}@example.com`, scoutFirstName: `S${i}`, url: CONSENT_URL }));
+    await email.sendPhotoConsentLinkEmails(messages, { requestKey: key });
+    assert.deepEqual(
+      resend.calls.map((c) => c.options),
+      [
+        { batchValidation: "permissive", idempotencyKey: `pack376-consent-all/${key}/1` },
+        { batchValidation: "permissive", idempotencyKey: `pack376-consent-all/${key}/2` },
+      ]
+    );
+  });
+
+  it("the same press again after Resend's answer was lost: Resend hands back the first result, nobody gets a second copy", async () => {
+    const key = "11111111111111111111111111111111";
+    resend.queue.push({ delivered: true, error: DROPPED });
+    const first = await email.sendPhotoConsentLinkEmails(three(), { requestKey: key });
+    assert.deepEqual(first.unconfirmed, [true, true, true]);
+    assert.equal(testState.emails.length, 3, "it did go out");
+
+    const again = await email.sendPhotoConsentLinkEmails(three(), { requestKey: key });
+    assert.deepEqual(again, { sent: [true, true, true], unconfirmed: [false, false, false], configured: true, keyConflict: false });
+    assert.equal(testState.emails.length, 3, "no second copy");
+  });
+
+  it("the same press after the list changed: Resend refuses rather than emailing everyone again, and says so", async () => {
+    const key = "22222222222222222222222222222222";
+    resend.queue.push({ delivered: true, error: DROPPED });
+    await email.sendPhotoConsentLinkEmails(three(), { requestKey: key });
+    const changed = await email.sendPhotoConsentLinkEmails(three().slice(1), { requestKey: key });
+    assert.deepEqual(changed, { sent: [false, false], unconfirmed: [true, true], configured: true, keyConflict: true });
+    assert.equal(testState.emails.length, 3, "nothing sent twice");
+  });
+});
+
+describe("sendPhotoConsentLinkEmail: the press's key", () => {
+  const DROPPED = { name: "application_error", statusCode: null, message: "Unable to fetch data. The request could not be resolved." };
+  const key = "33333333333333333333333333333333";
+
+  it("passes an Idempotency-Key made from the press's key and the email itself", async () => {
+    await email.sendPhotoConsentLinkEmail("pat@example.com", { scoutFirstName: "Sam", url: CONSENT_URL, requestKey: key });
+    await email.sendPhotoConsentLinkEmail("pat@example.com", { scoutFirstName: "Sam", url: CONSENT_URL });
+    const [withKey, without] = resend.calls.map((c) => c.options);
+    assert.match(withKey?.idempotencyKey ?? "", new RegExp(`^pack376-consent-link/${key}/[0-9a-f]{32}$`));
+    assert.equal(without, undefined);
+  });
+
+  it("reports a lost answer as uncertain, and the same press again doesn't send a second copy", async () => {
+    resend.queue.push({ delivered: true, error: DROPPED });
+    const first = await email.sendPhotoConsentLinkEmail("pat@example.com", { scoutFirstName: "Sam", url: CONSENT_URL, requestKey: key });
+    assert.deepEqual(first, { sent: false, configured: true, error: DROPPED.message, uncertain: true });
+    const again = await email.sendPhotoConsentLinkEmail("pat@example.com", { scoutFirstName: "Sam", url: CONSENT_URL, requestKey: key });
+    assert.deepEqual(again, { sent: true, configured: true });
+    assert.equal(testState.emails.length, 1);
+  });
+
+  it("the same press with a changed email (a new link) sends the new one rather than being refused", async () => {
+    resend.queue.push({ delivered: true, error: DROPPED });
+    await email.sendPhotoConsentLinkEmail("pat@example.com", { scoutFirstName: "Sam", url: CONSENT_URL, requestKey: key });
+    const newLink = `${CONSENT_URL.slice(0, -2)}ZZ`;
+    const again = await email.sendPhotoConsentLinkEmail("pat@example.com", { scoutFirstName: "Sam", url: newLink, requestKey: key });
+    assert.deepEqual(again, { sent: true, configured: true });
+    assert.equal(testState.emails.length, 2);
+    assert.ok(testState.emails[1].html?.includes(newLink));
   });
 });
 

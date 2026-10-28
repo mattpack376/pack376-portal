@@ -6,11 +6,12 @@
  * the same testState.emails list the shared fake uses, so tests read sent mail
  * the same way.
  *
- * Single sends also keep Resend's idempotency rule: once an email has gone
- * out under an Idempotency-Key, a repeat of that key with the same message
- * returns the first result without sending, and with a different message is
- * refused (409 invalid_idempotent_request). A failed send leaves no key
- * behind, as Resend only matches keys against emails it sent.
+ * Single and batch sends also keep Resend's idempotency rule: once an email
+ * (or a batch) has gone out under an Idempotency-Key, a repeat of that key
+ * with the same message(s) returns the first result without sending, and
+ * with different ones is refused (409 invalid_idempotent_request). A failed
+ * send leaves no key behind, as Resend only matches keys against emails it
+ * sent.
  */
 import { createHash } from "node:crypto";
 
@@ -26,24 +27,38 @@ async function apply(behavior, payload) {
   return behavior?.error ?? null;
 }
 
+const KEY_CLASH = {
+  data: null,
+  error: {
+    name: "invalid_idempotent_request",
+    statusCode: 409,
+    message: "This idempotency key has already been used on a request that had a different payload.",
+  },
+  headers: null,
+};
+
 /** What Resend itself does with a message that reached it. */
 function accept(message, key) {
   const remembered = key ? control.sentKeys.get(key) : undefined;
-  if (remembered) {
-    if (remembered.fingerprint === fingerprint(message)) return remembered.response;
-    return {
-      data: null,
-      error: {
-        name: "invalid_idempotent_request",
-        statusCode: 409,
-        message: "This idempotency key has already been used on a request that had a different payload.",
-      },
-      headers: null,
-    };
-  }
+  if (remembered) return remembered.fingerprint === fingerprint(message) ? remembered.response : KEY_CLASH;
   state.emails.push(message);
   const response = { data: { id: `double-${state.emails.length}` }, error: null, headers: null };
   if (key) control.sentKeys.set(key, { fingerprint: fingerprint(message), response });
+  return response;
+}
+
+/** The same for a batch that reached it; `errors` are the ones permissive validation turned down. */
+function acceptBatch(messages, key, errors) {
+  const remembered = key ? control.sentKeys.get(key) : undefined;
+  if (remembered) return remembered.fingerprint === fingerprint(messages) ? remembered.response : KEY_CLASH;
+  const failed = new Set(errors.map((e) => e.index));
+  state.emails.push(...messages.filter((_, i) => !failed.has(i)));
+  const response = {
+    data: { data: messages.map((_, i) => ({ id: `double-batch-${i}` })), errors },
+    error: null,
+    headers: null,
+  };
+  if (key) control.sentKeys.set(key, { fingerprint: fingerprint(messages), response });
   return response;
 }
 
@@ -70,16 +85,17 @@ export class Resend {
       send: async (messages, options) => {
         control.calls.push({ batch: messages, options });
         const behavior = control.queue.shift();
+        const errors = behavior?.batchErrors ?? [];
+        if (behavior?.delivered) {
+          // As for a single send: it went out, then the answer was lost.
+          if (behavior.beforeResult) await behavior.beforeResult(messages);
+          acceptBatch(messages, options?.idempotencyKey, errors);
+          if (behavior.throws) throw behavior.throws;
+          return { data: null, error: behavior.error ?? null, headers: null };
+        }
         const error = await apply(behavior, messages);
         if (error) return { data: null, error, headers: null };
-        const errors = behavior?.batchErrors ?? [];
-        const failed = new Set(errors.map((e) => e.index));
-        state.emails.push(...messages.filter((_, i) => !failed.has(i)));
-        return {
-          data: { data: messages.map((_, i) => ({ id: `double-batch-${i}` })), errors },
-          error: null,
-          headers: null,
-        };
+        return acceptBatch(messages, options?.idempotencyKey, errors);
       },
     };
   }

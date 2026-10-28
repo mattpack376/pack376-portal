@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { Resend, type ErrorResponse } from "resend";
 import { getAppBaseUrl, getPublicBaseUrl } from "@/lib/appUrl";
 import { isValidEmail } from "@/lib/formValues";
@@ -314,11 +315,20 @@ export async function sendAccountLinkEmail(
  * that case from a real failure (bad address, API error, etc.) so the UI
  * doesn't tell an admin to "configure" something that already is — the
  * actual error is logged server-side either way since Resend errors used to
- * vanish silently here.
+ * vanish silently here. `uncertain` marks a failure that may have gone out
+ * anyway (see isUnconfirmedFailure).
+ *
+ * `requestKey` is the press this send is for (see requestKey.ts). Resend's
+ * Idempotency-Key is that key plus a fingerprint of the email itself, so a
+ * repeat of the same press with the same email gets the first result back
+ * rather than a second copy, while one whose email has changed since (a new
+ * link, a corrected name) goes out as the new email it is — rather than being
+ * refused for reusing the key, which would leave every later repeat refused
+ * the same way.
  */
 export async function sendPhotoConsentLinkEmail(
   to: string,
-  opts: { scoutFirstName: string; url: string }
+  opts: { scoutFirstName: string; url: string; requestKey?: string }
 ): Promise<SendResult> {
   if (!isEmailConfigured()) return { sent: false, configured: false };
   let content: EmailContent;
@@ -328,13 +338,39 @@ export async function sendPhotoConsentLinkEmail(
     console.error("sendPhotoConsentLinkEmail refused its link:", describeError(error));
     return { sent: false, configured: true, error: describeError(error) };
   }
-  const result = await deliver({ to, ...content });
+  const idempotencyKey = opts.requestKey
+    ? `pack376-consent-link/${opts.requestKey}/${fingerprint({ from: FROM_ADDRESS, to, ...content })}`
+    : undefined;
+  const result = await deliver({ to, ...content, idempotencyKey });
   if (result.error) console.error(`sendPhotoConsentLinkEmail failed for ${oneLine(to)}:`, result.error);
   return result;
 }
 
+/** A short digest of a message, for telling one email from another in an idempotency key. */
+function fingerprint(message: Record<string, string>) {
+  return createHash("sha256").update(JSON.stringify(message)).digest("hex").slice(0, 32);
+}
+
 // Resend's batch endpoint takes at most 100 emails per request.
 const BATCH_LIMIT = 100;
+
+export type BatchSendResult = {
+  /** sent[i]: messages[i] went out. */
+  sent: boolean[];
+  /**
+   * unconfirmed[i]: Resend didn't say whether messages[i] went out (no
+   * answer, a server error), so it may have. Neither flag set means it
+   * certainly didn't: a refused address or link, or a refusal from Resend.
+   */
+  unconfirmed: boolean[];
+  configured: boolean;
+  /**
+   * Resend refused a batch because an earlier request under the same key had
+   * a different list of emails. That earlier request reached Resend, and
+   * repeating this one under the same key will only be refused again.
+   */
+  keyConflict: boolean;
+};
 
 /**
  * Email All: each family's own consent link, through Resend's batch endpoint
@@ -342,15 +378,29 @@ const BATCH_LIMIT = 100;
  * a few per second, which a whole pack's worth would trip. A message with a
  * refused address or link is left out (and reported as not sent) rather than
  * sinking the batch, and "permissive" validation does the same for one
- * Resend turns down. `sent[i]` says whether messages[i] went out.
+ * Resend turns down.
+ *
+ * A batch that fails as a whole is told apart the same way as a single send
+ * (isUnconfirmedFailure): a refusal means none of it went out; no answer or a
+ * server error leaves every email in it unconfirmed. With `requestKey` (the
+ * press this is for), each batch carries an Idempotency-Key — the key and the
+ * batch's number — so repeating the same press gets each batch's first
+ * result back instead of a second copy for every family. The key isn't tied
+ * to the list: if the list has changed since (a family answered, so its link
+ * changed), Resend refuses the batch rather than emailing everyone in it
+ * again, and `keyConflict` says so.
  */
 export async function sendPhotoConsentLinkEmails(
-  messages: { to: string; scoutFirstName: string; url: string }[]
-): Promise<{ sent: boolean[]; configured: boolean }> {
+  messages: { to: string; scoutFirstName: string; url: string }[],
+  opts: { requestKey?: string } = {}
+): Promise<BatchSendResult> {
   const resend = getClient();
-  if (!resend) return { sent: messages.map(() => false), configured: false };
+  const none = () => messages.map(() => false);
+  if (!resend) return { sent: none(), unconfirmed: none(), configured: false, keyConflict: false };
 
-  const sent = messages.map(() => false);
+  const sent = none();
+  const unconfirmed = none();
+  let keyConflict = false;
   const ready: { index: number; to: string; content: EmailContent }[] = [];
   for (const [index, m] of messages.entries()) {
     if (!isDeliverableAddress(m.to)) {
@@ -366,19 +416,32 @@ export async function sendPhotoConsentLinkEmails(
 
   for (let start = 0; start < ready.length; start += BATCH_LIMIT) {
     const chunk = ready.slice(start, start + BATCH_LIMIT);
-    const response = await resend.batch
-      .send(
+    const markAll = (flags: boolean[]) => chunk.forEach((m) => (flags[m.index] = true));
+    const idempotencyKey = opts.requestKey ? `pack376-consent-all/${opts.requestKey}/${start / BATCH_LIMIT + 1}` : undefined;
+    let response;
+    try {
+      response = await resend.batch.send(
         chunk.map((m) => ({ from: FROM_ADDRESS, to: m.to, ...m.content })),
-        { batchValidation: "permissive" }
-      )
-      .catch((error: unknown) => {
-        console.error("sendPhotoConsentLinkEmails batch failed:", describeError(error));
-        return null;
-      });
-    if (!response) continue;
+        { batchValidation: "permissive", ...(idempotencyKey ? { idempotencyKey } : {}) }
+      );
+    } catch (error) {
+      // The SDK doesn't normally throw, so this is something unexpected after
+      // the request may already have reached Resend.
+      console.error("sendPhotoConsentLinkEmails batch failed:", describeError(error));
+      markAll(unconfirmed);
+      continue;
+    }
     const { data, error } = response;
-    if (error || !data) {
-      console.error("sendPhotoConsentLinkEmails batch failed:", error);
+    if (error) {
+      console.error("sendPhotoConsentLinkEmails batch failed:", describeError(error));
+      if (error.name === "invalid_idempotent_request") keyConflict = true;
+      if (isUnconfirmedFailure(error)) markAll(unconfirmed);
+      continue;
+    }
+    if (!data) {
+      // An answer with neither a result nor an error says nothing either way.
+      console.error("sendPhotoConsentLinkEmails batch failed: Resend returned no result.");
+      markAll(unconfirmed);
       continue;
     }
     const errors = data.errors ?? [];
@@ -391,7 +454,7 @@ export async function sendPhotoConsentLinkEmails(
     });
   }
 
-  return { sent, configured: true };
+  return { sent, unconfirmed, configured: true, keyConflict };
 }
 
 /**
