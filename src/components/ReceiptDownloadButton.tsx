@@ -1,9 +1,27 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { downloadSavedReceiptAction } from "@/lib/actions/receipts";
+import { downloadSavedReceiptAction, type GenerateReceiptResult } from "@/lib/actions/receipts";
 import { base64PdfFile } from "@/lib/savePdf";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
+
+/**
+ * The saved PDF, or why there isn't one. A call that gets no answer at all
+ * (a dropped connection, a timeout) rejects; caught here, it's a message
+ * rather than the page's error screen, and the button goes back to Download
+ * PDF instead of sticking on "Preparing…". Nothing is saved or sent by this
+ * one, so pressing it again is always safe.
+ */
+export async function savedReceiptPdf(call: () => Promise<GenerateReceiptResult>): Promise<{ file: File | null; error: string }> {
+  let result: GenerateReceiptResult;
+  try {
+    result = await call();
+  } catch {
+    return { file: null, error: "Couldn't get an answer from the server. Check your connection and press Download PDF again." };
+  }
+  if (!result.ok) return { file: null, error: result.error };
+  return { file: base64PdfFile(result.pdfBase64, result.filename), error: "" };
+}
 
 /**
  * One row of the receipt history: that receipt's PDF exactly as it was
@@ -19,12 +37,9 @@ export default function ReceiptDownloadButton({ id, archived }: { id: string; ar
     new Promise<File | null>((resolve) =>
       startTransition(async () => {
         setError("");
-        const result = await downloadSavedReceiptAction(id);
-        if (!result.ok) {
-          setError(result.error);
-          return resolve(null);
-        }
-        resolve(base64PdfFile(result.pdfBase64, result.filename));
+        const { file, error: problem } = await savedReceiptPdf(() => downloadSavedReceiptAction(id));
+        setError(problem);
+        resolve(file);
       })
     );
 

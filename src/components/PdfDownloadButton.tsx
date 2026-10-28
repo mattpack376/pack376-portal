@@ -9,7 +9,8 @@ import { saveBlob, shareFileOnly, sharesOnTap } from "@/lib/saveFile";
  * saveFile.ts for why); anywhere else it downloads.
  *
  * `getFile` builds the PDF (and whatever else the caller does with it, such as
- * saving it to the history); it returns null after reporting its own error.
+ * saving it to the history); it resolves to null after reporting its own
+ * error, including a call to the server that got no answer.
  */
 
 type Status = "idle" | "preparing" | "ready";
@@ -40,15 +41,24 @@ export default function PdfDownloadButton({
 
     const mode = sharesOnTap("application/pdf") ? "share" : "download";
     setStatus("preparing");
-    const file = await getFile(mode);
-    if (!file) return setStatus("idle");
+    try {
+      const file = await getFile(mode);
+      if (!file) return setStatus("idle");
 
-    if (mode === "download") {
-      saveBlob(file, file.name);
-      return setStatus("idle");
+      if (mode === "download") {
+        saveBlob(file, file.name);
+        return setStatus("idle");
+      }
+      fileRef.current = file;
+      setStatus((await shareFileOnly(file)) === "needs-tap" ? "ready" : "idle");
+    } catch (error) {
+      // getFile reports its own errors and resolves null, so this is
+      // something unexpected (the share sheet failing in a way it doesn't
+      // handle). The button goes back to Download PDF rather than sticking on
+      // "Preparing…" with no way to try again.
+      console.error("Download PDF failed:", error);
+      setStatus("idle");
     }
-    fileRef.current = file;
-    setStatus((await shareFileOnly(file)) === "needs-tap" ? "ready" : "idle");
   }
 
   return (

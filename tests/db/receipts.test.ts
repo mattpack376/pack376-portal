@@ -964,3 +964,111 @@ describe("deleting a receipt while it's being emailed", () => {
     process.stdout.write(`# delete-vs-resend outcomes seen: ${[...outcomes].sort().join(", ")}\n`);
   });
 });
+
+/*
+ * The page's side of a request whose answer never arrives — a phone losing
+ * signal, a timeout, an error page instead of a result. The call rejects,
+ * and each receipt control turns that into a message instead of letting it
+ * reach the page's error screen (which would take the form and its request
+ * key with it). Pressing the same button again then repeats the same
+ * request, and nothing is saved or sent twice.
+ */
+describe("when the server's answer never arrives", () => {
+  let form: typeof import("@/components/ReceiptForm");
+  let resendButton: typeof import("@/components/ReceiptResendButton");
+  let downloadButton: typeof import("@/components/ReceiptDownloadButton");
+  let deleteButton: typeof import("@/components/ReceiptDeleteButton");
+  before(async () => {
+    form = await import("@/components/ReceiptForm");
+    resendButton = await import("@/components/ReceiptResendButton");
+    downloadButton = await import("@/components/ReceiptDownloadButton");
+    deleteButton = await import("@/components/ReceiptDeleteButton");
+  });
+
+  /** The request runs to the end on the server, then its answer is lost on the way back. */
+  const answerLost = <T>(request: Promise<T>) =>
+    request.then(() => {
+      throw new TypeError("Failed to fetch");
+    });
+  const neverReached = () => Promise.reject(new TypeError("Failed to fetch"));
+
+  it("Email PDF: says it doesn't know, and pressing Email PDF again doesn't email the family twice", async () => {
+    const key = newReceiptRequestKey();
+    const first = await form.emailReceiptOutcome(() => answerLost(emailIt(key)), ADDRESS, "records@example.com");
+    assert.deepEqual(first, {
+      kind: "error",
+      text: `Couldn't get an answer from the server, so we don't know whether the email to ${ADDRESS} went out. Press Email PDF again to retry: if it did go out, it won't be sent twice.`,
+    });
+    assert.deepEqual(delivered(), [ADDRESS], "it did go out");
+
+    // The form kept its key, so the next press is the same request.
+    const again = await form.emailReceiptOutcome(() => emailIt(key), ADDRESS, "records@example.com");
+    assert.equal(again?.kind, "ok");
+    assert.match(again?.text ?? "", /^This receipt was already emailed to donor@example\.com, so it wasn't sent again\./);
+    assert.deepEqual(delivered(), [ADDRESS], "no second copy");
+    assert.equal(await db.prisma.receipt.count({ where: { idempotencyKey: key } }), 1, "one receipt");
+  });
+
+  it("Download PDF: hands over no file and says so, and pressing it again doesn't save a second receipt", async () => {
+    const key = newReceiptRequestKey();
+    const first = await form.receiptPdfOutcome(() => answerLost(generate(key)), "download");
+    assert.equal(first.file, null, "the button goes back to Download PDF");
+    assert.equal(first.message?.kind, "error");
+    assert.match(first.message?.text ?? "", /we don't know whether the receipt was saved\. Press Download PDF again: it won't be saved twice\.$/);
+
+    const again = await form.receiptPdfOutcome(() => generate(key), "download");
+    assert.ok(again.file instanceof File);
+    assert.equal(again.file.type, "application/pdf");
+    const row = await byKey(key);
+    assert.equal(Buffer.from(await again.file.arrayBuffer()).toString("base64"), Buffer.from(row.document!.pdf).toString("base64"));
+    assert.equal(await db.prisma.receipt.count({ where: { idempotencyKey: key } }), 1, "one receipt");
+    assert.deepEqual(again.message, { kind: "ok", text: "Receipt downloaded and saved to the history below." });
+  });
+
+  it("Resend: keeps the form open and says it doesn't know; pressing Send again doesn't email it twice", async () => {
+    const saved = await generate(newReceiptRequestKey());
+    assert.ok(saved.ok);
+    const key = newReceiptRequestKey();
+    const first = await resendButton.resendOutcome(() => answerLost(resendIt(saved.id, key)));
+    assert.deepEqual(first, {
+      done: false,
+      message: {
+        kind: "error",
+        text: "Couldn't get an answer from the server, so we don't know whether it went out. Press Send again to retry: if it did go out, it won't be sent twice.",
+      },
+    });
+    assert.deepEqual(delivered(), [ADDRESS]);
+
+    const again = await resendButton.resendOutcome(() => resendIt(saved.id, key));
+    assert.deepEqual(again, { done: true, message: { kind: "ok", text: `Already sent to ${ADDRESS}; not sent again.` } });
+    assert.deepEqual(delivered(), [ADDRESS], "no second copy");
+  });
+
+  it("the history's Download and Delete say so too, and nothing sticks", async () => {
+    const lostDownload = await downloadButton.savedReceiptPdf(neverReached);
+    assert.deepEqual(lostDownload, {
+      file: null,
+      error: "Couldn't get an answer from the server. Check your connection and press Download PDF again.",
+    });
+
+    const saved = await generate(newReceiptRequestKey());
+    assert.ok(saved.ok);
+    const download = await downloadButton.savedReceiptPdf(() => runAs(admin, () => receipts.downloadSavedReceiptAction(saved.id)));
+    assert.equal(download.error, "");
+    assert.ok(download.file instanceof File);
+
+    const lostDelete = await deleteButton.deleteReceiptError(() => answerLost(deleteIt(saved.id)));
+    assert.equal(lostDelete, "Couldn't get an answer from the server, so we don't know whether it was deleted. Reload the page to check.");
+    assert.equal(await db.prisma.receipt.count({ where: { id: saved.id } }), 0, "it was deleted");
+    assert.equal(await deleteButton.deleteReceiptError(() => deleteIt(saved.id)), "That receipt was already deleted.");
+  });
+
+  it("a server error (thrown, not returned) is a message too, not the error page", async () => {
+    // A signed-out or demoted session makes the action throw.
+    const refused = () => runAs(juniorAdmin, () => receipts.emailReceiptAction(input(), newReceiptRequestKey()));
+    const shown = await form.emailReceiptOutcome(refused, ADDRESS, "records@example.com");
+    assert.equal(shown?.kind, "error");
+    assert.match(shown?.text ?? "", /^Couldn't get an answer from the server/);
+    assert.equal(resend.calls.length, 0);
+  });
+});
