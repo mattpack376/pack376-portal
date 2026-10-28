@@ -219,7 +219,7 @@ export default async function AdminDenDetailPage({
         )}
       </div>
 
-      <ScoutChecklist scouts={scouts} editable />
+      <ScoutChecklist scouts={scouts} editable collapsible />
     </>
   );
 }

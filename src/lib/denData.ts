@@ -108,7 +108,13 @@ export async function getDenChecklist(denId: string) {
     orderBy: { sortOrder: "asc" },
   });
 
-  const scouts: ChecklistScout[] = den.scouts.map((scout) => toChecklistScout(scout, adventures));
+  // Sorted here rather than trusting the DB collation, so "alex" doesn't land after "Zane".
+  const byName = (a: { firstName: string; lastName: string }, b: { firstName: string; lastName: string }) =>
+    a.firstName.localeCompare(b.firstName, "en", { sensitivity: "base" }) ||
+    a.lastName.localeCompare(b.lastName, "en", { sensitivity: "base" });
+
+  const scouts: ChecklistScout[] = den.scouts.map((scout) => toChecklistScout(scout, adventures)).sort(byName);
+  inactiveScouts.sort(byName);
 
   return { den, scouts, inactiveScouts };
 }

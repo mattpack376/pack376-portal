@@ -20,9 +20,11 @@ function sameRecord(a: DraftRecord, b: DraftRecord) {
 export default function ScoutAdvancementCard({
   scout,
   editable,
+  collapsible = false,
 }: {
   scout: ChecklistScout;
   editable: boolean;
+  collapsible?: boolean;
 }) {
   const initial = () =>
     Object.fromEntries(
@@ -129,19 +131,16 @@ export default function ScoutAdvancementCard({
     />
   );
 
-  return (
-    <div className="scout-card">
-      <div className="scout-card-head">
-        <h3>
-          {scout.firstName} {scout.lastName}
-        </h3>
-        <span className="progress-pill">
-          {rankComplete
-            ? "🏅 Rank Complete"
-            : `${requiredDone}/${required.length} required · ${electivesDone}/${scout.electivesRequired}+ electives`}
-        </span>
-      </div>
+  const pill = (
+    <span className="progress-pill">
+      {rankComplete
+        ? "🏅 Rank Complete"
+        : `${requiredDone}/${required.length} required · ${electivesDone}/${scout.electivesRequired}+ electives`}
+    </span>
+  );
 
+  const body = (
+    <>
       <div className="adventure-group-label">Required Adventures</div>
       <div className="adventure-checklist">{required.map(renderAdventure)}</div>
 
@@ -190,6 +189,34 @@ export default function ScoutAdvancementCard({
           onCancel={() => setDialogAdventureId(null)}
         />
       )}
+    </>
+  );
+
+  if (collapsible) {
+    return (
+      <details className="scout-card scout-card-collapsible">
+        <summary className="scout-card-summary">
+          <span className="scout-card-name">
+            {scout.firstName} {scout.lastName}
+          </span>
+          {isDirty && <span className="scout-card-unsaved">Unsaved changes</span>}
+          {pill}
+        </summary>
+        <div className="scout-card-body">{body}</div>
+      </details>
+    );
+  }
+
+  return (
+    <div className="scout-card">
+      <div className="scout-card-head">
+        <h3>
+          {scout.firstName} {scout.lastName}
+        </h3>
+        {pill}
+      </div>
+
+      {body}
     </div>
   );
 }

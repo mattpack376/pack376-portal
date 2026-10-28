@@ -1824,6 +1824,22 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
 .scout-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 20px; }
 .scout-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
 .scout-card-head h3 { margin-bottom: 0; font-size: 18px; }
+/* Collapsible variant (admin den page): one line per scout until opened. */
+.scout-card-collapsible { padding: 0; }
+.scout-card-summary {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 14px 20px; cursor: pointer; list-style: none; user-select: none;
+}
+.scout-card-summary::-webkit-details-marker { display: none; }
+.scout-card-summary::before {
+  content: "▸"; display: inline-block; width: 12px; color: var(--ink-soft);
+  transition: transform 0.15s ease;
+}
+details[open] > .scout-card-summary::before { transform: rotate(90deg); }
+.scout-card-name { font-family: var(--font-display); font-weight: 700; font-size: 18px; flex: 1 1 auto; }
+.scout-card-unsaved { font-size: 12.5px; font-weight: 700; color: var(--carnival-red-dark); }
+.scout-card-body { padding: 0 20px 20px; }
+.scout-checklist:has(.scout-card-collapsible) { gap: 10px; }
 .progress-pill { font-size: 12.5px; font-weight: 700; color: var(--scout-blue-dark); background: var(--cream-dark); padding: 4px 12px; border-radius: 999px; }
 .adventure-group-label { font-family: var(--font-display); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); margin: 14px 0 8px; }
 .adventure-checklist { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
