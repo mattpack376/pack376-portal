@@ -226,7 +226,11 @@ Blob token if a laptop or account that held them is lost.
 ### 3.1 What uploads are accepted
 
 Flyers (events, trips) may be JPEG, PNG, WEBP, GIF or PDF; album covers JPEG,
-PNG, WEBP or GIF. Up to 8 MB, 12,000 pixels on a side and 50 megapixels. An
+PNG, WEBP or GIF. Up to 8 MB by the app's own check — but on Vercel a request
+body over 4.5 MB is turned away before it reaches the app (Vercel's own
+"payload too large" error, not this page's message), so in practice tell
+people to keep files under about 4 MB. 12,000 pixels on a side and 50
+megapixels. An
 animation may have 16 megapixels a frame (about twice a 4K frame), up to 300
 frames, and 200 megapixels across all of them: 171 frames at 1080 × 1080, 96
 at 1920 × 1080. Its frames have the lower limit because re-saving an animated
