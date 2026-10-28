@@ -33,7 +33,7 @@ import {
   type RaffleMethod,
 } from "@/lib/raffleMath";
 import { parseRaffleImport } from "@/lib/raffleImport";
-import { entryEditVersion, paymentEditVersion } from "@/lib/raffleEditVersion";
+import { entryEditVersion, paymentEditVersion, raffleTermsVersion } from "@/lib/raffleEditVersion";
 import type { Prisma, Raffle } from "@/generated/prisma/client";
 
 /*
@@ -404,13 +404,34 @@ export async function createRaffleAction(formData: FormData): Promise<RaffleForm
   redirect(rafflePath(raffleId));
 }
 
+/**
+ * The raffle's settings: name, drawing date, board size, price, winner's
+ * share and notes. The form sends all of them every time, so it also carries
+ * raffleTermsVersion of the settings it was filled in with. If another Admin
+ * changed any of them since that page loaded — raised the winner's share,
+ * resized the board, moved the drawing — the save is refused rather than
+ * quietly putting the old ones back along with whatever this Admin meant to
+ * change. Selling boxes, payments and the drawing don't touch the settings,
+ * so they don't make the form out of date; the checks below cover those.
+ */
 export async function updateRaffleAction(formData: FormData): Promise<RaffleFormResult> {
   const session = await adminSession();
   return asResult(async () => {
     const raffleId = field(formData, "raffleId");
     const terms = readRaffleTerms(formData);
+    const version = field(formData, "version");
+    if (!version) throw new RaffleInputError(PAGE_OUT_OF_DATE);
 
     await withLockedRaffle(raffleId, async (tx, raffle) => {
+      // `raffle` is read under its own row lock, which this transaction keeps
+      // until it commits, so the settings can't change between this check
+      // and the save below.
+      if (raffleTermsVersion(raffle) !== version) {
+        throw new RaffleInputError(
+          `Someone changed this raffle's settings after this page loaded (it's now ${raffle.boxCount} ${boxWord(raffle.boxCount)} at ${auditMoney(raffle.priceCents)} each, ${raffle.prizePercent}% to the winner). Nothing was saved — refresh the page and make your change again.`
+        );
+      }
+
       // Read under the lock, so a sale or a payment can't slip in between
       // these checks and the save.
       const [highestBox, livePayments] = await Promise.all([

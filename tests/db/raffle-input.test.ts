@@ -8,6 +8,7 @@ import { before, describe, it } from "node:test";
 import { withTestDatabase } from "../support/db";
 import { form, runAs, settle } from "../support/context";
 import { editEntryForm, newId, raffleTestKit, type RaffleActions, type TestUser } from "./raffle-support";
+import { raffleTermsVersion } from "@/lib/raffleEditVersion";
 
 const db = withTestDatabase("raffle_input");
 const kit = raffleTestKit(db);
@@ -93,7 +94,9 @@ describe("text and amount limits", () => {
     assert.equal(await kit.auditCount("raffle.create", raffle.id), 1);
 
     const edit = await runAs(admin, () =>
-      raffles.updateRaffleAction(form({ raffleId: raffle.id, name: "Spring 50/50", boxCount: 500, price: "2000", prizePercent: 50, notes: long(2001) })),
+      raffles.updateRaffleAction(
+        form({ raffleId: raffle.id, name: "Spring 50/50", boxCount: 500, price: "2000", prizePercent: 50, notes: long(2001), version: raffleTermsVersion(raffle) }),
+      ),
     );
     assert.match(edit.error ?? "", /notes can be at most 2000/);
   });

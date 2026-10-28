@@ -8,6 +8,9 @@
  *  - A payment's or a buyer's Edit form carries a fingerprint of the values it
  *    was filled in with. If another Admin (or helper) changed the row since,
  *    the save is refused instead of quietly putting the old values back.
+ *  - So does the Edit Raffle form, for the raffle's own settings (integration
+ *    review 2026-10-27): a notes fix from an older page put the winner's share
+ *    back from 60% to 50%.
  *
  * Every outcome must still match some serial order of the two changes.
  */
@@ -16,6 +19,8 @@ import { before, describe, it } from "node:test";
 import { openTransaction, withTestDatabase } from "../support/db";
 import { form, runAs } from "../support/context";
 import { editEntryForm, editPaymentForm, raffleTestKit, type RaffleActions, type TestUser } from "./raffle-support";
+import { toDateOnlyString } from "@/lib/dateOnly";
+import { raffleTermsVersion } from "@/lib/raffleEditVersion";
 
 const db = withTestDatabase("raffle_stale_forms");
 const kit = raffleTestKit(db);
@@ -37,9 +42,31 @@ before(async () => {
 const PRICE_CHANGED = /price per box changed from \$10\.00 to \$20\.00 after this page loaded\. Nothing was saved/;
 const PAYMENT_EDIT_STALE = /That payment was changed after this page loaded/;
 
+type LoadedRaffle = Parameters<typeof raffleTermsVersion>[0] & { id: string };
+
+/**
+ * What the Edit Raffle form (CloseoutTab, under Raffle Settings) sends: the
+ * settings it was filled in with — `loaded`, the raffle as the page read it —
+ * with `changes` typed over them, and the version of what it loaded.
+ */
+function editRaffleForm(
+  loaded: LoadedRaffle,
+  changes: { name?: string; drawingDate?: string; boxCount?: number; price?: string; prizePercent?: number; notes?: string } = {},
+) {
+  return form({
+    raffleId: loaded.id,
+    name: changes.name ?? loaded.name,
+    drawingDate: changes.drawingDate ?? toDateOnlyString(loaded.drawingDate) ?? "",
+    boxCount: changes.boxCount ?? loaded.boxCount,
+    price: changes.price ?? (loaded.priceCents / 100).toFixed(2),
+    prizePercent: changes.prizePercent ?? loaded.prizePercent,
+    notes: changes.notes ?? loaded.notes ?? "",
+    version: raffleTermsVersion(loaded),
+  });
+}
+
 /** Admin's Edit Raffle form changing only the price. */
-const reprice = (raffle: { id: string; name: string; boxCount: number; prizePercent: number }, price: string) =>
-  form({ raffleId: raffle.id, name: raffle.name, boxCount: raffle.boxCount, price, prizePercent: raffle.prizePercent });
+const reprice = (raffle: LoadedRaffle, price: string) => editRaffleForm(raffle, { price });
 
 describe("a paid sale carries the price its page showed", () => {
   it("after a price change, a paid sale from the old page is refused; an unpaid one goes through", async () => {
@@ -296,6 +323,132 @@ describe("a buyer's Edit form refuses to put back a name someone else changed", 
       const final = await db.prisma.raffleEntry.findUniqueOrThrow({ where: { id: shown.id } });
       assert.deepEqual([final.name, final.notes], a.error ? ["Ann", "b"] : ["Ann Lee", "a"], `round ${round}`);
       assert.equal(await kit.auditCount("raffle.entry.update", shown.id), 1);
+    }
+  });
+});
+
+describe("the Edit Raffle form refuses to put back settings someone else changed", () => {
+  const SETTINGS_STALE = /Someone changed this raffle's settings after this page loaded/;
+
+  it("the review's case: a notes fix from an older page can't put the winner's share back to 50%", async () => {
+    const shown = await kit.makeRaffle({ boxCount: 100, priceCents: 1000, prizePercent: 50 });
+    // Admin B raises the winner's share to 60%, as agreed with the organizer.
+    assert.deepEqual(await runAs(admin2, () => raffles.updateRaffleAction(editRaffleForm(shown, { prizePercent: 60 }))), {});
+
+    // Admin A's Raffle Settings still show 50%; A only fixes a typo in the
+    // notes. Before the fix this saved and the share went back to 50%.
+    const stale = await runAs(admin, () => raffles.updateRaffleAction(editRaffleForm(shown, { notes: "typo fixed" })));
+    assert.match(stale.error ?? "", SETTINGS_STALE);
+    assert.match(stale.error ?? "", /\(it's now 100 boxes at \$10\.00 each, 60% to the winner\)\. Nothing was saved — refresh the page/);
+    let final = await db.prisma.raffle.findUniqueOrThrow({ where: { id: shown.id } });
+    assert.deepEqual([final.prizePercent, final.notes], [60, null]);
+    assert.equal(await kit.auditCount("raffle.update", shown.id), 1, "only B's change is in the log");
+
+    // A refreshed page saves the notes fix and keeps B's 60%, and the prize
+    // is then fixed from 60%.
+    assert.deepEqual(await runAs(admin, () => raffles.updateRaffleAction(editRaffleForm(final, { notes: "typo fixed" }))), {});
+    await kit.sell(helper, raffles, shown.id, "Ann", "1, 2, 3, 4, 5, 6, 7, 8, 9, 10", "CASH");
+    assert.deepEqual(await runAs(admin, () => raffles.recordWinnerAction(form({ raffleId: shown.id, winningBox: 3 }))), {});
+    final = await db.prisma.raffle.findUniqueOrThrow({ where: { id: shown.id } });
+    assert.deepEqual([final.prizePercent, final.notes, final.prizeCents], [60, "typo fixed", 6000]);
+  });
+
+  it("a change to any one setting makes a form loaded before it out of date", async () => {
+    const changes: [string, Parameters<typeof editRaffleForm>[1], (raffle: LoadedRaffle) => unknown, unknown][] = [
+      ["name", { name: "Spring 50/50" }, (raffle) => raffle.name, "Spring 50/50"],
+      ["drawing date", { drawingDate: "2026-11-06" }, (raffle) => toDateOnlyString(raffle.drawingDate), "2026-11-06"],
+      ["board size", { boxCount: 150 }, (raffle) => raffle.boxCount, 150],
+      ["price", { price: "20" }, (raffle) => raffle.priceCents, 2000],
+      ["winner's share", { prizePercent: 60 }, (raffle) => raffle.prizePercent, 60],
+      ["notes", { notes: "cash box in the closet" }, (raffle) => raffle.notes, "cash box in the closet"],
+    ];
+    for (const [label, change, read, expected] of changes) {
+      const shown = await kit.makeRaffle();
+      assert.deepEqual(await runAs(admin2, () => raffles.updateRaffleAction(editRaffleForm(shown, change))), {}, label);
+      // A's older form changes something else (the name, or the notes when B renamed it).
+      const own = label === "name" ? { notes: "a" } : { name: "Renamed by A" };
+      const stale = await runAs(admin, () => raffles.updateRaffleAction(editRaffleForm(shown, own)));
+      assert.match(stale.error ?? "", SETTINGS_STALE, label);
+      const final = await db.prisma.raffle.findUniqueOrThrow({ where: { id: shown.id } });
+      assert.deepEqual(read(final), expected, `${label}: B's change stands`);
+      assert.deepEqual([final.name === "Renamed by A", final.notes === "a"], [false, false], `${label}: nothing of A's saved`);
+    }
+  });
+
+  it("selling boxes, payments, the drawing and closing don't make an open Edit Raffle form stale", async () => {
+    const shown = await kit.makeRaffle({ boxCount: 20 });
+    const ann = await kit.sell(helper, raffles, shown.id, "Ann", "1, 2", "CASH");
+    const payment = await db.prisma.rafflePayment.findFirstOrThrow({ where: { entryId: ann.id } });
+    assert.deepEqual(
+      await runAs(admin2, () => raffles.setPaymentVerifiedAction(form({ paymentId: payment.id, verified: "true", amountCents: 2000, method: "CASH" }))),
+      {},
+    );
+    assert.deepEqual(await runAs(admin2, () => raffles.recordWinnerAction(form({ raffleId: shown.id, winningBox: 2 }))), {});
+    assert.deepEqual(await runAs(admin2, () => raffles.closeRaffleAction(form({ raffleId: shown.id }))), {});
+    assert.deepEqual(await runAs(admin2, () => raffles.reopenRaffleAction(form({ raffleId: shown.id }))), {});
+
+    assert.deepEqual(
+      await runAs(admin, () => raffles.updateRaffleAction(editRaffleForm(shown, { drawingDate: "2026-11-06", notes: "drawn at the pack meeting" }))),
+      {},
+    );
+    const final = await db.prisma.raffle.findUniqueOrThrow({ where: { id: shown.id } });
+    assert.deepEqual([toDateOnlyString(final.drawingDate), final.notes, final.winningBox], ["2026-11-06", "drawn at the pack meeting", 2]);
+  });
+
+  it("a form without the fingerprint (a page from before this change) is refused as out of date", async () => {
+    const shown = await kit.makeRaffle();
+    const old = await runAs(admin, () =>
+      raffles.updateRaffleAction(form({ raffleId: shown.id, name: shown.name, boxCount: 100, price: "10", prizePercent: 40, notes: "x" })),
+    );
+    assert.match(old.error ?? "", /out of date/);
+    const final = await db.prisma.raffle.findUniqueOrThrow({ where: { id: shown.id } });
+    assert.deepEqual([final.prizePercent, final.notes], [50, null]);
+    assert.equal(await kit.auditCount("raffle.update", shown.id), 0);
+  });
+
+  it("real actions, both orders: of two saves from one page, the first lands and the second is refused", async (t) => {
+    // A's save in flight (paused just before its commit), B's waiting behind it.
+    const first = await kit.makeRaffle();
+    const pausedA = await kit.pauseUser(admin);
+    t.after(() => pausedA.rollback());
+    const saveA = kit.act(admin, () => raffles.updateRaffleAction(editRaffleForm(first, { prizePercent: 60 })));
+    await kit.waitForWaiters(1);
+    const saveB = kit.act(admin2, () => raffles.updateRaffleAction(editRaffleForm(first, { notes: "b" })));
+    await kit.waitForWaiters(2);
+    await pausedA.commit();
+    assert.deepEqual(await kit.resultOf(saveA), {});
+    assert.match((await kit.resultOf(saveB)).error ?? "", SETTINGS_STALE);
+    let final = await db.prisma.raffle.findUniqueOrThrow({ where: { id: first.id } });
+    assert.deepEqual([final.prizePercent, final.notes], [60, null]);
+
+    // The other way round.
+    const second = await kit.makeRaffle();
+    const pausedB = await kit.pauseUser(admin2);
+    t.after(() => pausedB.rollback());
+    const saveB2 = kit.act(admin2, () => raffles.updateRaffleAction(editRaffleForm(second, { notes: "b" })));
+    await kit.waitForWaiters(1);
+    const saveA2 = kit.act(admin, () => raffles.updateRaffleAction(editRaffleForm(second, { prizePercent: 60 })));
+    await kit.waitForWaiters(2);
+    await pausedB.commit();
+    assert.deepEqual(await kit.resultOf(saveB2), {});
+    assert.match((await kit.resultOf(saveA2)).error ?? "", SETTINGS_STALE);
+    final = await db.prisma.raffle.findUniqueOrThrow({ where: { id: second.id } });
+    assert.deepEqual([final.prizePercent, final.notes], [50, "b"]);
+  });
+
+  it("20 rounds of two Edit Raffle saves from one page: exactly one lands, whole", async () => {
+    for (let round = 0; round < 20; round++) {
+      const shown = await kit.makeRaffle();
+      const [a, b] = await Promise.all([
+        kit.resultOf(kit.act(admin, () => raffles.updateRaffleAction(editRaffleForm(shown, { notes: "a" })))),
+        kit.resultOf(kit.act(admin2, () => raffles.updateRaffleAction(editRaffleForm(shown, { prizePercent: 60, boxCount: 150 })))),
+      ]);
+      assert.ok(Boolean(a.error) !== Boolean(b.error), `round ${round}: exactly one saved`);
+      assert.match((a.error ?? b.error) as string, SETTINGS_STALE);
+      const final = await db.prisma.raffle.findUniqueOrThrow({ where: { id: shown.id } });
+      const landed = [final.notes, final.prizePercent, final.boxCount];
+      assert.deepEqual(landed, a.error ? [null, 60, 150] : ["a", 50, 100], `round ${round}: not a mix of the two`);
+      assert.equal(await kit.auditCount("raffle.update", shown.id), 1);
     }
   });
 });

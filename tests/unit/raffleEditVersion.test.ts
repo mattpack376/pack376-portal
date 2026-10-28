@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { entryEditVersion, paymentEditVersion } from "@/lib/raffleEditVersion";
+import { entryEditVersion, paymentEditVersion, raffleTermsVersion } from "@/lib/raffleEditVersion";
 
 describe("Edit form fingerprints", () => {
   type LoadedPayment = Parameters<typeof paymentEditVersion>[0];
@@ -45,5 +45,38 @@ describe("Edit form fingerprints", () => {
     assert.notEqual(entryEditVersion({ name: "Ann Lee", notes: null }), entry);
     assert.notEqual(entryEditVersion({ name: "Ann", notes: "" }), entry);
     assert.notEqual(entryEditVersion({ name: "ann", notes: null }), entry);
+  });
+
+  describe("for the Edit Raffle form", () => {
+    type LoadedRaffle = Parameters<typeof raffleTermsVersion>[0];
+    const raffle: LoadedRaffle = {
+      name: "October 50/50",
+      boxCount: 100,
+      priceCents: 1000,
+      prizePercent: 50,
+      drawingDate: new Date("2026-10-11T00:00:00.000Z"),
+      notes: null,
+    };
+
+    it("ignore the board, the drawing and the raffle's status", () => {
+      const drawnRow = { ...raffle, id: "r1", status: "CLOSED", winningBox: 7, winnerName: "Ann", prizeCents: 5000, prizePaid: true };
+      assert.equal(raffleTermsVersion(drawnRow), raffleTermsVersion(raffle));
+    });
+
+    it("change when any setting the form edits changes", () => {
+      const changes: Partial<LoadedRaffle>[] = [
+        { name: "October 50/50 " },
+        { boxCount: 101 },
+        { priceCents: 1001 },
+        { prizePercent: 60 },
+        { drawingDate: new Date("2026-10-12T00:00:00.000Z") },
+        { drawingDate: null },
+        { notes: "x" },
+        { notes: "" },
+      ];
+      const versions = new Set([raffleTermsVersion(raffle)]);
+      for (const change of changes) versions.add(raffleTermsVersion({ ...raffle, ...change }));
+      assert.equal(versions.size, changes.length + 1, "each change gives a version of its own");
+    });
   });
 });

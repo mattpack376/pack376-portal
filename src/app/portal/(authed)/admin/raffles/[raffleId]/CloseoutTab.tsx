@@ -16,6 +16,7 @@ import { toDateOnlyString } from "@/lib/dateOnly";
 import { formatCents } from "@/lib/duesData";
 import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { MAX_RAFFLE_BOXES, RAFFLE_METHOD_LABELS } from "@/lib/raffleMath";
+import { raffleTermsVersion } from "@/lib/raffleEditVersion";
 import type { RaffleDetail } from "@/lib/raffleData";
 import { MethodSelect } from "./parts";
 
@@ -256,6 +257,8 @@ export default function CloseoutTab({
           <div className="info-card" style={{ maxWidth: 460, marginTop: 10, marginBottom: 24 }}>
             <ActionForm action={updateRaffleAction}>
               <input type="hidden" name="raffleId" value={raffle.id} />
+              {/* The settings this form was filled in with, so a save can't put back ones another Admin changed since. */}
+              <input type="hidden" name="version" value={raffleTermsVersion(raffle)} />
               <div className="form-field">
                 <label htmlFor="edit-name">Name</label>
                 <input id="edit-name" name="name" required maxLength={MAX_NAME_LENGTH} defaultValue={raffle.name} />
