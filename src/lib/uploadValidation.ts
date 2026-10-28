@@ -6,9 +6,13 @@ import { crc32 } from "node:zlib";
  *
  * File.type and the filename are whatever the browser — or anyone posting to
  * a Server Action directly — says they are, so both are only a claim. The
- * file's own first bytes (its signature) decide what it really is, and they
- * have to agree with the claim: a web page or SVG renamed to .jpg, or a PDF
- * labelled as a PNG, is turned away with a message the admin can act on.
+ * file's own first bytes (its signature) decide what it really is, and only
+ * that decides whether it's accepted: a web page or SVG renamed to .jpg is
+ * turned away with a message the admin can act on, and so is a PDF chosen as
+ * an album cover, whatever it's called. A file that really is a kind the
+ * upload takes is accepted under any name — a PNG saved as .jpg, a PDF flyer
+ * labeled as an image — and stored as what it really is, with that type and
+ * extension.
  *
  * Images are then decoded and saved again with sharp (already installed as
  * Next.js's image library). That drops everything that isn't the picture:
@@ -673,13 +677,10 @@ export async function prepareUploadBytes(
     throw new UploadRejectedError(`${rules.label} must be ${Math.floor(maxBytes / (1024 * 1024))}MB or smaller.`);
   }
 
-  // The type the browser reported has to be one we take at all…
+  // What the file really is, from its own bytes, decides. The type the
+  // browser reported only picks the wording of a refusal.
   const claimed = normalizeClaimedType(claimedType);
-  if (!rules.allowed.includes(claimed as UploadMediaType)) {
-    throw new UploadRejectedError(`${rules.label} must be ${article(allowedList)}.`);
-  }
-
-  // …and the file itself has to be that type.
+  const claimedAllowed = rules.allowed.includes(claimed as UploadMediaType);
   const actual = sniffMediaType(bytes);
   if (!actual) {
     switch (describeOtherFile(bytes)) {
@@ -692,16 +693,24 @@ export async function prepareUploadBytes(
       case "avif":
         throw new UploadRejectedError(`AVIF images can't be used here. Save it as a JPEG or PNG and try again.`);
       default:
-        throw new UploadRejectedError(`${rules.label} must be ${article(allowedList)}, and this file isn't one, whatever its name says.`);
+        throw new UploadRejectedError(
+          claimedAllowed
+            ? `${rules.label} must be ${article(allowedList)}, and this file isn't one, whatever its name says.`
+            : `${rules.label} must be ${article(allowedList)}.`,
+        );
     }
   }
-  if (actual !== claimed) {
-    const claimedName = TYPE_NAMES[claimed as UploadMediaType];
+  if (!rules.allowed.includes(actual)) {
+    // A real file of a kind this upload doesn't take, such as a PDF chosen as an album cover.
     throw new UploadRejectedError(
-      `${rules.label} is labeled as ${article(claimedName)} but the file is really ${article(TYPE_NAMES[actual])}. ` +
-        `Save or export it again as ${article(claimedName)} and try once more.`,
+      actual === claimed
+        ? `${rules.label} must be ${article(allowedList)}.`
+        : `${rules.label} must be ${article(allowedList)}, and this file is really ${article(TYPE_NAMES[actual])}, whatever its name says.`,
     );
   }
+  // From here on the file is checked, and stored, as what it really is. A
+  // different label (a PNG saved as .jpg) changes nothing: the stored type
+  // and extension come from `actual`, so it's served as what it is.
 
   if (ACTIVE_MARKUP.test(latin1(bytes))) {
     throw new UploadRejectedError(

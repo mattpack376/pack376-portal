@@ -143,27 +143,40 @@ describe("prepareUploadBytes: what is turned away", () => {
       await rejection(prepareUploadBytes(minimalPdf(), "application/pdf", COVER, sharp)),
       "Cover image must be a JPEG, PNG, WEBP, or GIF.",
     );
+    const bmp = join(bytes("BM"), new Uint8Array(60));
     assert.equal(
-      await rejection(prepareUploadBytes(bytes("<svg/>"), "image/svg+xml", FLYER, sharp)),
+      await rejection(prepareUploadBytes(bmp, "image/bmp", FLYER, sharp)),
       "Flyer must be a JPEG, PNG, WEBP, GIF, or PDF.",
     );
   });
 
-  it("a file whose bytes don't match the type it claims", async () => {
-    const png = new Uint8Array(await solid(10, 10).png().toBuffer());
-    assert.match(await rejection(prepareUploadBytes(png, "image/jpeg", COVER, sharp)), /labeled as a JPEG but the file is really a PNG/);
-    assert.match(await rejection(prepareUploadBytes(minimalPdf(), "image/png", FLYER, sharp)), /really a PDF/);
-    const jpeg = new Uint8Array(await solid(10, 10).jpeg().toBuffer());
-    assert.match(await rejection(prepareUploadBytes(jpeg, "application/pdf", FLYER, sharp)), /labeled as a PDF but the file is really a JPEG/);
+  it("a file of a kind the form doesn't take, whatever it's labeled as", async () => {
+    // A PDF is a fine flyer but not a cover photo, even when it's named like one.
+    assert.equal(
+      await rejection(prepareUploadBytes(minimalPdf(), "image/png", COVER, sharp)),
+      "Cover image must be a JPEG, PNG, WEBP, or GIF, and this file is really a PDF, whatever its name says.",
+    );
+    assert.equal(
+      await rejection(prepareUploadBytes(minimalPdf(), "image/jpeg", COVER, null)),
+      "Cover image must be a JPEG, PNG, WEBP, or GIF, and this file is really a PDF, whatever its name says.",
+    );
+    // Not one of the accepted kinds at all, labeled as one.
+    assert.equal(
+      await rejection(prepareUploadBytes(join(bytes("BM"), new Uint8Array(60)), "image/png", COVER, sharp)),
+      "Cover image must be a JPEG, PNG, WEBP, or GIF, and this file isn't one, whatever its name says.",
+    );
   });
 
-  it("SVG, web pages and iPhone HEIC renamed as pictures", async () => {
+  it("SVG, web pages and iPhone HEIC, under their own type or renamed as pictures", async () => {
     const svg = bytes('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
     assert.match(await rejection(prepareUploadBytes(svg, "image/png", COVER, sharp)), /can't be an SVG/);
+    assert.match(await rejection(prepareUploadBytes(svg, "image/svg+xml", FLYER, sharp)), /can't be an SVG/);
+    assert.match(await rejection(prepareUploadBytes(bytes("<html><body>hi</body></html>"), "text/html", FLYER, sharp)), /web page/);
     const page = join(Uint8Array.from([0xef, 0xbb, 0xbf]), bytes("  <!DOCTYPE html><html><body>hi</body></html>")); // with a UTF-8 byte order mark
     assert.match(await rejection(prepareUploadBytes(page, "image/jpeg", FLYER, sharp)), /web page/);
     const heic = join(Uint8Array.from([0, 0, 0, 24]), bytes("ftypheic\u0000\u0000\u0000\u0000mif1heic"));
     assert.match(await rejection(prepareUploadBytes(heic, "image/jpeg", COVER, sharp)), /HEIC/);
+    assert.match(await rejection(prepareUploadBytes(heic, "image/heic", FLYER, sharp)), /HEIC/);
     assert.match(await rejection(prepareUploadBytes(bytes("just text"), "image/gif", COVER, sharp)), /isn't one/);
   });
 
@@ -399,6 +412,42 @@ describe("prepareUploadBytes: what is kept", () => {
     assert.deepEqual([coverMeta.width, coverMeta.height], [3000, 75]);
     const flyer = await prepareUploadBytes(wide, "image/jpeg", FLYER, sharp);
     assert.equal((await sharp(flyer.bytes).metadata()).width, 4000);
+  });
+
+  it("a file of a kind the form takes is accepted under any label, and stored as what it really is", async () => {
+    // A PNG saved as .jpg (or renamed to get past a picky form) is still a PNG.
+    const png = new Uint8Array(await solid(10, 10).png().withExif({ IFD0: { Copyright: "x" } }).toBuffer());
+    for (const label of ["image/jpeg", "image/webp", "application/pdf", "application/octet-stream", ""]) {
+      const prepared = await prepareUploadBytes(png, label, COVER, sharp);
+      assert.equal(prepared.contentType, "image/png", label);
+      assert.equal(prepared.extension, "png", label);
+      assert.equal(prepared.metadataRemoved, true, label);
+      const meta = await sharp(prepared.bytes).metadata();
+      assert.equal(meta.format, "png", label);
+      assert.equal(meta.exif, undefined, label);
+    }
+    // The same without sharp: the PNG fallback strips it as a PNG.
+    const fallback = await prepareUploadBytes(png, "image/jpeg", COVER, null);
+    assert.deepEqual([fallback.contentType, fallback.extension, fallback.metadataRemoved], ["image/png", "png", true]);
+
+    const webp = new Uint8Array(await solid(10, 10).webp().toBuffer());
+    const asJpeg = await prepareUploadBytes(webp, "image/jpeg", COVER, sharp);
+    assert.deepEqual([asJpeg.contentType, asJpeg.extension], ["image/webp", "webp"]);
+
+    // A PDF flyer labeled as a picture is a PDF flyer, stored exactly as uploaded…
+    const pdf = minimalPdf();
+    const pdfFlyer = await prepareUploadBytes(pdf, "image/png", FLYER, sharp);
+    assert.deepEqual([pdfFlyer.contentType, pdfFlyer.extension, pdfFlyer.metadataRemoved], ["application/pdf", "pdf", false]);
+    assert.deepEqual(pdfFlyer.bytes, pdf);
+    // …and still has to pass the PDF checks.
+    const js = minimalPdf("4 0 obj << /S /JavaScript /JS (app.alert(1)) >> endobj\n");
+    assert.match(await rejection(prepareUploadBytes(js, "image/jpeg", FLYER, sharp)), /scripts.*\(JavaScript\)/);
+
+    // A picture labeled as a PDF is a picture, cleaned like any other.
+    const jpeg = await phoneJpeg();
+    const jpegFlyer = await prepareUploadBytes(jpeg, "application/pdf", FLYER, sharp);
+    assert.deepEqual([jpegFlyer.contentType, jpegFlyer.extension, jpegFlyer.metadataRemoved], ["image/jpeg", "jpg", true]);
+    assert.equal((await sharp(jpegFlyer.bytes).metadata()).exif, undefined);
   });
 
   it("accepts older browsers' names for JPEG and PNG", async () => {

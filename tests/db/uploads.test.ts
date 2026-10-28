@@ -115,6 +115,21 @@ describe("uploadFlyer", () => {
     assert.equal(testState.blobPuts[0].size, pdf.length, "stored exactly as uploaded");
   });
 
+  it("stores a file named or labeled as another accepted kind under what it really is", async () => {
+    const png = await sharp({ create: { width: 30, height: 20, channels: 3, background: "#123456" } }).png().toBuffer();
+    await flyerUpload.uploadFlyer(new File([png], "flyer.jpg", { type: "image/jpeg" }), "event-flyers");
+    const pdf = Buffer.from("%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n", "latin1");
+    await flyerUpload.uploadFlyer(new File([pdf], "flyer.png", { type: "image/png" }), "trip-flyers");
+
+    assert.equal(testState.blobPuts.length, 2);
+    const [image, document] = testState.blobPuts;
+    assert.match(image.pathname, /^event-flyers\/[0-9a-f-]{36}\.png$/);
+    assert.equal(image.options?.contentType, "image/png");
+    assert.match(document.pathname, /^trip-flyers\/[0-9a-f-]{36}\.pdf$/);
+    assert.equal(document.options?.contentType, "application/pdf");
+    assert.equal(document.size, pdf.length, "stored exactly as uploaded");
+  });
+
   it("refuses a disguised or active file with a readable message, uploading nothing", async () => {
     const page = new File(["<html><script>steal()</script></html>"], "flyer.jpg", { type: "image/jpeg" });
     await assert.rejects(flyerUpload.uploadFlyer(page, "event-flyers"), (error: Error) => {
@@ -167,6 +182,31 @@ describe("album actions", () => {
     assert.ok(result !== "redirect" && /SVG/.test(result.error ?? ""), JSON.stringify(result));
     assert.equal(testState.blobPuts.length, 0);
     assert.equal(await db.prisma.photoAlbum.count({ where: { title: "SVG cover" } }), 0);
+  });
+
+  it("takes a cover photo saved under the wrong extension, but never a PDF", async () => {
+    const png = await sharp({ create: { width: 40, height: 30, channels: 3, background: "#204060" } })
+      .png()
+      .withExif({ IFD3: { GPSLatitudeRef: "N", GPSLatitude: "40/1 39/1 0/1" } })
+      .toBuffer();
+    const renamed = new File([png], "cover.jpg", { type: "image/jpeg" });
+    const saved = await outcome(runAs(admin, () => albums.createAlbumAction({}, albumForm({ title: "Renamed PNG cover" }, renamed))));
+    assert.equal(saved, "redirect");
+    assert.equal(testState.blobPuts.length, 1);
+    assert.match(testState.blobPuts[0].pathname, /^album-covers\/[0-9a-f-]{36}\.png$/);
+    assert.equal(testState.blobPuts[0].options?.contentType, "image/png");
+    const album = await db.prisma.photoAlbum.findFirstOrThrow({ where: { title: "Renamed PNG cover" } });
+    assert.equal(album.coverImageUrl, testState.blobPuts[0].url);
+
+    resetTestState();
+    const pdf = Buffer.from("%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n", "latin1");
+    const pdfCover = new File([pdf], "cover.jpg", { type: "image/jpeg" });
+    const refused = await outcome(runAs(admin, () => albums.createAlbumAction({}, albumForm({ title: "PDF cover" }, pdfCover))));
+    assert.deepEqual(refused, {
+      error: "Cover image must be a JPEG, PNG, WEBP, or GIF, and this file is really a PDF, whatever its name says.",
+    });
+    assert.equal(testState.blobPuts.length, 0);
+    assert.equal(await db.prisma.photoAlbum.count({ where: { title: "PDF cover" } }), 0);
   });
 
   it("deletes the new cover again when the album can't be saved", async (t) => {
