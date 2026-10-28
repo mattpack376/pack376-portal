@@ -10,6 +10,7 @@ import { PDFDocument } from "pdf-lib";
 import {
   FLYER_MEDIA_TYPES,
   IMAGE_MEDIA_TYPES,
+  MAX_ANIMATION_PIXELS,
   MAX_IMAGE_SIDE,
   MAX_UPLOAD_BYTES,
   UploadRejectedError,
@@ -74,6 +75,29 @@ function gifHeaders(frames: number, width: number, height: number) {
   const parts = [bytes("GIF89a"), Uint8Array.from([width & 0xff, width >> 8, height & 0xff, height >> 8, 0, 0, 0])];
   for (let i = 0; i < frames; i++) {
     parts.push(Uint8Array.from([0x2c, 0, 0, 0, 0, width & 0xff, width >> 8, height & 0xff, height >> 8, 0, 2, 2, 0x4c, 0x01, 0]));
+  }
+  parts.push(Uint8Array.from([0x3b]));
+  return join(...parts);
+}
+
+/**
+ * A real, decodable animated GIF on a width×height screen whose frames each
+ * draw one pixel: as many pixels to decode as a full-size animation, in a
+ * file of a few kilobytes that's quick to save again.
+ */
+function sparseGif(frames: number, width: number, height: number) {
+  const parts = [
+    bytes("GIF89a"),
+    Uint8Array.from([width & 0xff, width >> 8, height & 0xff, height >> 8, 0x80, 0, 0]),
+    Uint8Array.from([20, 40, 120, 250, 200, 0]), // a two-color global color table
+    Uint8Array.from([0x21, 0xff, 0x0b]),
+    bytes("NETSCAPE2.0"),
+    Uint8Array.from([3, 1, 0, 0, 0]), // loop forever
+  ];
+  for (let i = 0; i < frames; i++) {
+    const x = i % width;
+    parts.push(Uint8Array.from([0x21, 0xf9, 4, 0, 10, 0, 0, 0])); // each frame shows for 0.1 seconds
+    parts.push(Uint8Array.from([0x2c, x & 0xff, x >> 8, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0x4c, 0x01, 0]));
   }
   parts.push(Uint8Array.from([0x3b]));
   return join(...parts);
@@ -193,7 +217,21 @@ describe("prepareUploadBytes: what is turned away", () => {
     assert.match(await rejection(prepareUploadBytes(pngHeader(10_000, 6_000), "image/png", COVER, sharp)), /10,000 × 6,000 pixels.*too large/);
     assert.match(await rejection(prepareUploadBytes(pngHeader(MAX_IMAGE_SIDE + 1, 10), "image/png", COVER, sharp)), /too large/);
     assert.match(await rejection(prepareUploadBytes(gifHeaders(301, 2, 2), "image/gif", COVER, sharp)), /301 frames/);
-    assert.match(await rejection(prepareUploadBytes(gifHeaders(250, 500, 500), "image/gif", COVER, sharp)), /across 250 frames/);
+  });
+
+  it("animations too large to decode safely: by the frame, and all frames together", async () => {
+    assert.equal(
+      await rejection(prepareUploadBytes(gifHeaders(2, 8000, 7000), "image/gif", FLYER, sharp)),
+      "Flyer is 8,000 × 7,000 pixels, which is too large. The limit is 12,000 pixels on a side and 50 megapixels a frame — resize it and try again.",
+    );
+    // One frame more than fits at 1080 × 1080.
+    assert.equal(Math.floor(MAX_ANIMATION_PIXELS / (1080 * 1080)), 171);
+    assert.equal(
+      await rejection(prepareUploadBytes(gifHeaders(172, 1080, 1080), "image/gif", FLYER, sharp)),
+      "Flyer is 1,080 × 1,080 pixels across 172 frames, which is too large. An animation can have up to 200 megapixels " +
+        "across all its frames — 171 frames at this size. Make it smaller or shorter and try again.",
+    );
+    assert.match(await rejection(prepareUploadBytes(gifHeaders(97, 1920, 1080), "image/gif", COVER, sharp)), /across 97 frames.*96 frames at this size/);
   });
 
   it("damaged files", async (t) => {
@@ -397,6 +435,24 @@ describe("prepareUploadBytes: what is kept", () => {
     assert.deepEqual(fallback.bytes, webp);
     // A cover photo is refused instead of being stored with its metadata.
     assert.match(await rejection(prepareUploadBytes(webp, "image/webp", COVER, null)), /can't be processed right now/);
+  });
+
+  it("ordinary animated flyers are taken: 100 frames at 1080 × 1080, 60 at 1920 × 1080, and up to the limit", async () => {
+    // Each was refused when every frame counted against the 50-megapixel limit for a still image.
+    for (const [frames, width, height] of [
+      [48, 1080, 1080],
+      [100, 1080, 1080],
+      [60, 1920, 1080],
+      [171, 1080, 1080],
+    ]) {
+      const gif = sparseGif(frames, width, height);
+      const prepared = await prepareUploadBytes(gif, "image/gif", FLYER, sharp);
+      assert.equal(prepared.contentType, "image/gif");
+      const meta = await sharp(prepared.bytes, { animated: true }).metadata();
+      assert.deepEqual([meta.pages, meta.width, meta.pageHeight], [frames, width, height], `${frames} × ${width} × ${height}`);
+      assert.equal(meta.delay?.[0], 100, "frame timing kept");
+      assert.equal(meta.loop, 0, "still loops forever");
+    }
   });
 
   it("animations keep every frame", async () => {

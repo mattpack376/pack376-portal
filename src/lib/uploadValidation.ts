@@ -64,11 +64,21 @@ export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 /** Longest side, in pixels, of an accepted image. A 24x36 poster at 300 dpi is 10,800. */
 export const MAX_IMAGE_SIDE = 12_000;
 /**
- * Most pixels in an accepted image, counting every frame of an animation.
- * Decoding takes about 4 bytes a pixel, so this keeps one upload to roughly
+ * Most pixels in an accepted still image, and in each frame of an animation.
+ * Decoding takes about 4 bytes a pixel, so this keeps one picture to roughly
  * 200 MB of memory. A 48-megapixel phone photo fits.
  */
 export const MAX_IMAGE_PIXELS = 50_000_000;
+/**
+ * Most pixels in an accepted animation, adding up every frame: a 1080 × 1080
+ * animation can run to 171 frames, a 1920 × 1080 one to 96. Larger than
+ * MAX_IMAGE_PIXELS because sharp decodes and saves an animation a frame at a
+ * time, so its memory follows the size of a frame rather than the number of
+ * them: re-saving a GIF or WEBP animation at this limit took a whole Node
+ * process to about 300 MB at most, measured with sharp 0.35. What does grow
+ * with the total is the time it takes (see reencodeImage).
+ */
+export const MAX_ANIMATION_PIXELS = 200_000_000;
 export const MAX_ANIMATION_FRAMES = 300;
 
 /** A file turned down for a reason the person uploading it can act on; the message says what to do. */
@@ -615,7 +625,9 @@ async function reencodeImage(
       // "error" rather than the stricter default "warning": many cameras write
       // JPEGs with harmless quirks that libjpeg only warns about.
       failOn: "error",
-      limitInputPixels: MAX_IMAGE_PIXELS,
+      // sharp counts every frame of an animation against this, so it backs
+      // up the header checks in prepareUploadBytes with the same budgets.
+      limitInputPixels: animated ? MAX_ANIMATION_PIXELS : MAX_IMAGE_PIXELS,
     });
     const metadata = await input.metadata();
     // The header checks already agreed on the format, so a different answer
@@ -646,7 +658,14 @@ async function reencodeImage(
         pipeline = pipeline.webp(isLosslessWebp(bytes) ? { lossless: true, ...timing } : { quality: 88, ...timing });
         break;
       case "image/gif":
-        pipeline = pipeline.gif(timing);
+        // Saving a GIF means choosing every frame's colors again, which is
+        // most of the time a long animation takes. For an animation, the
+        // quickest setting without dithering halves that — on a recent Mac,
+        // about 6½ seconds instead of 13 for 100 photo-like 1080 × 1080
+        // frames, 11 instead of 21 at MAX_ANIMATION_PIXELS — and since its
+        // frames already have 256 colors or fewer, they come out less than
+        // one shade in 255 away from what they were, on average.
+        pipeline = pipeline.gif(animated ? { ...timing, effort: 1, dither: 0 } : {});
         break;
     }
     // Default output keeps no metadata: no EXIF, XMP, IPTC or comments.
@@ -752,15 +771,21 @@ export async function prepareUploadBytes(
       `${rules.label} is an animation with ${info.frames} frames; the most allowed is ${MAX_ANIMATION_FRAMES}.`,
     );
   }
-  if (
-    info.width > MAX_IMAGE_SIDE ||
-    info.height > MAX_IMAGE_SIDE ||
-    info.width * info.height * info.frames > MAX_IMAGE_PIXELS
-  ) {
+  const size = `${info.width.toLocaleString("en-US")} × ${info.height.toLocaleString("en-US")} pixels`;
+  const framePixels = info.width * info.height;
+  if (info.width > MAX_IMAGE_SIDE || info.height > MAX_IMAGE_SIDE || framePixels > MAX_IMAGE_PIXELS) {
     throw new UploadRejectedError(
-      `${rules.label} is ${info.width.toLocaleString("en-US")} × ${info.height.toLocaleString("en-US")} pixels` +
-        `${info.frames > 1 ? ` across ${info.frames} frames` : ""}, which is too large. ` +
-        `The limit is ${MAX_IMAGE_SIDE.toLocaleString("en-US")} pixels on a side and ${MAX_IMAGE_PIXELS / 1_000_000} megapixels in all — resize it and try again.`,
+      `${rules.label} is ${size}, which is too large. The limit is ${MAX_IMAGE_SIDE.toLocaleString("en-US")} pixels on a side ` +
+        `and ${MAX_IMAGE_PIXELS / 1_000_000} megapixels ${info.frames > 1 ? "a frame" : "in all"} — resize it and try again.`,
+    );
+  }
+  // An animation has its own, larger budget for all its frames together (see MAX_ANIMATION_PIXELS).
+  if (framePixels * info.frames > MAX_ANIMATION_PIXELS) {
+    const framesThatFit = Math.min(MAX_ANIMATION_FRAMES, Math.floor(MAX_ANIMATION_PIXELS / framePixels));
+    throw new UploadRejectedError(
+      `${rules.label} is ${size} across ${info.frames} frames, which is too large. An animation can have up to ` +
+        `${MAX_ANIMATION_PIXELS / 1_000_000} megapixels across all its frames — ${framesThatFit} frames at this size. ` +
+        `Make it smaller or shorter and try again.`,
     );
   }
 
