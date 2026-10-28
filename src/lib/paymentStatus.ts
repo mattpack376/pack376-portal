@@ -22,6 +22,18 @@ export function paymentStatus(remainingCents: number | null, paidCents: number):
 }
 
 /**
+ * Status for a family looking at its own balance. Says only whether anything
+ * is owed: "Partial" and "Overpaid" are left out because they reveal that, or
+ * how much, the pack has been paid — families see what they owe and nothing
+ * the pack has collected.
+ */
+export function owedStatus(remainingCents: number | null): PaymentStatus {
+  if (remainingCents === null) return { label: "Fee Not Set", cls: "badge-pending" };
+  if (remainingCents <= 0) return { label: "Nothing Owed", cls: "badge-paid" };
+  return { label: "Balance Due", cls: "badge-unpaid" };
+}
+
+/**
  * Row color for a list of people who owe money — red while anything is
  * outstanding, green once it's settled, and nothing at all when no fee has
  * been set, since "Fee Not Set" is not the same as owing nothing and

@@ -19,7 +19,7 @@ import SubmitButton from "@/components/SubmitButton";
 import GuestSelfRegistrationForm from "@/components/GuestSelfRegistrationForm";
 import { registerMyScoutsForEventAction, removeMyGuestGroupAction } from "@/lib/actions/events";
 import type { Rank } from "@/generated/prisma/enums";
-import { paymentStatus, paymentRowClass } from "@/lib/paymentStatus";
+import { owedStatus, paymentRowClass } from "@/lib/paymentStatus";
 
 /**
  * The Parent Dashboard, rendered for an explicit set of scouts rather than
@@ -303,16 +303,14 @@ export default async function ParentDashboardView({
               <p style={{ marginBottom: 0 }}>Dues amount for this scouting year hasn&apos;t been set yet.</p>
             ) : scout.dues.remainingCents !== null && scout.dues.remainingCents <= 0 ? (
               <p style={{ marginBottom: 0 }}>
-                <span className="badge-pill badge-paid" style={{ marginRight: 8 }}>Paid in Full</span>
-                {formatCents(scout.dues.paidCents)} paid.
+                <span className="badge-pill badge-paid" style={{ marginRight: 8 }}>Nothing Owed</span>
               </p>
             ) : (
               <p className="pill-lead" style={{ marginBottom: 0 }}>
                 <span className="badge-pill badge-pending" style={{ marginRight: 8 }}>
                   {formatCents(scout.dues.remainingCents ?? 0)} Due
                 </span>
-                {formatCents(scout.dues.paidCents)} of {formatCents(scout.dues.amountCents)} paid so far — see the
-                Committee Treasurer or Committee Chair to make a payment.
+                See the Committee Treasurer or Committee Chair to make a payment.
               </p>
             )}
             </>
@@ -384,7 +382,7 @@ export default async function ParentDashboardView({
                                 sorting out a refund, so only an Admin can remove it
                                 (removeMyGuestGroupAction refuses it too). */}
                             {!readOnly && g.paidCents > 0 && (
-                              <span className="form-note" style={{ marginTop: 0 }}>Paid — contact the pack to cancel</span>
+                              <span className="form-note" style={{ marginTop: 0 }}>Contact the pack to cancel</span>
                             )}
                             {!readOnly && g.paidCents === 0 && <form action={removeMyGuestGroupAction}>
                               <input type="hidden" name="guestGroupId" value={g.id} />
@@ -428,7 +426,7 @@ export default async function ParentDashboardView({
       </div>
       {eventPaymentGroups.length === 0 ? (
         <div className="info-card" style={{ marginBottom: 32 }}>
-          <p>No paid events on the books for your scout(s) or any guests you&apos;ve registered right now.</p>
+          <p>No events with a balance for your scout(s) or any guests you&apos;ve registered right now.</p>
         </div>
       ) : (
         <>
@@ -450,19 +448,17 @@ export default async function ParentDashboardView({
                       <thead>
                         <tr>
                           <th>Scout</th>
-                          <th>Paid</th>
-                          <th>Remaining</th>
+                          <th>Amount Owed</th>
                           <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {regs.map((reg) => {
-                          const status = paymentStatus(reg.remainingCents, reg.paidCents);
+                          const status = owedStatus(reg.remainingCents);
                           return (
                             <tr key={reg.id} className={paymentRowClass(reg.remainingCents, reg.paidCents)}>
                               <td>{reg.scoutFirstName}</td>
-                              <td data-label="Paid">{formatCents(reg.paidCents)}</td>
-                              <td data-label="Remaining">{formatCents(reg.remainingCents)}</td>
+                              <td data-label="Amount Owed">{formatCents(Math.max(reg.remainingCents, 0))}</td>
                               <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                             </tr>
                           );
@@ -483,21 +479,19 @@ export default async function ParentDashboardView({
                           <th>Family Name / Guest Name</th>
                           <th>Adults</th>
                           <th>Kids</th>
-                          <th>Paid</th>
-                          <th>Remaining</th>
+                          <th>Amount Owed</th>
                           <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {guestGroups.map((group) => {
-                          const status = paymentStatus(group.remainingCents, group.paidCents);
+                          const status = owedStatus(group.remainingCents);
                           return (
                             <tr key={group.id} className={paymentRowClass(group.remainingCents, group.paidCents)}>
                               <td>{group.familyName}</td>
                               <td data-label="Adults">{group.adultCount}</td>
                               <td data-label="Kids">{group.childCount}</td>
-                              <td data-label="Paid">{formatCents(group.paidCents)}</td>
-                              <td data-label="Remaining">{formatCents(group.remainingCents)}</td>
+                              <td data-label="Amount Owed">{formatCents(Math.max(group.remainingCents, 0))}</td>
                               <td data-label="Status"><span className={`badge-pill ${status.cls}`}>{status.label}</span></td>
                             </tr>
                           );

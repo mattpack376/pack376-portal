@@ -1148,7 +1148,7 @@ export async function removeMyGuestGroupAction(formData: FormData) {
       // Refused, not kept-and-deleted: once the pack holds a family's money,
       // cancelling is a conversation about a refund, so an Admin does it
       // (removeGuestGroupAction keeps the payments in Payment Records).
-      throw new Error("This guest group has payments recorded, so it can't be removed here. Contact the pack to cancel it.");
+      throw new Error("This guest group can't be removed here. Contact the pack to cancel it.");
     }
     return tx.eventGuestGroup.delete({ where: { id: guestGroupId } });
   });

@@ -35,8 +35,8 @@ import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
  * reads session.denIds covers it with no special case.
  *
  * One permission is per person rather than per level: Raffle Helper, which an
- * Admin switches on for a specific login of any level below Admin (a parent
- * account included). See raffleAccessFor below.
+ * Admin switches on for a specific staff login below Admin. Never a parent
+ * account: parents see nothing about the 50/50. See raffleAccessFor below.
  *
  * The Committee & Leaders contact list is the one thing every staff level can
  * see — read-only for everyone but an Admin, who edits it (requireAdminSession
@@ -416,8 +416,9 @@ export type RaffleAccess = "admin" | "helper" | "viewer";
 
 /**
  * The levels that can hold the Raffle Helper permission: every individual
- * login below Admin. Not Admin (already has everything) and not Trip Viewer,
- * which is a shared login rather than a person. Mirrors the
+ * staff login below Admin. Not Admin (already has everything), not Trip
+ * Viewer (a shared login rather than a person), and never PARENT — parents
+ * must not see the 50/50 or any money the pack has collected. Mirrors the
  * /portal/admin/raffles rule in src/proxy.ts.
  */
 export const RAFFLE_HELPER_ROLES: SessionPayload["role"][] = [
@@ -426,7 +427,6 @@ export const RAFFLE_HELPER_ROLES: SessionPayload["role"][] = [
   "DEN",
   "ATTENDANCE_ADMIN",
   "PHOTOGRAPHER",
-  "PARENT",
 ];
 
 export async function raffleAccessFor(session: Session): Promise<RaffleAccess | null> {
