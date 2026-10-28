@@ -126,6 +126,10 @@ describe("the public registration form", () => {
     const trip = await freshTrip(db.prisma);
     testState.rateLimited = true;
     assert.match((await register(actions, familyForm(trip.id))).error ?? "", /Too many registration attempts/);
+    assert.deepEqual(testState.rateLimitCalls.at(-1), {
+      rateLimitId: "portal-login",
+      rateLimitKey: "trip-registration:127.0.0.1",
+    });
     assert.equal((await registrationsOf(db.prisma, trip.id)).length, 0);
   });
 

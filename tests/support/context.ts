@@ -36,6 +36,10 @@ type TestState = {
   blobDeletes: string[];
   revalidated: string[];
   rateLimited: boolean;
+  /** Set to "not-found" to fake a missing Firewall rule (see mocks/firewall.mjs). */
+  rateLimitError: "not-found" | null;
+  /** Every rate-limit check made, in order. */
+  rateLimitCalls: { rateLimitId: string; rateLimitKey?: string }[];
   failBlobPut: boolean;
   failBlobDel: boolean;
   /** Host used in fake Blob URLs (see mocks/blob.mjs). */
@@ -59,7 +63,8 @@ export type SessionUser = {
 };
 
 function requestHeaders(extra?: Record<string, string>) {
-  return new Headers({ "x-forwarded-for": "127.0.0.1", "user-agent": "pack376-tests", ...extra });
+  // x-real-ip is what Vercel sets and what the rate limiter counts by.
+  return new Headers({ "x-forwarded-for": "127.0.0.1", "x-real-ip": "127.0.0.1", "user-agent": "pack376-tests", ...extra });
 }
 
 /** Runs fn as a signed-in user (real signed token, real getSession checks). */
@@ -121,6 +126,8 @@ export function resetTestState() {
   testState.blobDeletes.length = 0;
   testState.revalidated.length = 0;
   testState.rateLimited = false;
+  testState.rateLimitError = null;
+  testState.rateLimitCalls.length = 0;
   testState.failBlobPut = false;
   testState.failBlobDel = false;
   testState.blobHost = "test.public.blob.vercel-storage.com";

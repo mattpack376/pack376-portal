@@ -436,6 +436,7 @@ describe("finishing a reset link", () => {
     testState.rateLimited = true;
     const counts = countBcrypt();
     assert.match(errorOf(await complete(token, "brand-new-password")), /Too many/);
+    assert.deepEqual(testState.rateLimitCalls.at(-1), { rateLimitId: "portal-login", rateLimitKey: "reset:127.0.0.1" });
     assert.equal(counts.hash, 0);
     assert.equal(await usableLinkCount(user.id), 1, "the link is untouched");
     assert.equal(await auditCount("user.setOwnPassword", user.id), 0);

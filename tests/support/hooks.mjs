@@ -18,6 +18,8 @@ globalThis.__pack376Test ??= {
   blobDeletes: [],
   revalidated: [],
   rateLimited: false,
+  rateLimitError: null,
+  rateLimitCalls: [],
   failBlobPut: false,
   failBlobDel: false,
   blobHost: "test.public.blob.vercel-storage.com",

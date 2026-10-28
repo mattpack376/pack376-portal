@@ -61,27 +61,32 @@ Then, on production:
 ### 1.2 Rate limiting (Vercel Firewall)
 
 The sign-in form, the set-your-password (reset/invite link) form and the
-public trip registration form each ask the Vercel Firewall whether the visitor
-is over a limit, by rule name:
+public trip registration form all check **one** Vercel Firewall rule, ID
+`portal-login`. The Hobby plan allows only one rate-limit rule, so the three
+share it (`src/lib/rateLimit.ts`), but each form keeps its own count per IP
+address: sign-in uses the rule's own per-IP count, the reset form counts as
+`reset:<ip>` and trip registration as `trip-registration:<ip>`. A family that
+has just registered for a trip can still sign in.
 
-| Rule name (exact)   | Used by                                   | Suggested limit                         |
-| ------------------- | ----------------------------------------- | --------------------------------------- |
-| `portal-login`      | portal sign-in                            | 10 requests per minute per IP address   |
-| `portal-reset`      | finishing a reset or invite link          | 10 requests per 10 minutes per IP address |
-| `trip-registration` | public sign-up on conron./cyclones. sites | 20 requests per 10 minutes per IP address |
+As of 2026-10-28 the rule ("Login Limit") is a fixed window of 6 requests per
+60 seconds, keys "API controlled", then 429. Those numbers apply to all three
+forms at once. Trip registration is the one to watch: at a pack meeting many
+families sign up from the same school Wi-Fi, which is one IP address, so more
+than 6 sign-ups in one minute from there would be told to wait. If that
+happens, raise the rule's limit (around 10–20 per minute is still fine for
+sign-in, which also has account lockout).
 
-The trip limit is looser on purpose: at a pack meeting many families sign up
-from the same school Wi-Fi, which is one IP address.
-
-- [ ] Vercel → Firewall → all three rules exist, are enabled, and their IDs
-      match the names above exactly. (`portal-reset` is new with the October 27
-      fixes; until it exists, finishing a link fails open and logs
-      `[rate limit] no "portal-reset" rule in the Vercel Firewall`.)
+- [ ] Vercel → Firewall → the `@vercel/firewall` rule with rate limit ID
+      `portal-login` exists and is enabled. Don't rename it without changing
+      `RATE_LIMIT_RULE_ID` in `src/lib/rateLimit.ts` in the same release.
 - [ ] Vercel → Logs, search for `[rate limit] no "` — there should be no hits.
+- [ ] If the account moves to Pro, separate rules with their own numbers become
+      possible; that needs a code change in `rateLimit.ts` as well as the rules.
 
 **The app fails open on purpose.** If a rule is missing or misnamed, the SDK
 reports "not found", the app logs `[rate limit] no "portal-login" rule in the
-Vercel Firewall` (or `trip-registration`) and carries on without a limit — a
+Vercel Firewall (checked by reset)` (or `login` / `trip-registration`) and
+carries on without a limit — a
 Firewall mistake must not lock every leader out. What still protects the site
 then:
 

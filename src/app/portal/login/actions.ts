@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { checkRateLimit } from "@vercel/firewall";
+import { isRateLimited } from "@/lib/rateLimit";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionCookie, isLockedOut, lockedUntilForCount } from "@/lib/auth";
 import { recordAuditAs, clientIpFromHeaders, UNKNOWN_ACCOUNT_ACTOR, type AuditActor } from "@/lib/audit";
@@ -40,15 +40,11 @@ const TIMING_DUMMY_HASH = "$2b$12$T8KZcTJ2XebuePfsQWn97ueyg9eYenLYnQgR1kE4h/I.LG
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
   // Caps attempts per IP before any DB/bcrypt work runs, regardless of
   // whether the username exists — closing the CPU-cost DoS the dummy-hash
-  // timing fix above otherwise leaves open. Enforced by a matching "portal-login"
-  // rate limit rule in the Vercel Firewall dashboard; fails open (no-op) if that
-  // rule isn't configured, so this alone doesn't throttle anything by itself.
+  // timing fix above otherwise leaves open. Enforced by the shared
+  // "portal-login" rule in the Vercel Firewall (see rateLimit.ts); fails open,
+  // with a log line, if that rule isn't configured.
   const headerList = await headers();
-  const { rateLimited, error: rateLimitError } = await checkRateLimit("portal-login", { headers: headerList });
-  // Failing open is silent otherwise — this line in the Vercel logs is the
-  // only sign the Firewall rule is gone.
-  if (rateLimitError === "not-found") console.error('[rate limit] no "portal-login" rule in the Vercel Firewall');
-  if (rateLimited) {
+  if (await isRateLimited("login", headerList)) {
     // Deliberately not audited. This branch exists to stop doing work for a
     // flood of requests, and writing a row per blocked attempt would hand that
     // flood a database write each — turning the defence into the amplifier it

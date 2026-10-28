@@ -89,6 +89,7 @@ describe("loginAction", () => {
     const before = await db.prisma.auditLog.count();
     const outcome = await signIn("limited-user", "wrong-password");
     assert.match(outcome.kind === "state" ? (outcome.state.error ?? "") : "", /Too many login attempts/);
+    assert.deepEqual(testState.rateLimitCalls.at(-1), { rateLimitId: "portal-login", rateLimitKey: undefined });
     assert.equal(counts.compare, 0);
     assert.equal(await db.prisma.auditLog.count(), before);
     assert.equal((await db.prisma.user.findUniqueOrThrow({ where: { username: "limited-user" } })).failedLoginCount, 0);

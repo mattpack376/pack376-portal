@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { checkRateLimit } from "@vercel/firewall";
+import { isRateLimited } from "@/lib/rateLimit";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
@@ -187,14 +187,12 @@ export async function registerForTripAction(
 async function submitTripRegistration(formData: FormData): Promise<RegisterForTripState> {
   if (String(formData.get("website") || "").trim() !== "") return {};
 
-  // Before any database work, the same way loginAction does it. Enforced by a
-  // matching "trip-registration" rule in the Vercel Firewall dashboard; with
-  // no such rule this is a no-op, which is why the per-email ceiling further
-  // down is enforced in the database rather than relying on this.
-  const { rateLimited, error: rateLimitError } = await checkRateLimit("trip-registration", { headers: await headers() });
-  // Same as loginAction: the log line is the only sign the Firewall rule is missing.
-  if (rateLimitError === "not-found") console.error('[rate limit] no "trip-registration" rule in the Vercel Firewall');
-  if (rateLimited) {
+  // Before any database work, the same way loginAction does it. Counted per IP
+  // under the shared Firewall rule, separately from sign-in (see
+  // rateLimit.ts). If the rule is missing this is a no-op, which is why the
+  // per-email ceiling further down is enforced in the database rather than
+  // relying on this.
+  if (await isRateLimited("trip-registration", await headers())) {
     return { error: "Too many registration attempts from this connection. Try again in a few minutes." };
   }
 

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { checkRateLimit } from "@vercel/firewall";
+import { isRateLimited } from "@/lib/rateLimit";
 import { hashPassword, createSessionCookie } from "@/lib/auth";
 import {
   DEAD_LINK_TEXT,
@@ -49,15 +49,11 @@ export async function completeResetAction(
   _prevState: CompleteResetState,
   formData: FormData
 ): Promise<CompleteResetState> {
-  // Before anything else, like loginAction. Enforced by a matching
-  // "portal-reset" rate limit rule in the Vercel Firewall dashboard; with no
-  // such rule this is a no-op, so the bounds and the cheap link check below
+  // Before anything else, like loginAction. Counted per IP under the shared
+  // Firewall rule, separately from sign-in (see rateLimit.ts). If the rule is
+  // missing this is a no-op, so the bounds and the cheap link check below
   // are what keep junk requests from costing a bcrypt hash.
-  const { rateLimited, error: rateLimitError } = await checkRateLimit("portal-reset", { headers: await headers() });
-  // Failing open is silent otherwise — this line in the Vercel logs is the
-  // only sign the Firewall rule is gone.
-  if (rateLimitError === "not-found") console.error('[rate limit] no "portal-reset" rule in the Vercel Firewall');
-  if (rateLimited) {
+  if (await isRateLimited("reset", await headers())) {
     // Not audited, for the same reason a rate-limited sign-in isn't.
     return { error: "Too many attempts from this connection. Try again in a few minutes." };
   }
