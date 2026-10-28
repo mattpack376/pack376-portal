@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Baloo_2, Poppins } from "next/font/google";
+import ChromeIosScrollReset from "@/components/ChromeIosScrollReset";
 import FilteredAnalytics from "@/components/FilteredAnalytics";
 import { getPublicBaseUrl } from "@/lib/appUrl";
 import "./globals.css";
@@ -52,6 +53,7 @@ export default function RootLayout({
       </head>
       <body>
         {children}
+        <ChromeIosScrollReset />
         <FilteredAnalytics />
       </body>
     </html>
