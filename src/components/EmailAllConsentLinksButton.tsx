@@ -5,7 +5,7 @@ import {
   emailAllUnansweredConsentLinksAction,
   type EmailAllConsentLinksState,
 } from "@/lib/actions/photoConsent";
-import { keyForPress, orUnreachable, type Press } from "@/lib/requestKey";
+import { SIGNED_OUT_HINT, keyForPress, orUnreachable, type Press } from "@/lib/requestKey";
 
 const initialState: EmailAllConsentLinksState = {};
 
@@ -44,7 +44,7 @@ export function emailAllMessage(state: EmailAllConsentLinksState): EmailAllNote 
   if (state.unreachable) {
     return {
       tone: "alert",
-      text: "Couldn't get an answer from the server, so we don't know whether the emails went out. Press Email All again to retry: any family they did reach won't get a second copy.",
+      text: `Couldn't get an answer from the server, so we don't know whether the emails went out. Press Email All again to retry: any family they did reach won't get a second copy. ${SIGNED_OUT_HINT}`,
     };
   }
   if (state.sent === undefined) return null;

@@ -52,11 +52,25 @@ const TX = { timeout: 15000, maxWait: 10000 };
 const RELOAD = "This page is out of date. Reload it and try again.";
 const NOT_CONFIGURED = "Email isn't set up on the server yet. Use Download PDF and send it yourself.";
 
-async function requireAdmin() {
+const SIGNED_OUT = "You've been signed out, so this didn't go through. Reload the page to sign in again.";
+const ADMINS_ONLY = "Only Admins can use receipts, so this didn't go through.";
+
+/**
+ * The signed-in Admin, or the reason there isn't one — returned, not thrown.
+ * A thrown error reaches the page the same way as a call that got no answer
+ * at all, so the receipt controls would have to say they don't know whether
+ * anything was saved or sent and to press again; here it's certain nothing
+ * was, and pressing again would never help.
+ */
+async function adminSession(): Promise<{ ok: true; session: SessionPayload } | { ok: false; error: string }> {
   const session = await getSession();
-  if (!session) throw new Error("Not authorized.");
-  assertAdmin(session);
-  return session;
+  if (!session) return { ok: false, error: SIGNED_OUT };
+  try {
+    assertAdmin(session);
+  } catch {
+    return { ok: false, error: ADMINS_ONLY };
+  }
+  return { ok: true, session };
 }
 
 function auditSummary(verb: string, data: ReceiptData, suffix = "") {
@@ -189,7 +203,9 @@ async function saveReceipt(
 }
 
 export async function generateReceiptAction(input: ReceiptInput, requestKey: string): Promise<GenerateReceiptResult> {
-  const session = await requireAdmin();
+  const admin = await adminSession();
+  if (!admin.ok) return admin;
+  const { session } = admin;
   if (!isReceiptRequestKey(requestKey)) return { ok: false, error: RELOAD };
   const result = validateReceiptInput(input, { requireEmail: false });
   if (!result.ok) return result;
@@ -461,7 +477,9 @@ function failureMessage(verb: "Emailed" | "Re-emailed", to: string, reason: stri
 }
 
 export async function emailReceiptAction(input: ReceiptInput, requestKey: string): Promise<EmailReceiptResult> {
-  const session = await requireAdmin();
+  const admin = await adminSession();
+  if (!admin.ok) return admin;
+  const { session } = admin;
   if (!isReceiptRequestKey(requestKey)) return { ok: false, error: RELOAD };
   const result = validateReceiptInput(input, { requireEmail: true });
   if (!result.ok) return result;
@@ -481,7 +499,9 @@ export async function emailReceiptAction(input: ReceiptInput, requestKey: string
  * Resend form opens, so a retried Send doesn't email it twice.
  */
 export async function resendReceiptAction(id: string, emailTo: string, requestKey: string): Promise<EmailReceiptResult> {
-  const session = await requireAdmin();
+  const admin = await adminSession();
+  if (!admin.ok) return admin;
+  const { session } = admin;
   if (!isReceiptRequestKey(requestKey)) return { ok: false, error: RELOAD };
   const address = String(emailTo ?? "").trim();
   if (!address) return { ok: false, error: "Enter the email address to send the receipt to." };
@@ -501,7 +521,8 @@ export async function resendReceiptAction(id: string, emailTo: string, requestKe
  * differ from the one that went out.
  */
 export async function downloadSavedReceiptAction(id: string): Promise<GenerateReceiptResult> {
-  await requireAdmin();
+  const admin = await adminSession();
+  if (!admin.ok) return admin;
   const issued = typeof id === "string" && id ? await issuedReceipt({ id }) : null;
   if (!issued) return { ok: false, error: "That receipt no longer exists." };
   if (!issued.ok) return issued;
@@ -536,7 +557,9 @@ function distinctAddresses(addresses: (string | null)[]) {
  * be recorded, and this entry couldn't say whether it went out.
  */
 export async function deleteReceiptAction(id: string): Promise<DeleteReceiptResult> {
-  const session = await requireAdmin();
+  const admin = await adminSession();
+  if (!admin.ok) return admin;
+  const { session } = admin;
   if (typeof id !== "string" || !id) return { ok: false, error: "That receipt was already deleted." };
 
   const outcome = await prisma.$transaction(async (tx) => {

@@ -10,6 +10,7 @@ import {
 import { base64PdfFile } from "@/lib/savePdf";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
 import { MAX_EMAIL_LENGTH } from "@/lib/formValues";
+import { SIGNED_OUT_HINT } from "@/lib/requestKey";
 import {
   RECEIPT_KINDS,
   RECEIPT_KIND_INFO,
@@ -47,7 +48,7 @@ export async function receiptPdfOutcome(
     return {
       message: {
         kind: "error",
-        text: "Couldn't get an answer from the server, so we don't know whether the receipt was saved. Press Download PDF again: it won't be saved twice.",
+        text: `Couldn't get an answer from the server, so we don't know whether the receipt was saved. Press Download PDF again: it won't be saved twice. ${SIGNED_OUT_HINT}`,
       },
       file: null,
     };
@@ -74,7 +75,7 @@ export async function emailReceiptOutcome(
   } catch {
     return {
       kind: "error",
-      text: `Couldn't get an answer from the server, so we don't know whether the email to ${to || "that address"} went out. Press Email PDF again to retry: if it did go out, it won't be sent twice.`,
+      text: `Couldn't get an answer from the server, so we don't know whether the email to ${to || "that address"} went out. Press Email PDF again to retry: if it did go out, it won't be sent twice. ${SIGNED_OUT_HINT}`,
     };
   }
   if (!result.ok) return { kind: "error", text: result.error };

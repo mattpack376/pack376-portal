@@ -41,6 +41,14 @@ export function keyForPress(last: Press | null, repeat: boolean, now = Date.now(
 }
 
 /**
+ * Added to each "couldn't get an answer" message. A press from a page whose
+ * session has ended can get no answer either — the portal sends the call to
+ * the sign-in page instead of running it — and pressing again never helps
+ * with that; reloading the page does.
+ */
+export const SIGNED_OUT_HINT = "If this keeps happening, reload the page: you may have been signed out.";
+
+/**
  * A form action for useActionState that never rejects. A Server Action call
  * that gets no answer at all — a dropped connection, a timeout, an error page
  * instead of a result — rejects, and React shows that as the page's error

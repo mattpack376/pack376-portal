@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { downloadSavedReceiptAction, type GenerateReceiptResult } from "@/lib/actions/receipts";
 import { base64PdfFile } from "@/lib/savePdf";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
+import { SIGNED_OUT_HINT } from "@/lib/requestKey";
 
 /**
  * The saved PDF, or why there isn't one. A call that gets no answer at all
@@ -17,7 +18,7 @@ export async function savedReceiptPdf(call: () => Promise<GenerateReceiptResult>
   try {
     result = await call();
   } catch {
-    return { file: null, error: "Couldn't get an answer from the server. Check your connection and press Download PDF again." };
+    return { file: null, error: `Couldn't get an answer from the server. Check your connection and press Download PDF again. ${SIGNED_OUT_HINT}` };
   }
   if (!result.ok) return { file: null, error: result.error };
   return { file: base64PdfFile(result.pdfBase64, result.filename), error: "" };

@@ -216,6 +216,13 @@ export type SendConsentEmailState = {
 const STALE_PAGE = "This page is out of date. Reload it and try again.";
 
 /**
+ * The two email buttons show this as is. Returned rather than thrown: a
+ * thrown error reaches the page like a call that never got an answer, which
+ * the buttons report as "we don't know whether it went out, press again".
+ */
+const SIGNED_OUT = "You've been signed out, so this didn't go through. Reload the page to sign in again.";
+
+/**
  * Admin/den-leader — emails the existing consent link to a parent's address
  * on file. The form names the address it showed on its button; it is only
  * used to pick which stored Parent email of this scout to send to (matched
@@ -231,7 +238,7 @@ export async function sendPhotoConsentLinkEmailAction(
   formData: FormData
 ): Promise<SendConsentEmailState> {
   const session = await getSession();
-  if (!session) return { error: "Not authorized." };
+  if (!session) return { error: SIGNED_OUT };
 
   const scoutId = textField(formData.get("scoutId"));
   const requestedEmail = textField(formData.get("parentEmail"));
@@ -335,7 +342,7 @@ export async function emailAllUnansweredConsentLinksAction(
   formData: FormData
 ): Promise<EmailAllConsentLinksState> {
   const session = await getSession();
-  if (!session) return { error: "Not authorized." };
+  if (!session) return { error: SIGNED_OUT };
   const requestKey = textField(formData.get("requestKey"));
   if (!isRequestKey(requestKey)) return { error: STALE_PAGE };
 

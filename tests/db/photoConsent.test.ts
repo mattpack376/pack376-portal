@@ -12,9 +12,9 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { afterEach, before, describe, it, mock } from "node:test";
 import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
-import { form, resetTestState, runAs, testState, type SessionUser } from "../support/context";
+import { asAnonymous, form, resetTestState, runAs, testState, type SessionUser } from "../support/context";
 import { installControllableResend, resetResendControl } from "../doubles/resend";
-import { newRequestKey } from "@/lib/requestKey";
+import { SIGNED_OUT_HINT, newRequestKey } from "@/lib/requestKey";
 
 const resend = installControllableResend();
 const db = withTestDatabase("photo_consent");
@@ -410,6 +410,23 @@ describe("the consent buttons when the server never answers", () => {
     assert.equal(all.emailAllOutcomeUnknown({ unreachable: true }), true);
     assert.match(single.consentLinkMessage({ unreachable: true })?.text ?? "", /we don't know whether it went out/);
     assert.match(all.emailAllMessage({ unreachable: true })?.text ?? "", /we don't know whether the emails went out/);
+    // A signed-out page can get no answer too, and pressing again never helps that.
+    assert.ok(single.consentLinkMessage({ unreachable: true })?.text.endsWith(` ${SIGNED_OUT_HINT}`));
+    assert.ok(all.emailAllMessage({ unreachable: true })?.text.endsWith(` ${SIGNED_OUT_HINT}`));
+  });
+
+  it("a signed-out press is told so for certain, not 'we don't know whether it went out'", async () => {
+    const { scout } = await makeScout({ emails: ["pat@example.com"] });
+    const signedOut = { error: "You've been signed out, so this didn't go through. Reload the page to sign in again." };
+    const single = await asAnonymous(() =>
+      consent.sendPhotoConsentLinkEmailAction({}, form({ scoutId: scout.id, parentEmail: "pat@example.com", requestKey: newRequestKey() }))
+    );
+    assert.deepEqual(single.result, signedOut);
+    const all = await asAnonymous(() => consent.emailAllUnansweredConsentLinksAction({}, form({ requestKey: newRequestKey() })));
+    assert.deepEqual(all.result, signedOut);
+    const buttons = await import("@/components/EmailConsentLinkButton");
+    assert.deepEqual(buttons.consentLinkMessage(single.result), { tone: "alert", text: signedOut.error });
+    assert.equal(resend.calls.length, 0);
   });
 
   it("the next press repeats the last one's key only while its outcome is unknown and Resend still remembers it", async () => {

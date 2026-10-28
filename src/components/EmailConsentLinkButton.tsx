@@ -2,7 +2,7 @@
 
 import { useActionState, useRef } from "react";
 import { sendPhotoConsentLinkEmailAction, type SendConsentEmailState } from "@/lib/actions/photoConsent";
-import { keyForPress, orUnreachable, type Press } from "@/lib/requestKey";
+import { SIGNED_OUT_HINT, keyForPress, orUnreachable, type Press } from "@/lib/requestKey";
 
 const initialState: SendConsentEmailState = {};
 
@@ -23,7 +23,7 @@ export function consentLinkMessage(state: SendConsentEmailState): ConsentLinkNot
   if (state.unreachable) {
     return {
       tone: "alert",
-      text: "Couldn't get an answer from the server, so we don't know whether it went out. Press the button again to retry: if it did go out, it won't be sent twice.",
+      text: `Couldn't get an answer from the server, so we don't know whether it went out. Press the button again to retry: if it did go out, it won't be sent twice. ${SIGNED_OUT_HINT}`,
     };
   }
   if (state.sent) return { tone: "ok", text: "Sent!" };

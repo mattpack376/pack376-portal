@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { resendReceiptAction, type EmailReceiptResult } from "@/lib/actions/receipts";
 import { MAX_EMAIL_LENGTH } from "@/lib/formValues";
 import { newReceiptRequestKey } from "@/lib/receipts";
+import { SIGNED_OUT_HINT } from "@/lib/requestKey";
 
 type Message = { kind: "ok" | "error"; text: string };
 
@@ -23,7 +24,7 @@ export async function resendOutcome(call: () => Promise<EmailReceiptResult>): Pr
       done: false,
       message: {
         kind: "error",
-        text: "Couldn't get an answer from the server, so we don't know whether it went out. Press Send again to retry: if it did go out, it won't be sent twice.",
+        text: `Couldn't get an answer from the server, so we don't know whether it went out. Press Send again to retry: if it did go out, it won't be sent twice. ${SIGNED_OUT_HINT}`,
       },
     };
   }
