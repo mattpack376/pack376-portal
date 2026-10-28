@@ -376,7 +376,13 @@ export default async function ParentDashboardView({
                           <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
                             <span className="badge-pill badge-attendance">Registered</span>
                             {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
-                            {!readOnly && <form action={removeMyGuestGroupAction}>
+                            {/* Once the pack has recorded money for a group, cancelling it means
+                                sorting out a refund, so only an Admin can remove it
+                                (removeMyGuestGroupAction refuses it too). */}
+                            {!readOnly && g.paidCents > 0 && (
+                              <span className="form-note" style={{ marginTop: 0 }}>Paid — contact the pack to cancel</span>
+                            )}
+                            {!readOnly && g.paidCents === 0 && <form action={removeMyGuestGroupAction}>
                               <input type="hidden" name="guestGroupId" value={g.id} />
                               <ConfirmSubmitButton
                                 className="btn btn-danger btn-small"

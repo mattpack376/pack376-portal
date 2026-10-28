@@ -460,16 +460,22 @@ export default async function FamilyViewPage({
                         <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
                           <span className="badge-pill badge-attendance">Registered</span>
                           {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
-                          <form action={removeMyGuestGroupAction}>
-                            <input type="hidden" name="guestGroupId" value={g.id} />
-                            <ConfirmSubmitButton
-                              className="btn btn-danger btn-small"
-                              pendingLabel="Removing…"
-                              message={`Cancel the guest registration for ${g.familyName} at “${event.title}”?`}
-                            >
-                              Remove
-                            </ConfirmSubmitButton>
-                          </form>
+                          {/* Paid groups are cancelled by an Admin, who sorts out the refund
+                              (removeMyGuestGroupAction refuses them too). */}
+                          {g.paidCents > 0 ? (
+                            <span className="form-note" style={{ marginTop: 0 }}>Paid — contact the pack to cancel</span>
+                          ) : (
+                            <form action={removeMyGuestGroupAction}>
+                              <input type="hidden" name="guestGroupId" value={g.id} />
+                              <ConfirmSubmitButton
+                                className="btn btn-danger btn-small"
+                                pendingLabel="Removing…"
+                                message={`Cancel the guest registration for ${g.familyName} at “${event.title}”?`}
+                              >
+                                Remove
+                              </ConfirmSubmitButton>
+                            </form>
+                          )}
                         </div>
                       ))}
                     </div>

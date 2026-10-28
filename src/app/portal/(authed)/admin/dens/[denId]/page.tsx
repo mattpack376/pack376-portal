@@ -9,6 +9,8 @@ import { denDisplayName, nextRank } from "@/lib/rankConfig";
 import { addScoutAction, removeScoutAction, updateScoutNameAction } from "@/lib/actions/dens";
 import { setScoutActiveAction } from "@/lib/actions/scouts";
 import ScoutChecklist from "@/components/ScoutChecklist";
+import { paymentSummariesByScout, type PaymentSummary } from "@/lib/scoutDeletion";
+import { paymentDeletionWarning } from "@/lib/paymentRecords";
 
 export default async function AdminDenDetailPage({
   params,
@@ -32,6 +34,9 @@ export default async function AdminDenDetailPage({
     include: { user: { select: { id: true, username: true, displayName: true } } },
   });
   const canPromote = isFullAdmin && nextRank(den.rank) !== null;
+  // Remove warns when the scout has dues or event payments: those are kept in
+  // Payment Records, but the admin should know money is attached first.
+  const paymentsByScout = isFullAdmin ? await paymentSummariesByScout(scouts.map((s) => s.id)) : new Map<string, PaymentSummary>();
 
   return (
     <>
@@ -157,7 +162,7 @@ export default async function AdminDenDetailPage({
                         <ConfirmSubmitButton
                           className="btn btn-danger btn-small"
                           pendingLabel="Removing…"
-                          message={`Delete ${scout.firstName} ${scout.lastName}? This removes their advancement, attendance, dues, and parent contacts too — it can't be undone.`}
+                          message={`Delete ${scout.firstName} ${scout.lastName}? This removes their advancement, attendance, dues, and parent contacts too — it can't be undone.${paymentDeletionWarning(paymentsByScout.get(scout.id) ?? { count: 0, totalCents: 0 })}`}
                         >
                           Remove
                         </ConfirmSubmitButton>

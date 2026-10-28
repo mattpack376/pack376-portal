@@ -13,6 +13,7 @@ import {
 } from "@/lib/authorize";
 import { ROLE_LABELS } from "@/lib/roleLabels";
 import { recordAuditInTransaction, changedFields, auditMoney, auditDate } from "@/lib/audit";
+import { keepPaymentRecords } from "@/lib/paymentRecords";
 import {
   MAX_NAME_LENGTH,
   MAX_NOTE_LENGTH,
@@ -1401,6 +1402,10 @@ export async function reopenRaffleAction(formData: FormData): Promise<RaffleForm
  * pack's permanent fundraising records, and nothing else in the portal can
  * bring one back. The counts in the audit entry are taken under the lock, so
  * they're what was actually deleted.
+ *
+ * Its payments (voided ones too) are copied into Payment Records first, in
+ * the same transaction, so the money stays on record after the raffle is
+ * gone — see keepPaymentRecords.
  */
 export async function deleteRaffleAction(formData: FormData): Promise<RaffleFormResult> {
   const session = await adminSession();
@@ -1417,11 +1422,16 @@ export async function deleteRaffleAction(formData: FormData): Promise<RaffleForm
           tx.rafflePayment.count({ where: { raffleId } }),
         ]);
 
+        const kept = await keepPaymentRecords(tx, { raffleId }, { session, reason: `Raffle "${raffle.name}" deleted` });
         await tx.raffle.delete({ where: { id: raffleId } });
 
+        const keptNote =
+          kept.count === 0
+            ? ""
+            : ` — ${kept.count === 1 ? "1 payment" : `${kept.count} payments`}${kept.totalCents > 0 ? ` (${auditMoney(kept.totalCents)})` : ""} kept in Payment Records`;
         await recordAuditInTransaction(tx, session, {
           action: "raffle.delete",
-          summary: `Deleted the raffle “${raffle.name}” with its ${entries} buyers, ${boxes} boxes and ${payments} payments`,
+          summary: `Deleted the raffle “${raffle.name}” with its ${entries} buyers, ${boxes} boxes and ${payments} payments${keptNote}`,
           entityType: "Raffle",
           entityId: raffleId,
           details: [

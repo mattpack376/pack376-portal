@@ -5,7 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertMasterAdmin } from "@/lib/authorize";
 import { resetConfirmationPhrase } from "@/lib/resetConfirmation";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, auditMoney } from "@/lib/audit";
+import { keepPaymentRecords } from "@/lib/paymentRecords";
+import { keptPaymentsNote } from "@/lib/scoutDeletion";
 
 export type ResetState = { error?: string; deletedCount?: number; scoutingYear?: string };
 
@@ -18,6 +20,10 @@ export type ResetState = { error?: string; deletedCount?: number; scoutingYear?:
  * to scouts in this year loses those contacts, so (matching
  * deleteScoutCascade's pattern) its sessionVersion is bumped too, so an
  * already-issued session can't keep vouching for a now-deleted scout.
+ *
+ * Every dues and event payment those scouts had is copied into Payment
+ * Records first, in the same transaction as the delete, so a fresh year never
+ * loses track of money a family paid (the page warns with the count and total).
  */
 export async function resetPackDataAction(_prevState: ResetState, formData: FormData): Promise<ResetState> {
   const session = await getSession();
@@ -46,12 +52,23 @@ export async function resetPackDataAction(_prevState: ResetState, formData: Form
   });
   const linkedUserIds = [...new Set(linkedParents.map((p) => p.userId!))];
 
-  const [{ count }] = await prisma.$transaction([
-    prisma.scout.deleteMany({ where: { id: { in: scoutIds } } }),
-    ...linkedUserIds.map((userId) =>
-      prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } })
-    ),
-  ]);
+  const { count, kept } = await prisma.$transaction(
+    async (tx) => {
+      const kept = await keepPaymentRecords(
+        tx,
+        { scoutIds },
+        { session, reason: `Season ${scoutingYear} reset (Start a Fresh Year)` },
+      );
+      const { count } = await tx.scout.deleteMany({ where: { id: { in: scoutIds } } });
+      for (const userId of linkedUserIds) {
+        await tx.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } });
+      }
+      return { count, kept };
+    },
+    // A whole season is a lot of rows to copy and delete; Prisma's 5-second
+    // default would be cutting it close.
+    { timeout: 60_000 },
+  );
 
   // The single most destructive action in the portal, so the entry keeps the
   // count and the year even though the scouts themselves are unrecoverable.
@@ -59,13 +76,16 @@ export async function resetPackDataAction(_prevState: ResetState, formData: Form
     action: "reset.packData",
     summary: `Reset the ${scoutingYear} season — deleted ${count} scout${
       count === 1 ? "" : "s"
-    } with their advancement, attendance, dues and parent contacts`,
+    } with their advancement, attendance, dues and parent contacts${keptPaymentsNote(kept)}`,
     entityType: "Scout",
     entityId: null,
     details: [
       { label: "Scouting year", from: scoutingYear, to: "—" },
       { label: "Scouts deleted", from: String(count), to: "—" },
       { label: "Parent logins revoked", from: String(linkedUserIds.length), to: "—" },
+      ...(kept.count > 0
+        ? [{ label: "Payments kept in Payment Records", from: "—", to: `${kept.count} (${auditMoney(kept.totalCents)})` }]
+        : []),
     ],
   });
 

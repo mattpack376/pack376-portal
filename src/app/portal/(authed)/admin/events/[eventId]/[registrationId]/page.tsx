@@ -16,6 +16,13 @@ import SubmitButton from "@/components/SubmitButton";
 import { MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { registrationEditVersion } from "@/lib/eventEditVersion";
 
+/**
+ * Added to a payment's Delete prompt: deleting it doesn't lose the money
+ * record (see src/lib/paymentRecords.ts).
+ */
+const KEPT_PAYMENT_NOTE =
+  " The payment record will be kept under Admin → Payment Records, where you can mark it refunded or kept by the pack.";
+
 export default async function AdminEventRegistrationPage({
   params,
 }: {
@@ -136,7 +143,7 @@ export default async function AdminEventRegistrationPage({
                     <ConfirmSubmitButton
                       className="btn btn-danger btn-small"
                       pendingLabel="Deleting…"
-                      message={`Delete the ${formatCents(payment.amountCents)} payment from ${payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}? This can't be undone.`}
+                      message={`Delete the ${formatCents(payment.amountCents)} payment from ${payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}?${KEPT_PAYMENT_NOTE} This can't be undone.`}
                     >
                       Delete
                     </ConfirmSubmitButton>

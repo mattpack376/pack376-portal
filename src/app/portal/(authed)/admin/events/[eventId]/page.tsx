@@ -19,6 +19,7 @@ import {
 } from "@/lib/actions/events";
 import type { Rank } from "@/generated/prisma/enums";
 import DeleteEventButton from "@/components/DeleteEventButton";
+import { paymentDeletionWarning } from "@/lib/paymentRecords";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import GuestOfSelect from "@/components/GuestOfSelect";
 import GuestGroupCountFields from "@/components/GuestGroupCountFields";
@@ -50,6 +51,13 @@ export default async function AdminEventDetailPage({
   if (!event) notFound();
 
   const sortedGuestGroups = sortGuestGroups(event.guestGroups, guestSort);
+
+  // The Delete/Remove prompts warn about the payments that go with them,
+  // counted from what's already loaded (the same rule as summarizePayments).
+  const eventPayments = [...event.registrations, ...event.guestGroups].reduce(
+    (sum, row) => ({ count: sum.count + row.payments.length, totalCents: sum.totalCents + row.paidCents }),
+    { count: 0, totalCents: 0 },
+  );
 
   // Saved before the edit form's limits existed: the form says so, and the
   // action accepts the value as long as it comes back unchanged.
@@ -129,7 +137,11 @@ export default async function AdminEventDetailPage({
               {event.visible ? "Hide from Families" : "Show to Families"}
             </button>
           </form>
-          <DeleteEventButton eventId={event.id} title={event.title} />
+          <DeleteEventButton
+            eventId={event.id}
+            title={event.title}
+            paymentWarning={paymentDeletionWarning(eventPayments)}
+          />
         </div>
         )}
       </div>
@@ -284,7 +296,7 @@ export default async function AdminEventDetailPage({
                               <ConfirmSubmitButton
                                 className="btn btn-danger btn-small"
                                 pendingLabel="Removing…"
-                                message={`Remove ${reg.scout.firstName} ${reg.scout.lastName} from “${event.title}”?${reg.paidCents > 0 ? " Their recorded payments are deleted too." : ""} This can't be undone.`}
+                                message={`Remove ${reg.scout.firstName} ${reg.scout.lastName} from “${event.title}”?${paymentDeletionWarning({ count: reg.payments.length, totalCents: reg.paidCents })} This can't be undone.`}
                               >
                                 Remove
                               </ConfirmSubmitButton>
@@ -399,7 +411,7 @@ export default async function AdminEventDetailPage({
                         <ConfirmSubmitButton
                           className="btn btn-danger btn-small"
                           pendingLabel="Removing…"
-                          message={`Remove the guest group “${group.familyName}” from “${event.title}”?${group.paidCents > 0 ? " Its recorded payments are deleted too." : ""} This can't be undone.`}
+                          message={`Remove the guest group “${group.familyName}” from “${event.title}”?${paymentDeletionWarning({ count: group.payments.length, totalCents: group.paidCents })} This can't be undone.`}
                         >
                           Remove
                         </ConfirmSubmitButton>

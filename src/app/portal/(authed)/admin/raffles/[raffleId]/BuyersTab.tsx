@@ -212,7 +212,11 @@ export default function BuyersTab({
                             Save
                           </SubmitButton>
                         </EditPopover>
-                        {/* A buyer with money recorded can't be removed — see removeEntryAction. */}
+                        {/*
+                          * A buyer with money recorded can't be removed — see removeEntryAction.
+                          * Their voided payments aren't deleted with them: they stay on the
+                          * Payments tab under the buyer's name, so there's nothing to warn about.
+                          */}
                         {!boardLocked && entry.paidCents === 0 && (
                           <ActionForm action={removeEntryAction}>
                             <input type="hidden" name="entryId" value={entry.id} />

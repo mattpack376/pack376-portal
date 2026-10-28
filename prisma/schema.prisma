@@ -319,7 +319,6 @@ enum AdultLeaderSection {
  * leader's portal account can come and go without touching their attendance.
  * That also makes this the place to keep a login-free person's contact info.
  * Same free-text-name convention as TripDutySlot.assignedName.
- *
  * Not scoped to a scouting year the way Den/Scout are — the list carries over
  * from season to season and is edited in place. Removing someone clears
  * `active` rather than deleting the row, so they keep showing on the meetings
@@ -357,7 +356,9 @@ model AdultLeader {
   attendances AdultLeaderAttendance[]
 }
 
-/** Attendance's twin for AdultLeader, on the same shared MeetingDate calendar. */
+/**
+ * Attendance's twin for AdultLeader, on the same shared MeetingDate calendar.
+ */
 model AdultLeaderAttendance {
   id              String      @id @default(cuid())
   adultLeaderId   String
@@ -534,7 +535,9 @@ model HomepageEvent {
   updatedAt   DateTime @updatedAt
 }
 
-/** The color group an event falls in on the public calendar (/calendar). */
+/**
+ * The color group an event falls in on the public calendar (/calendar).
+ */
 enum CalendarCategory {
   CAMPING
   PACK_NIGHT
@@ -544,7 +547,9 @@ enum CalendarCategory {
   GENERAL
 }
 
-/** Setup and planning nights are for adults, not scouts and families. */
+/**
+ * Setup and planning nights are for adults, not scouts and families.
+ */
 enum CalendarAudience {
   LEADERS
   ALL_HANDS
@@ -555,7 +560,6 @@ enum CalendarAudience {
  * which started as a Google Doc. The flags mirror that doc's markers: italic
  * setup nights (`audience`), bold "No Meeting" rows (`noMeeting`), and the
  * "Year at a Glance" box at the top (`glance`, with optional shorter wording).
- *
  * `date` is null only for an event whose date isn't set yet (the Cyclones
  * outing): it shows in Year at a Glance as "TBD" but not in the month list.
  * `endDate` is the last day of a multi-day event, inclusive; with `eitherDay`
@@ -848,7 +852,6 @@ model TripPayment {
  * groceries — so the admin page can show it against what families paid.
  * paidBy is free text (who fronted it, for reimbursement), not a User FK,
  * since that's often a parent with no portal login.
- *
  * isCredit marks money coming back instead — a vendor refund or credit. Its
  * amountCents is still positive; tripExpenseTotals() subtracts it, and paidBy
  * then means who received it.
@@ -932,12 +935,10 @@ model TripActivity {
  * in src/lib/audit.ts, which every mutating Server Action calls after its
  * write succeeds. Only the master admins (src/lib/masterAdmins.ts) can read
  * them, via /portal/admin/audit.
- *
  * Append-only in the sense that nothing ever edits a row: the only delete is
  * the age-based retention sweep in src/lib/audit.ts, which drops entries past
  * AUDIT_RETENTION_MONTHS. There is no UI anywhere that edits or deletes an
  * entry, and no way to delete a specific one.
- *
  * The actor's username, display name, and role are denormalized onto each
  * row rather than only joined through actorUser: deleting a login must not
  * erase the record of what it did, and a later rename shouldn't silently
@@ -960,14 +961,22 @@ model AuditLog {
    */
   actorRole        Role?
 
-  /** Machine key, dot-namespaced: "dues.payment.add", "scout.update". */
-  action String
-  /** First segment of `action` — filled in by recordAudit, drives the page's category filter. */
+  /**
+   * Machine key, dot-namespaced: "dues.payment.add", "scout.update".
+   */
+  action   String
+  /**
+   * First segment of `action` — filled in by recordAudit, drives the page's category filter.
+   */
   category String
-  /** One human sentence, already resolved to names: "Recorded a $75.00 dues payment for Tommy Smith". */
-  summary String
+  /**
+   * One human sentence, already resolved to names: "Recorded a $75.00 dues payment for Tommy Smith".
+   */
+  summary  String
 
-  /** Prisma model name + id of the row that changed, when it's a single row. */
+  /**
+   * Prisma model name + id of the row that changed, when it's a single row.
+   */
   entityType String?
   entityId   String?
   /**
@@ -975,9 +984,11 @@ model AuditLog {
    * read in den context. Not a relation — the den may later be deleted and
    * the entry should survive it.
    */
-  denId String?
+  denId      String?
 
-  /** Field-level before/after pairs; see AuditDetail in src/lib/audit.ts. */
+  /**
+   * Field-level before/after pairs; see AuditDetail in src/lib/audit.ts.
+   */
   details Json?
 
   /**
@@ -985,7 +996,6 @@ model AuditLog {
    * by recordAuditAs, so no call site has to remember to pass it. Null when the
    * host offered no trustworthy client address (local dev, or a caller outside
    * a request context), and on entries written before this column existed.
-   *
    * This is personal data. It is readable only by the master admins, and the
    * retention sweep drops it along with the rest of the entry.
    */
@@ -1259,4 +1269,76 @@ model RafflePayment {
 
   @@index([raffleId])
   @@index([entryId])
+}
+
+enum PaymentRecordKind {
+  DUES
+  EVENT
+  GUEST_GROUP
+  TRIP
+  RAFFLE
+  TRIP_EXPENSE
+}
+
+/// What became of the money in a kept payment record.
+enum PaymentRecordStatus {
+  /// Money a family paid; nobody has said yet whether it was refunded.
+  NEEDS_DECISION
+  REFUNDED
+  KEPT_BY_PACK
+  /// The payment was recorded by mistake (a duplicate, the wrong family).
+  ENTERED_IN_ERROR
+  /// Not family money awaiting a refund: a trip expense or vendor credit, or a
+  /// raffle payment that had already been voided.
+  NOT_APPLICABLE
+}
+
+/// A copy of a payment (or a trip expense) taken just before it was deleted,
+/// so deleting a scout, event, guest group, trip registration, raffle or the
+/// payment itself never loses the money record. Written by the app with full
+/// context (src/lib/paymentRecords.ts) and, as a safety net for any delete
+/// path that forgets, by BEFORE DELETE triggers on every payment table
+/// (migration 20261028120000_payment_records). One row per deleted payment:
+/// (kind, originalId) is unique, so the trigger never doubles a row the app
+/// already wrote. Never deleted by the app.
+model PaymentRecord {
+  id                String              @id @default(cuid())
+  kind              PaymentRecordKind
+  /// The deleted payment's id.
+  originalId        String
+  amountCents       Int
+  paidOn            DateTime?           @db.Date
+  /// Raffle payments only: cash, Zelle, ...
+  method            String?
+  /// Who the money came from: the scout, family, guest group or raffle buyer.
+  paidBy            String?
+  /// What it paid for, e.g. "Dues — Ava Smith (Bear 2026-2027)".
+  paidFor           String
+  note              String?
+  /// Trip expenses only: money back from a vendor rather than money spent.
+  isCredit          Boolean             @default(false)
+  /// Raffle payments only: already voided before it was deleted.
+  wasVoided         Boolean             @default(false)
+  voidReason        String?
+  recordedByName    String?
+  originalCreatedAt DateTime?
+  /// Anything else worth keeping: contact details, den, the parent's ids.
+  details           Json?
+  /// Why it was deleted, e.g. "Event deleted", "Scout deleted".
+  deletionReason    String
+  deletedAt         DateTime            @default(now())
+  deletedByUserId   String?
+  deletedByName     String?
+  /// "app" when written with full context, "database" when only the safety-net trigger caught it.
+  capturedBy        String              @default("app")
+  status            PaymentRecordStatus @default(NEEDS_DECISION)
+  refundedCents     Int?
+  refundedOn        DateTime?           @db.Date
+  resolutionNote    String?
+  resolvedAt        DateTime?
+  resolvedByName    String?
+
+  @@unique([kind, originalId])
+  @@index([deletedAt])
+  @@index([status])
 }

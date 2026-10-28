@@ -78,6 +78,8 @@ export default function PortalNav({
               { href: "/portal/admin/events", label: "Events" },
               { href: "/portal/admin/raffles", label: "50/50 Raffles" },
               { href: "/portal/admin/receipts", label: "Receipts" },
+              // Admin-only, like Receipts: payments kept when what they were attached to was deleted.
+              { href: "/portal/admin/payment-records", label: "Payment Records" },
             ],
           },
           {

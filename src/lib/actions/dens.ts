@@ -7,7 +7,7 @@ import { getSession } from "@/lib/auth";
 import { assertAdmin, assertCanAddScoutsToDens, isReservedUsername } from "@/lib/authorize";
 import { hashPassword } from "@/lib/auth";
 import { generatePassword } from "@/lib/passwords";
-import { deleteScoutCascade } from "@/lib/scoutDeletion";
+import { deleteScoutCascade, keptPaymentsNote } from "@/lib/scoutDeletion";
 import { issueInviteToken } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { nextRank as computeNextRank, denDisplayName } from "@/lib/rankConfig";
@@ -197,11 +197,12 @@ export async function removeScoutAction(formData: FormData) {
     select: { firstName: true, lastName: true },
   });
 
-  await deleteScoutCascade(scoutId);
+  const name = scout ? `${scout.firstName} ${scout.lastName}` : scoutId;
+  const kept = await deleteScoutCascade(scoutId, { session, reason: `Scout ${name} deleted` });
 
   await recordAudit(session, {
     action: "scout.delete",
-    summary: `Removed scout ${scout ? `${scout.firstName} ${scout.lastName}` : scoutId} from ${await denLabel(denId)} — with their advancement, attendance, dues and parent contacts`,
+    summary: `Removed scout ${name} from ${await denLabel(denId)} — with their advancement, attendance, dues and parent contacts${keptPaymentsNote(kept)}`,
     entityType: "Scout",
     entityId: scoutId,
     denId: denId || null,

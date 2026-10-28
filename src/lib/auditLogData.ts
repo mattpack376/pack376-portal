@@ -65,8 +65,8 @@ const CLAIMING_TABS = {
   dues: {
     label: "Dues & Payments",
     description:
-      "Dues payments, per-scout dues amounts and the dues settings, event payments from scouts and guest groups, changes to what a scout owes for an event, and receipts generated, emailed or deleted. Camp Conron and Cyclones payments are on the Trips tab.",
-    categories: ["dues", "eventPayment", "guestGroupPayment", "receipt"],
+      "Dues payments, per-scout dues amounts and the dues settings, event payments from scouts and guest groups, changes to what a scout owes for an event, receipts generated, emailed or deleted, and outcomes recorded on Payment Records (refunded, kept by the pack…). Camp Conron and Cyclones payments are on the Trips tab.",
+    categories: ["dues", "eventPayment", "guestGroupPayment", "receipt", "paymentRecord"],
     actions: ["eventRegistration.updateAmount"],
   },
   conron: {
@@ -168,6 +168,7 @@ export const AUDIT_CATEGORY_LABELS: Record<string, string> = {
   homepageEvent: "Homepage Events",
   household: "Households",
   parent: "Parent Contacts",
+  paymentRecord: "Payment Records",
   photoConsent: "Photo Consent",
   raffle: "50/50 Raffles",
   receipt: "Receipts",

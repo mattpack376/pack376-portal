@@ -4,13 +4,22 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteScoutAction } from "@/lib/actions/scouts";
 
-export default function DeleteScoutButton({ scoutId, scoutName }: { scoutId: string; scoutName: string }) {
+export default function DeleteScoutButton({
+  scoutId,
+  scoutName,
+  paymentWarning = "",
+}: {
+  scoutId: string;
+  scoutName: string;
+  /** From paymentDeletionWarning on the server: "" when no payments are attached. */
+  paymentWarning?: string;
+}) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   function handleClick() {
-    if (!window.confirm(`Delete ${scoutName}? This removes their advancement, attendance, dues, and parent contacts too — it can't be undone.`)) return;
+    if (!window.confirm(`Delete ${scoutName}? This removes their advancement, attendance, dues, and parent contacts too — it can't be undone.${paymentWarning}`)) return;
     startTransition(async () => {
       const result = await deleteScoutAction(scoutId);
       if (result.ok) {

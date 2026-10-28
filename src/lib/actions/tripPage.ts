@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
 import { recordAudit, recordAuditInTransaction, changedFields, auditMoney, auditDate } from "@/lib/audit";
 import { deleteUploadedBlob } from "@/lib/blobCleanup";
+import { keepPaymentRecords, lockPaymentRowForDelete } from "@/lib/paymentRecords";
 import { uploadFlyer } from "@/lib/flyerUpload";
 import { dollarsToCents, multiplyCents, parseCount, textField } from "@/lib/formValues";
 import { parseDateOnlyString, readDateOnlyField, todayDateOnly } from "@/lib/dateOnly";
@@ -843,13 +844,21 @@ export async function deleteTripExpenseAction(formData: FormData) {
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing expense id.");
 
-  const expense = await prisma.tripExpense.delete({ where: { id } });
+  // Pack spending and vendor credits are money records too: a copy goes into
+  // Payment Records in the same transaction as the delete.
+  const expense = await prisma.$transaction(async (tx) => {
+    // A second click waits on the row lock, then finds it gone and stops.
+    if (!(await lockPaymentRowForDelete(tx, "TripExpense", id))) return null;
+    await keepPaymentRecords(tx, { tripExpenseId: id }, { session, reason: "Trip expense deleted" });
+    return tx.tripExpense.delete({ where: { id } });
+  });
+  if (!expense) return;
 
   await recordAudit(session, {
     action: "trip.expense.delete",
     summary: expense.isCredit
-      ? `Deleted the ${auditMoney(expense.amountCents)} trip credit/refund for “${expense.description}”`
-      : `Deleted the ${auditMoney(expense.amountCents)} trip expense for “${expense.description}”`,
+      ? `Deleted the ${auditMoney(expense.amountCents)} trip credit/refund for “${expense.description}” — kept in Payment Records`
+      : `Deleted the ${auditMoney(expense.amountCents)} trip expense for “${expense.description}” — kept in Payment Records`,
     entityType: "TripExpense",
     entityId: id,
     details: [

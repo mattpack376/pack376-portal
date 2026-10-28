@@ -31,6 +31,7 @@ import {
 } from "@/lib/formValues";
 import { parseDateOnlyString, todayDateOnly } from "@/lib/dateOnly";
 import { recordAudit, recordAuditInTransaction, changedFields, auditMoney, auditDate } from "@/lib/audit";
+import { keepPaymentRecords, lockPaymentRowForDelete } from "@/lib/paymentRecords";
 import type { TripAffiliation } from "@/generated/prisma/enums";
 
 /*
@@ -561,19 +562,27 @@ export async function deleteTripPaymentAction(formData: FormData) {
   const paymentId = String(formData.get("paymentId") || "");
   if (!paymentId) throw new Error("Missing payment id.");
 
-  // Read before deleting — the amount is only recoverable from this entry after.
-  const payment = await prisma.tripPayment.findUnique({
-    where: { id: paymentId },
-    select: { amountCents: true, paidOn: true, note: true, tripRegistration: { select: { familyName: true } } },
+  // Read before deleting — the amount is only recoverable from this entry
+  // after. The copy in Payment Records and the delete commit together, so the
+  // payment is never gone without the copy (or copied without being gone).
+  const payment = await prisma.$transaction(async (tx) => {
+    // A second click waits on the row lock, then finds it gone and stops.
+    if (!(await lockPaymentRowForDelete(tx, "TripPayment", paymentId))) return undefined;
+    const payment = await tx.tripPayment.findUnique({
+      where: { id: paymentId },
+      select: { amountCents: true, paidOn: true, note: true, tripRegistration: { select: { familyName: true } } },
+    });
+    await keepPaymentRecords(tx, { tripPaymentId: paymentId }, { session, reason: "Trip payment deleted" });
+    await tx.tripPayment.delete({ where: { id: paymentId } });
+    return payment;
   });
-
-  await prisma.tripPayment.delete({ where: { id: paymentId } });
+  if (payment === undefined) return; // Already deleted by another click.
 
   await recordAudit(session, {
     action: "tripPayment.delete",
     summary: payment
-      ? `Deleted a ${auditMoney(payment.amountCents)} trip payment from ${payment.tripRegistration.familyName}`
-      : "Deleted a trip payment",
+      ? `Deleted a ${auditMoney(payment.amountCents)} trip payment from ${payment.tripRegistration.familyName} — kept in Payment Records`
+      : "Deleted a trip payment — kept in Payment Records",
     entityType: "TripPayment",
     entityId: paymentId,
     details: payment
@@ -596,25 +605,34 @@ export async function deleteTripRegistrationAction(formData: FormData) {
   const id = String(formData.get("id") || "");
   if (!id) throw new Error("Missing registration id.");
 
-  const registration = await prisma.tripRegistration.findUnique({
-    where: { id },
-    select: {
-      familyName: true,
-      contactEmail: true,
-      payingCount: true,
-      freeCount: true,
-      amountOwedCents: true,
-      _count: { select: { payments: true } },
-    },
+  // Its payments go with it (the database cascades), so they're copied into
+  // Payment Records first, in the same transaction as the delete — the money
+  // the family paid stays on record for a refund or the pack to keep.
+  const { registration, kept } = await prisma.$transaction(async (tx) => {
+    const registration = await tx.tripRegistration.findUnique({
+      where: { id },
+      select: {
+        familyName: true,
+        contactEmail: true,
+        payingCount: true,
+        freeCount: true,
+        amountOwedCents: true,
+      },
+    });
+    const kept = await keepPaymentRecords(
+      tx,
+      { tripRegistrationId: id },
+      { session, reason: `Trip registration "${registration?.familyName ?? id}" deleted` },
+    );
+    await tx.tripRegistration.delete({ where: { id } });
+    return { registration, kept };
   });
-
-  await prisma.tripRegistration.delete({ where: { id } });
 
   await recordAudit(session, {
     action: "tripRegistration.delete",
     summary: `Deleted the trip registration for ${registration?.familyName ?? id}${
-      registration && registration._count.payments > 0
-        ? ` — along with ${registration._count.payments} recorded payment(s)`
+      kept.count > 0
+        ? ` — ${kept.count === 1 ? "1 payment" : `${kept.count} payments`} (${auditMoney(kept.totalCents)}) kept in Payment Records`
         : ""
     }`,
     entityType: "TripRegistration",

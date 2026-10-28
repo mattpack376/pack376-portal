@@ -26,6 +26,7 @@ import { tripPricingVersion, tripRegistrationEditVersion } from "@/lib/tripEditV
 import { describeHeadcountWithTotal, type TripSite } from "@/lib/tripSites";
 import type { Role } from "@/generated/prisma/enums";
 import { formatCents } from "@/lib/duesData";
+import { paymentDeletionWarning } from "@/lib/paymentRecords";
 import { toDateOnlyString, todayDateOnlyString } from "@/lib/dateOnly";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
@@ -335,7 +336,7 @@ export default async function TripAdminView({
                         <ConfirmSubmitButton
                           className="btn btn-danger btn-small"
                           pendingLabel="Deleting…"
-                          message={`Delete the ${e.isCredit ? "credit/refund" : "expense"} “${e.description}” (${formatCents(e.amountCents)})? This can't be undone.`}
+                          message={`Delete the ${e.isCredit ? "credit/refund" : "expense"} “${e.description}” (${formatCents(e.amountCents)})? It comes off this trip's totals; ⚠ a copy will be kept under Admin → Payment Records.`}
                         >
                           Delete
                         </ConfirmSubmitButton>
@@ -996,7 +997,7 @@ export default async function TripAdminView({
                                         <ConfirmSubmitButton
                                           className="btn btn-danger btn-small"
                                           pendingLabel="Deleting…"
-                                          message={`Delete the ${formatCents(p.amountCents)} payment from ${p.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })} for ${reg.familyName}? This can't be undone.`}
+                                          message={`Delete the ${formatCents(p.amountCents)} payment from ${p.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })} for ${reg.familyName}? ⚠ The payment record will be kept under Admin → Payment Records, where you can mark it refunded or kept by the pack.`}
                                         >
                                           Delete
                                         </ConfirmSubmitButton>
@@ -1037,7 +1038,10 @@ export default async function TripAdminView({
                             <ConfirmSubmitButton
                               className="btn btn-danger btn-small"
                               pendingLabel="Removing…"
-                              message={`Remove the ${reg.familyName} registration?${reg.payments.length > 0 ? " Its recorded payments are deleted too." : ""} This can't be undone.`}
+                              message={`Remove the ${reg.familyName} registration?${paymentDeletionWarning({
+                                count: reg.payments.length,
+                                totalCents: reg.paidCents,
+                              })} This can't be undone.`}
                             >
                               Remove Registration
                             </ConfirmSubmitButton>

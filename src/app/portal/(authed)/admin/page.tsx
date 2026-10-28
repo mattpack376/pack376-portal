@@ -29,6 +29,10 @@ export default async function AdminDashboardPage() {
         }),
       ])
     : [[], [], []];
+  // Payments kept from a delete that nobody has said were refunded or kept yet
+  // (Admin → Payment Records). Admin-only page, so only Admins are nudged.
+  const paymentRecordsWaiting =
+    session.role === "ADMIN" ? await prisma.paymentRecord.count({ where: { status: "NEEDS_DECISION" } }) : 0;
   const everyoneEmails = [...parentEmails, ...userEmails, ...leaderEmails].map((r) => r.email);
 
   dens.sort((a, b) => {
@@ -61,6 +65,21 @@ export default async function AdminDashboardPage() {
             pack376.brooklyn@gmail.com + matt.pack376@gmail.com cc&apos;d — nothing is sent from here.
           </p>
           <EmailAllButton label="Email All Parents & Leaders" emails={everyoneEmails} />
+        </div>
+      )}
+
+      {paymentRecordsWaiting > 0 && (
+        <div className="info-card" style={{ marginBottom: 24 }}>
+          <h3>Payment Records</h3>
+          <p style={{ marginBottom: 0 }}>
+            {paymentRecordsWaiting === 1
+              ? "1 payment kept from a delete needs a decision"
+              : `${paymentRecordsWaiting} payments kept from deletes need a decision`}{" "}
+            — refunded, kept by the pack, or entered by mistake.{" "}
+            <Link href="/portal/admin/payment-records" style={{ fontWeight: 700 }}>
+              Review them →
+            </Link>
+          </p>
         </div>
       )}
 

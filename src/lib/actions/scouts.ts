@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdmin } from "@/lib/authorize";
-import { deleteScoutCascade } from "@/lib/scoutDeletion";
+import { deleteScoutCascade, keptPaymentsNote } from "@/lib/scoutDeletion";
 import { denDisplayName } from "@/lib/rankConfig";
 import { recordAudit, changedFields } from "@/lib/audit";
 import { parseDateOnlyString } from "@/lib/dateOnly";
@@ -144,11 +144,14 @@ export async function deleteScoutAction(scoutId: string) {
   });
   if (!scout) return { ok: false as const, error: "Scout not found." };
 
-  await deleteScoutCascade(scoutId);
+  const kept = await deleteScoutCascade(scoutId, {
+    session,
+    reason: `Scout ${scout.firstName} ${scout.lastName} deleted`,
+  });
 
   await recordAudit(session, {
     action: "scout.delete",
-    summary: `Deleted scout ${scout.firstName} ${scout.lastName} — with their advancement, attendance, dues and parent contacts`,
+    summary: `Deleted scout ${scout.firstName} ${scout.lastName} — with their advancement, attendance, dues and parent contacts${keptPaymentsNote(kept)}`,
     entityType: "Scout",
     entityId: scoutId,
     denId: scout.denId,

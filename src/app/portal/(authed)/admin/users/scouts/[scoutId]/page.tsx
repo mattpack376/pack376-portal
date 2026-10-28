@@ -9,6 +9,7 @@ import { updateScoutAction, setScoutActiveAction } from "@/lib/actions/scouts";
 import type { Rank } from "@/generated/prisma/enums";
 import DeleteScoutButton from "@/components/DeleteScoutButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
+import { paymentDeletionWarning, summarizePayments } from "@/lib/paymentRecords";
 
 export default async function ManageScoutPage({
   params,
@@ -27,6 +28,9 @@ export default async function ManageScoutPage({
     return RANK_ORDER.indexOf(a.rank as Rank) - RANK_ORDER.indexOf(b.rank as Rank);
   });
   const denYears = Array.from(new Set(allDens.map((d) => d.scoutingYear)));
+  // Delete warns when dues or event payments are attached (they're kept in
+  // Payment Records, but the admin should know before confirming).
+  const paymentWarning = paymentDeletionWarning(await summarizePayments({ scoutIds: [scout.id] }));
 
   return (
     <>
@@ -130,7 +134,11 @@ export default async function ManageScoutPage({
       </div>
 
       <div className="info-card" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-        <DeleteScoutButton scoutId={scout.id} scoutName={`${scout.firstName} ${scout.lastName}`} />
+        <DeleteScoutButton
+          scoutId={scout.id}
+          scoutName={`${scout.firstName} ${scout.lastName}`}
+          paymentWarning={paymentWarning}
+        />
       </div>
     </>
   );

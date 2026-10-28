@@ -7,6 +7,7 @@ import { assertAdmin } from "@/lib/authorize";
 import { dollarsToCents } from "@/lib/formValues";
 import { parseDateOnlyString, todayDateOnly } from "@/lib/dateOnly";
 import { recordAudit, changedFields, auditMoney, auditDate } from "@/lib/audit";
+import { keepPaymentRecords, lockPaymentRowForDelete } from "@/lib/paymentRecords";
 
 /** "Tommy Smith" for audit summaries, or the raw id if the scout is already gone. */
 async function scoutName(scoutId: string) {
@@ -136,20 +137,29 @@ export async function deleteDuesPaymentAction(formData: FormData) {
   const scoutId = String(formData.get("scoutId") || "");
   if (!paymentId) throw new Error("Missing payment id.");
 
-  // Read before deleting — once it's gone the amount and date are only
-  // recoverable from this entry.
+  // Read before deleting, for the audit entry's amount and date.
   const payment = await prisma.duesPayment.findUnique({
     where: { id: paymentId },
     select: { amountCents: true, paidOn: true, note: true },
   });
 
-  await prisma.duesPayment.delete({ where: { id: paymentId } });
+  // The payment leaves this scout's balance, but a copy stays in Payment
+  // Records (written in the same transaction as the delete) so the money is
+  // never lost track of — an admin can mark it refunded or entered in error there.
+  // A second click waits on the row lock, then finds it gone and stops.
+  const deleted = await prisma.$transaction(async (tx) => {
+    if (!(await lockPaymentRowForDelete(tx, "DuesPayment", paymentId))) return false;
+    await keepPaymentRecords(tx, { duesPaymentId: paymentId }, { session, reason: "Dues payment deleted" });
+    await tx.duesPayment.delete({ where: { id: paymentId } });
+    return true;
+  });
+  if (!deleted) return;
 
   const { name, denId } = await scoutName(scoutId);
   await recordAudit(session, {
     action: "dues.payment.delete",
     summary: payment
-      ? `Deleted a ${auditMoney(payment.amountCents)} dues payment for ${name}`
+      ? `Deleted a ${auditMoney(payment.amountCents)} dues payment for ${name} — kept in Payment Records`
       : `Deleted a dues payment for ${name}`,
     entityType: "DuesPayment",
     entityId: paymentId,

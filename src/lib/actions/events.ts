@@ -31,6 +31,7 @@ import {
 } from "@/lib/guestGroupLimits";
 import { centsFieldText, isUnchangedText, textLengthAsTyped } from "@/lib/savedFormValues";
 import { guestGroupEditVersion, registrationEditVersion } from "@/lib/eventEditVersion";
+import { keepPaymentRecords, lockPaymentRowForDelete } from "@/lib/paymentRecords";
 import type { Prisma } from "@/generated/prisma/client";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 import type { SessionPayload } from "@/lib/session";
@@ -105,6 +106,16 @@ function idField(raw: FormDataEntryValue | null): string {
 async function lockEvent(tx: Prisma.TransactionClient, eventId: string): Promise<boolean> {
   const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
   return rows.length > 0;
+}
+
+/**
+ * " — 3 payments ($45.00) kept in Payment Records" for a delete's audit
+ * summary, or "" when it took no payments with it.
+ */
+function keptPaymentsText(kept: { count: number; totalCents: number }) {
+  if (kept.count === 0) return "";
+  const n = kept.count === 1 ? "1 payment" : `${kept.count} payments`;
+  return ` — ${n} (${auditMoney(kept.totalCents)}) kept in Payment Records`;
 }
 
 /** An event's title for audit text, falling back to the raw id. */
@@ -596,15 +607,23 @@ export async function deleteEventAction(formData: FormData) {
       },
     });
 
+    // Every scout's and guest group's payment goes with the event (the
+    // cascade); copy them to Payment Records first so the money isn't lost.
+    const kept = await keepPaymentRecords(
+      tx,
+      { eventId: id },
+      { session, reason: `Event "${event.title}" deleted` },
+    );
+
     await tx.event.delete({ where: { id } });
 
     await recordAuditInTransaction(tx, session, {
       action: "event.delete",
       summary: `Deleted the event “${event.title}”${
         event._count.registrations + event._count.guestGroups > 0
-          ? ` — along with ${event._count.registrations} scout registration(s), ${event._count.guestGroups} guest group(s) and their payments`
+          ? ` — along with ${event._count.registrations} scout registration(s) and ${event._count.guestGroups} guest group(s)`
           : ""
-      }`,
+      }${keptPaymentsText(kept)}`,
       entityType: "Event",
       entityId: id,
       details: [
@@ -612,6 +631,9 @@ export async function deleteEventAction(formData: FormData) {
         { label: "Event date", from: auditDate(event.eventDate), to: "—" },
         { label: "Scout registrations", from: String(event._count.registrations), to: "—" },
         { label: "Guest groups", from: String(event._count.guestGroups), to: "—" },
+        ...(kept.count > 0
+          ? [{ label: "Payments kept in Payment Records", from: "—", to: `${kept.count} (${auditMoney(kept.totalCents)})` }]
+          : []),
       ],
     });
     return event;
@@ -624,6 +646,7 @@ export async function deleteEventAction(formData: FormData) {
   if (deleted) await deleteUploadedBlob(deleted.flyerUrl);
 
   revalidatePath("/portal/admin/events");
+  revalidatePath("/portal/admin/payment-records");
   redirect("/portal/admin/events");
 }
 
@@ -778,39 +801,55 @@ export async function removeRegistrationAction(formData: FormData) {
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const registrationId = String(formData.get("registrationId") || "");
-  const eventId = String(formData.get("eventId") || "");
+  const registrationId = idField(formData.get("registrationId"));
+  const eventId = idField(formData.get("eventId"));
   if (!registrationId) throw new Error("Missing registration id.");
 
-  // Read the context before deleting; the cascade takes the payments with it.
-  const context = await registrationContext(registrationId);
-  const registration = await prisma.eventRegistration.findUnique({
-    where: { id: registrationId },
-    select: { amountOwedCents: true, _count: { select: { payments: true } } },
-  });
+  await prisma.$transaction(async (tx) => {
+    // The same row lock addEventPaymentAction takes: a payment recorded while
+    // this runs either lands first (and is kept below) or waits and then
+    // finds the registration gone.
+    const locked = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "EventRegistration" WHERE id = ${registrationId} FOR UPDATE`;
+    if (locked.length === 0) return; // Already gone (a second click, or another Admin).
+    const registration = await tx.eventRegistration.findUniqueOrThrow({
+      where: { id: registrationId },
+      select: {
+        amountOwedCents: true,
+        event: { select: { title: true } },
+        scout: { select: { firstName: true, lastName: true, denId: true } },
+      },
+    });
+    const scoutName = `${registration.scout.firstName} ${registration.scout.lastName}`;
 
-  await prisma.eventRegistration.delete({ where: { id: registrationId } });
+    // The cascade takes the payments with it; Payment Records keeps them.
+    const kept = await keepPaymentRecords(
+      tx,
+      { eventRegistrationId: registrationId },
+      { session, reason: `${scoutName} removed from "${registration.event.title}"` },
+    );
 
-  await recordAudit(session, {
-    action: "eventRegistration.delete",
-    summary: `Removed ${context.scoutName} from “${context.eventTitle}”${
-      registration && registration._count.payments > 0
-        ? ` — along with ${registration._count.payments} recorded payment(s)`
-        : ""
-    }`,
-    entityType: "EventRegistration",
-    entityId: registrationId,
-    denId: context.denId,
-    details: registration
-      ? [
-          { label: "Amount owed", from: auditMoney(registration.amountOwedCents), to: "—" },
-          { label: "Payments removed", from: String(registration._count.payments), to: "—" },
-        ]
-      : null,
-  });
+    await tx.eventRegistration.delete({ where: { id: registrationId } });
+
+    await recordAuditInTransaction(tx, session, {
+      action: "eventRegistration.delete",
+      summary: `Removed ${scoutName} from “${registration.event.title}”${keptPaymentsText(kept)}`,
+      entityType: "EventRegistration",
+      entityId: registrationId,
+      denId: registration.scout.denId,
+      details: [
+        { label: "Amount owed", from: auditMoney(registration.amountOwedCents), to: "—" },
+        { label: "Payments removed", from: String(kept.count), to: "—" },
+        ...(kept.count > 0
+          ? [{ label: "Payments kept in Payment Records", from: "—", to: `${kept.count} (${auditMoney(kept.totalCents)})` }]
+          : []),
+      ],
+    });
+  }, TX);
 
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
+  revalidatePath("/portal/admin/payment-records");
 }
 
 export async function addEventPaymentAction(formData: FormData): Promise<EventFormResult> {
@@ -1106,7 +1145,10 @@ export async function removeMyGuestGroupAction(formData: FormData) {
     });
     if (!group || group.addedByUserId !== session.userId) throw new Error("Not authorized for this guest group.");
     if (group._count.payments > 0) {
-      throw new Error("This guest group has payments recorded — ask an admin to remove it.");
+      // Refused, not kept-and-deleted: once the pack holds a family's money,
+      // cancelling is a conversation about a refund, so an Admin does it
+      // (removeGuestGroupAction keeps the payments in Payment Records).
+      throw new Error("This guest group has payments recorded, so it can't be removed here. Contact the pack to cancel it.");
     }
     return tx.eventGuestGroup.delete({ where: { id: guestGroupId } });
   });
@@ -1145,32 +1187,39 @@ export async function deleteEventPaymentAction(formData: FormData) {
   if (!payment || payment.eventRegistration.id !== registrationId) throw new Error("Payment not found.");
   assertAdmin(session);
 
-  // Read the amount before deleting — afterwards this entry is the only record.
-  const deleted = await prisma.eventPayment.findUnique({
-    where: { id: paymentId },
-    select: { amountCents: true, paidOn: true, note: true },
-  });
   const context = await registrationContext(registrationId);
 
-  await prisma.eventPayment.delete({ where: { id: paymentId } });
+  await prisma.$transaction(async (tx) => {
+    // Locked first, then read, in the same transaction as the delete and the
+    // copy to Payment Records, so a second click waits and finds nothing to do.
+    if (!(await lockPaymentRowForDelete(tx, "EventPayment", paymentId))) return;
+    const deleted = await tx.eventPayment.findUnique({
+      where: { id: paymentId },
+      select: { amountCents: true, paidOn: true, note: true },
+    });
+    if (!deleted) return; // Already gone.
 
-  await recordAudit(session, {
-    action: "eventPayment.delete",
-    summary: deleted
-      ? `Deleted a ${auditMoney(deleted.amountCents)} payment for ${context.scoutName} on “${context.eventTitle}”`
-      : `Deleted a payment for ${context.scoutName}`,
-    entityType: "EventPayment",
-    entityId: paymentId,
-    denId: context.denId,
-    details: deleted
-      ? [
-          { label: "Amount", from: auditMoney(deleted.amountCents), to: "—" },
-          { label: "Paid on", from: auditDate(deleted.paidOn), to: "—" },
-          ...(deleted.note ? [{ label: "Note", from: deleted.note, to: "—" }] : []),
-        ]
-      : null,
-  });
+    const kept = await keepPaymentRecords(tx, { eventPaymentId: paymentId }, { session, reason: "Payment deleted" });
 
+    await tx.eventPayment.delete({ where: { id: paymentId } });
+
+    await recordAuditInTransaction(tx, session, {
+      action: "eventPayment.delete",
+      summary: `Deleted a ${auditMoney(deleted.amountCents)} payment for ${context.scoutName} on “${
+        context.eventTitle
+      }”${kept.count > 0 ? " — kept in Payment Records" : ""}`,
+      entityType: "EventPayment",
+      entityId: paymentId,
+      denId: context.denId,
+      details: [
+        { label: "Amount", from: auditMoney(deleted.amountCents), to: "—" },
+        { label: "Paid on", from: auditDate(deleted.paidOn), to: "—" },
+        ...(deleted.note ? [{ label: "Note", from: deleted.note, to: "—" }] : []),
+      ],
+    });
+  }, TX);
+
+  revalidatePath("/portal/admin/payment-records");
   revalidatePath(`/portal/admin/events/${eventId}/${registrationId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
@@ -1346,33 +1395,48 @@ export async function removeGuestGroupAction(formData: FormData) {
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const guestGroupId = String(formData.get("guestGroupId") || "");
-  const eventId = String(formData.get("eventId") || "");
+  const guestGroupId = idField(formData.get("guestGroupId"));
+  const eventId = idField(formData.get("eventId"));
   if (!guestGroupId) throw new Error("Missing guest group id.");
 
-  const group = await prisma.eventGuestGroup.findUnique({
-    where: { id: guestGroupId },
-    select: { familyName: true, amountOwedCents: true, eventId: true, _count: { select: { payments: true } } },
-  });
+  await prisma.$transaction(async (tx) => {
+    // The same row lock addGuestGroupPaymentAction takes: a payment recorded
+    // while this runs either lands first (and is kept below) or waits and
+    // then finds the group gone.
+    const locked = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "EventGuestGroup" WHERE id = ${guestGroupId} FOR UPDATE`;
+    if (locked.length === 0) return; // Already gone (a second click, or another Admin).
+    const group = await tx.eventGuestGroup.findUniqueOrThrow({
+      where: { id: guestGroupId },
+      select: { familyName: true, amountOwedCents: true, event: { select: { title: true } } },
+    });
 
-  await prisma.eventGuestGroup.delete({ where: { id: guestGroupId } });
+    // The cascade takes the group's payments with it; Payment Records keeps them.
+    const kept = await keepPaymentRecords(
+      tx,
+      { eventGuestGroupId: guestGroupId },
+      { session, reason: `Guest group "${group.familyName}" removed from "${group.event.title}"` },
+    );
 
-  await recordAudit(session, {
-    action: "guestGroup.delete",
-    summary: `Removed the guest group “${group?.familyName ?? guestGroupId}” from “${await eventTitle(
-      group?.eventId ?? eventId,
-    )}”${group && group._count.payments > 0 ? ` — along with ${group._count.payments} recorded payment(s)` : ""}`,
-    entityType: "EventGuestGroup",
-    entityId: guestGroupId,
-    details: group
-      ? [
-          { label: "Guest group", from: group.familyName, to: "—" },
-          { label: "Amount owed", from: auditMoney(group.amountOwedCents), to: "—" },
-          { label: "Payments removed", from: String(group._count.payments), to: "—" },
-        ]
-      : null,
-  });
+    await tx.eventGuestGroup.delete({ where: { id: guestGroupId } });
 
+    await recordAuditInTransaction(tx, session, {
+      action: "guestGroup.delete",
+      summary: `Removed the guest group “${group.familyName}” from “${group.event.title}”${keptPaymentsText(kept)}`,
+      entityType: "EventGuestGroup",
+      entityId: guestGroupId,
+      details: [
+        { label: "Guest group", from: group.familyName, to: "—" },
+        { label: "Amount owed", from: auditMoney(group.amountOwedCents), to: "—" },
+        { label: "Payments removed", from: String(kept.count), to: "—" },
+        ...(kept.count > 0
+          ? [{ label: "Payments kept in Payment Records", from: "—", to: `${kept.count} (${auditMoney(kept.totalCents)})` }]
+          : []),
+      ],
+    });
+  }, TX);
+
+  revalidatePath("/portal/admin/payment-records");
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
 }
@@ -1447,32 +1511,40 @@ export async function deleteGuestGroupPaymentAction(formData: FormData) {
   if (!payment || payment.eventGuestGroupId !== guestGroupId) throw new Error("Payment not found.");
   assertAdmin(session);
 
-  // Read the amount before deleting — afterwards this entry is the only record.
-  const deleted = await prisma.eventGuestGroupPayment.findUnique({
-    where: { id: paymentId },
-    select: { amountCents: true, paidOn: true, note: true, eventGuestGroup: { select: { familyName: true } } },
-  });
+  await prisma.$transaction(async (tx) => {
+    // Locked first, then read, in the same transaction as the delete and the
+    // copy to Payment Records, so a second click waits and finds nothing to do.
+    if (!(await lockPaymentRowForDelete(tx, "EventGuestGroupPayment", paymentId))) return;
+    const deleted = await tx.eventGuestGroupPayment.findUnique({
+      where: { id: paymentId },
+      select: { amountCents: true, paidOn: true, note: true, eventGuestGroup: { select: { familyName: true } } },
+    });
+    if (!deleted) return; // Already gone.
 
-  await prisma.eventGuestGroupPayment.delete({ where: { id: paymentId } });
+    const kept = await keepPaymentRecords(
+      tx,
+      { guestGroupPaymentId: paymentId },
+      { session, reason: "Payment deleted" },
+    );
 
-  await recordAudit(session, {
-    action: "guestGroupPayment.delete",
-    summary: deleted
-      ? `Deleted a ${auditMoney(deleted.amountCents)} payment from the guest group “${
-          deleted.eventGuestGroup.familyName
-        }”`
-      : "Deleted a guest group payment",
-    entityType: "EventGuestGroupPayment",
-    entityId: paymentId,
-    details: deleted
-      ? [
-          { label: "Amount", from: auditMoney(deleted.amountCents), to: "—" },
-          { label: "Paid on", from: auditDate(deleted.paidOn), to: "—" },
-          ...(deleted.note ? [{ label: "Note", from: deleted.note, to: "—" }] : []),
-        ]
-      : null,
-  });
+    await tx.eventGuestGroupPayment.delete({ where: { id: paymentId } });
 
+    await recordAuditInTransaction(tx, session, {
+      action: "guestGroupPayment.delete",
+      summary: `Deleted a ${auditMoney(deleted.amountCents)} payment from the guest group “${
+        deleted.eventGuestGroup.familyName
+      }”${kept.count > 0 ? " — kept in Payment Records" : ""}`,
+      entityType: "EventGuestGroupPayment",
+      entityId: paymentId,
+      details: [
+        { label: "Amount", from: auditMoney(deleted.amountCents), to: "—" },
+        { label: "Paid on", from: auditDate(deleted.paidOn), to: "—" },
+        ...(deleted.note ? [{ label: "Note", from: deleted.note, to: "—" }] : []),
+      ],
+    });
+  }, TX);
+
+  revalidatePath("/portal/admin/payment-records");
   revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");

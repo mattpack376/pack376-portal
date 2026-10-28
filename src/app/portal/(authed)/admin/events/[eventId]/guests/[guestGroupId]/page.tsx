@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { requireEventsViewSession } from "@/lib/authorize";
 import { getGuestGroupDetail, getGuestOfOptions } from "@/lib/eventsData";
 import { formatCents } from "@/lib/duesData";
+import { paymentDeletionWarning } from "@/lib/paymentRecords";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { formatDueDate } from "@/lib/deadlineCategories";
 import {
@@ -22,6 +23,13 @@ import SubmitButton from "@/components/SubmitButton";
 import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { ADMIN_GUEST_GROUP_MAX_PEOPLE, adminGuestGroupEditMaxPeople } from "@/lib/guestGroupLimits";
 import { guestGroupEditVersion } from "@/lib/eventEditVersion";
+
+/**
+ * Added to a payment's Delete prompt: deleting it doesn't lose the money
+ * record (see src/lib/paymentRecords.ts).
+ */
+const KEPT_PAYMENT_NOTE =
+  " The payment record will be kept under Admin → Payment Records, where you can mark it refunded or kept by the pack.";
 
 export default async function AdminGuestGroupPage({
   params,
@@ -122,7 +130,7 @@ export default async function AdminGuestGroupPage({
             <ConfirmSubmitButton
               className="btn btn-danger btn-small"
               pendingLabel="Removing…"
-              message={`Remove the guest group “${group.familyName}” from “${group.event.title}”?${group.payments.length > 0 ? " Its recorded payments are deleted too." : ""} This can't be undone.`}
+              message={`Remove the guest group “${group.familyName}” from “${group.event.title}”?${paymentDeletionWarning({ count: group.payments.length, totalCents: group.paidCents })} This can't be undone.`}
             >
               Remove This Group
             </ConfirmSubmitButton>
@@ -189,7 +197,7 @@ export default async function AdminGuestGroupPage({
                     <ConfirmSubmitButton
                       className="btn btn-danger btn-small"
                       pendingLabel="Deleting…"
-                      message={`Delete the ${formatCents(payment.amountCents)} payment from ${payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}? This can't be undone.`}
+                      message={`Delete the ${formatCents(payment.amountCents)} payment from ${payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}?${KEPT_PAYMENT_NOTE} This can't be undone.`}
                     >
                       Delete
                     </ConfirmSubmitButton>

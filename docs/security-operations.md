@@ -103,8 +103,11 @@ then:
 So a missing rule is worth knowing about quickly:
 
 - [ ] Set up an alert on the log text `[rate limit] no "` (Vercel → Observability
-      → Alerts, or a log drain to a service that emails you). If your plan has
-      no alerts, search the logs weekly.
+      → Alerts, or a log drain to a service that emails you). The Hobby plan
+      has neither, and keeps runtime logs for **one hour** only, so a weekly
+      search finds nothing older than that hour. On Hobby, check instead that
+      the rule is still listed under Vercel → Firewall after anyone changes
+      Firewall settings, and search the logs right after each release.
 - [ ] After creating or changing a rule, test it on a preview: sign in wrongly
       ~15 times in a minute from one device and confirm "Too many login
       attempts. Try again in a few minutes." appears. (Use a test account — the
@@ -359,11 +362,12 @@ phone numbers, Family View and photo consent — without being assigned to any
 den. Because it has no den assignments it never appears as a leader anywhere,
 so it is easy to forget it exists.
 
-Check each season:
+**Decision (2026-10-28):** `denmatt` stays active in production for future
+beta testing. Check each season:
 
-- [ ] Is it still needed in production? If not: Users → mark it inactive (it
-      can't sign in), then remove the name from `ALL_DENS_TEST_USERNAMES` in a
-      later release.
+- [ ] Still wanted for beta testing? If that ever changes: Users → mark it
+      inactive (it can't sign in), then remove the name from
+      `ALL_DENS_TEST_USERNAMES` in a later release.
 - [ ] Who knows its password? It should be one person, with a unique password.
 - [ ] Audit log → Sign-ins, filter for it: any sign-in you can't explain?
 - [ ] It only applies while the account's level is Den Leader. Note: deleting
@@ -402,48 +406,36 @@ than once a season, or the calendar gains a separate "cancelled" vs "replaced
 by an event" choice — then plain cancellations could close attendance
 automatically while trips and events don't.
 
-### 6.2 Deleting records with money attached (needs a decision)
+### 6.2 Deleting records with money attached (decided 2026-10-28)
 
-Today, deleting one of these also deletes its payment history (the audit log
-keeps a one-line summary, not the payments):
+**Decision:** payment records and refunds must be kept, and anyone deleting
+something with payments attached is warned first. Deleting is still allowed.
 
-- **Start a Fresh Year** (master only) → every scout in that season, each
-  with everything in the next item. One action removes a whole season's dues
-  and event payment history. Its audit entry mentions advancement,
-  attendance, dues and parent contacts, but not the event registrations and
-  payments that go with them.
-- a scout (den roster **Remove**, or Users → Scouts **Delete**) → their dues
-  payments, their event registrations and those registrations' payments, plus
-  advancement, attendance, photo consent and parent contacts. Guest groups
-  attending with that scout are kept, unlinked from the scout.
-- an event → its registrations, guest groups and all their payments
-- a guest group → its payments
-- a trip registration → its payments
-- a raffle → its buyers, boxes and payments (raffle payments are otherwise
-  voided, never deleted)
+How it works:
 
-Single payments can also be deleted outright (dues, event, guest-group and
-trip payments; trip expenses), with an audit entry but no void-and-keep step.
+- Every Delete/Remove button for something with payments attached (a scout,
+  Start a Fresh Year, an event, a registration, a guest group, a trip
+  registration, a raffle) says in its confirm prompt how many payments and
+  how much money are attached, and that the records will be kept. So does
+  deleting a single payment or trip expense.
+- Before the delete, in the same database transaction, each payment is copied
+  into **Admin → Payment Records** (`PaymentRecord`): who paid, how much, when,
+  what for, the note, who recorded it, and who deleted it and why
+  (`src/lib/paymentRecords.ts`). Trip registrations keep the family's email
+  and phone, so a refund can be arranged.
+- On that page an Admin records what happened to the money: **Refunded**
+  (amount and date), **Kept by the pack**, or **Entered by mistake**. New
+  records start as **Needs decision**. Trip expenses and already-voided
+  raffle payments are marked **Not applicable**. There is a CSV download.
+- Safety net: BEFORE DELETE triggers on every payment table (migration
+  `20261028120000_payment_records`) copy any payment a delete path forgot
+  to keep. Those rows say "saved by safety net" and have less detail.
+- Payment Records are never deleted by the app.
 
-Saved receipts are not linked to payments and are kept. Nothing about this was
-changed in this round. Questions for the pack's leadership and treasurer:
+If production ever moves to a restricted database login (section 2.2), that
+login needs `INSERT` on `PaymentRecord` too, or every delete with payments
+fails.
 
-1. Should anything with a payment be deletable at all, or only archived
-   (hidden, totals kept)? Inactive scouts already work this way.
-2. If deletable, must payments be voided first, with a reason, the way raffle
-   payments are?
-3. Who may do it — any Admin, or only the master, after confirming the
-   password (section 4, Phase 1)?
-4. How long must payment history be kept (council or treasurer rules are often
-   several years)?
-5. Start a Fresh Year: should it keep the season's payment history — archive
-   the scouts instead of deleting them, or at least offer a dues and
-   event-payment ledger to download first — rather than erase it with the
-   roster? There is no dues or scout event-payment download today, so until
-   this is decided, have the database backed up (section 2.4) and save or
-   print the Dues and Events pages before using it.
-
-A likely answer: archive instead of delete for anything with payments, and
-change the payment tables' links to "restrict" so a delete with payments
-attached is refused until they are voided. That needs a migration and changes
-to the delete buttons; do it as its own piece of work once the answers are in.
+Still open for leadership: how long payment history must be kept, and
+whether only the master Admin (after re-entering the password, section 4)
+should be able to delete things with payments.

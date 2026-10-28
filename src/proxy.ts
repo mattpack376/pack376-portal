@@ -51,6 +51,10 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
   // Receipts (donation and payment PDFs, with the pack's EIN) are Admin-only, no Junior Admin.
   // Mirrors requireAdminSession() on the page.
   { test: (p) => p.startsWith("/portal/admin/receipts"), roles: ["ADMIN"] },
+  // Payment records kept from deletes (families' payments and contact details,
+  // refund decisions) and their CSV export: Admin-only, no Junior Admin.
+  // Mirrors requireAdminSession() on the page and the export route.
+  { test: (p) => p.startsWith("/portal/admin/payment-records"), roles: ["ADMIN"] },
   // The audit log is master-admin-only, which this layer can't check — master
   // admin is a username list (src/lib/masterAdmins.ts) and proxy has no DB
   // access. ADMIN is the tightest coarse rule available; the real gate is

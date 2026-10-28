@@ -16,6 +16,7 @@ import { toDateOnlyString } from "@/lib/dateOnly";
 import { formatCents } from "@/lib/duesData";
 import { MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from "@/lib/formValues";
 import { MAX_RAFFLE_BOXES, RAFFLE_METHOD_LABELS } from "@/lib/raffleMath";
+import { paymentDeletionWarning } from "@/lib/paymentRecords";
 import { raffleTermsVersion } from "@/lib/raffleEditVersion";
 import type { RaffleDetail } from "@/lib/raffleData";
 import { MethodSelect } from "./parts";
@@ -41,6 +42,12 @@ export default function CloseoutTab({
   const hasWinner = raffle.winningBox !== null;
   const winningEntry = hasWinner ? raffle.entries.find((entry) => entry.boxNumbers.includes(raffle.winningBox!)) : undefined;
   const exportBase = `/portal/admin/raffles/${raffle.id}/export`;
+  // Deleting keeps every payment in Payment Records (voided ones too); the
+  // total counts only the money still standing, as keepPaymentRecords does.
+  const deleteWarning = paymentDeletionWarning({
+    count: raffle.payments.length,
+    totalCents: raffle.payments.reduce((sum, payment) => sum + (payment.voidedAt ? 0 : payment.amountCents), 0),
+  });
 
   // What a careful close-out would want settled first. None of it blocks
   // closing — a raffle with an IOU that will never be paid still has to end.
@@ -320,7 +327,7 @@ export default function CloseoutTab({
               <ConfirmSubmitButton
                 className="btn btn-danger btn-small"
                 pendingLabel="Deleting…"
-                message={`Delete “${raffle.name}” and all ${raffle.entries.length} buyers, ${s.soldBoxes} boxes and ${raffle.payments.length} payments in it? This can't be undone.`}
+                message={`Delete “${raffle.name}” and all ${raffle.entries.length} buyers, ${s.soldBoxes} boxes and ${raffle.payments.length} payments in it? This can't be undone.${deleteWarning}`}
               >
                 Delete Raffle
               </ConfirmSubmitButton>

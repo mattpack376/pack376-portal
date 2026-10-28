@@ -129,7 +129,7 @@ export default async function AdminScoutDuesPage({
                     <ConfirmSubmitButton
                       className="btn btn-danger btn-small"
                       pendingLabel="Deleting…"
-                      message={`Delete the ${formatCents(payment.amountCents)} dues payment from ${payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}? This can't be undone.`}
+                      message={`Delete the ${formatCents(payment.amountCents)} dues payment from ${payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}? It comes off this scout's balance and can't be undone here. ⚠ The payment record will be kept under Admin → Payment Records, where you can mark it refunded, kept by the pack, or entered by mistake.`}
                     >
                       Delete
                     </ConfirmSubmitButton>
