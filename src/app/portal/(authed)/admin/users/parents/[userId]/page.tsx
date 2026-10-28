@@ -117,7 +117,7 @@ export default async function ManageParentAccountPage({
                 marginBottom: 8,
               }}
             >
-              <span>
+              <span className="row-text">
                 <strong>{c.scout.firstName} {c.scout.lastName}</strong> ·{" "}
                 {denDisplayName(c.scout.den.rank, c.scout.den.scoutingYear, c.scout.den.label)}
               </span>

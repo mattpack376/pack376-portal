@@ -95,7 +95,7 @@ export default async function ManageHouseholdPage({
                 marginBottom: 8,
               }}
             >
-              <span>
+              <span className="row-text">
                 <strong>{s.firstName} {s.lastName}</strong> · {denDisplayName(s.den.rank, s.den.scoutingYear, s.den.label)}
               </span>
               <form action={removeScoutFromHouseholdAction}>
@@ -156,7 +156,7 @@ export default async function ManageHouseholdPage({
                 marginBottom: 8,
               }}
             >
-              <span>
+              <span className="row-text">
                 <strong>{u.displayName}</strong> · {u.username} ·{" "}
                 <span className={`badge-pill ${ROLE_BADGE_CLASSES[u.role]}`}>{ROLE_LABELS[u.role]}</span>
               </span>

@@ -373,9 +373,11 @@ export default async function ParentDashboardView({
                     {event.myGuestGroups.length > 0 && (
                       <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
                         {event.myGuestGroups.map((g) => (
-                          <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                          <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, flexWrap: "wrap" }}>
                             <span className="badge-pill badge-attendance">Registered</span>
-                            {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
+                            <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                              {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
+                            </span>
                             {/* Once the pack has recorded money for a group, cancelling it means
                                 sorting out a refund, so only an Admin can remove it
                                 (removeMyGuestGroupAction refuses it too). */}
@@ -473,7 +475,7 @@ export default async function ParentDashboardView({
                   <div>
                     <p className="form-note" style={{ marginBottom: 6 }}>GUEST GROUPS</p>
                     <div className="table-scroll">
-                    <table className="data-table">
+                    <table className="data-table cards-md">
                       <thead>
                         <tr>
                           <th>Family Name / Guest Name</th>

@@ -70,7 +70,7 @@ export default async function AdminHouseholdsPage() {
             <tbody>
               {households.map((h) => (
                 <tr key={h.id}>
-                  <td>{h.name || <span style={{ color: "var(--ink-soft)" }}>Unnamed</span>}</td>
+                  <td className="cell-wrap">{h.name || <span style={{ color: "var(--ink-soft)" }}>Unnamed</span>}</td>
                   <td data-label="Scouts">
                     {h.scouts.length === 0
                       ? "—"
@@ -78,7 +78,7 @@ export default async function AdminHouseholdsPage() {
                           .map((s) => `${s.firstName} ${s.lastName} (${denDisplayName(s.den.rank, s.den.scoutingYear, s.den.label)})`)
                           .join(", ")}
                   </td>
-                  <td data-label="Logins">{h.users.length === 0 ? "—" : h.users.map((u) => u.displayName).join(", ")}</td>
+                  <td className="cell-wrap" data-label="Logins">{h.users.length === 0 ? "—" : h.users.map((u) => u.displayName).join(", ")}</td>
                   <td className="actions">
                     <Link
                       className="btn btn-quiet btn-small"

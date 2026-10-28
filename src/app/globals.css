@@ -2172,6 +2172,131 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   }
 }
 
+/* ---------- Wide tables as cards on tablets (opt-in: table.cards-md) ---------- */
+/*
+ * A table with many columns plus an actions column (event guest groups,
+ * receipt history, a family's guest groups) is wider than an iPad in portrait,
+ * and its sideways scroll hid the action buttons off the right edge. Adding
+ * className="cards-md" makes it use the same card-per-row contract as the
+ * phone rules above (first cell = title, data-label per cell, td.actions as a
+ * button row) from 641px up to 900px, laid out two cards across so the
+ * tablet width is used. Phones (<=640px) keep the rules above; desktop is
+ * untouched. Rules below are the phone block, scoped to .cards-md.
+ */
+@media screen and (min-width: 641px) and (max-width: 900px) {
+  /* Nothing is wider than the screen any more, and the card shadows would
+     be clipped by an overflow box. */
+  .table-scroll:has(> .data-table.cards-md) { overflow: visible; }
+
+  .data-table.cards-md,
+  .data-table.cards-md tbody,
+  .data-table.cards-md tr,
+  .data-table.cards-md td { display: block; width: 100%; }
+  .data-table.cards-md { background: none; box-shadow: none; border-radius: 0; overflow: visible; }
+  .data-table.cards-md thead { display: none; }
+
+  .data-table.cards-md tbody tr {
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+    padding: 12px 16px 14px;
+    margin-bottom: 12px;
+  }
+  .data-table.cards-md tbody tr:last-child { margin-bottom: 0; }
+  /* Inside a white card a second shadow reads as smudge; outline it instead. */
+  .info-card .data-table.cards-md tbody tr { box-shadow: none; border: 1.5px solid var(--cream-dark); }
+  /* Owing / paid-up rows keep their red or green text and gain an edge, so a
+     list of cards still scans at a glance. */
+  .data-table.cards-md tbody tr.status-owing { border-left: 4px solid var(--carnival-red-dark); }
+  .data-table.cards-md tbody tr.status-paid { border-left: 4px solid var(--money-green); }
+
+  .data-table.cards-md td {
+    padding: 5px 0;
+    border-bottom: none;
+    overflow-wrap: anywhere;
+  }
+  /* tbody/tr/td-deep, to outrank `.data-table.cards-md tr:last-child td`. */
+  .data-table.cards-md tbody tr > td:first-child {
+    font-weight: 700;
+    font-size: 16px;
+    padding: 0 0 8px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--cream-dark);
+  }
+  /* A "Nothing here yet" row spanning the table is a message, not a title. */
+  .data-table.cards-md tbody tr > td[colspan] { font-weight: 400; font-size: 14.5px; padding: 0; margin: 0; border: none; }
+
+  .data-table.cards-md td[data-label] { display: flex; align-items: baseline; gap: 12px; }
+  .data-table.cards-md td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  /* Long, multi-part content (the audit log's "What changed"): label on its
+     own line above, content at full card width. */
+  .data-table.cards-md td.cell-block { display: block; }
+  .data-table.cards-md td.cell-block::before { display: block; margin-bottom: 4px; }
+
+  .data-table.cards-md td.actions { flex-wrap: wrap; gap: 8px; padding-top: 10px; }
+
+  /*
+   * Click-to-sort column headers (SortableColumnHeader) are the one part of
+   * a header row that does something, so they stay: shown as a row of sort
+   * buttons above the cards, with the current sort highlighted.
+   */
+  .data-table.cards-md thead:has(th.sortable) { display: block; margin-bottom: 12px; }
+  .data-table.cards-md thead:has(th.sortable) tr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .data-table.cards-md thead:has(th.sortable) tr::before {
+    content: "Sort by";
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .data-table.cards-md thead th { display: none; }
+  .data-table.cards-md thead th.sortable { display: block; width: auto; padding: 0; border: none; background: none; }
+  .data-table.cards-md th.sortable a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 7px 14px;
+    border: 1.5px solid #c9d4e4;
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--scout-blue);
+    font-size: 13px;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  .data-table.cards-md th.sortable a.active {
+    background: var(--scout-gold);
+    border-color: var(--scout-gold);
+    color: var(--scout-blue-dark);
+  }
+
+  /* Two cards across: these come last so they outrank the single-column rules above. */
+  .data-table.cards-md tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .data-table.cards-md tbody tr { margin-bottom: 0; }
+  /* An empty-state row spans both columns. */
+  .data-table.cards-md tbody tr:has(> td[colspan]) { grid-column: 1 / -1; }
+}
+
+/* events-receipts-family: the collapsed event card on Family View (<summary class="event-toggle"> holding a
+   block <p> and <h3>) left its inline-block ▸ marker alone on a line above the text. Pin the marker in a
+   16px left gutter beside the first line (every line of the summary shares the gutter, so a wrapped title stays
+   aligned). Phones and tablets only; desktop keeps its current look. */
+@media (max-width: 900px) {
+  .event-toggle { position: relative; padding-left: 16px; }
+  .event-toggle::before { position: absolute; left: 0; top: 0; }
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .hero-grid { grid-template-columns: 1fr; }
@@ -3016,4 +3141,28 @@ button.raffle-box:focus-visible { outline: 3px solid var(--scout-blue-light); ou
 /* admin-trips-audit: a long device / location string in an audit-log row must wrap inside its column on tablets (cards already wrap under 640px). */
 @media screen and (min-width: 641px) and (max-width: 1099px) {
   .data-table td .form-note { overflow-wrap: anywhere; }
+}
+
+/* new-users: Users panel on phones and tablets.
+   1) .row-text: the name/email text beside a Remove/Unlink button in a household / linked-scout row is a flex item,
+      so a long unbreakable email kept it at its full width and pushed the whole page sideways. Let it shrink and wrap.
+   2) .cell-wrap: an unbreakable login (an email address) in the Staff/Parent/Household tables made the table wider than
+      the tablet screen, so its Manage buttons sat off-screen inside the scroller; let those cells wrap (cards under 640px already do).
+   3) label.adventure-check-item: on the staff Manage page the whole item is a bare <label> (the progress-checklist version
+      is a column with a separate .adventure-check-main row), which stacked the checkbox above the den name; lay it out as a row. */
+@media (max-width: 1100px) {
+  .row-text { min-width: 0; overflow-wrap: anywhere; }
+}
+@media screen and (min-width: 641px) and (max-width: 1100px) {
+  /* min-width so the break-anywhere column can't be crushed to a few letters per line by its neighbours. */
+  .data-table td.cell-wrap { overflow-wrap: anywhere; min-width: 6.5em; }
+}
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  label.adventure-check-item { flex-direction: row; align-items: center; gap: 10px; padding: 0 10px; cursor: pointer; }
+  label.adventure-check-item input { align-self: center; margin-top: 0; }
+}
+/* new-users (repair): the Staff Accounts Den cell needs a little room at tablet width, but 7.5em (nowrap-cell) pushed the
+   seven-column table wider than a 768px screen and cut "Reset Password" off. A smaller floor keeps the button visible. */
+@media screen and (min-width: 641px) and (max-width: 1100px) {
+  .data-table td.den-cell { min-width: 4.5em; }
 }

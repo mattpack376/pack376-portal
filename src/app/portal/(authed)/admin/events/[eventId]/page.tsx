@@ -372,7 +372,7 @@ export default async function AdminEventDetailPage({
         </div>
       ) : (
         <div className="table-scroll" style={{ marginBottom: 32 }}>
-        <table className="data-table">
+        <table className="data-table cards-md">
           <thead>
             <tr>
               <SortableColumnHeader href={`/portal/admin/events/${event.id}?guestSort=family`} label="Family Name / Guest Name" active={guestSort === "family"} />

@@ -381,7 +381,7 @@ export default async function FamilyViewPage({
                 <div>
                   <p className="form-note" style={{ marginBottom: 6 }}>GUEST GROUPS</p>
                   <div className="table-scroll">
-                  <table className="data-table">
+                  <table className="data-table cards-md">
                     <thead>
                       <tr>
                         <SortableColumnHeader href={guestSortHref("family")} label="Family Name / Guest Name" active={guestSort === "family"} />
@@ -457,9 +457,11 @@ export default async function FamilyViewPage({
                   {event.myGuestGroups.length > 0 && (
                     <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
                       {event.myGuestGroups.map((g) => (
-                        <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                        <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, flexWrap: "wrap" }}>
                           <span className="badge-pill badge-attendance">Registered</span>
-                          {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
+                          <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                            {g.familyName} — {g.adultCount} adult{g.adultCount === 1 ? "" : "s"}, {g.childCount} kid{g.childCount === 1 ? "" : "s"}
+                          </span>
                           {/* Paid groups are cancelled by an Admin, who sorts out the refund
                               (removeMyGuestGroupAction refuses them too). */}
                           {g.paidCents > 0 ? (

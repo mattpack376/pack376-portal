@@ -75,7 +75,7 @@ export default async function AdminParentAccountsPage() {
           )}
           {parents.map((user) => (
             <tr key={user.id}>
-              <td>{user.username}</td>
+              <td className="cell-wrap">{user.username}</td>
               <td data-label="Display Name">{user.displayName}</td>
               <td data-label="Phone">{user.phone ? formatPhoneNumber(user.phone) : "—"}</td>
               <td data-label="Kids Attached">

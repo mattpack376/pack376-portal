@@ -59,7 +59,7 @@ export default async function AdminUsersPage() {
               </td>
               <td data-label="Display Name">{user.displayName}</td>
               <td data-label="Phone">{user.phone ? formatPhoneNumber(user.phone) : "—"}</td>
-              <td data-label="Den">
+              <td className="den-cell" data-label="Den">
                 {user.role === "DEN" && isAllDensTestUsername(user.username)
                   ? "Every den (test login)"
                   : user.denAssignments.length > 0
