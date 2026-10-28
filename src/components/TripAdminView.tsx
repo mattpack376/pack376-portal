@@ -22,6 +22,7 @@ import {
   MEAL_TYPE_LABELS,
   TRIP_DAY_ORDER,
 } from "@/lib/tripPageData";
+import { tripPricingVersion } from "@/lib/tripEditVersion";
 import { describeHeadcountWithTotal, type TripSite } from "@/lib/tripSites";
 import type { Role } from "@/generated/prisma/enums";
 import { formatCents } from "@/lib/duesData";
@@ -454,6 +455,8 @@ export default async function TripAdminView({
             </p>
             <TripAdminForm action={updateTripPricingAction}>
               <input type="hidden" name="id" value={trip.id} />
+              {/* What this form was filled in with, so a save from it after someone else's is turned down rather than putting the old pricing back. */}
+              <input type="hidden" name="version" value={tripPricingVersion(trip)} />
               {site.priceTbdMessage && (
                 <div className="form-field">
                   <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>

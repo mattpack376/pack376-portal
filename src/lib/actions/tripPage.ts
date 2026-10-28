@@ -14,10 +14,12 @@ import {
   lockTripPage,
   tripFormResult,
   TripInputError,
+  TRIP_FORM_OUT_OF_DATE,
   TRIP_PAGE_GONE,
   TRIP_TRANSACTION_OPTIONS,
   type TripFormResult,
 } from "@/lib/tripPageData";
+import { tripPricingVersion } from "@/lib/tripEditVersion";
 import { tripSiteBySlug } from "@/lib/tripSites";
 import type { Prisma } from "@/generated/prisma/client";
 import type { TripDay, TripMealType } from "@/generated/prisma/enums";
@@ -196,6 +198,12 @@ export async function toggleTripPublishedAction(formData: FormData) {
  * still waiting — one a race left behind before this lock existed — rather
  * than needing a second save to notice it. Registrations that already have an
  * amount keep it: what a family was charged at signup is never repriced here.
+ *
+ * The form sends back a fingerprint of the pricing it was filled in with
+ * (tripPricingVersion). If anyone saved the pricing after the page loaded,
+ * the save is refused rather than writing every field back as the form had
+ * it — which could put a posted price back to TBD at $0, or restore an old
+ * price that later families would then be charged.
  */
 export async function updateTripPricingAction(formData: FormData): Promise<TripFormResult> {
   const session = await getSession();
@@ -204,32 +212,28 @@ export async function updateTripPricingAction(formData: FormData): Promise<TripF
 
   return tripFormResult(async () => {
     const id = textField(formData.get("id"));
-    const regularPriceRaw = textField(formData.get("regularPrice"));
-    const earlyBirdPriceRaw = textField(formData.get("earlyBirdPrice"));
-    const freeAgeRaw = textField(formData.get("freeAgeAndUnder"));
-    const priceTbdRequested = String(formData.get("priceTbd") || "") === "true";
     if (!id) throw new TripInputError("Missing trip page id.");
-
-    const regularPriceCents = dollarsToCents(regularPriceRaw);
-    if (regularPriceCents === null) throw new TripInputError("Enter a valid regular price (up to $1,000,000.00).");
-
-    const earlyBirdPriceCents = earlyBirdPriceRaw ? dollarsToCents(earlyBirdPriceRaw) : null;
-    if (earlyBirdPriceRaw && earlyBirdPriceCents === null) {
-      throw new TripInputError("Enter a valid early-bird price (up to $1,000,000.00), or leave it blank.");
-    }
-
-    const earlyBirdDeadline = dateField(formData.get("earlyBirdDeadline"), "The early-bird deadline");
-    const rsvpDeadline = dateField(formData.get("rsvpDeadline"), "The RSVP deadline");
-
-    let freeAgeAndUnder: number | null = null;
-    if (freeAgeRaw) {
-      freeAgeAndUnder = parseCount(freeAgeRaw, MAX_FREE_AGE);
-      if (freeAgeAndUnder === null) throw new TripInputError("Free age and under must be a whole number of years.");
-    }
+    const version = textField(formData.get("version"));
+    if (!version) throw new TripInputError(TRIP_FORM_OUT_OF_DATE, { stale: true });
 
     await prisma.$transaction(async (tx) => {
       const before = await lockTripPage(tx, id);
       if (!before) throw new TripInputError(TRIP_PAGE_GONE, { stale: true });
+      if (tripPricingVersion(before) !== version) {
+        const now = before.priceTbd ? "TBD" : `${auditMoney(currentTripPriceCents(before))}/person`;
+        throw new TripInputError(
+          `The pricing was changed after this page loaded (the price is now ${now}). Nothing was saved — review it on the refreshed page (reload the page if it hasn't updated), then make your change again.`,
+          { stale: true },
+        );
+      }
+      // Read only after that check. A refusal about what was typed (not a
+      // stale one) puts the admin's entries back on the refreshed page, next
+      // to its new fingerprint, so it must only come from a form that is
+      // current. Were a typo on an out-of-date form reported first, its old
+      // entries would come back with the new fingerprint, and the corrected
+      // save would go through over the change it never showed.
+      const { regularPriceCents, earlyBirdPriceCents, earlyBirdDeadline, rsvpDeadline, freeAgeAndUnder, priceTbdRequested } =
+        readPricingFields(formData);
 
       // Only an event whose site has a TBD message has the toggle on its form,
       // so for any other this is always false.
@@ -282,6 +286,33 @@ export async function updateTripPricingAction(formData: FormData): Promise<TripF
 
     revalidateTripPages();
   });
+}
+
+/** The Price Structure form's fields, read and bounded; a problem is a TripInputError, shown on the form. */
+function readPricingFields(formData: FormData) {
+  const regularPriceRaw = textField(formData.get("regularPrice"));
+  const earlyBirdPriceRaw = textField(formData.get("earlyBirdPrice"));
+  const freeAgeRaw = textField(formData.get("freeAgeAndUnder"));
+  const priceTbdRequested = String(formData.get("priceTbd") || "") === "true";
+
+  const regularPriceCents = dollarsToCents(regularPriceRaw);
+  if (regularPriceCents === null) throw new TripInputError("Enter a valid regular price (up to $1,000,000.00).");
+
+  const earlyBirdPriceCents = earlyBirdPriceRaw ? dollarsToCents(earlyBirdPriceRaw) : null;
+  if (earlyBirdPriceRaw && earlyBirdPriceCents === null) {
+    throw new TripInputError("Enter a valid early-bird price (up to $1,000,000.00), or leave it blank.");
+  }
+
+  const earlyBirdDeadline = dateField(formData.get("earlyBirdDeadline"), "The early-bird deadline");
+  const rsvpDeadline = dateField(formData.get("rsvpDeadline"), "The RSVP deadline");
+
+  let freeAgeAndUnder: number | null = null;
+  if (freeAgeRaw) {
+    freeAgeAndUnder = parseCount(freeAgeRaw, MAX_FREE_AGE);
+    if (freeAgeAndUnder === null) throw new TripInputError("Free age and under must be a whole number of years.");
+  }
+
+  return { regularPriceCents, earlyBirdPriceCents, earlyBirdDeadline, rsvpDeadline, freeAgeAndUnder, priceTbdRequested };
 }
 
 /**
