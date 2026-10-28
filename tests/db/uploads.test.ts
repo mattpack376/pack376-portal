@@ -209,6 +209,33 @@ describe("album actions", () => {
     assert.equal(await db.prisma.photoAlbum.count({ where: { title: "PDF cover" } }), 0);
   });
 
+  it("a form whose cover is refused keeps what was typed, to put back after React clears the fields", async () => {
+    const { keepEntriesOnRefusal } = await import("@/components/useAlbumFormAction");
+    const sentToServer: unknown[] = [];
+    const step = keepEntriesOnRefusal((previous, formData) => {
+      sentToServer.push(previous);
+      return albums.createAlbumAction(previous, formData);
+    });
+
+    const heic = new File([Buffer.from("\u0000\u0000\u0000\u0018ftypheic\u0000\u0000\u0000\u0000mif1heic", "latin1")], "IMG_0001.HEIC", {
+      type: "image/heic",
+    });
+    const submitted = albumForm({ title: "Den 3 hike", description: "Typed before the photo was refused" }, heic);
+    const earlier = { error: "An earlier refusal", entries: albumForm({ title: "Earlier try" }, await jpegFile()) };
+    const state = await runAs(admin, () => step(earlier, submitted));
+    assert.equal(state.error, "iPhone HEIC photos can't be used here. Share or export the photo as a JPEG and try again.");
+    assert.equal(state.entries, submitted, "what was submitted, to put back into the form");
+    assert.equal(state.entries?.get("description"), "Typed before the photo was refused");
+    // The server got an empty previous state, not the earlier entries and their photo.
+    assert.deepEqual(sentToServer, [{}]);
+    assert.equal(testState.blobPuts.length, 0);
+
+    // A save that works redirects, and keeps nothing.
+    const saved = await outcome(runAs(admin, async () => step({}, albumForm({ title: "Den 3 hike" }, await jpegFile()))));
+    assert.equal(saved, "redirect");
+    assert.equal(await db.prisma.photoAlbum.count({ where: { title: "Den 3 hike" } }), 1);
+  });
+
   it("deletes the new cover again when the album can't be saved", async (t) => {
     await db.pool.query(`CREATE OR REPLACE FUNCTION uploads_test_fail() RETURNS trigger LANGUAGE plpgsql AS $$
       BEGIN RAISE EXCEPTION 'simulated database failure'; END $$`);
