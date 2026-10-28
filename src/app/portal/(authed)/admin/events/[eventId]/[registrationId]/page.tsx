@@ -11,8 +11,10 @@ import { formatDueDate } from "@/lib/deadlineCategories";
 import { addEventPaymentAction, deleteEventPaymentAction, updateRegistrationAmountAction } from "@/lib/actions/events";
 import { todayDateOnlyString } from "@/lib/dateOnly";
 import ActionForm from "@/components/ActionForm";
+import TripAdminForm from "@/components/TripAdminForm";
 import SubmitButton from "@/components/SubmitButton";
 import { MAX_NOTE_LENGTH } from "@/lib/formValues";
+import { registrationEditVersion } from "@/lib/eventEditVersion";
 
 export default async function AdminEventRegistrationPage({
   params,
@@ -49,23 +51,29 @@ export default async function AdminEventRegistrationPage({
           {reg.remainingCents < 0 && ` — overpaid by ${formatCents(-reg.remainingCents)}`}
         </p>
         {canEdit && (
-        <form action={updateRegistrationAmountAction} style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+        // TripAdminForm: a refusal is shown above the field. If another Admin
+        // changed the amount since this page loaded (the version below no
+        // longer matches), it says so and shows the current amount.
+        <TripAdminForm action={updateRegistrationAmountAction}>
           <input type="hidden" name="registrationId" value={reg.id} />
           <input type="hidden" name="eventId" value={eventId} />
-          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
-            <label htmlFor="amountOwed">Amount Owed ($)</label>
-            <input
-              id="amountOwed"
-              name="amountOwed"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              defaultValue={(reg.amountOwedCents / 100).toFixed(2)}
-            />
+          <input type="hidden" name="version" value={registrationEditVersion(reg)} />
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
+              <label htmlFor="amountOwed">Amount Owed ($)</label>
+              <input
+                id="amountOwed"
+                name="amountOwed"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                defaultValue={(reg.amountOwedCents / 100).toFixed(2)}
+              />
+            </div>
+            <SaveButton className="btn btn-quiet btn-small">Update Amount Owed</SaveButton>
           </div>
-          <SaveButton className="btn btn-quiet btn-small">Update Amount Owed</SaveButton>
-        </form>
+        </TripAdminForm>
         )}
       </div>
 

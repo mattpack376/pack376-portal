@@ -10,6 +10,7 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { before, beforeEach, describe, it } from "node:test";
+import sharp from "sharp";
 import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
 import { form, resetTestState, runAs, settle, testState, type SessionUser } from "../support/context";
 import { packFixtures } from "./fixtures/pack";
@@ -31,6 +32,7 @@ let fx: ReturnType<typeof packFixtures>;
 let admin: SessionUser;
 
 const FAIL_TITLE = "Fail this write";
+const EVENT_GONE = "This event no longer exists — someone may have just deleted it. Nothing was saved.";
 
 before(async () => {
   await db.ready;
@@ -148,13 +150,11 @@ describe("event flyers", () => {
     t.after(() => holder.rollback());
     await holder.query(`UPDATE "Event" SET title = 'Spring Campout' WHERE id = $1`, [event.id]);
 
-    const pending = settle(runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: longTitle }, flyerFile()))));
+    const pending = runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: longTitle }, flyerFile())));
     await waitForLockWait(db.pool);
     await holder.commit();
 
-    const outcome = await pending;
-    assert.equal(outcome.ok, false);
-    assert.match(outcome.ok ? "" : outcome.error.message, /title to 120 characters/);
+    assert.match((await pending).error ?? "", /title to 120 characters/);
     assert.equal(testState.blobPuts.length, 1);
     assert.deepEqual(cleanupCalls(), [testState.blobPuts[0].url]);
     const saved = await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } });
@@ -162,11 +162,116 @@ describe("event flyers", () => {
     assert.equal(saved.flyerUrl, old);
   });
 
-  it("uploads nothing for an event that no longer exists", async () => {
-    const outcome = await settle(
-      runAs(admin, () => events.updateEventAction(eventForm({ id: "gone", title: "Whatever" }, flyerFile()))),
-    );
-    assert.equal(outcome.ok, false);
+  it("deletes the event's flyer, with the event, after the delete commits", async () => {
+    const flyer = "https://example.test/event-flyers/delete-me.png";
+    const event = await fx.event({ title: "Deleted with its flyer", flyerUrl: flyer });
+    const outcome = await settle(runAs(admin, () => events.deleteEventAction(form({ id: event.id }))));
+    assert.equal(outcome.ok ? "" : (outcome.error as { redirect?: string }).redirect, "/portal/admin/events");
+    assert.equal(await db.prisma.event.count({ where: { id: event.id } }), 0);
+    assert.deepEqual(cleanupCalls(), [flyer]);
+    const audit = await db.prisma.auditLog.findFirstOrThrow({ where: { action: "event.delete", entityId: event.id } });
+    assert.match(audit.summary, /Deleted with its flyer/);
+
+    // A second click (or another Admin) finds it gone: nothing more to do.
+    cleanupCalls().length = 0;
+    const again = await settle(runAs(admin, () => events.deleteEventAction(form({ id: event.id }))));
+    assert.equal(again.ok ? "" : (again.error as { redirect?: string }).redirect, "/portal/admin/events");
+    assert.deepEqual(cleanupCalls(), []);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "event.delete", entityId: event.id } }), 1);
+  });
+
+  it("deletes the flyer an edit just put in place, when the delete waited for that edit", async (t) => {
+    // Another Admin's edit is replacing the flyer and holds the event's row:
+    // it has already uploaded the new flyer, and deletes the old one itself
+    // once it commits. The delete has to find the new one.
+    const oldFlyer = "https://example.test/event-flyers/replaced.png";
+    const newFlyer = "https://example.test/event-flyers/replacement.png";
+    const event = await fx.event({ title: "Delete during an edit", flyerUrl: oldFlyer });
+    const edit = await openTransaction(db.pool);
+    t.after(() => edit.rollback());
+    await edit.query(`SELECT id FROM "Event" WHERE id = $1 FOR UPDATE`, [event.id]);
+    await edit.query(`UPDATE "Event" SET "flyerUrl" = $2 WHERE id = $1`, [event.id, newFlyer]);
+
+    const pending = settle(runAs(admin, () => events.deleteEventAction(form({ id: event.id }))));
+    await waitForLockWait(db.pool);
+    await edit.commit();
+
+    const outcome = await pending;
+    assert.equal(outcome.ok ? "" : (outcome.error as { redirect?: string }).redirect, "/portal/admin/events");
+    assert.equal(await db.prisma.event.count({ where: { id: event.id } }), 0);
+    assert.deepEqual(cleanupCalls(), [newFlyer], "the replacement is deleted, not the replaced flyer a second time");
+  });
+
+  it("uploads nothing for an event that no longer exists, and says so on the page as it loaded", async () => {
+    const result = await runAs(admin, () => events.updateEventAction(eventForm({ id: "gone", title: "Whatever" }, flyerFile())));
+    assert.deepEqual(result, { error: EVENT_GONE }, "not stale: the form keeps the message and what was typed");
     assert.equal(testState.blobPuts.length, 0);
+    // Refreshed, the event's page could only show not-found in place of the message.
+    assert.deepEqual(testState.revalidated, []);
+  });
+
+  it("deletes the new upload, and says so on the page, when the event is deleted while the edit waits for it", async (t) => {
+    // Another Admin's delete holds the event's row. The edit found the event
+    // before that, so it uploaded the new flyer, then finds the row gone
+    // under the lock.
+    const old = "https://example.test/event-flyers/deleted-meanwhile.png";
+    const event = await fx.event({ title: "Deleted meanwhile", flyerUrl: old });
+    const deleter = await openTransaction(db.pool);
+    t.after(() => deleter.rollback());
+    await deleter.query(`DELETE FROM "Event" WHERE id = $1`, [event.id]);
+
+    const pending = runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: "Too late" }, flyerFile())));
+    await waitForLockWait(db.pool);
+    await deleter.commit();
+
+    assert.deepEqual(await pending, { error: EVENT_GONE });
+    assert.equal(testState.blobPuts.length, 1);
+    assert.deepEqual(cleanupCalls(), [testState.blobPuts[0].url], "the upload nothing points at is deleted");
+    assert.deepEqual(testState.revalidated, []);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "event.update", entityId: event.id } }), 0);
+  });
+
+  it("answers a refused flyer on the Edit Event form, uploading and changing nothing", async () => {
+    // A screenshot saved as flyer.jpg: allowed bytes (PNG) under another
+    // allowed label (JPEG). The upload checks refuse it; the edit form has to
+    // say why rather than throw to the generic error page.
+    const old = "https://example.test/event-flyers/kept.png";
+    const event = await fx.event({ title: "Keeps its flyer", flyerUrl: old });
+    const png = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#123456" } }).png().toBuffer();
+    const mislabeled = new File([png], "flyer.jpg", { type: "image/jpeg" });
+
+    const result = await runAs(admin, () =>
+      events.updateEventAction(eventForm({ id: event.id, title: "New title", adultFee: "12.00" }, mislabeled)),
+    );
+    assert.match(result.error ?? "(no error)", /labeled as a JPEG but the file is really a PNG/);
+    assert.equal(result.stale, undefined, "a refusal about the entries: the form puts them back");
+    assert.equal(testState.blobPuts.length, 0);
+    assert.deepEqual(cleanupCalls(), []);
+    assert.deepEqual(testState.revalidated, [], "the page isn't refreshed under the Admin's entries");
+    const unchanged = await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    assert.equal(unchanged.title, "Keeps its flyer");
+    assert.equal(unchanged.adultFeeCents, 1000);
+    assert.equal(unchanged.flyerUrl, old);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "event.update", entityId: event.id } }), 0);
+
+    // Other mistakes on the form come back the same way.
+    for (const [fields, message] of [
+      [{ title: "" }, /Enter a title/],
+      [{ eventDate: "2030-02-30" }, /isn't a real date/],
+      [{ fee: "1e3" }, /fee per scout isn't a valid amount/],
+      [{ category: "NOT_A_CATEGORY" }, /category from the list/],
+    ] as [Record<string, string>, RegExp][]) {
+      const refused = await runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: "New title", ...fields })));
+      assert.match(refused.error ?? "(no error)", message, JSON.stringify(fields));
+    }
+    assert.equal((await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } })).title, "Keeps its flyer");
+
+    // The same file saved as what it really is goes through.
+    const asPng = new File([png], "flyer.png", { type: "image/png" });
+    assert.deepEqual(await runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: "New title" }, asPng))), {});
+    const saved = await db.prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    assert.equal(saved.title, "New title");
+    assert.equal(saved.flyerUrl, testState.blobPuts[0].url);
+    assert.deepEqual(cleanupCalls(), [old]);
   });
 });

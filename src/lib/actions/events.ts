@@ -30,33 +30,50 @@ import {
   isSubmissionKey,
 } from "@/lib/guestGroupLimits";
 import { centsFieldText, isUnchangedText, textLengthAsTyped } from "@/lib/savedFormValues";
+import { guestGroupEditVersion, registrationEditVersion } from "@/lib/eventEditVersion";
 import type { Prisma } from "@/generated/prisma/client";
 import type { DeadlineCategory } from "@/generated/prisma/enums";
 import type { SessionPayload } from "@/lib/session";
 
 /**
- * What the forms built on ActionForm get back: `error` is shown above the
- * fields. Nothing (or {}) means it saved.
+ * What the forms built on ActionForm or TripAdminForm get back: `error` is
+ * shown above the fields. Nothing (or {}) means it saved. `stale` marks a
+ * refusal about something that changed after the page loaded rather than
+ * about what was typed; the action refreshes the page with it, and
+ * TripAdminForm then shows the page as it now stands instead of putting the
+ * Admin's entries back. A row deleted since the page loaded is the exception
+ * (see EVENT_GONE): its page can only refresh to a not-found page, which
+ * would replace the message, so that refusal leaves the page as it loaded.
  */
-export type EventFormResult = { error?: string };
+export type EventFormResult = { error?: string; stale?: boolean };
 
 /**
- * A mistake in what was entered, or a sign-up that's no longer possible (the
- * event closed, the group already exists). Actions behind ActionForm return
- * its message as { error } instead of throwing to the error page — in
- * production Next replaces a thrown message with a generic one, so a family
- * would never see why. Anything else (not signed in, a tampered request, the
- * database down) is still thrown.
+ * A mistake in what was entered, or a sign-up or edit that's no longer
+ * possible (the event closed, the group already exists, someone else changed
+ * the row first). Actions behind ActionForm or TripAdminForm return its
+ * message as { error } instead of throwing to the error page — in production
+ * Next replaces a thrown message with a generic one, so a family or Admin
+ * would never see why. Thrown rather than returned so that, thrown inside a
+ * transaction, it also rolls back everything that transaction wrote.
+ * Anything else (not signed in, a tampered request, the database down) is
+ * still thrown.
  */
-class EventInputError extends Error {}
+class EventInputError extends Error {
+  readonly stale: boolean;
+
+  constructor(message: string, options: { stale?: boolean } = {}) {
+    super(message);
+    this.stale = options.stale ?? false;
+  }
+}
 
 async function asResult(work: () => Promise<void>): Promise<EventFormResult> {
   try {
     await work();
     return {};
   } catch (error) {
-    if (error instanceof EventInputError) return { error: error.message };
-    throw error;
+    if (!(error instanceof EventInputError)) throw error;
+    return error.stale ? { error: error.message, stale: true } : { error: error.message };
   }
 }
 
@@ -419,10 +436,33 @@ export async function createEventAction(formData: FormData): Promise<EventFormRe
   redirect(`/portal/admin/events/${eventId}`);
 }
 
-// The edit form uses SaveButton, whose "Saved ✓" only makes sense after a
-// save that went through, so this one still throws on bad input (before
-// anything is uploaded or written) rather than returning { error }.
-export async function updateEventAction(formData: FormData) {
+/**
+ * The edit forms' answer when what they edit was deleted after the page
+ * loaded. Not `stale`, although it is out of date: the pages for an event, a
+ * registration and a guest group call notFound() once the row is gone, so
+ * refreshing the page would put the not-found page in place of this message
+ * and leave the Admin wondering where their edit went. Left as it loaded,
+ * the page shows the message above what they typed.
+ */
+const EVENT_GONE = "This event no longer exists — someone may have just deleted it. Nothing was saved.";
+const REGISTRATION_GONE = "This registration no longer exists — someone may have just removed it. Nothing was saved.";
+const GUEST_GROUP_GONE = "This guest group no longer exists — someone may have just removed it. Nothing was saved.";
+
+function revalidateEventPages(eventId: string) {
+  revalidatePath(`/portal/admin/events/${eventId}`);
+  revalidatePath("/portal/admin/events");
+  revalidatePath("/portal/parent");
+  revalidatePath("/portal/roster/family-view");
+}
+
+/**
+ * The Edit Event Details form (TripAdminForm, so a refusal is shown above
+ * the fields with what the Admin typed put back, and its SaveButton only
+ * says "Saved ✓" after a save that went through). A mistake in a field or a
+ * flyer the upload checks turn down comes back as { error }, with nothing
+ * uploaded or written; so does an event deleted meanwhile (EVENT_GONE).
+ */
+export async function updateEventAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
@@ -431,71 +471,77 @@ export async function updateEventAction(formData: FormData) {
   if (!id) throw new Error("Missing event id.");
   const removeFlyer = textField(formData.get("removeFlyer")) === "true";
 
-  // Turned away, and the fields checked against the event as saved, before
-  // anything is uploaded for it.
-  const saved = await prisma.event.findUnique({ where: { id }, select: SAVED_EVENT_SELECT });
-  if (!saved) throw new Error("Event not found.");
-  readEventFields(formData, saved);
+  const result = await asResult(async () => {
+    // Turned away, and the fields checked against the event as saved, before
+    // anything is uploaded for it.
+    const saved = await prisma.event.findUnique({ where: { id }, select: SAVED_EVENT_SELECT });
+    if (!saved) throw new EventInputError(EVENT_GONE);
+    readEventFields(formData, saved);
 
-  // Only touch flyerUrl when a new file was uploaded or "remove" was checked,
-  // so leaving both alone keeps whatever flyer is already saved.
-  const uploadedUrl = await uploadEventFlyer(formData.get("flyer"));
-  const flyerUrl: string | null | undefined = uploadedUrl ?? (removeFlyer ? null : undefined);
+    // Only touch flyerUrl when a new file was uploaded or "remove" was
+    // checked, so leaving both alone keeps whatever flyer is already saved.
+    // A file the upload checks refuse (the wrong type, too big, labeled as
+    // one kind of file but really another) stops here, with nothing written.
+    const uploadedUrl = await uploadEventFlyer(formData.get("flyer"));
+    const flyerUrl: string | null | undefined = uploadedUrl ?? (removeFlyer ? null : undefined);
 
-  const { before, fields } = await writeWithFlyer(uploadedUrl, () =>
-    prisma.$transaction(async (tx) => {
-      // Re-read under the lock, so the flyer this replaces is the one saved
-      // right now: two Admins replacing it at once would otherwise both
-      // delete the same old file and leave one of the new uploads behind.
-      if (!(await lockEvent(tx, id))) throw new Error("Event not found.");
-      const previous = await tx.event.findUniqueOrThrow({ where: { id }, select: SAVED_EVENT_SELECT });
-      // Checked again against the locked row: an over-limit title kept "as
-      // is" has to still be the saved one, not one another Admin has just
-      // replaced.
-      const fields = readEventFields(formData, previous);
-      await tx.event.update({
-        where: { id },
-        data: { ...fields, ...(flyerUrl !== undefined ? { flyerUrl } : {}) },
-      });
-      return { before: previous, fields };
-    }, TX),
-  );
+    const { before, fields } = await writeWithFlyer(uploadedUrl, () =>
+      prisma.$transaction(async (tx) => {
+        // Re-read under the lock, so the flyer this replaces is the one saved
+        // right now: two Admins replacing it at once would otherwise both
+        // delete the same old file and leave one of the new uploads behind.
+        if (!(await lockEvent(tx, id))) throw new EventInputError(EVENT_GONE);
+        const previous = await tx.event.findUniqueOrThrow({ where: { id }, select: SAVED_EVENT_SELECT });
+        // Checked again against the locked row: an over-limit title kept "as
+        // is" has to still be the saved one, not one another Admin has just
+        // replaced.
+        const fields = readEventFields(formData, previous);
+        await tx.event.update({
+          where: { id },
+          data: { ...fields, ...(flyerUrl !== undefined ? { flyerUrl } : {}) },
+        });
+        return { before: previous, fields };
+      }, TX),
+    );
 
-  // After the row is updated: a stray object is a better failure than a row
-  // pointing at a flyer that's already gone. Same helper as albums.ts.
-  if (flyerUrl !== undefined && before.flyerUrl && before.flyerUrl !== flyerUrl) {
-    await deleteUploadedBlob(before.flyerUrl);
-  }
+    // After the row is updated: a stray object is a better failure than a row
+    // pointing at a flyer that's already gone. Same helper as albums.ts.
+    if (flyerUrl !== undefined && before.flyerUrl && before.flyerUrl !== flyerUrl) {
+      await deleteUploadedBlob(before.flyerUrl);
+    }
 
-  const money = (cents: number | null) => (cents === null ? null : auditMoney(cents));
-  await recordAudit(session, {
-    action: "event.update",
-    summary: `Edited the event “${fields.title}”`,
-    entityType: "Event",
-    entityId: id,
-    details: [
-      ...changedFields({
-        Title: [before.title, fields.title],
-        Category: [
-          DEADLINE_CATEGORY_LABELS[before.category] ?? before.category,
-          DEADLINE_CATEGORY_LABELS[fields.category] ?? fields.category,
-        ],
-        "Event date": [before.eventDate, fields.eventDate],
-        Description: [before.description, fields.description],
-        "Scout fee": [money(before.feeCents), money(fields.feeCents)],
-        "Adult fee": [money(before.adultFeeCents), money(fields.adultFeeCents)],
-        "Guest child fee": [money(before.guestChildFeeCents), money(fields.guestChildFeeCents)],
-      }),
-      ...(flyerUrl === undefined
-        ? []
-        : [{ label: "Flyer", from: "Previous", to: flyerUrl === null ? "—" : "Replaced" }]),
-    ],
+    const money = (cents: number | null) => (cents === null ? null : auditMoney(cents));
+    await recordAudit(session, {
+      action: "event.update",
+      summary: `Edited the event “${fields.title}”`,
+      entityType: "Event",
+      entityId: id,
+      details: [
+        ...changedFields({
+          Title: [before.title, fields.title],
+          Category: [
+            DEADLINE_CATEGORY_LABELS[before.category] ?? before.category,
+            DEADLINE_CATEGORY_LABELS[fields.category] ?? fields.category,
+          ],
+          "Event date": [before.eventDate, fields.eventDate],
+          Description: [before.description, fields.description],
+          "Scout fee": [money(before.feeCents), money(fields.feeCents)],
+          "Adult fee": [money(before.adultFeeCents), money(fields.adultFeeCents)],
+          "Guest child fee": [money(before.guestChildFeeCents), money(fields.guestChildFeeCents)],
+        }),
+        ...(flyerUrl === undefined
+          ? []
+          : [{ label: "Flyer", from: "Previous", to: flyerUrl === null ? "—" : "Replaced" }]),
+      ],
+    });
   });
 
-  revalidatePath(`/portal/admin/events/${id}`);
-  revalidatePath("/portal/admin/events");
-  revalidatePath("/portal/parent");
-  revalidatePath("/portal/roster/family-view");
+  // A refusal about what was typed, or about a row deleted meanwhile (see
+  // EVENT_GONE), leaves the page as it loaded, so the Admin's entries go back
+  // over it; a stale one refreshes it.
+  if (result.error && !result.stale) return result;
+  revalidateEventPages(id);
+  return result;
 }
 
 export async function toggleEventVisibilityAction(formData: FormData) {
@@ -530,42 +576,52 @@ export async function deleteEventAction(formData: FormData) {
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
 
-  const id = String(formData.get("id") || "");
+  const id = idField(formData.get("id"));
   if (!id) throw new Error("Missing event id.");
 
-  const event = await prisma.event.findUnique({
-    where: { id },
-    select: {
-      title: true,
-      eventDate: true,
-      flyerUrl: true,
-      _count: { select: { registrations: true, guestGroups: true } },
-    },
-  });
+  const deleted = await prisma.$transaction(async (tx) => {
+    // The same lock updateEventAction takes, and the flyer read under it. An
+    // edit that's replacing the flyer right now finishes first; it deletes
+    // the flyer it replaced, and this then deletes the one it left. Read
+    // before the lock, this would delete the replaced one a second time and
+    // leave the new upload public with nothing pointing at it.
+    if (!(await lockEvent(tx, id))) return null; // Already gone (a second click, or another Admin).
+    const event = await tx.event.findUniqueOrThrow({
+      where: { id },
+      select: {
+        title: true,
+        eventDate: true,
+        flyerUrl: true,
+        _count: { select: { registrations: true, guestGroups: true } },
+      },
+    });
 
-  await prisma.event.delete({ where: { id } });
+    await tx.event.delete({ where: { id } });
+
+    await recordAuditInTransaction(tx, session, {
+      action: "event.delete",
+      summary: `Deleted the event “${event.title}”${
+        event._count.registrations + event._count.guestGroups > 0
+          ? ` — along with ${event._count.registrations} scout registration(s), ${event._count.guestGroups} guest group(s) and their payments`
+          : ""
+      }`,
+      entityType: "Event",
+      entityId: id,
+      details: [
+        { label: "Title", from: event.title, to: "—" },
+        { label: "Event date", from: auditDate(event.eventDate), to: "—" },
+        { label: "Scout registrations", from: String(event._count.registrations), to: "—" },
+        { label: "Guest groups", from: String(event._count.guestGroups), to: "—" },
+      ],
+    });
+    return event;
+  }, TX);
+
   // The uploaded flyer goes with the event; otherwise it stays public at its
-  // original URL with nothing left linking to it.
-  await deleteUploadedBlob(event?.flyerUrl);
-
-  await recordAudit(session, {
-    action: "event.delete",
-    summary: `Deleted the event “${event?.title ?? id}”${
-      event && event._count.registrations + event._count.guestGroups > 0
-        ? ` — along with ${event._count.registrations} scout registration(s), ${event._count.guestGroups} guest group(s) and their payments`
-        : ""
-    }`,
-    entityType: "Event",
-    entityId: id,
-    details: event
-      ? [
-          { label: "Title", from: event.title, to: "—" },
-          { label: "Event date", from: auditDate(event.eventDate), to: "—" },
-          { label: "Scout registrations", from: String(event._count.registrations), to: "—" },
-          { label: "Guest groups", from: String(event._count.guestGroups), to: "—" },
-        ]
-      : null,
-  });
+  // original URL with nothing left linking to it. After the commit, like
+  // every other cleanup: a stray object is a better failure than a row
+  // pointing at a flyer that's already gone.
+  if (deleted) await deleteUploadedBlob(deleted.flyerUrl);
 
   revalidatePath("/portal/admin/events");
   redirect("/portal/admin/events");
@@ -644,52 +700,77 @@ export async function registerScoutForEventAction(formData: FormData): Promise<E
   return {};
 }
 
-export async function updateRegistrationAmountAction(formData: FormData) {
+/**
+ * A scout registration's amount owed, from its Manage Payments page
+ * (TripAdminForm). The form carries registrationEditVersion of the amount it
+ * loaded with. If another Admin changed the amount since, the save is
+ * refused and the page refreshed: the new figure was decided against one
+ * that's no longer there, and saving it anyway would quietly replace the
+ * other Admin's change (a discount, a correction) with neither of them
+ * knowing.
+ */
+export async function updateRegistrationAmountAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
-
-  const registrationId = String(formData.get("registrationId") || "");
-  const eventId = String(formData.get("eventId") || "");
-  const amountOwedCents = dollarsToCents(String(formData.get("amountOwed") || ""));
-  if (!registrationId || amountOwedCents === null) {
-    throw new Error("A valid amount owed is required.");
-  }
-
-  const registration = await prisma.eventRegistration.findUnique({
-    where: { id: registrationId },
-    select: { scout: { select: { denId: true } } },
-  });
-  if (!registration) throw new Error("Registration not found.");
   assertAdmin(session);
 
-  const before = await prisma.eventRegistration.findUnique({
-    where: { id: registrationId },
-    select: { amountOwedCents: true },
-  });
+  const registrationId = idField(formData.get("registrationId"));
+  const eventId = idField(formData.get("eventId"));
+  if (!registrationId) throw new Error("Missing registration id.");
 
-  await prisma.eventRegistration.update({
-    where: { id: registrationId },
-    data: { amountOwedCents },
-  });
+  const result = await asResult(async () => {
+    const version = textField(formData.get("version"));
 
-  const context = await registrationContext(registrationId);
-  await recordAudit(session, {
-    action: "eventRegistration.updateAmount",
-    summary: `Changed what ${context.scoutName} owes for “${context.eventTitle}” to ${auditMoney(amountOwedCents)}`,
-    entityType: "EventRegistration",
-    entityId: registrationId,
-    denId: context.denId,
-    details: changedFields({
-      "Amount owed": [
-        before ? auditMoney(before.amountOwedCents) : null,
-        auditMoney(amountOwedCents),
-      ],
-    }),
+    await prisma.$transaction(async (tx) => {
+      // The same row lock recording a payment takes, held until the new
+      // amount and its audit entry commit.
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "EventRegistration" WHERE id = ${registrationId} FOR UPDATE`;
+      if (locked.length === 0) throw new EventInputError(REGISTRATION_GONE);
+      const registration = await tx.eventRegistration.findUniqueOrThrow({
+        where: { id: registrationId },
+        select: {
+          amountOwedCents: true,
+          event: { select: { title: true } },
+          scout: { select: { firstName: true, lastName: true, denId: true } },
+        },
+      });
+      // Before the amount is read: a page that's out of date says so, rather
+      // than that what was typed doesn't fit.
+      if (registrationEditVersion(registration) !== version) {
+        throw new EventInputError(
+          `Someone changed this amount owed after this page loaded (it's now ${auditMoney(
+            registration.amountOwedCents,
+          )}). Nothing was saved — the page now shows the current amount; change it again if it still needs changing.`,
+          { stale: true },
+        );
+      }
+      const amountOwedCents = readAmountOwed(formData, registration.amountOwedCents);
+      const scoutName = `${registration.scout.firstName} ${registration.scout.lastName}`;
+
+      await tx.eventRegistration.update({ where: { id: registrationId }, data: { amountOwedCents } });
+
+      await recordAuditInTransaction(tx, session, {
+        action: "eventRegistration.updateAmount",
+        summary: `Changed what ${scoutName} owes for “${registration.event.title}” to ${auditMoney(amountOwedCents)}`,
+        entityType: "EventRegistration",
+        entityId: registrationId,
+        denId: registration.scout.denId,
+        details: changedFields({
+          "Amount owed": [auditMoney(registration.amountOwedCents), auditMoney(amountOwedCents)],
+        }),
+      });
+    }, TX);
   });
+  // A refusal about what was typed, or about a row deleted meanwhile (see
+  // EVENT_GONE), leaves the page as it loaded, so the Admin's entry goes back
+  // over it; a stale one refreshes it.
+  if (result.error && !result.stale) return result;
 
   revalidatePath(`/portal/admin/events/${eventId}/${registrationId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
+  return result;
 }
 
 export async function removeRegistrationAction(formData: FormData) {
@@ -1167,9 +1248,20 @@ export async function addGuestGroupAction(formData: FormData): Promise<EventForm
   return {};
 }
 
-// The edit form uses SaveButton (see updateEventAction), so bad input is
-// still thrown, before anything is written.
-export async function updateGuestGroupAction(formData: FormData) {
+/** "2 adults, 1 kid" */
+function headcountText(adultCount: number, childCount: number) {
+  return `${adultCount} adult${adultCount === 1 ? "" : "s"}, ${childCount} kid${childCount === 1 ? "" : "s"}`;
+}
+
+/**
+ * An Admin's edit of a guest group: its name, Guest Of link, headcounts and
+ * amount owed (TripAdminForm on the group's page). The form carries
+ * guestGroupEditVersion of the values it was filled in with. If another
+ * Admin changed any of them since, the save is refused and the page
+ * refreshed, rather than putting this page's old values back over theirs —
+ * a discount on the amount owed quietly undone by someone fixing the name.
+ */
+export async function updateGuestGroupAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
   assertAdmin(session);
@@ -1177,47 +1269,76 @@ export async function updateGuestGroupAction(formData: FormData) {
   const guestGroupId = idField(formData.get("guestGroupId"));
   const eventId = idField(formData.get("eventId"));
   if (!guestGroupId) throw new Error("Missing guest group id.");
-  const guestOf = readGuestOf(formData.get("guestOf"));
 
-  await prisma.$transaction(async (tx) => {
-    const locked = await tx.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "EventGuestGroup" WHERE id = ${guestGroupId} FOR UPDATE`;
-    if (locked.length === 0) throw new Error("Guest group not found.");
-    const existing = await tx.eventGuestGroup.findUniqueOrThrow({
-      where: { id: guestGroupId },
-      select: { familyName: true, adultCount: true, childCount: true, amountOwedCents: true, eventId: true },
-    });
-    // Checked against the group as it's saved now, under the lock, so a name,
-    // size or amount saved before the limits can stay as it is (see "Reading
-    // form fields" above). A refusal here writes nothing.
-    const familyName = readGroupName(formData, existing.familyName);
-    const { adultCount, childCount } = readEditedHeadcounts(formData, existing);
-    const amountOwedCents = readAmountOwed(formData, existing.amountOwedCents);
-    await assertGuestOfExists(tx, guestOf);
+  const result = await asResult(async () => {
+    const version = textField(formData.get("version"));
 
-    await tx.eventGuestGroup.update({
-      where: { id: guestGroupId },
-      data: { familyName, adultCount, childCount, amountOwedCents, ...guestOf },
-    });
+    await prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "EventGuestGroup" WHERE id = ${guestGroupId} FOR UPDATE`;
+      if (locked.length === 0) throw new EventInputError(GUEST_GROUP_GONE);
+      const existing = await tx.eventGuestGroup.findUniqueOrThrow({
+        where: { id: guestGroupId },
+        select: {
+          familyName: true,
+          adultCount: true,
+          childCount: true,
+          amountOwedCents: true,
+          guestOfScoutId: true,
+          guestOfUserId: true,
+          eventId: true,
+        },
+      });
+      // Before the fields are read: a page that's out of date says so, rather
+      // than that what was typed doesn't fit.
+      if (guestGroupEditVersion(existing) !== version) {
+        throw new EventInputError(
+          `Someone changed this guest group after this page loaded (it's now ${existing.familyName}: ${headcountText(
+            existing.adultCount,
+            existing.childCount,
+          )}, ${auditMoney(existing.amountOwedCents)} owed). Nothing was saved — the page now shows the current ` +
+            "details; make your change again.",
+          { stale: true },
+        );
+      }
+      // Checked against the group as it's saved now, under the lock, so a
+      // name, size or amount saved before the limits can stay as it is (see
+      // "Reading form fields" above). A refusal here writes nothing.
+      const familyName = readGroupName(formData, existing.familyName);
+      const guestOf = readGuestOf(formData.get("guestOf"));
+      const { adultCount, childCount } = readEditedHeadcounts(formData, existing);
+      const amountOwedCents = readAmountOwed(formData, existing.amountOwedCents);
+      await assertGuestOfExists(tx, guestOf);
 
-    await recordAuditInTransaction(tx, session, {
-      action: "guestGroup.update",
-      summary: `Edited the guest group “${familyName}” on “${await eventTitle(existing.eventId, tx)}”`,
-      entityType: "EventGuestGroup",
-      entityId: guestGroupId,
-      details: changedFields({
-        "Guest group": [existing.familyName, familyName],
-        Adults: [existing.adultCount, adultCount],
-        Children: [existing.childCount, childCount],
-        "Amount owed": [auditMoney(existing.amountOwedCents), auditMoney(amountOwedCents)],
-      }),
-    });
-  }, TX);
+      await tx.eventGuestGroup.update({
+        where: { id: guestGroupId },
+        data: { familyName, adultCount, childCount, amountOwedCents, ...guestOf },
+      });
+
+      await recordAuditInTransaction(tx, session, {
+        action: "guestGroup.update",
+        summary: `Edited the guest group “${familyName}” on “${await eventTitle(existing.eventId, tx)}”`,
+        entityType: "EventGuestGroup",
+        entityId: guestGroupId,
+        details: changedFields({
+          "Guest group": [existing.familyName, familyName],
+          Adults: [existing.adultCount, adultCount],
+          Children: [existing.childCount, childCount],
+          "Amount owed": [auditMoney(existing.amountOwedCents), auditMoney(amountOwedCents)],
+        }),
+      });
+    }, TX);
+  });
+  // A refusal about what was typed, or about a row deleted meanwhile (see
+  // EVENT_GONE), leaves the page as it loaded, so the Admin's entries go back
+  // over it; a stale one refreshes it.
+  if (result.error && !result.stale) return result;
 
   revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);
   revalidatePath(`/portal/admin/events/${eventId}`);
   revalidatePath("/portal/admin/events");
   revalidatePath("/portal/admin/events/guests");
+  return result;
 }
 
 export async function removeGuestGroupAction(formData: FormData) {
