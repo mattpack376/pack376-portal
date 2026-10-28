@@ -32,6 +32,7 @@ let fx: ReturnType<typeof packFixtures>;
 let admin: SessionUser;
 
 const FAIL_TITLE = "Fail this write";
+const EVENT_GONE = "This event no longer exists — someone may have just deleted it. Nothing was saved.";
 
 before(async () => {
   await db.ready;
@@ -201,11 +202,33 @@ describe("event flyers", () => {
     assert.deepEqual(cleanupCalls(), [newFlyer], "the replacement is deleted, not the replaced flyer a second time");
   });
 
-  it("uploads nothing for an event that no longer exists, and says so on the refreshed page", async () => {
+  it("uploads nothing for an event that no longer exists, and says so on the page as it loaded", async () => {
     const result = await runAs(admin, () => events.updateEventAction(eventForm({ id: "gone", title: "Whatever" }, flyerFile())));
-    assert.deepEqual(result, { error: "This event no longer exists.", stale: true });
+    assert.deepEqual(result, { error: EVENT_GONE }, "not stale: the form keeps the message and what was typed");
     assert.equal(testState.blobPuts.length, 0);
-    assert.ok(testState.revalidated.includes("/portal/admin/events/gone"));
+    // Refreshed, the event's page could only show not-found in place of the message.
+    assert.deepEqual(testState.revalidated, []);
+  });
+
+  it("deletes the new upload, and says so on the page, when the event is deleted while the edit waits for it", async (t) => {
+    // Another Admin's delete holds the event's row. The edit found the event
+    // before that, so it uploaded the new flyer, then finds the row gone
+    // under the lock.
+    const old = "https://example.test/event-flyers/deleted-meanwhile.png";
+    const event = await fx.event({ title: "Deleted meanwhile", flyerUrl: old });
+    const deleter = await openTransaction(db.pool);
+    t.after(() => deleter.rollback());
+    await deleter.query(`DELETE FROM "Event" WHERE id = $1`, [event.id]);
+
+    const pending = runAs(admin, () => events.updateEventAction(eventForm({ id: event.id, title: "Too late" }, flyerFile())));
+    await waitForLockWait(db.pool);
+    await deleter.commit();
+
+    assert.deepEqual(await pending, { error: EVENT_GONE });
+    assert.equal(testState.blobPuts.length, 1);
+    assert.deepEqual(cleanupCalls(), [testState.blobPuts[0].url], "the upload nothing points at is deleted");
+    assert.deepEqual(testState.revalidated, []);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "event.update", entityId: event.id } }), 0);
   });
 
   it("answers a refused flyer on the Edit Event form, uploading and changing nothing", async () => {

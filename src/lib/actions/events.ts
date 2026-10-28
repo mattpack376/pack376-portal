@@ -41,7 +41,9 @@ import type { SessionPayload } from "@/lib/session";
  * refusal about something that changed after the page loaded rather than
  * about what was typed; the action refreshes the page with it, and
  * TripAdminForm then shows the page as it now stands instead of putting the
- * Admin's entries back.
+ * Admin's entries back. A row deleted since the page loaded is the exception
+ * (see EVENT_GONE): its page can only refresh to a not-found page, which
+ * would replace the message, so that refusal leaves the page as it loaded.
  */
 export type EventFormResult = { error?: string; stale?: boolean };
 
@@ -434,7 +436,17 @@ export async function createEventAction(formData: FormData): Promise<EventFormRe
   redirect(`/portal/admin/events/${eventId}`);
 }
 
-const EVENT_GONE = "This event no longer exists.";
+/**
+ * The edit forms' answer when what they edit was deleted after the page
+ * loaded. Not `stale`, although it is out of date: the pages for an event, a
+ * registration and a guest group call notFound() once the row is gone, so
+ * refreshing the page would put the not-found page in place of this message
+ * and leave the Admin wondering where their edit went. Left as it loaded,
+ * the page shows the message above what they typed.
+ */
+const EVENT_GONE = "This event no longer exists — someone may have just deleted it. Nothing was saved.";
+const REGISTRATION_GONE = "This registration no longer exists — someone may have just removed it. Nothing was saved.";
+const GUEST_GROUP_GONE = "This guest group no longer exists — someone may have just removed it. Nothing was saved.";
 
 function revalidateEventPages(eventId: string) {
   revalidatePath(`/portal/admin/events/${eventId}`);
@@ -448,7 +460,7 @@ function revalidateEventPages(eventId: string) {
  * the fields with what the Admin typed put back, and its SaveButton only
  * says "Saved ✓" after a save that went through). A mistake in a field or a
  * flyer the upload checks turn down comes back as { error }, with nothing
- * uploaded or written; so does an event deleted meanwhile.
+ * uploaded or written; so does an event deleted meanwhile (EVENT_GONE).
  */
 export async function updateEventAction(formData: FormData): Promise<EventFormResult> {
   const session = await getSession();
@@ -463,7 +475,7 @@ export async function updateEventAction(formData: FormData): Promise<EventFormRe
     // Turned away, and the fields checked against the event as saved, before
     // anything is uploaded for it.
     const saved = await prisma.event.findUnique({ where: { id }, select: SAVED_EVENT_SELECT });
-    if (!saved) throw new EventInputError(EVENT_GONE, { stale: true });
+    if (!saved) throw new EventInputError(EVENT_GONE);
     readEventFields(formData, saved);
 
     // Only touch flyerUrl when a new file was uploaded or "remove" was
@@ -478,7 +490,7 @@ export async function updateEventAction(formData: FormData): Promise<EventFormRe
         // Re-read under the lock, so the flyer this replaces is the one saved
         // right now: two Admins replacing it at once would otherwise both
         // delete the same old file and leave one of the new uploads behind.
-        if (!(await lockEvent(tx, id))) throw new EventInputError(EVENT_GONE, { stale: true });
+        if (!(await lockEvent(tx, id))) throw new EventInputError(EVENT_GONE);
         const previous = await tx.event.findUniqueOrThrow({ where: { id }, select: SAVED_EVENT_SELECT });
         // Checked again against the locked row: an over-limit title kept "as
         // is" has to still be the saved one, not one another Admin has just
@@ -524,8 +536,9 @@ export async function updateEventAction(formData: FormData): Promise<EventFormRe
     });
   });
 
-  // A refusal about what was typed leaves the page as it loaded, so the
-  // Admin's entries go back over it; a stale one refreshes it.
+  // A refusal about what was typed, or about a row deleted meanwhile (see
+  // EVENT_GONE), leaves the page as it loaded, so the Admin's entries go back
+  // over it; a stale one refreshes it.
   if (result.error && !result.stale) return result;
   revalidateEventPages(id);
   return result;
@@ -713,7 +726,7 @@ export async function updateRegistrationAmountAction(formData: FormData): Promis
       // amount and its audit entry commit.
       const locked = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM "EventRegistration" WHERE id = ${registrationId} FOR UPDATE`;
-      if (locked.length === 0) throw new EventInputError("This registration no longer exists.", { stale: true });
+      if (locked.length === 0) throw new EventInputError(REGISTRATION_GONE);
       const registration = await tx.eventRegistration.findUniqueOrThrow({
         where: { id: registrationId },
         select: {
@@ -749,8 +762,9 @@ export async function updateRegistrationAmountAction(formData: FormData): Promis
       });
     }, TX);
   });
-  // A refusal about what was typed leaves the page as it loaded, so the
-  // Admin's entry goes back over it; a stale one refreshes it.
+  // A refusal about what was typed, or about a row deleted meanwhile (see
+  // EVENT_GONE), leaves the page as it loaded, so the Admin's entry goes back
+  // over it; a stale one refreshes it.
   if (result.error && !result.stale) return result;
 
   revalidatePath(`/portal/admin/events/${eventId}/${registrationId}`);
@@ -1262,7 +1276,7 @@ export async function updateGuestGroupAction(formData: FormData): Promise<EventF
     await prisma.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM "EventGuestGroup" WHERE id = ${guestGroupId} FOR UPDATE`;
-      if (locked.length === 0) throw new EventInputError("This guest group no longer exists.", { stale: true });
+      if (locked.length === 0) throw new EventInputError(GUEST_GROUP_GONE);
       const existing = await tx.eventGuestGroup.findUniqueOrThrow({
         where: { id: guestGroupId },
         select: {
@@ -1315,8 +1329,9 @@ export async function updateGuestGroupAction(formData: FormData): Promise<EventF
       });
     }, TX);
   });
-  // A refusal about what was typed leaves the page as it loaded, so the
-  // Admin's entries go back over it; a stale one refreshes it.
+  // A refusal about what was typed, or about a row deleted meanwhile (see
+  // EVENT_GONE), leaves the page as it loaded, so the Admin's entries go back
+  // over it; a stale one refreshes it.
   if (result.error && !result.stale) return result;
 
   revalidatePath(`/portal/admin/events/${eventId}/guests/${guestGroupId}`);

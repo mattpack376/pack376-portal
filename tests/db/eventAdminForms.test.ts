@@ -241,11 +241,17 @@ describe("an edit from a page loaded before another Admin's change", () => {
     assert.equal(noVersion.stale, true);
     assert.equal((await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } })).amountOwedCents, 3500);
 
+    // A removed group is said so on the page as it loaded: not stale, since
+    // refreshed, the group's page could only show not-found in its place.
     await db.prisma.eventGuestGroup.delete({ where: { id: group.id } });
+    resetTestState();
     const gone = await runAs(admin, () =>
       events.updateGuestGroupAction(form({ guestGroupId: group.id, eventId: event.id, version: loaded, ...fields })),
     );
-    assert.deepEqual(gone, { error: "This guest group no longer exists.", stale: true });
+    assert.deepEqual(gone, {
+      error: "This guest group no longer exists — someone may have just removed it. Nothing was saved.",
+    });
+    assert.deepEqual(testState.revalidated, []);
   });
 
   it("refuses a scout's amount owed saved over another Admin's change, and saves it from a current page", async () => {
@@ -313,8 +319,14 @@ describe("an edit from a page loaded before another Admin's change", () => {
     const notAdmin = await settle(setAmount("1.00", registrationEditVersion({ amountOwedCents: 3200 }), juniorAdmin));
     assert.equal(notAdmin.ok, false);
     assert.equal((await db.prisma.eventRegistration.findUniqueOrThrow({ where: { id: registration.id } })).amountOwedCents, 3200);
+    // Not stale: refreshed, the registration's page could only show not-found
+    // in place of the message.
     await db.prisma.eventRegistration.delete({ where: { id: registration.id } });
-    assert.deepEqual(await setAmount("1.00", current), { error: "This registration no longer exists.", stale: true });
+    resetTestState();
+    assert.deepEqual(await setAmount("1.00", current), {
+      error: "This registration no longer exists — someone may have just removed it. Nothing was saved.",
+    });
+    assert.deepEqual(testState.revalidated, []);
   });
 });
 
