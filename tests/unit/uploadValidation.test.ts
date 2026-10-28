@@ -10,6 +10,7 @@ import { PDFDocument } from "pdf-lib";
 import {
   FLYER_MEDIA_TYPES,
   IMAGE_MEDIA_TYPES,
+  MAX_ANIMATION_PIXELS,
   MAX_IMAGE_SIDE,
   MAX_UPLOAD_BYTES,
   UploadRejectedError,
@@ -21,6 +22,7 @@ import {
   sniffMediaType,
   stripJpegMetadata,
   stripPngMetadata,
+  type SharpConstructor,
   type UploadRules,
 } from "@/lib/uploadValidation";
 
@@ -76,6 +78,58 @@ function gifHeaders(frames: number, width: number, height: number) {
   }
   parts.push(Uint8Array.from([0x3b]));
   return join(...parts);
+}
+
+/**
+ * A real, decodable animated GIF on a width×height screen whose frames each
+ * draw one pixel: as many pixels to decode as a full-size animation, in a
+ * file of a few kilobytes that's quick to save again.
+ */
+function sparseGif(frames: number, width: number, height: number) {
+  const parts = [
+    bytes("GIF89a"),
+    Uint8Array.from([width & 0xff, width >> 8, height & 0xff, height >> 8, 0x80, 0, 0]),
+    Uint8Array.from([20, 40, 120, 250, 200, 0]), // a two-color global color table
+    Uint8Array.from([0x21, 0xff, 0x0b]),
+    bytes("NETSCAPE2.0"),
+    Uint8Array.from([3, 1, 0, 0, 0]), // loop forever
+  ];
+  for (let i = 0; i < frames; i++) {
+    const x = i % width;
+    parts.push(Uint8Array.from([0x21, 0xf9, 4, 0, 10, 0, 0, 0])); // each frame shows for 0.1 seconds
+    parts.push(Uint8Array.from([0x2c, x & 0xff, x >> 8, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0x4c, 0x01, 0]));
+  }
+  parts.push(Uint8Array.from([0x3b]));
+  return join(...parts);
+}
+
+/**
+ * A real, decodable animated WEBP on a width×height canvas whose frames are
+ * each one lossless pixel: a file of a few hundred bytes that the decoder and
+ * encoder still work on at full canvas size, frame after frame.
+ */
+async function tinyAnimatedWebp(frames: number, width: number, height: number) {
+  const u24 = (n: number) => Uint8Array.from([n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff]);
+  const chunk = (type: string, ...data: Uint8Array[]) => {
+    const body = join(...data);
+    const head = Buffer.alloc(8);
+    head.write(type, 0, "latin1");
+    head.writeUInt32LE(body.length, 4);
+    return join(head, body, new Uint8Array(body.length & 1));
+  };
+  const pixel = await sharp({ create: { width: 1, height: 1, channels: 4, background: "#c82828" } }).webp({ lossless: true }).toBuffer();
+  const vp8l = new Uint8Array(pixel.subarray(12)); // its VP8L chunk, header and all
+  const parts = [
+    chunk("VP8X", Uint8Array.from([0x12, 0, 0, 0]), u24(width - 1), u24(height - 1)), // animation and alpha flags
+    chunk("ANIM", new Uint8Array(6)), // no background color, loop forever
+  ];
+  // Each frame: 1 × 1 at (2 × i, 0), so each changes the picture, shown for 0.1 seconds.
+  for (let i = 0; i < frames; i++) parts.push(chunk("ANMF", u24(i), u24(0), u24(0), u24(0), u24(100), Uint8Array.from([0]), vp8l));
+  const body = join(bytes("WEBP"), ...parts);
+  const riff = Buffer.alloc(8);
+  riff.write("RIFF", 0, "latin1");
+  riff.writeUInt32LE(body.length, 4);
+  return join(riff, body);
 }
 
 /** A PNG signature and IHDR claiming width×height, then nothing — a file a decoder would expand enormously. */
@@ -143,27 +197,40 @@ describe("prepareUploadBytes: what is turned away", () => {
       await rejection(prepareUploadBytes(minimalPdf(), "application/pdf", COVER, sharp)),
       "Cover image must be a JPEG, PNG, WEBP, or GIF.",
     );
+    const bmp = join(bytes("BM"), new Uint8Array(60));
     assert.equal(
-      await rejection(prepareUploadBytes(bytes("<svg/>"), "image/svg+xml", FLYER, sharp)),
+      await rejection(prepareUploadBytes(bmp, "image/bmp", FLYER, sharp)),
       "Flyer must be a JPEG, PNG, WEBP, GIF, or PDF.",
     );
   });
 
-  it("a file whose bytes don't match the type it claims", async () => {
-    const png = new Uint8Array(await solid(10, 10).png().toBuffer());
-    assert.match(await rejection(prepareUploadBytes(png, "image/jpeg", COVER, sharp)), /labeled as a JPEG but the file is really a PNG/);
-    assert.match(await rejection(prepareUploadBytes(minimalPdf(), "image/png", FLYER, sharp)), /really a PDF/);
-    const jpeg = new Uint8Array(await solid(10, 10).jpeg().toBuffer());
-    assert.match(await rejection(prepareUploadBytes(jpeg, "application/pdf", FLYER, sharp)), /labeled as a PDF but the file is really a JPEG/);
+  it("a file of a kind the form doesn't take, whatever it's labeled as", async () => {
+    // A PDF is a fine flyer but not a cover photo, even when it's named like one.
+    assert.equal(
+      await rejection(prepareUploadBytes(minimalPdf(), "image/png", COVER, sharp)),
+      "Cover image must be a JPEG, PNG, WEBP, or GIF, and this file is really a PDF, whatever its name says.",
+    );
+    assert.equal(
+      await rejection(prepareUploadBytes(minimalPdf(), "image/jpeg", COVER, null)),
+      "Cover image must be a JPEG, PNG, WEBP, or GIF, and this file is really a PDF, whatever its name says.",
+    );
+    // Not one of the accepted kinds at all, labeled as one.
+    assert.equal(
+      await rejection(prepareUploadBytes(join(bytes("BM"), new Uint8Array(60)), "image/png", COVER, sharp)),
+      "Cover image must be a JPEG, PNG, WEBP, or GIF, and this file isn't one, whatever its name says.",
+    );
   });
 
-  it("SVG, web pages and iPhone HEIC renamed as pictures", async () => {
+  it("SVG, web pages and iPhone HEIC, under their own type or renamed as pictures", async () => {
     const svg = bytes('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
     assert.match(await rejection(prepareUploadBytes(svg, "image/png", COVER, sharp)), /can't be an SVG/);
+    assert.match(await rejection(prepareUploadBytes(svg, "image/svg+xml", FLYER, sharp)), /can't be an SVG/);
+    assert.match(await rejection(prepareUploadBytes(bytes("<html><body>hi</body></html>"), "text/html", FLYER, sharp)), /web page/);
     const page = join(Uint8Array.from([0xef, 0xbb, 0xbf]), bytes("  <!DOCTYPE html><html><body>hi</body></html>")); // with a UTF-8 byte order mark
     assert.match(await rejection(prepareUploadBytes(page, "image/jpeg", FLYER, sharp)), /web page/);
     const heic = join(Uint8Array.from([0, 0, 0, 24]), bytes("ftypheic\u0000\u0000\u0000\u0000mif1heic"));
     assert.match(await rejection(prepareUploadBytes(heic, "image/jpeg", COVER, sharp)), /HEIC/);
+    assert.match(await rejection(prepareUploadBytes(heic, "image/heic", FLYER, sharp)), /HEIC/);
     assert.match(await rejection(prepareUploadBytes(bytes("just text"), "image/gif", COVER, sharp)), /isn't one/);
   });
 
@@ -179,16 +246,116 @@ describe("prepareUploadBytes: what is turned away", () => {
     assert.match(await rejection(prepareUploadBytes(pngHeader(10_000, 6_000), "image/png", COVER, sharp)), /10,000 × 6,000 pixels.*too large/);
     assert.match(await rejection(prepareUploadBytes(pngHeader(MAX_IMAGE_SIDE + 1, 10), "image/png", COVER, sharp)), /too large/);
     assert.match(await rejection(prepareUploadBytes(gifHeaders(301, 2, 2), "image/gif", COVER, sharp)), /301 frames/);
-    assert.match(await rejection(prepareUploadBytes(gifHeaders(250, 500, 500), "image/gif", COVER, sharp)), /across 250 frames/);
   });
 
-  it("damaged files", async () => {
+  it("animations too large to decode safely: by the frame, and all frames together", async () => {
+    assert.equal(
+      await rejection(prepareUploadBytes(gifHeaders(2, 8000, 7000), "image/gif", FLYER, sharp)),
+      "Flyer is an animation of 8,000 × 7,000 pixels, which is too large. The limit for an animation is 12,000 pixels on a side " +
+        "and 16 megapixels a frame — resize it and try again.",
+    );
+    assert.equal(
+      await rejection(prepareUploadBytes(pngHeader(10_000, 6_000), "image/png", FLYER, sharp)),
+      "Flyer is 10,000 × 6,000 pixels, which is too large. The limit is 12,000 pixels on a side and 50 megapixels in all — resize it and try again.",
+    );
+    // One frame more than fits at 1080 × 1080.
+    assert.equal(Math.floor(MAX_ANIMATION_PIXELS / (1080 * 1080)), 171);
+    assert.equal(
+      await rejection(prepareUploadBytes(gifHeaders(172, 1080, 1080), "image/gif", FLYER, sharp)),
+      "Flyer is 1,080 × 1,080 pixels across 172 frames, which is too large. An animation can have up to 200 megapixels " +
+        "across all its frames — 171 frames at this size. Make it smaller or shorter and try again.",
+    );
+    assert.match(await rejection(prepareUploadBytes(gifHeaders(97, 1920, 1080), "image/gif", COVER, sharp)), /across 97 frames.*96 frames at this size/);
+  });
+
+  it("an animation of a few huge frames, in a file of a few hundred bytes, is refused before anything is decoded", async (t) => {
+    // Four 7,000 × 7,000 frames: each under the 50 megapixels of a still
+    // image and 196 in all, under the 200 for an animation, yet re-saving it
+    // took a Node process past 2 GB.
+    const bomb = await tinyAnimatedWebp(4, 7000, 7000);
+    assert.ok(bomb.length < 300, `${bomb.length} bytes`);
+    const meta = await sharp(bomb, { animated: true, limitInputPixels: false }).metadata();
+    assert.deepEqual([meta.format, meta.pages, meta.width, meta.pageHeight], ["webp", 4, 7000, 7000], "a real animation sharp would decode");
+
+    const untouched = (() => assert.fail("the image library shouldn't be given this file")) as unknown as SharpConstructor;
+    const tooLarge =
+      "Flyer is an animation of 7,000 × 7,000 pixels, which is too large. The limit for an animation is 12,000 pixels on a side " +
+      "and 16 megapixels a frame — resize it and try again.";
+    assert.equal(await rejection(prepareUploadBytes(bomb, "image/webp", FLYER, untouched)), tooLarge);
+    assert.equal(await rejection(prepareUploadBytes(bomb, "image/webp", FLYER, null)), tooLarge);
+    assert.match(await rejection(prepareUploadBytes(await tinyAnimatedWebp(2, 5000, 5000), "image/webp", COVER, untouched)), /animation of 5,000 × 5,000/);
+
+    // One pixel row over the limit is refused; at the limit, and for an
+    // ordinary animated WEBP, the file is taken. A still image keeps its own,
+    // larger limit (headers only here, stored as is without the library).
+    assert.match(await rejection(prepareUploadBytes(gifHeaders(2, 4000, 4001), "image/gif", FLYER, untouched)), /animation of 4,000 × 4,001/);
+    const atLimit = await prepareUploadBytes(await tinyAnimatedWebp(2, 4000, 4000), "image/webp", FLYER, sharp);
+    assert.deepEqual(
+      (({ pages, width, pageHeight }) => [pages, width, pageHeight])(await sharp(atLimit.bytes, { animated: true }).metadata()),
+      [2, 4000, 4000],
+    );
+    const hd = await prepareUploadBytes(await tinyAnimatedWebp(3, 1920, 1080), "image/webp", FLYER, sharp);
+    assert.deepEqual(
+      (({ pages, width, pageHeight }) => [pages, width, pageHeight])(await sharp(hd.bytes, { animated: true }).metadata()),
+      [3, 1920, 1080],
+    );
+    t.mock.method(console, "warn", () => {});
+    assert.equal((await prepareUploadBytes(gifHeaders(1, 7000, 7000), "image/gif", FLYER, null)).contentType, "image/gif");
+  });
+
+  it("an animation whose frames the image library reads as larger than its headers say is refused and logged", async (t) => {
+    const logged = t.mock.method(console, "error", () => {});
+    const gif = await animatedGif(2);
+    // sharp has no limit for one frame, so the frame size it reads is checked too.
+    const disagrees = (() => ({ metadata: async () => ({ format: "gif", width: 7000, height: 14_000, pageHeight: 7000, pages: 2 }) })) as unknown as SharpConstructor;
+    assert.match(await rejection(prepareUploadBytes(gif, "image/gif", FLYER, disagrees)), /couldn't be read/);
+    assert.equal(logged.mock.callCount(), 1);
+    assert.match(String(logged.mock.calls[0].arguments[1]), /sharp read frames of 7000 × 7000 pixels, more than the header checks found/);
+  });
+
+  it("damaged files", async (t) => {
+    const logged = t.mock.method(console, "error", () => {});
     const jpeg = new Uint8Array(await solid(50, 50).jpeg().toBuffer());
     const cut = jpeg.subarray(0, jpeg.length - 40);
     assert.match(await rejection(prepareUploadBytes(cut, "image/jpeg", COVER, sharp)), /couldn't be read/);
     assert.match(await rejection(prepareUploadBytes(cut, "image/jpeg", COVER, null)), /couldn't be read/);
     assert.match(await rejection(prepareUploadBytes(jpeg.subarray(0, 20), "image/jpeg", COVER, sharp)), /couldn't be read/);
     assert.match(await rejection(prepareUploadBytes(pngHeader(10, 10), "image/png", COVER, sharp)), /couldn't be read/);
+    // The two the image library failed on are logged with its error; the
+    // others were turned away by the header checks before it saw them.
+    assert.deepEqual(
+      logged.mock.calls.map(({ arguments: [message, error] }) => [
+        /^\[upload\] the image library couldn't re-save an? (\w+) /.exec(String(message))?.[1],
+        error instanceof Error,
+      ]),
+      [
+        ["JPEG", true],
+        ["PNG", true],
+      ],
+    );
+  });
+
+  it("an image library that fails on this server is logged, not only reported as a damaged file", async (t) => {
+    const logged = t.mock.method(console, "error", () => {});
+    const photo = await phoneJpeg(); // carries a comment: "Taken at Prospect Park"
+    const failure = new Error("VipsForeignLoad: jpegload_buffer is not available in this build");
+    const missingCodec = (() => ({ metadata: () => Promise.reject(failure) })) as unknown as SharpConstructor;
+    assert.match(await rejection(prepareUploadBytes(photo, "image/jpeg", COVER, missingCodec)), /couldn't be read — the file may be damaged/);
+
+    // Reading the file as some other format than its signature says is logged too.
+    const confused = (() => ({ metadata: async () => ({ format: "png" }) })) as unknown as SharpConstructor;
+    assert.match(await rejection(prepareUploadBytes(photo, "image/jpeg", COVER, confused)), /couldn't be read/);
+
+    assert.equal(logged.mock.callCount(), 2);
+    const [first, second] = logged.mock.calls.map((call) => call.arguments);
+    assert.equal(
+      first[0],
+      `[upload] the image library couldn't re-save a JPEG (40 × 20 pixels, 1 frame, ${photo.length} bytes); refused as unreadable`,
+    );
+    assert.equal(first[1], failure);
+    assert.match(String(second[1]), /sharp read the file as png/);
+    // What's logged says what kind of file it was, never what was in it.
+    for (const args of [first, second]) assert.doesNotMatch(args.map(String).join(" "), /Prospect Park|ftypmp42/);
   });
 
   it("PDFs that run scripts, launch programs or carry attachments, however the name is spelled", async () => {
@@ -349,6 +516,24 @@ describe("prepareUploadBytes: what is kept", () => {
     assert.match(await rejection(prepareUploadBytes(webp, "image/webp", COVER, null)), /can't be processed right now/);
   });
 
+  it("ordinary animated flyers are taken: 100 frames at 1080 × 1080, 60 at 1920 × 1080, and up to the limit", async () => {
+    // Each was refused when every frame counted against the 50-megapixel limit for a still image.
+    for (const [frames, width, height] of [
+      [48, 1080, 1080],
+      [100, 1080, 1080],
+      [60, 1920, 1080],
+      [171, 1080, 1080],
+    ]) {
+      const gif = sparseGif(frames, width, height);
+      const prepared = await prepareUploadBytes(gif, "image/gif", FLYER, sharp);
+      assert.equal(prepared.contentType, "image/gif");
+      const meta = await sharp(prepared.bytes, { animated: true }).metadata();
+      assert.deepEqual([meta.pages, meta.width, meta.pageHeight], [frames, width, height], `${frames} × ${width} × ${height}`);
+      assert.equal(meta.delay?.[0], 100, "frame timing kept");
+      assert.equal(meta.loop, 0, "still loops forever");
+    }
+  });
+
   it("animations keep every frame", async () => {
     const gif = await animatedGif(3);
     const prepared = await prepareUploadBytes(gif, "image/gif", FLYER, sharp);
@@ -399,6 +584,42 @@ describe("prepareUploadBytes: what is kept", () => {
     assert.deepEqual([coverMeta.width, coverMeta.height], [3000, 75]);
     const flyer = await prepareUploadBytes(wide, "image/jpeg", FLYER, sharp);
     assert.equal((await sharp(flyer.bytes).metadata()).width, 4000);
+  });
+
+  it("a file of a kind the form takes is accepted under any label, and stored as what it really is", async () => {
+    // A PNG saved as .jpg (or renamed to get past a picky form) is still a PNG.
+    const png = new Uint8Array(await solid(10, 10).png().withExif({ IFD0: { Copyright: "x" } }).toBuffer());
+    for (const label of ["image/jpeg", "image/webp", "application/pdf", "application/octet-stream", ""]) {
+      const prepared = await prepareUploadBytes(png, label, COVER, sharp);
+      assert.equal(prepared.contentType, "image/png", label);
+      assert.equal(prepared.extension, "png", label);
+      assert.equal(prepared.metadataRemoved, true, label);
+      const meta = await sharp(prepared.bytes).metadata();
+      assert.equal(meta.format, "png", label);
+      assert.equal(meta.exif, undefined, label);
+    }
+    // The same without sharp: the PNG fallback strips it as a PNG.
+    const fallback = await prepareUploadBytes(png, "image/jpeg", COVER, null);
+    assert.deepEqual([fallback.contentType, fallback.extension, fallback.metadataRemoved], ["image/png", "png", true]);
+
+    const webp = new Uint8Array(await solid(10, 10).webp().toBuffer());
+    const asJpeg = await prepareUploadBytes(webp, "image/jpeg", COVER, sharp);
+    assert.deepEqual([asJpeg.contentType, asJpeg.extension], ["image/webp", "webp"]);
+
+    // A PDF flyer labeled as a picture is a PDF flyer, stored exactly as uploaded…
+    const pdf = minimalPdf();
+    const pdfFlyer = await prepareUploadBytes(pdf, "image/png", FLYER, sharp);
+    assert.deepEqual([pdfFlyer.contentType, pdfFlyer.extension, pdfFlyer.metadataRemoved], ["application/pdf", "pdf", false]);
+    assert.deepEqual(pdfFlyer.bytes, pdf);
+    // …and still has to pass the PDF checks.
+    const js = minimalPdf("4 0 obj << /S /JavaScript /JS (app.alert(1)) >> endobj\n");
+    assert.match(await rejection(prepareUploadBytes(js, "image/jpeg", FLYER, sharp)), /scripts.*\(JavaScript\)/);
+
+    // A picture labeled as a PDF is a picture, cleaned like any other.
+    const jpeg = await phoneJpeg();
+    const jpegFlyer = await prepareUploadBytes(jpeg, "application/pdf", FLYER, sharp);
+    assert.deepEqual([jpegFlyer.contentType, jpegFlyer.extension, jpegFlyer.metadataRemoved], ["image/jpeg", "jpg", true]);
+    assert.equal((await sharp(jpegFlyer.bytes).metadata()).exif, undefined);
   });
 
   it("accepts older browsers' names for JPEG and PNG", async () => {

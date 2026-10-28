@@ -1,11 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
-import { updateAlbumAction, type AlbumActionState } from "@/lib/actions/albums";
+import { updateAlbumAction } from "@/lib/actions/albums";
 import { toDateOnlyString } from "@/lib/dateOnly";
 import { ALBUM_FIELD_LIMITS } from "@/lib/albumFields";
-
-const initialState: AlbumActionState = {};
+import { useAlbumFormAction } from "@/components/useAlbumFormAction";
 
 export default function EditAlbumForm({
   album,
@@ -19,11 +17,12 @@ export default function EditAlbumForm({
     photoAlbumUrl: string;
   };
 }) {
-  const [state, formAction, pending] = useActionState(updateAlbumAction, initialState);
+  // Puts the edits back if the save is turned down (a refused cover photo, say).
+  const { state, formAction, pending, formRef } = useAlbumFormAction(updateAlbumAction);
 
   return (
     <div className="info-card" style={{ maxWidth: 480 }}>
-      <form action={formAction}>
+      <form ref={formRef} action={formAction}>
         <input type="hidden" name="albumId" value={album.id} />
         <div className="form-field">
           <label htmlFor="title">Event Title</label>

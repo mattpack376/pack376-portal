@@ -1,13 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
-import { createAlbumAction, type AlbumActionState } from "@/lib/actions/albums";
+import { createAlbumAction } from "@/lib/actions/albums";
 import { ALBUM_FIELD_LIMITS } from "@/lib/albumFields";
-
-const initialState: AlbumActionState = {};
+import { useAlbumFormAction } from "@/components/useAlbumFormAction";
 
 export default function NewAlbumPage() {
-  const [state, formAction, pending] = useActionState(createAlbumAction, initialState);
+  // Puts what was typed back if the save is turned down (a refused cover photo, say).
+  const { state, formAction, pending, formRef } = useAlbumFormAction(createAlbumAction);
 
   return (
     <>
@@ -18,7 +17,7 @@ export default function NewAlbumPage() {
       </div>
 
       <div className="info-card" style={{ maxWidth: 480 }}>
-        <form action={formAction}>
+        <form ref={formRef} action={formAction}>
           <div className="form-field">
             <label htmlFor="title">Event Title</label>
             <input

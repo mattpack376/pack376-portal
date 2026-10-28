@@ -226,15 +226,31 @@ Blob token if a laptop or account that held them is lost.
 ### 3.1 What uploads are accepted
 
 Flyers (events, trips) may be JPEG, PNG, WEBP, GIF or PDF; album covers JPEG,
-PNG, WEBP or GIF. Up to 8 MB, 12,000 pixels on a side, 50 megapixels, 300
-animation frames. The file's own bytes must match its type: SVG drawings, web
-pages, iPhone HEIC photos and renamed files are refused with a message saying
-what to do. Images are re-saved, which removes EXIF (including GPS position),
-comments and anything hidden in the file; covers are also scaled to 3,000
-pixels. PDFs are stored as uploaded after a check for scripts, launch actions
-and attachments; that check can't see inside compressed parts of a PDF, so it
-is a filter, not a guarantee. Uploaded files are served from the Blob storage
-domain, never from the portal's own domain.
+PNG, WEBP or GIF. Up to 8 MB, 12,000 pixels on a side and 50 megapixels. An
+animation may have 16 megapixels a frame (about twice a 4K frame), up to 300
+frames, and 200 megapixels across all of them: 171 frames at 1080 × 1080, 96
+at 1920 × 1080. Its frames have the lower limit because re-saving an animated
+WEBP holds several whole frames in memory: a file of a few hundred bytes with
+four 49-megapixel frames took the upload past a Vercel function's default
+2 GB. The file's own bytes decide what it is, not its name or the type
+the browser reports: a file that really is an accepted kind is taken under any
+name and stored as what it is (a PNG saved as .jpg is stored as a PNG; a PDF
+flyer named like an image as a PDF). SVG drawings, web pages, iPhone HEIC and
+AVIF photos, anything else, and a PDF chosen as an album cover are refused
+with a message saying what to do. Images are re-saved, which removes EXIF
+(including GPS position), comments and anything hidden in the file; covers
+are also scaled to 3,000 pixels. A long animated GIF can take several seconds
+to re-save. PDFs are stored as uploaded after a check for scripts, launch
+actions and attachments; that check can't see inside compressed parts of a
+PDF, so it is a filter, not a guarantee. Uploaded files are served from the
+Blob storage domain, never from the portal's own domain.
+
+When the image library fails on a file, the admin is told it "couldn't be
+read — the file may be damaged", and Vercel → Logs gets an
+`[upload] the image library couldn't re-save …` line with the kind of file,
+its size and the library's error (never the file's contents). The odd line is
+a damaged file; many in a row, for files that open fine, mean the library is
+failing on the server — redeploy, and check the versions in §1.1.
 
 ### 3.2 What Show, Hide and Delete do to an album
 

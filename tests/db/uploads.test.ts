@@ -59,6 +59,34 @@ async function jpegFile(name = "IMG_0001.jpg", width = 40, height = 30) {
   return new File([jpeg], name, { type: "image/jpeg" });
 }
 
+/**
+ * A real animated WEBP of a few hundred bytes whose frames are each one
+ * pixel on a width×height canvas, which sharp still decodes and saves at full
+ * size: the small file that takes the most memory to re-save.
+ */
+async function tinyAnimatedWebp(frames: number, width: number, height: number) {
+  const u24 = (n: number) => [n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff];
+  const chunk = (type: string, body: Buffer) => {
+    const head = Buffer.alloc(8);
+    head.write(type, 0, "latin1");
+    head.writeUInt32LE(body.length, 4);
+    return Buffer.concat([head, body, Buffer.alloc(body.length & 1)]);
+  };
+  const pixel = await sharp({ create: { width: 1, height: 1, channels: 4, background: "#c82828" } }).webp({ lossless: true }).toBuffer();
+  const parts = [
+    chunk("VP8X", Buffer.from([0x12, 0, 0, 0, ...u24(width - 1), ...u24(height - 1)])),
+    chunk("ANIM", Buffer.alloc(6)),
+  ];
+  for (let i = 0; i < frames; i++) {
+    parts.push(chunk("ANMF", Buffer.concat([Buffer.from([...u24(i), ...u24(0), ...u24(0), ...u24(0), ...u24(100), 0]), pixel.subarray(12)])));
+  }
+  const body = Buffer.concat([Buffer.from("WEBP", "latin1"), ...parts]);
+  const riff = Buffer.alloc(8);
+  riff.write("RIFF", 0, "latin1");
+  riff.writeUInt32LE(body.length, 4);
+  return Buffer.concat([riff, body]);
+}
+
 function albumForm(values: Record<string, string>, cover?: File) {
   const data = form({ title: "Pinewood Derby", eventDate: "2026-11-14", photoAlbumUrl: "https://photos.example.org/s/abc", ...values });
   if (cover) data.set("coverImage", cover);
@@ -115,6 +143,21 @@ describe("uploadFlyer", () => {
     assert.equal(testState.blobPuts[0].size, pdf.length, "stored exactly as uploaded");
   });
 
+  it("stores a file named or labeled as another accepted kind under what it really is", async () => {
+    const png = await sharp({ create: { width: 30, height: 20, channels: 3, background: "#123456" } }).png().toBuffer();
+    await flyerUpload.uploadFlyer(new File([png], "flyer.jpg", { type: "image/jpeg" }), "event-flyers");
+    const pdf = Buffer.from("%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n", "latin1");
+    await flyerUpload.uploadFlyer(new File([pdf], "flyer.png", { type: "image/png" }), "trip-flyers");
+
+    assert.equal(testState.blobPuts.length, 2);
+    const [image, document] = testState.blobPuts;
+    assert.match(image.pathname, /^event-flyers\/[0-9a-f-]{36}\.png$/);
+    assert.equal(image.options?.contentType, "image/png");
+    assert.match(document.pathname, /^trip-flyers\/[0-9a-f-]{36}\.pdf$/);
+    assert.equal(document.options?.contentType, "application/pdf");
+    assert.equal(document.size, pdf.length, "stored exactly as uploaded");
+  });
+
   it("refuses a disguised or active file with a readable message, uploading nothing", async () => {
     const page = new File(["<html><script>steal()</script></html>"], "flyer.jpg", { type: "image/jpeg" });
     await assert.rejects(flyerUpload.uploadFlyer(page, "event-flyers"), (error: Error) => {
@@ -125,6 +168,27 @@ describe("uploadFlyer", () => {
     const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], "flyer.png", { type: "image/png" });
     await assert.rejects(flyerUpload.uploadFlyer(svg, "event-flyers"), /SVG/);
     assert.equal(testState.blobPuts.length, 0);
+  });
+
+  it("refuses an animation of a few huge frames before decoding it, uploading nothing", async () => {
+    // Four 7,000 × 7,000 frames, refused from its headers: re-saving it took a Node process past 2 GB.
+    const bomb = await tinyAnimatedWebp(4, 7000, 7000);
+    assert.ok(bomb.length < 300, `${bomb.length} bytes`);
+    await assert.rejects(flyerUpload.uploadFlyer(new File([bomb], "flyer.webp", { type: "image/webp" }), "event-flyers"), (error: Error) => {
+      assert.ok(error instanceof validation.UploadRejectedError);
+      assert.equal(
+        error.message,
+        "Flyer is an animation of 7,000 × 7,000 pixels, which is too large. The limit for an animation is 12,000 pixels on a side " +
+          "and 16 megapixels a frame — resize it and try again.",
+      );
+      return true;
+    });
+
+    const cover = new File([await tinyAnimatedWebp(2, 5000, 5000)], "cover.webp", { type: "image/webp" });
+    const refused = await outcome(runAs(admin, () => albums.createAlbumAction({}, albumForm({ title: "Huge animated cover" }, cover))));
+    assert.ok(refused !== "redirect" && /animation of 5,000 × 5,000 pixels/.test(refused.error ?? ""), JSON.stringify(refused));
+    assert.equal(testState.blobPuts.length, 0);
+    assert.equal(await db.prisma.photoAlbum.count({ where: { title: "Huge animated cover" } }), 0);
   });
 });
 
@@ -167,6 +231,58 @@ describe("album actions", () => {
     assert.ok(result !== "redirect" && /SVG/.test(result.error ?? ""), JSON.stringify(result));
     assert.equal(testState.blobPuts.length, 0);
     assert.equal(await db.prisma.photoAlbum.count({ where: { title: "SVG cover" } }), 0);
+  });
+
+  it("takes a cover photo saved under the wrong extension, but never a PDF", async () => {
+    const png = await sharp({ create: { width: 40, height: 30, channels: 3, background: "#204060" } })
+      .png()
+      .withExif({ IFD3: { GPSLatitudeRef: "N", GPSLatitude: "40/1 39/1 0/1" } })
+      .toBuffer();
+    const renamed = new File([png], "cover.jpg", { type: "image/jpeg" });
+    const saved = await outcome(runAs(admin, () => albums.createAlbumAction({}, albumForm({ title: "Renamed PNG cover" }, renamed))));
+    assert.equal(saved, "redirect");
+    assert.equal(testState.blobPuts.length, 1);
+    assert.match(testState.blobPuts[0].pathname, /^album-covers\/[0-9a-f-]{36}\.png$/);
+    assert.equal(testState.blobPuts[0].options?.contentType, "image/png");
+    const album = await db.prisma.photoAlbum.findFirstOrThrow({ where: { title: "Renamed PNG cover" } });
+    assert.equal(album.coverImageUrl, testState.blobPuts[0].url);
+
+    resetTestState();
+    const pdf = Buffer.from("%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n", "latin1");
+    const pdfCover = new File([pdf], "cover.jpg", { type: "image/jpeg" });
+    const refused = await outcome(runAs(admin, () => albums.createAlbumAction({}, albumForm({ title: "PDF cover" }, pdfCover))));
+    assert.deepEqual(refused, {
+      error: "Cover image must be a JPEG, PNG, WEBP, or GIF, and this file is really a PDF, whatever its name says.",
+    });
+    assert.equal(testState.blobPuts.length, 0);
+    assert.equal(await db.prisma.photoAlbum.count({ where: { title: "PDF cover" } }), 0);
+  });
+
+  it("a form whose cover is refused keeps what was typed, to put back after React clears the fields", async () => {
+    const { keepEntriesOnRefusal } = await import("@/components/useAlbumFormAction");
+    const sentToServer: unknown[] = [];
+    const step = keepEntriesOnRefusal((previous, formData) => {
+      sentToServer.push(previous);
+      return albums.createAlbumAction(previous, formData);
+    });
+
+    const heic = new File([Buffer.from("\u0000\u0000\u0000\u0018ftypheic\u0000\u0000\u0000\u0000mif1heic", "latin1")], "IMG_0001.HEIC", {
+      type: "image/heic",
+    });
+    const submitted = albumForm({ title: "Den 3 hike", description: "Typed before the photo was refused" }, heic);
+    const earlier = { error: "An earlier refusal", entries: albumForm({ title: "Earlier try" }, await jpegFile()) };
+    const state = await runAs(admin, () => step(earlier, submitted));
+    assert.equal(state.error, "iPhone HEIC photos can't be used here. Share or export the photo as a JPEG and try again.");
+    assert.equal(state.entries, submitted, "what was submitted, to put back into the form");
+    assert.equal(state.entries?.get("description"), "Typed before the photo was refused");
+    // The server got an empty previous state, not the earlier entries and their photo.
+    assert.deepEqual(sentToServer, [{}]);
+    assert.equal(testState.blobPuts.length, 0);
+
+    // A save that works redirects, and keeps nothing.
+    const saved = await outcome(runAs(admin, async () => step({}, albumForm({ title: "Den 3 hike" }, await jpegFile()))));
+    assert.equal(saved, "redirect");
+    assert.equal(await db.prisma.photoAlbum.count({ where: { title: "Den 3 hike" } }), 1);
   });
 
   it("deletes the new cover again when the album can't be saved", async (t) => {
