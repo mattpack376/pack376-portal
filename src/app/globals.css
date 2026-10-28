@@ -310,7 +310,10 @@ section { padding: 64px 0; }
   padding: 4px 8px;
 }
 
-@media (max-width: 820px) {
+/* Hamburger below 820px, and on touch tablets up to 1100px (iPad landscape: the
+   12-link row wraps to two lines and the brand text breaks) — mouse desktops
+   keep the full row. */
+@media (max-width: 820px), (pointer: coarse) and (max-width: 1100px) {
   .nav-toggle { display: block; }
   .nav-links {
     position: absolute;
@@ -949,6 +952,20 @@ section { padding: 64px 0; }
   .cal-chip,
   .cal-monthnav a { flex: none; }
   .cal-monthnav { margin-bottom: 28px; }
+  /* Calendar mobile: on a long event the leaf badge sat mid-card; pin it beside the title instead. */
+  .cal-date { align-self: start; }
+}
+
+/* Calendar mobile/touch: 44px targets for glance-card links, date chips, month toggles and trip links; 12px badge text. */
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  .cal-glance li { align-items: center; padding-top: 0; padding-bottom: 0; }
+  .cal-glance li a { display: inline-flex; align-items: center; min-height: 44px; }
+  .cal-glance li b { padding: 0 0 0 4px; }
+  .cal-date-chips a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
+  .cal-month-toggle { align-items: center; min-height: 44px; }
+  .cal-link { display: inline-flex; align-items: center; min-height: 44px; }
+  .cal-chip { min-height: 44px; }
+  .cal-date-dow { font-size: 12px; letter-spacing: 0.03em; }
 }
 
 /* ---------- Instagram callout ---------- */
@@ -1461,6 +1478,15 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   color: var(--ink);
   cursor: pointer;
 }
+/* Photo consent signer row: name (2/3) + relationship (1/3) side by side; stacks on a phone so the name isn't clipped to ~5 characters. */
+.consent-signer-row { display: flex; gap: 8px; }
+.consent-signer-row > input { flex: 2; min-width: 0; }
+.consent-signer-row > select { flex: 1; min-width: 0; }
+@media (max-width: 480px) {
+  .consent-signer-row { flex-wrap: wrap; }
+  .consent-signer-row > input,
+  .consent-signer-row > select { flex: 1 1 100%; }
+}
 /* Overrides .form-field input's width/padding/border/background — those are meant for text inputs, not these radios. */
 .consent-choice-group input[type="radio"] {
   width: auto;
@@ -1603,7 +1629,9 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
  * the two headers behave the same way on mobile instead of the portal one
  * just wrapping every link and the account row in place above the content.
  */
-@media (max-width: 820px) {
+/* Also hamburger on a touch phone turned sideways (up to 1100px wide but under
+   500px tall), where the wrapped nav + account rows took 225px of 390. */
+@media (max-width: 820px), (pointer: coarse) and (max-height: 500px) and (max-width: 1100px) {
   .portal-nav-toggle { display: block; }
   .portal-collapsible {
     position: absolute;
@@ -2626,13 +2654,20 @@ button.raffle-box:focus-visible { outline: 3px solid var(--scout-blue-light); ou
 .data-table tr.raffle-voided > td.raffle-amount { text-decoration: line-through; }
 
 @media (max-width: 820px) {
-  .raffle-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .raffle-stats { gap: 10px; } /* iPad portrait keeps the four across; phones go two-up below */
   .raffle-stat { padding: 12px 14px; }
   .raffle-stat-value { font-size: 22px; }
 }
 @media (max-width: 640px) {
+  .raffle-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .raffle-board { gap: 4px; }
   .raffle-box { border-radius: 8px; font-size: 13px; }
+}
+/* Raffle board: a 10-across board gives ~29px cells on a phone, too small to tap. Below ~520px
+   wide, let the 100-box board wrap to as many 44px+ cells as fit (6-7 across) instead. The 5-across
+   small board already has big cells and keeps its columns. */
+@media (max-width: 520px) {
+  .raffle-board[style*="repeat(10,"] { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)) !important; }
 }
 
 @media print {
@@ -2652,4 +2687,333 @@ button.raffle-box:focus-visible { outline: 3px solid var(--scout-blue-light); ou
     border: 1px solid #999;
     break-inside: avoid;
   }
+}
+
+/* =====================================================================
+   Shared mobile / touch rules (cross-site chrome pass)
+   Screen only, so every print stylesheet above is untouched. Touch rules key
+   off (pointer: coarse) so a mouse on a desktop looks exactly as before; the
+   max-width: 820px half covers a narrow window without touch emulation.
+   ===================================================================== */
+
+/* Header dropdown panels at tablet widths: a right-hand panel, not a full-width slab. */
+@media screen and (min-width: 641px) and (max-width: 820px), screen and (pointer: coarse) and (min-width: 821px) and (max-width: 1100px) {
+  .nav-links {
+    left: auto;
+    right: 16px;
+    width: min(360px, calc(100% - 32px));
+    border-radius: 0 0 14px 14px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+  }
+}
+@media screen and (min-width: 641px) and (max-width: 820px), screen and (pointer: coarse) and (max-height: 500px) and (min-width: 821px) and (max-width: 1100px) {
+  .portal-collapsible {
+    left: auto;
+    right: 16px;
+    width: min(380px, calc(100% - 32px));
+    border-radius: 0 0 14px 14px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* Phone turned sideways (short + touch): compact, non-sticky header so it doesn't eat 45% of the screen. */
+@media screen and (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  .site-header { position: relative; }
+  .nav-row { padding-top: 6px; padding-bottom: 6px; }
+  .portal-header-row { padding-top: 6px; padding-bottom: 6px; }
+  .brand-badge { width: 40px; height: 40px; }
+  .brand-text .pack-name { font-size: 19px; }
+  .nav-links,
+  .portal-collapsible { max-height: calc(100dvh - 64px - env(safe-area-inset-top)); }
+  .back-to-top { width: 44px; height: 44px; }
+  .confirm-dialog { padding: 20px; }
+}
+
+/* Edit popovers at tablet / landscape-phone widths: the phone bottom-sheet treatment (the
+   right-aligned box ran off the left edge when its trigger sat near the left). */
+@media screen and (min-width: 641px) and (max-width: 1100px) {
+  .edit-popover > form {
+    position: fixed;
+    top: auto;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    width: min(420px, calc(100vw - 32px));
+    max-width: none;
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+}
+
+/* Touch targets, type floor and field sizes. */
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  .nav-toggle,
+  .portal-nav-toggle { min-width: 44px; min-height: 44px; padding: 8px 10px; line-height: 1; }
+
+  .btn-small,
+  .portal-shell .btn-small { min-height: 44px; min-width: 44px; }
+  /* EditPopover's trigger carries an inline display:inline-block, which top-aligns text in the taller box. */
+  summary.btn-small { display: inline-flex !important; align-items: center; justify-content: center; }
+
+  .btn-link,
+  .adventure-dates .btn-link { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; padding: 0 8px; margin-top: 0; }
+
+  /* Collapsible-section toggles: padding, not display:flex, so inline spans keep their spacing. */
+  .den-toggle { padding-top: 13px; padding-bottom: 13px; }
+  .meeting-past > .den-toggle { padding-top: 14px; padding-bottom: 14px; }
+
+  .attendance-jump-links a { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 16px; }
+  .data-table th.sortable a { min-height: 44px; }
+
+  /* "← Roster" style back links: grow the hit area without growing the pill. */
+  /* Vertical padding (matching the negative margin) keeps a back link whose long label wraps to 2-3 lines inside its pill. */
+  .eyebrow > a { display: inline-flex; align-items: center; min-height: 44px; margin: -10px -14px; padding: 10px 14px; }
+  /* A form-note that is itself a link (the audit log's IP address). */
+  a.form-note { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+
+  /* Checkbox / radio rows: the whole label is the target. */
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) { min-height: 44px; }
+  .consent-choice-group input[type="radio"] { width: 22px; height: 22px; }
+  /* Adventure checklist: the 44px label carries its own padding so a one-line name sits centered
+     instead of leaving a gap under it (the item's own padding moves into the label). */
+  .adventure-check-item { padding-top: 0; padding-bottom: 6px; }
+  .adventure-check-main { padding: 11px 0; align-items: center; }
+  .adventure-check-item input { align-self: flex-start; }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]):not([type="image"]),
+  textarea { min-height: var(--control-height); }
+  select:not([multiple]):not([size]) { height: var(--control-height); }
+
+  /* Nothing under 12px. */
+  /* !important: a few badges carry an inline fontSize: 11 (dues "Custom"). */
+  .badge-pill:not(.badge-count) { font-size: 12px !important; }
+  .hero-ticket small,
+  .meeting-current-tag,
+  .adventure-note,
+  .adventure-date-line,
+  .adventure-dates .btn-link,
+  .print-roster-table thead th { font-size: 12px; }
+
+  .site-banner { overflow-wrap: anywhere; }
+
+  .footer-instagram { min-height: 44px; }
+  .footer-grid ul { gap: 0; }
+  .footer-grid ul a { display: flex; align-items: center; min-height: 44px; }
+}
+/* Footer link list in two columns where the footer is one wide column (tablet portrait). */
+@media screen and (pointer: coarse) and (min-width: 561px) and (max-width: 900px) {
+  .footer-grid ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
+}
+
+/* Full nav rows on touch devices wide enough to keep them (iPad landscape): finger-sized items. */
+@media screen and (pointer: coarse) and (min-width: 821px) and (min-height: 501px) {
+  .portal-nav a,
+  .portal-nav-group > button { display: inline-flex; align-items: center; min-height: 44px; }
+}
+@media screen and (pointer: coarse) and (min-width: 1101px) {
+  .nav-links a { display: inline-flex; align-items: center; min-height: 44px; }
+}
+
+/* ---------- Public marketing pages on phones and tablets ---------- */
+@media (max-width: 900px) {
+  /* Hero art: its SVG collapses to 0x0 once the hero stacks, but the empty grid cell still added a 40px gap above the logo. */
+  .hero-art { display: none; }
+  /* The variable display font draws overlapping glyph contours inside a 1px text stroke; paint the stroke behind the fill. */
+  .hero h1 .hi { -webkit-text-stroke: 1.5px var(--carnival-red); paint-order: stroke fill; }
+  /* Activities and Den Leaders' Corner: two columns on tablets instead of one stretched full-width column. */
+  .card-grid--duo,
+  .corner-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .hero { padding-top: 36px; }
+  .hero-grid { gap: 0; padding-bottom: 48px; }
+  /* Equal-width stacked call-to-action buttons. */
+  .hero .hero-actions { flex-direction: column; align-items: stretch; gap: 12px; }
+  .hero .hero-actions .btn { text-align: center; justify-content: center; }
+  /* Fact bar: dot separators are meaningless once each fact is on its own row. */
+  .fact-bar { padding: 16px 20px; gap: 8px; }
+  .fact-bar .dot { display: none; }
+  .fact-bar > span { line-height: 1.4; }
+  .fact-bar > span + span { border-top: 1px solid rgba(0,0,0,0.07); padding-top: 8px; width: 100%; }
+}
+@media (max-width: 560px) {
+  .card-grid--duo,
+  .corner-grid { grid-template-columns: 1fr; }
+}
+/* public-marketing repair: CTA band buttons and the Parent Portal sign-in button must wrap and fit their container at 320px. */
+@media (max-width: 640px) {
+  .cta-banner .hero-actions { flex-direction: column; align-items: stretch; gap: 12px; }
+  .cta-banner .hero-actions .btn,
+  .info-card > .btn { white-space: normal; max-width: 100%; box-sizing: border-box; text-align: center; justify-content: center; }
+}
+/* public-marketing repair: tablet hero put the logo alone above the ticket with a big empty area to its right; seat them side by side. */
+@media (min-width: 641px) and (max-width: 900px) {
+  .hero-logo { display: inline-block; vertical-align: middle; margin: 0 24px 22px 0; }
+  .hero-ticket { vertical-align: middle; }
+}
+/* public-marketing repair: fact bar on tablets (641-900) was one fact alone on a row with a stray bullet; make it three even columns with hairline dividers. */
+@media (min-width: 641px) and (max-width: 900px) {
+  .fact-bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; padding: 18px 8px; }
+  .fact-bar .dot { display: none; }
+  .fact-bar > span { padding: 0 16px; line-height: 1.4; }
+  .fact-bar > span + span { border-left: 1px solid rgba(0,0,0,0.1); }
+}
+@media (max-width: 820px), (pointer: coarse) {
+  /* Standalone "Download ... (PDF)" / "Open ... Guide" / "View Photos" links: 44px hit area. */
+  .rank-detail-body a.link { display: inline-flex !important; align-items: center; min-height: 44px; margin-top: 6px !important; }
+  .resource-card a.link,
+  .album-tile-body a.link { display: inline-flex; align-items: center; min-height: 44px; }
+}
+
+/* ---------- Roster pages on touch / phones ---------- */
+/* Parent contact fields: the 160px width moved here from an inline style so it can flex on small screens. */
+.parent-input { width: 160px; }
+
+/* A button whose label can be a whole email address (photo consent "Email Link to ...") wraps instead of running off a 320px screen. */
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  .btn-wrap { white-space: normal; max-width: 100%; overflow-wrap: anywhere; text-align: center; }
+
+  /* Roster index: the "→ Committee & Leaders" style links are whole-line navigation, so finger-sized. */
+  .roster-link { display: inline-flex; align-items: center; min-height: 44px; }
+  .section-head p:has(> .roster-link) { margin-bottom: 0; }
+
+  /* Parent contacts: fields grow to the row instead of clipping long names/emails at 160px; Save and Remove share a row. */
+  .parent-edit-form { display: contents !important; }
+  .parent-input { flex: 1 1 160px; width: auto; min-width: 0; }
+  .parent-edit-form > button,
+  .parent-row-main > div { flex: 1 1 120px; }
+  .parent-row-main > div > button { width: 100%; }
+}
+@media screen and (min-width: 641px) and (max-width: 820px), screen and (pointer: coarse) and (min-width: 641px) {
+  .parent-input[name="name"] { flex-basis: 210px; }
+  .parent-input[name="email"] { flex-basis: 260px; }
+}
+@media screen and (max-width: 640px) {
+  .parent-input { flex-basis: 100%; }
+  .parent-add-form > .btn { flex: 1 1 100%; }
+}
+
+/* Leaders list: the section heading with its email buttons wrapped to 185px of a 568px phone while sticky; let it scroll away. */
+@media screen and (max-width: 640px), screen and (max-height: 500px) {
+  .leaders-group-head { position: static; }
+}
+
+/* admin-home-users: on a 320px phone the portal brand + hamburger needed ~297px of 288, so the toggle wrapped onto its own row (144px header). */
+@media (max-width: 360px) {
+  .portal-header-row { gap: 8px; }
+  .portal-header-row .brand { gap: 8px; min-width: 0; }
+  .portal-header-row .brand-badge { width: 48px; height: 48px; }
+  .portal-header-row .brand-text .pack-name { font-size: 20px; }
+}
+
+/* admin-home-users: a long button label (the Start-a-Fresh-Year delete button) ran off a 320px phone because .btn never wraps. */
+@media (max-width: 640px) {
+  .portal-shell .btn { white-space: normal; max-width: 100%; text-align: center; }
+}
+
+/* admin-home-users: the two standalone links under the admin dashboard were 21px-tall hit areas. */
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  .admin-footer-links { row-gap: 0 !important; }
+  .admin-footer-links a { display: inline-flex; align-items: center; min-height: 44px; }
+  /* Long names/titles in a field: show an ellipsis instead of a hard cut when it is not focused. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="date"]):not([type="datetime-local"]):not([type="time"]):not([type="file"]) { text-overflow: ellipsis; }
+  /* A 2-row description box cut its second line in half; give it room for three lines. */
+  textarea { min-height: 96px; }
+}
+
+/* admin-home-users: tablet-width tables (641-1100px). A td with display:flex is not a table cell, so the
+   Manage/Edit column drew a shorter, top-aligned row line; and padding that suits desktop squeezed a Den
+   column into five lines. Keep the table, make the actions a real cell and tighten the padding. */
+@media screen and (min-width: 641px) and (max-width: 1100px) {
+  .data-table th,
+  .data-table td { padding-left: 10px; padding-right: 10px; }
+  .data-table td.actions { display: table-cell; vertical-align: middle; }
+  .data-table td.actions > * { margin: 3px 8px 3px 0; }
+  .data-table td.actions > form,
+  .data-table td.actions > details,
+  .data-table td.actions > div { display: inline-block; vertical-align: middle; }
+  .data-table td.actions > a,
+  .data-table td.actions > button { vertical-align: middle; }
+}
+
+/* admin-dens: the roster's inline first/last name inputs were a fixed 100px (clipped "Alvarez Mc…") with Save
+   wrapping below on tablets. Let them share the cell width; the inline width needs !important. */
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  .scout-name-form { flex-wrap: wrap; width: 100%; }
+  .scout-name-form input:not([type="hidden"]) { width: auto !important; flex: 1 1 130px; min-width: 0; }
+}
+@media screen and (max-width: 360px) {
+  .scout-name-form input:not([type="hidden"]) { flex-basis: 100%; }
+}
+
+/* portal-login-parent-den: touch sizing for the den leader and sign-in pages. */
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  /* Present / Absent pills were 41px; the main control of the attendance page. */
+  .att-btn { min-height: 44px; min-width: 44px; }
+  /* "Edit dates": the 44px hit area is taller/wider than the text, so pull it back to line up with the
+     date lines above it; the button font was the browser default (Arial). */
+  .adventure-dates .btn-link { font-family: inherit; margin-left: -8px; }
+  /* The only way out of a dead reset link: a finger-sized, visibly tappable link. */
+  .login-card p.sub a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; color: var(--scout-blue); font-weight: 600; text-decoration: underline; }
+}
+/* Portal header on a 320px phone: logo + "Pack 376 Portal" + 44px menu button + gaps need ~328px, so the
+   menu button dropped to its own row (144px header). Slim the brand a little so they share one row. */
+@media screen and (max-width: 359px) {
+  .portal-header-row { flex-wrap: nowrap; gap: 8px; }
+  .portal-header-row .brand { min-width: 0; gap: 10px; }
+  .portal-header-row .brand-badge { width: 48px; height: 48px; }
+  .portal-header-row .brand-text .pack-name { font-size: 19px; }
+  .portal-nav-toggle { flex-shrink: 0; }
+}
+/* Phone on its side: the logo link was 40px tall. */
+@media screen and (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  .portal-header-row .brand { min-height: 44px; }
+}
+
+/* admin-home-users: a short "Tiger Den — 2026-2027" value got squeezed to five lines by long names in a tablet-width table; give it room for two. */
+@media screen and (min-width: 641px) and (max-width: 1100px) {
+  .data-table td.nowrap-cell { min-width: 7.5em; }
+}
+
+/* admin-home-users: the household/parent "add a scout/login" selects carry an inline min-width of 220-260px, wider than a 320px phone's card (248px inside). */
+@media (max-width: 640px) {
+  select[style*="min-width"] { min-width: 0 !important; max-width: 100%; }
+}
+
+/* portal-login-parent-den: the adventure dates dialog scrolls inside itself on a small or sideways phone,
+   which pushed Cancel / Save Dates (and the note) below the fold. Keep the buttons pinned and tighten up. */
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  .dates-dialog-actions { position: sticky; bottom: -24px; background: var(--white); padding: 10px 0; }
+}
+@media screen and (pointer: coarse) and (max-height: 500px) {
+  .dates-dialog { width: min(520px, 92vw); padding: 14px 20px; }
+  .dates-dialog-actions { bottom: -14px; }
+  .dates-dialog h3 { margin-bottom: 8px; }
+  .dates-dialog .eyebrow { margin-bottom: 6px; }
+  .dates-dialog .form-field { margin-bottom: 10px; }
+}
+
+/* admin-trips-audit: the trip "Add Expense" and "Add Payment" rows packed Amount into a ~100px sliver next to Description, and
+   put Paid By beside the submit button (placeholder cut off). On a phone stack every field and give the buttons full width. */
+@media (max-width: 640px) {
+  .trip-expense-form { flex-direction: column; align-items: stretch !important; }
+  .trip-expense-form > .form-field { flex: 0 0 auto !important; width: 100%; }
+  .trip-expense-form > .btn { width: 100%; }
+}
+
+/* admin-trips-audit: Amount Owed (inline max-width 160px) squeezed its explanatory note into a 6-line sliver under the box on tablets/phones. */
+@media (max-width: 820px) {
+  .form-field[style*="max-width: 160px"]:has(> .form-note),
+  .form-field[style*="max-width:160px"]:has(> .form-note) { max-width: none !important; }
+}
+/* admin-trips-audit: the Add Payment form ran straight on from the registration's Save Changes button; set it apart on phones. */
+@media (max-width: 640px) {
+  .trip-payment-form { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--cream-dark); }
+}
+
+/* admin-trips-audit: a long device / location string in an audit-log row must wrap inside its column on tablets (cards already wrap under 640px). */
+@media screen and (min-width: 641px) and (max-width: 1099px) {
+  .data-table td .form-note { overflow-wrap: anywhere; }
 }

@@ -101,7 +101,7 @@ export default async function AdminDashboardPage() {
         only, out of the way of a stray click.
       */}
       {isMasterAdmin && (
-        <p style={{ marginTop: 16, display: "flex", gap: 20, flexWrap: "wrap" }}>
+        <p className="admin-footer-links" style={{ marginTop: 16, display: "flex", gap: 20, flexWrap: "wrap" }}>
           <Link href="/portal/admin/audit" style={{ fontWeight: 700, fontSize: 13 }}>
             Audit Log: Who Changed What →
           </Link>

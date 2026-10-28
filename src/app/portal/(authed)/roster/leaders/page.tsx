@@ -57,7 +57,7 @@ export default async function LeaderContactsPage({
         const sectionEmails = people.map((p) => p.email).filter((e): e is string => !!e);
         return (
           <div className="attendance-group" key={section}>
-            <div className="attendance-group-head">
+            <div className="attendance-group-head leaders-group-head">
               <h3 style={{ marginBottom: 0 }}>{label}</h3>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                 {canExport && sectionEmails.length > 0 && (

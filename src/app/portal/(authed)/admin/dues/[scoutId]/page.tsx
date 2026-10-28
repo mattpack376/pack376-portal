@@ -55,9 +55,9 @@ export default async function AdminScoutDuesPage({
           {overrideCents !== null && ` This scout is set to ${formatCents(overrideCents)} instead.`}
         </p>
         {canEdit && (
-        <form action={setScoutDuesOverrideAction} style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+        <form action={setScoutDuesOverrideAction} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           <input type="hidden" name="scoutId" value={scout.id} />
-          <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
+          <div className="form-field" style={{ marginBottom: 0, flex: "1 1 230px" }}>
             <label htmlFor="overrideAmount">Amount ($)</label>
             <input
               id="overrideAmount"
@@ -120,7 +120,7 @@ export default async function AdminScoutDuesPage({
                   {payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}
                 </td>
                 <td data-label="Amount">{formatCents(payment.amountCents)}</td>
-                <td data-label="Note">{payment.note || "—"}</td>
+                <td data-label="Note" className="cell-block">{payment.note || "—"}</td>
                 {canEdit && (
                 <td className="actions">
                   <form action={deleteDuesPaymentAction}>

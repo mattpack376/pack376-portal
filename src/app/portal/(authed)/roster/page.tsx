@@ -34,28 +34,28 @@ export default async function RosterPage() {
         </p>
         {LEADER_CONTACT_ROLES.includes(session.role) && (
           <p style={{ fontSize: 17 }}>
-            <Link href="/portal/roster/leaders" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
+            <Link href="/portal/roster/leaders" className="roster-link" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
               → Committee &amp; Leaders
             </Link>
           </p>
         )}
         {canSeeParentContacts && (
           <p style={{ fontSize: 17 }}>
-            <Link href="/portal/roster/parents" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
+            <Link href="/portal/roster/parents" className="roster-link" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
               → Cub&apos;s Parents&apos; Contact Information
             </Link>
           </p>
         )}
         {canSeePhotoConsent && (
           <p style={{ fontSize: 17 }}>
-            <Link href="/portal/roster/photo-consent" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
+            <Link href="/portal/roster/photo-consent" className="roster-link" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
               → Photo Consent
             </Link>
           </p>
         )}
         {session.role === "ADMIN" && (
           <p style={{ fontSize: 17 }}>
-            <Link href="/portal/roster/family-view" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
+            <Link href="/portal/roster/family-view" className="roster-link" style={{ fontWeight: 700, color: "var(--carnival-red)" }}>
               → Family View (What Parents See)
             </Link>
           </p>

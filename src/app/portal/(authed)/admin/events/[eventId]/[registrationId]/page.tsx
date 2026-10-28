@@ -126,7 +126,7 @@ export default async function AdminEventRegistrationPage({
                   {payment.paidOn.toLocaleDateString("en-US", { timeZone: "UTC" })}
                 </td>
                 <td data-label="Amount">{formatCents(payment.amountCents)}</td>
-                <td data-label="Note">{payment.note || "—"}</td>
+                <td data-label="Note" className="cell-block">{payment.note || "—"}</td>
                 {canEdit && (
                 <td className="actions">
                   <form action={deleteEventPaymentAction}>

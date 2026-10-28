@@ -79,7 +79,7 @@ export default async function AdminScoutsPage({
               return (
                 <tr key={scout.id}>
                   <td>{scout.firstName} {scout.lastName}</td>
-                  <td data-label="Den">{denDisplayName(scout.den.rank, scout.den.scoutingYear, scout.den.label)}</td>
+                  <td className="nowrap-cell" data-label="Den">{denDisplayName(scout.den.rank, scout.den.scoutingYear, scout.den.label)}</td>
                   <td data-label="Registration Expires">
                     {scout.registrationExpiresOn
                       ? scout.registrationExpiresOn.toLocaleDateString("en-US", { timeZone: "UTC" })

@@ -88,7 +88,7 @@ export default function ActivitiesPage() {
 
       <section style={{ paddingTop: 16 }}>
         <div className="container">
-          <div className="card-grid">
+          <div className="card-grid card-grid--duo">
             {ACTIVITIES.map((a) => (
               <div className="booth-card" key={a.name}>
                 <div className="icon-badge">{a.icon}</div>

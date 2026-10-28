@@ -19,7 +19,6 @@ const inputStyle = {
   border: "2px solid var(--cream-dark)",
   background: "var(--white)",
   fontSize: 16,
-  width: 160,
 };
 
 const buttonStyle = { fontSize: 15 };
@@ -232,19 +231,21 @@ export default async function ParentContactsPage({
                             marginBottom: 8,
                           }}
                         >
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                          <div className="parent-row-main" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                             {canEdit ? (
                               <>
                                 <form
                                   action={updateParentAction}
+                                  className="parent-edit-form"
                                   style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flex: 1 }}
                                 >
                                   <input type="hidden" name="parentId" value={parent.id} />
-                                  <input name="name" defaultValue={parent.name} required style={inputStyle} placeholder="Name" />
+                                  <input name="name" defaultValue={parent.name} required className="parent-input" style={inputStyle} placeholder="Name" />
                                   <input
                                     name="email"
                                     type="email"
                                     defaultValue={parent.email ?? ""}
+                                    className="parent-input"
                                     style={inputStyle}
                                     placeholder="Email"
                                   />
@@ -252,6 +253,7 @@ export default async function ParentContactsPage({
                                     name="phone"
                                     type="tel"
                                     defaultValue={parent.phone ?? ""}
+                                    className="parent-input"
                                     style={inputStyle}
                                     placeholder="Phone"
                                   />
@@ -291,12 +293,13 @@ export default async function ParentContactsPage({
                       {canEdit && (
                         <form
                           action={addParentAction}
+                          className="parent-add-form"
                           style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}
                         >
                           <input type="hidden" name="scoutId" value={scout.id} />
-                          <input name="name" required placeholder="Parent name" style={inputStyle} />
-                          <input name="email" type="email" placeholder="Email" style={inputStyle} />
-                          <input name="phone" type="tel" placeholder="Phone" style={inputStyle} />
+                          <input name="name" required placeholder="Parent name" className="parent-input" style={inputStyle} />
+                          <input name="email" type="email" placeholder="Email" className="parent-input" style={inputStyle} />
+                          <input name="phone" type="tel" placeholder="Phone" className="parent-input" style={inputStyle} />
                           <button type="submit" className="btn btn-primary btn-small" style={buttonStyle}>Add Parent</button>
                         </form>
                       )}

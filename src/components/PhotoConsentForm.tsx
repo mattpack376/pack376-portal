@@ -247,7 +247,7 @@ export function PhotoConsentFields({
 
         <div className="form-field">
           <label htmlFor="signedByName">Your Name</label>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="consent-signer-row">
             <input
               id="signedByName"
               name="signedByName"
@@ -257,7 +257,7 @@ export function PhotoConsentFields({
               autoComplete="name"
               maxLength={MAX_NAME_LENGTH}
               required
-              style={{ flex: 2, ...(invalid("signedByName") ? { borderColor: "var(--carnival-red)" } : {}) }}
+              style={invalid("signedByName") ? { borderColor: "var(--carnival-red)" } : undefined}
               {...errorProps(invalid("signedByName"))}
             />
             <select
@@ -266,7 +266,7 @@ export function PhotoConsentFields({
               aria-label="Your relationship to the scout"
               defaultValue={values ? values.signedRelationship : (onFile.signedRelationship ?? "")}
               required
-              style={{ flex: 1, ...(invalid("signedRelationship") ? { borderColor: "var(--carnival-red)" } : {}) }}
+              style={invalid("signedRelationship") ? { borderColor: "var(--carnival-red)" } : undefined}
               {...errorProps(invalid("signedRelationship"))}
             >
               <option value="" disabled>

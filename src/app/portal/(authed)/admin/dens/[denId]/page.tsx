@@ -95,6 +95,7 @@ export default async function AdminDenDetailPage({
                     {isFullAdmin ? (
                       <form
                         action={updateScoutNameAction}
+                        className="scout-name-form"
                         style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}
                       >
                         <input type="hidden" name="scoutId" value={scout.id} />

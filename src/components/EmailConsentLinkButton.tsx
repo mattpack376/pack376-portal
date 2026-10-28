@@ -76,8 +76,20 @@ export default function EmailConsentLinkButton({ scoutId, parentEmail }: { scout
       <input type="hidden" name="scoutId" value={scoutId} />
       <input type="hidden" name="parentEmail" value={parentEmail} />
       <input ref={keyInput} type="hidden" name="requestKey" defaultValue="" />
-      <button type="submit" disabled={pending} className="btn btn-quiet btn-small" style={{ borderColor: "var(--teal)", color: "var(--teal)" }}>
-        {pending ? "Sending…" : `Email Link to ${parentEmail}`}
+      <button type="submit" disabled={pending} className="btn btn-quiet btn-small btn-wrap" style={{ borderColor: "var(--teal)", color: "var(--teal)" }}>
+        {pending ? (
+          "Sending…"
+        ) : (
+          <>
+            Email Link to {parentEmail.split("@")[0]}
+            {parentEmail.includes("@") && (
+              <>
+                @<wbr />
+                {parentEmail.split("@").slice(1).join("@")}
+              </>
+            )}
+          </>
+        )}
       </button>
       {message && (
         <span role={message.tone === "alert" ? "alert" : "status"} style={NOTE_STYLE[message.tone]}>

@@ -350,6 +350,7 @@ export default async function TripAdminView({
                 in a field submits the first, so a plain expense stays the default. */}
             <form
               action={addTripExpenseAction}
+              className="trip-expense-form"
               style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}
             >
               <input type="hidden" name="tripPageId" value={trip.id} />
@@ -1013,6 +1014,7 @@ export default async function TripAdminView({
                         <>
                           <form
                             action={addTripPaymentAction}
+                            className="trip-expense-form trip-payment-form"
                             style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 12 }}
                           >
                             <input type="hidden" name="tripRegistrationId" value={reg.id} />

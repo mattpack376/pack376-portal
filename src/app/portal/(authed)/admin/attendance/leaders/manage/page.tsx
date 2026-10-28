@@ -220,7 +220,7 @@ export default async function ManageAdultLeadersPage({
         const sectionEmails = people.map((l) => leaderContact(l).email).filter((e): e is string => !!e);
         return (
           <div className="attendance-group" key={section}>
-            <div className="attendance-group-head">
+            <div className="attendance-group-head leaders-group-head">
               <h3 style={{ marginBottom: 0 }}>{ADULT_LEADER_SECTION_LABELS[section]}</h3>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                 {sectionEmails.length > 0 && (

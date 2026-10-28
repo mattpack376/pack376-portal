@@ -191,7 +191,7 @@ export default function IntroToScoutingPage() {
                 <text x="30" y="117" textAnchor="middle" fontSize="13" fontWeight="700" fill="#fff">5</text>
               </svg>
 
-              <div style={{ flex: "1 1 260px", minWidth: 260 }}>
+              <div style={{ flex: "1 1 260px", minWidth: "min(260px, 100%)" }}>
                 <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 10 }}>
                   <li><strong>World Crest &amp; Rank Patch</strong> — left pocket. The gold World Crest sits above the rank patch for your scout&apos;s current rank (Lion, Tiger, Wolf, Bear, Webelos, or Arrow of Light).</li>
                   <li><strong>Neckerchief &amp; Slide</strong> — folded under the collar and held with a slide (also called a woggle). Color matches your scout&apos;s den.</li>
