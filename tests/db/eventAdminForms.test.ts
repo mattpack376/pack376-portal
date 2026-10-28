@@ -170,7 +170,7 @@ describe("an edit from a page loaded before another Admin's change", () => {
   it("refuses a guest group edit that would put back the amount owed another Admin changed", async () => {
     const { event, group, loaded } = await pricedGroup();
     // Admin B gives the family a discount.
-    assert.deepEqual(await editGroup(event.id, group.id, { familyName: "The Smiths", adultCount: 2, childCount: 1, amountOwed: "15.00" }), {});
+    const discount = await editGroup(event.id, group.id, { familyName: "The Smiths", adultCount: 2, childCount: 1, amountOwed: "15.00" });
     const audits = await db.prisma.auditLog.count({ where: { action: "guestGroup.update", entityId: group.id } });
     resetTestState();
 
@@ -183,12 +183,13 @@ describe("an edit from a page loaded before another Admin's change", () => {
       childCount: 1,
       amountOwed: "25.00",
     });
-    assert.equal(stale.stale, true);
-    assert.match(stale.error ?? "", /Someone changed this guest group after this page loaded/);
-    assert.match(stale.error ?? "", /The Smiths: 2 adults, 1 kid, \$15\.00 owed/);
     const kept = await db.prisma.eventGuestGroup.findUniqueOrThrow({ where: { id: group.id } });
     assert.equal(kept.amountOwedCents, 1500, "the discount stands");
     assert.equal(kept.familyName, "The Smiths");
+    assert.deepEqual(discount, {});
+    assert.equal(stale.stale, true);
+    assert.match(stale.error ?? "", /Someone changed this guest group after this page loaded/);
+    assert.match(stale.error ?? "", /The Smiths: 2 adults, 1 kid, \$15\.00 owed/);
     assert.equal(await db.prisma.auditLog.count({ where: { action: "guestGroup.update", entityId: group.id } }), audits);
     assert.ok(testState.revalidated.includes(`/portal/admin/events/${event.id}/guests/${group.id}`), "the page is refreshed");
 
@@ -262,12 +263,17 @@ describe("an edit from a page loaded before another Admin's change", () => {
 
     // Admin B corrects the amount; Admin A, from the page loaded before
     // that, enters another.
-    assert.deepEqual(await setAmount("30.00", loaded), {});
+    const correction = await setAmount("30.00", loaded);
     resetTestState();
     const stale = await setAmount("35.00", loaded);
+    assert.equal(
+      (await db.prisma.eventRegistration.findUniqueOrThrow({ where: { id: registration.id } })).amountOwedCents,
+      3000,
+      "the correction stands",
+    );
+    assert.deepEqual(correction, {});
     assert.equal(stale.stale, true);
     assert.match(stale.error ?? "", /Someone changed this amount owed after this page loaded \(it's now \$30\.00\)/);
-    assert.equal((await db.prisma.eventRegistration.findUniqueOrThrow({ where: { id: registration.id } })).amountOwedCents, 3000);
     assert.ok(testState.revalidated.includes(`/portal/admin/events/${event.id}/${registration.id}`), "the page is refreshed");
 
     // A mistake in the amount is shown on the form, without refreshing it.
