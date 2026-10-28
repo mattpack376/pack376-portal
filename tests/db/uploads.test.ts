@@ -59,6 +59,34 @@ async function jpegFile(name = "IMG_0001.jpg", width = 40, height = 30) {
   return new File([jpeg], name, { type: "image/jpeg" });
 }
 
+/**
+ * A real animated WEBP of a few hundred bytes whose frames are each one
+ * pixel on a width×height canvas, which sharp still decodes and saves at full
+ * size: the small file that takes the most memory to re-save.
+ */
+async function tinyAnimatedWebp(frames: number, width: number, height: number) {
+  const u24 = (n: number) => [n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff];
+  const chunk = (type: string, body: Buffer) => {
+    const head = Buffer.alloc(8);
+    head.write(type, 0, "latin1");
+    head.writeUInt32LE(body.length, 4);
+    return Buffer.concat([head, body, Buffer.alloc(body.length & 1)]);
+  };
+  const pixel = await sharp({ create: { width: 1, height: 1, channels: 4, background: "#c82828" } }).webp({ lossless: true }).toBuffer();
+  const parts = [
+    chunk("VP8X", Buffer.from([0x12, 0, 0, 0, ...u24(width - 1), ...u24(height - 1)])),
+    chunk("ANIM", Buffer.alloc(6)),
+  ];
+  for (let i = 0; i < frames; i++) {
+    parts.push(chunk("ANMF", Buffer.concat([Buffer.from([...u24(i), ...u24(0), ...u24(0), ...u24(0), ...u24(100), 0]), pixel.subarray(12)])));
+  }
+  const body = Buffer.concat([Buffer.from("WEBP", "latin1"), ...parts]);
+  const riff = Buffer.alloc(8);
+  riff.write("RIFF", 0, "latin1");
+  riff.writeUInt32LE(body.length, 4);
+  return Buffer.concat([riff, body]);
+}
+
 function albumForm(values: Record<string, string>, cover?: File) {
   const data = form({ title: "Pinewood Derby", eventDate: "2026-11-14", photoAlbumUrl: "https://photos.example.org/s/abc", ...values });
   if (cover) data.set("coverImage", cover);
@@ -140,6 +168,27 @@ describe("uploadFlyer", () => {
     const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], "flyer.png", { type: "image/png" });
     await assert.rejects(flyerUpload.uploadFlyer(svg, "event-flyers"), /SVG/);
     assert.equal(testState.blobPuts.length, 0);
+  });
+
+  it("refuses an animation of a few huge frames before decoding it, uploading nothing", async () => {
+    // Four 7,000 × 7,000 frames, refused from its headers: re-saving it took a Node process past 2 GB.
+    const bomb = await tinyAnimatedWebp(4, 7000, 7000);
+    assert.ok(bomb.length < 300, `${bomb.length} bytes`);
+    await assert.rejects(flyerUpload.uploadFlyer(new File([bomb], "flyer.webp", { type: "image/webp" }), "event-flyers"), (error: Error) => {
+      assert.ok(error instanceof validation.UploadRejectedError);
+      assert.equal(
+        error.message,
+        "Flyer is an animation of 7,000 × 7,000 pixels, which is too large. The limit for an animation is 12,000 pixels on a side " +
+          "and 16 megapixels a frame — resize it and try again.",
+      );
+      return true;
+    });
+
+    const cover = new File([await tinyAnimatedWebp(2, 5000, 5000)], "cover.webp", { type: "image/webp" });
+    const refused = await outcome(runAs(admin, () => albums.createAlbumAction({}, albumForm({ title: "Huge animated cover" }, cover))));
+    assert.ok(refused !== "redirect" && /animation of 5,000 × 5,000 pixels/.test(refused.error ?? ""), JSON.stringify(refused));
+    assert.equal(testState.blobPuts.length, 0);
+    assert.equal(await db.prisma.photoAlbum.count({ where: { title: "Huge animated cover" } }), 0);
   });
 });
 

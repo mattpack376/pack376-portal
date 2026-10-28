@@ -64,19 +64,31 @@ export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 /** Longest side, in pixels, of an accepted image. A 24x36 poster at 300 dpi is 10,800. */
 export const MAX_IMAGE_SIDE = 12_000;
 /**
- * Most pixels in an accepted still image, and in each frame of an animation.
- * Decoding takes about 4 bytes a pixel, so this keeps one picture to roughly
- * 200 MB of memory. A 48-megapixel phone photo fits.
+ * Most pixels in an accepted still image. Decoding takes about 4 bytes a
+ * pixel, so this keeps one picture to roughly 200 MB of memory. A 48-megapixel
+ * phone photo fits. Re-saving the largest still WEBP took a whole Node process
+ * to about 1 GB, the most any accepted file should cost.
  */
 export const MAX_IMAGE_PIXELS = 50_000_000;
+/**
+ * Most pixels in each frame of an animation. Lower than MAX_IMAGE_PIXELS
+ * because the WEBP encoder holds several whole frames at once, so an
+ * animation takes about twice the memory of a still image the size of one
+ * frame: four 49-megapixel frames, in a file of a few hundred bytes, took a
+ * Node process to over 2 GB, the default memory of a Vercel function. At this
+ * limit the most measured was about 0.55 GB (under 1 GB resident), with
+ * sharp 0.35. A 4K frame (3840 × 2160) is about 8 megapixels.
+ */
+export const MAX_ANIMATION_FRAME_PIXELS = 16_000_000;
 /**
  * Most pixels in an accepted animation, adding up every frame: a 1080 × 1080
  * animation can run to 171 frames, a 1920 × 1080 one to 96. Larger than
  * MAX_IMAGE_PIXELS because sharp decodes and saves an animation a frame at a
- * time, so its memory follows the size of a frame rather than the number of
- * them: re-saving a GIF or WEBP animation at this limit took a whole Node
- * process to about 300 MB at most, measured with sharp 0.35. What does grow
- * with the total is the time it takes (see reencodeImage).
+ * time, so its memory follows the size of a frame (see
+ * MAX_ANIMATION_FRAME_PIXELS) much more than the number of them: re-saving
+ * 1080 × 1080 or 1920 × 1080 animations at this limit took a Node process to
+ * about 300 MB. What does grow with the total is the time it takes (see
+ * reencodeImage).
  */
 export const MAX_ANIMATION_PIXELS = 200_000_000;
 export const MAX_ANIMATION_FRAMES = 300;
@@ -633,6 +645,12 @@ async function reencodeImage(
     // The header checks already agreed on the format, so a different answer
     // here is worth a line in the log (below), not just a refusal.
     if (metadata.format !== SHARP_FORMATS[type]) throw new Error(`sharp read the file as ${metadata.format ?? "nothing it knows"}`);
+    // sharp has no limit for one frame, so check the frame size it read (from
+    // the headers, before decoding anything) against the header checks' limit.
+    const frameHeight = metadata.pageHeight ?? metadata.height ?? 0;
+    if (animated && (metadata.width ?? 0) * frameHeight > MAX_ANIMATION_FRAME_PIXELS) {
+      throw new Error(`sharp read frames of ${metadata.width} × ${frameHeight} pixels, more than the header checks found`);
+    }
 
     let pipeline = input;
     if (rules.maxStoredSide) {
@@ -773,10 +791,17 @@ export async function prepareUploadBytes(
   }
   const size = `${info.width.toLocaleString("en-US")} × ${info.height.toLocaleString("en-US")} pixels`;
   const framePixels = info.width * info.height;
-  if (info.width > MAX_IMAGE_SIDE || info.height > MAX_IMAGE_SIDE || framePixels > MAX_IMAGE_PIXELS) {
+  // Each frame of an animation has a smaller limit than a still image (see MAX_ANIMATION_FRAME_PIXELS).
+  const animated = info.frames > 1;
+  const frameLimit = animated ? MAX_ANIMATION_FRAME_PIXELS : MAX_IMAGE_PIXELS;
+  if (info.width > MAX_IMAGE_SIDE || info.height > MAX_IMAGE_SIDE || framePixels > frameLimit) {
+    const sides = `${MAX_IMAGE_SIDE.toLocaleString("en-US")} pixels on a side`;
     throw new UploadRejectedError(
-      `${rules.label} is ${size}, which is too large. The limit is ${MAX_IMAGE_SIDE.toLocaleString("en-US")} pixels on a side ` +
-        `and ${MAX_IMAGE_PIXELS / 1_000_000} megapixels ${info.frames > 1 ? "a frame" : "in all"} — resize it and try again.`,
+      animated
+        ? `${rules.label} is an animation of ${size}, which is too large. The limit for an animation is ${sides} ` +
+            `and ${MAX_ANIMATION_FRAME_PIXELS / 1_000_000} megapixels a frame — resize it and try again.`
+        : `${rules.label} is ${size}, which is too large. The limit is ${sides} ` +
+            `and ${MAX_IMAGE_PIXELS / 1_000_000} megapixels in all — resize it and try again.`,
     );
   }
   // An animation has its own, larger budget for all its frames together (see MAX_ANIMATION_PIXELS).

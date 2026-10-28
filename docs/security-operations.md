@@ -204,10 +204,13 @@ Blob token if a laptop or account that held them is lost.
 ### 3.1 What uploads are accepted
 
 Flyers (events, trips) may be JPEG, PNG, WEBP, GIF or PDF; album covers JPEG,
-PNG, WEBP or GIF. Up to 8 MB, 12,000 pixels on a side and 50 megapixels (for
-an animation, 50 megapixels a frame). An animation may have up to 300 frames
-and 200 megapixels across all of them: 171 frames at 1080 × 1080, 96 at
-1920 × 1080. The file's own bytes decide what it is, not its name or the type
+PNG, WEBP or GIF. Up to 8 MB, 12,000 pixels on a side and 50 megapixels. An
+animation may have 16 megapixels a frame (about twice a 4K frame), up to 300
+frames, and 200 megapixels across all of them: 171 frames at 1080 × 1080, 96
+at 1920 × 1080. Its frames have the lower limit because re-saving an animated
+WEBP holds several whole frames in memory: a file of a few hundred bytes with
+four 49-megapixel frames took the upload past a Vercel function's default
+2 GB. The file's own bytes decide what it is, not its name or the type
 the browser reports: a file that really is an accepted kind is taken under any
 name and stored as what it is (a PNG saved as .jpg is stored as a PNG; a PDF
 flyer named like an image as a PDF). SVG drawings, web pages, iPhone HEIC and

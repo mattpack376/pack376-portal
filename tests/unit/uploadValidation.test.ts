@@ -103,6 +103,35 @@ function sparseGif(frames: number, width: number, height: number) {
   return join(...parts);
 }
 
+/**
+ * A real, decodable animated WEBP on a width×height canvas whose frames are
+ * each one lossless pixel: a file of a few hundred bytes that the decoder and
+ * encoder still work on at full canvas size, frame after frame.
+ */
+async function tinyAnimatedWebp(frames: number, width: number, height: number) {
+  const u24 = (n: number) => Uint8Array.from([n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff]);
+  const chunk = (type: string, ...data: Uint8Array[]) => {
+    const body = join(...data);
+    const head = Buffer.alloc(8);
+    head.write(type, 0, "latin1");
+    head.writeUInt32LE(body.length, 4);
+    return join(head, body, new Uint8Array(body.length & 1));
+  };
+  const pixel = await sharp({ create: { width: 1, height: 1, channels: 4, background: "#c82828" } }).webp({ lossless: true }).toBuffer();
+  const vp8l = new Uint8Array(pixel.subarray(12)); // its VP8L chunk, header and all
+  const parts = [
+    chunk("VP8X", Uint8Array.from([0x12, 0, 0, 0]), u24(width - 1), u24(height - 1)), // animation and alpha flags
+    chunk("ANIM", new Uint8Array(6)), // no background color, loop forever
+  ];
+  // Each frame: 1 × 1 at (2 × i, 0), so each changes the picture, shown for 0.1 seconds.
+  for (let i = 0; i < frames; i++) parts.push(chunk("ANMF", u24(i), u24(0), u24(0), u24(0), u24(100), Uint8Array.from([0]), vp8l));
+  const body = join(bytes("WEBP"), ...parts);
+  const riff = Buffer.alloc(8);
+  riff.write("RIFF", 0, "latin1");
+  riff.writeUInt32LE(body.length, 4);
+  return join(riff, body);
+}
+
 /** A PNG signature and IHDR claiming width×height, then nothing — a file a decoder would expand enormously. */
 function pngHeader(width: number, height: number) {
   const ihdr = Buffer.alloc(25);
@@ -222,7 +251,12 @@ describe("prepareUploadBytes: what is turned away", () => {
   it("animations too large to decode safely: by the frame, and all frames together", async () => {
     assert.equal(
       await rejection(prepareUploadBytes(gifHeaders(2, 8000, 7000), "image/gif", FLYER, sharp)),
-      "Flyer is 8,000 × 7,000 pixels, which is too large. The limit is 12,000 pixels on a side and 50 megapixels a frame — resize it and try again.",
+      "Flyer is an animation of 8,000 × 7,000 pixels, which is too large. The limit for an animation is 12,000 pixels on a side " +
+        "and 16 megapixels a frame — resize it and try again.",
+    );
+    assert.equal(
+      await rejection(prepareUploadBytes(pngHeader(10_000, 6_000), "image/png", FLYER, sharp)),
+      "Flyer is 10,000 × 6,000 pixels, which is too large. The limit is 12,000 pixels on a side and 50 megapixels in all — resize it and try again.",
     );
     // One frame more than fits at 1080 × 1080.
     assert.equal(Math.floor(MAX_ANIMATION_PIXELS / (1080 * 1080)), 171);
@@ -232,6 +266,51 @@ describe("prepareUploadBytes: what is turned away", () => {
         "across all its frames — 171 frames at this size. Make it smaller or shorter and try again.",
     );
     assert.match(await rejection(prepareUploadBytes(gifHeaders(97, 1920, 1080), "image/gif", COVER, sharp)), /across 97 frames.*96 frames at this size/);
+  });
+
+  it("an animation of a few huge frames, in a file of a few hundred bytes, is refused before anything is decoded", async (t) => {
+    // Four 7,000 × 7,000 frames: each under the 50 megapixels of a still
+    // image and 196 in all, under the 200 for an animation, yet re-saving it
+    // took a Node process past 2 GB.
+    const bomb = await tinyAnimatedWebp(4, 7000, 7000);
+    assert.ok(bomb.length < 300, `${bomb.length} bytes`);
+    const meta = await sharp(bomb, { animated: true, limitInputPixels: false }).metadata();
+    assert.deepEqual([meta.format, meta.pages, meta.width, meta.pageHeight], ["webp", 4, 7000, 7000], "a real animation sharp would decode");
+
+    const untouched = (() => assert.fail("the image library shouldn't be given this file")) as unknown as SharpConstructor;
+    const tooLarge =
+      "Flyer is an animation of 7,000 × 7,000 pixels, which is too large. The limit for an animation is 12,000 pixels on a side " +
+      "and 16 megapixels a frame — resize it and try again.";
+    assert.equal(await rejection(prepareUploadBytes(bomb, "image/webp", FLYER, untouched)), tooLarge);
+    assert.equal(await rejection(prepareUploadBytes(bomb, "image/webp", FLYER, null)), tooLarge);
+    assert.match(await rejection(prepareUploadBytes(await tinyAnimatedWebp(2, 5000, 5000), "image/webp", COVER, untouched)), /animation of 5,000 × 5,000/);
+
+    // One pixel row over the limit is refused; at the limit, and for an
+    // ordinary animated WEBP, the file is taken. A still image keeps its own,
+    // larger limit (headers only here, stored as is without the library).
+    assert.match(await rejection(prepareUploadBytes(gifHeaders(2, 4000, 4001), "image/gif", FLYER, untouched)), /animation of 4,000 × 4,001/);
+    const atLimit = await prepareUploadBytes(await tinyAnimatedWebp(2, 4000, 4000), "image/webp", FLYER, sharp);
+    assert.deepEqual(
+      (({ pages, width, pageHeight }) => [pages, width, pageHeight])(await sharp(atLimit.bytes, { animated: true }).metadata()),
+      [2, 4000, 4000],
+    );
+    const hd = await prepareUploadBytes(await tinyAnimatedWebp(3, 1920, 1080), "image/webp", FLYER, sharp);
+    assert.deepEqual(
+      (({ pages, width, pageHeight }) => [pages, width, pageHeight])(await sharp(hd.bytes, { animated: true }).metadata()),
+      [3, 1920, 1080],
+    );
+    t.mock.method(console, "warn", () => {});
+    assert.equal((await prepareUploadBytes(gifHeaders(1, 7000, 7000), "image/gif", FLYER, null)).contentType, "image/gif");
+  });
+
+  it("an animation whose frames the image library reads as larger than its headers say is refused and logged", async (t) => {
+    const logged = t.mock.method(console, "error", () => {});
+    const gif = await animatedGif(2);
+    // sharp has no limit for one frame, so the frame size it reads is checked too.
+    const disagrees = (() => ({ metadata: async () => ({ format: "gif", width: 7000, height: 14_000, pageHeight: 7000, pages: 2 }) })) as unknown as SharpConstructor;
+    assert.match(await rejection(prepareUploadBytes(gif, "image/gif", FLYER, disagrees)), /couldn't be read/);
+    assert.equal(logged.mock.callCount(), 1);
+    assert.match(String(logged.mock.calls[0].arguments[1]), /sharp read frames of 7000 × 7000 pixels, more than the header checks found/);
   });
 
   it("damaged files", async (t) => {
