@@ -4,6 +4,7 @@ import { getAdultLeaderMeetingDetail } from "@/lib/adultLeaderAttendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { canResetLeaderAttendance, requireLeaderAttendanceSession } from "@/lib/authorize";
 import { canEditMeetingAttendance, isAttendanceLocked } from "@/lib/attendanceLock";
+import { getAttendanceLockRule } from "@/lib/attendanceLockSetting";
 import AttendanceLockNotice from "@/components/AttendanceLockNotice";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import LeaderAttendanceControl from "@/components/LeaderAttendanceControl";
@@ -24,9 +25,10 @@ export default async function AdminLeaderMeetingAttendancePage({
   const data = await getAdultLeaderMeetingDetail(meetingDateId);
   if (!data) notFound();
   const { meeting, eventLabel, scoutingYear, sections } = data;
-  // Past noon the day after the meeting, only Admins can edit — see attendanceLock.ts.
-  const canEdit = canEditMeetingAttendance(session.role, meeting.date);
-  const meetingLocked = isAttendanceLocked(meeting.date);
+  // Past the saved lock time (9 PM the day after, unless changed), only Admins can edit — see attendanceLock.ts.
+  const lockRule = await getAttendanceLockRule();
+  const canEdit = canEditMeetingAttendance(session.role, meeting.date, lockRule);
+  const meetingLocked = isAttendanceLocked(meeting.date, lockRule);
   const canReset = canEdit && canResetLeaderAttendance(session);
   const cancelled = meeting.status === "NO_MEETING";
   const listedCount = sections.reduce((sum, s) => sum + s.leaders.length, 0);
@@ -47,7 +49,7 @@ export default async function AdminLeaderMeetingAttendancePage({
       <AttendanceSubNav active="leaders" meetingDateId={meeting.id} />
 
       {canEdit && <MeetingLabelForm meetingDateId={meeting.id} label={meeting.label} />}
-      <AttendanceLockNotice meetingDate={meeting.date} locked={!canEdit} lockedForOthers={canEdit && meetingLocked} />
+      <AttendanceLockNotice meetingDate={meeting.date} lockRule={lockRule} locked={!canEdit} lockedForOthers={canEdit && meetingLocked} />
 
       {cancelled ? (
         <div className="info-card">This meeting was cancelled — no attendance to take.</div>

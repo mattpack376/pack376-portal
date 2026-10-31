@@ -293,6 +293,19 @@ model MeetingDate {
   adultLeaderAttendances AdultLeaderAttendance[]
 }
 
+/**
+ * When a meeting's attendance locks to Admin-only (src/lib/attendanceLock.ts):
+ * `daysAfter` calendar days after the meeting date, at `minuteOfDay` pack time
+ * (21:00 = 1260). One row, id "main", edited by the master admin on the
+ * Attendance tab; with no row the code's default (9 PM the day after) applies.
+ */
+model AttendanceLockSetting {
+  id          String   @id @default("main")
+  daysAfter   Int      @default(1)
+  minuteOfDay Int      @default(1260)
+  updatedAt   DateTime @updatedAt
+}
+
 model Attendance {
   id              String      @id @default(cuid())
   scoutId         String

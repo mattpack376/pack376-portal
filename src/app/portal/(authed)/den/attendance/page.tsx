@@ -7,6 +7,7 @@ import { denDisplayName } from "@/lib/rankConfig";
 import DenSwitcher from "@/components/DenSwitcher";
 import FileExportButton from "@/components/FileExportButton";
 import MeetingTimeline from "@/components/MeetingTimeline";
+import { getAttendanceLockRule } from "@/lib/attendanceLockSetting";
 
 export default async function DenAttendancePage({
   searchParams,
@@ -55,6 +56,7 @@ export default async function DenAttendancePage({
 
       <MeetingTimeline
         dates={dates}
+        lockRule={await getAttendanceLockRule()}
         renderRow={(m) =>
           m.status === "NO_MEETING" ? (
             <div className="meeting-row no-meeting" key={m.id}>

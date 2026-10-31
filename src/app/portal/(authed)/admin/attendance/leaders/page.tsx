@@ -5,6 +5,7 @@ import { requireLeaderAttendanceSession } from "@/lib/authorize";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import FileExportButton from "@/components/FileExportButton";
 import MeetingTimeline from "@/components/MeetingTimeline";
+import { getAttendanceLockRule } from "@/lib/attendanceLockSetting";
 
 export default async function AdminLeaderAttendancePage({
   searchParams,
@@ -68,6 +69,7 @@ export default async function AdminLeaderAttendancePage({
 
       <MeetingTimeline
         dates={dates}
+        lockRule={await getAttendanceLockRule()}
         renderRow={(m) =>
           m.status === "NO_MEETING" ? (
             <Link className="meeting-row no-meeting" href={`/portal/admin/attendance/leaders/${m.id}`} key={m.id}>

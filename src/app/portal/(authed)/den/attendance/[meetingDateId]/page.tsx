@@ -5,6 +5,7 @@ import { getMeetingDetailForDen } from "@/lib/attendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { denDisplayName } from "@/lib/rankConfig";
 import { canEditMeetingAttendance } from "@/lib/attendanceLock";
+import { getAttendanceLockRule } from "@/lib/attendanceLockSetting";
 import AttendanceControl from "@/components/AttendanceControl";
 import AttendanceLockNotice from "@/components/AttendanceLockNotice";
 import MarkAllPresentButton from "@/components/MarkAllPresentButton";
@@ -36,8 +37,9 @@ export default async function DenMeetingAttendancePage({
 
   const { den, meeting, eventLabel, scouts } = data;
   const cancelled = meeting.status === "NO_MEETING";
-  // Past noon the day after the meeting, only Admins can edit — see attendanceLock.ts.
-  const canEdit = canEditMeetingAttendance(session.role, meeting.date);
+  // Past the saved lock time (9 PM the day after, unless changed), only Admins can edit — see attendanceLock.ts.
+  const lockRule = await getAttendanceLockRule();
+  const canEdit = canEditMeetingAttendance(session.role, meeting.date, lockRule);
 
   return (
     <>
@@ -49,7 +51,7 @@ export default async function DenMeetingAttendancePage({
         <p>{denDisplayName(den.rank, den.scoutingYear, den.label)}</p>
       </div>
 
-      <AttendanceLockNotice meetingDate={meeting.date} locked={!canEdit} lockedForOthers={false} />
+      <AttendanceLockNotice meetingDate={meeting.date} lockRule={lockRule} locked={!canEdit} lockedForOthers={false} />
 
       {cancelled ? (
         <div className="info-card">This meeting was cancelled — no attendance to take.</div>

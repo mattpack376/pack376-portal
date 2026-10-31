@@ -3,11 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAttendanceAccess, assertAttendanceDenAccess, canResetDenAttendance } from "@/lib/authorize";
+import {
+  assertAttendanceAccess,
+  assertAttendanceDenAccess,
+  assertMasterAdmin,
+  canResetDenAttendance,
+} from "@/lib/authorize";
 import { denDisplayName } from "@/lib/rankConfig";
 import { recordAudit, auditDate, EMPTY } from "@/lib/audit";
 import { attendanceLockedFor, meetingIsSchedulable, meetingLabel } from "@/lib/attendanceData";
-import { ATTENDANCE_LOCKED_MESSAGE } from "@/lib/attendanceLock";
+import {
+  ATTENDANCE_LOCKED_MESSAGE,
+  MAX_LOCK_DAYS_AFTER,
+  attendanceLockRuleLabel,
+  isValidAttendanceLockRule,
+  parseLockTimeInput,
+} from "@/lib/attendanceLock";
+import { getAttendanceLockRule } from "@/lib/attendanceLockSetting";
 import { MEETING_LABEL_MAX_LENGTH } from "@/lib/meetingLabel";
 
 export async function setAttendanceAction(scoutId: string, meetingDateId: string, present: boolean) {
@@ -247,4 +259,44 @@ export async function setMeetingLabelAction(meetingDateId: string, formData: For
   revalidatePath(`/portal/admin/attendance/${meetingDateId}`);
   revalidatePath("/portal/admin/attendance/leaders");
   revalidatePath(`/portal/admin/attendance/leaders/${meetingDateId}`);
+}
+
+/**
+ * When attendance locks after a meeting — master admin only. Takes effect at
+ * once for every meeting, past ones included: a later lock time can reopen a
+ * meeting that had already locked for non-Admins.
+ */
+export async function updateAttendanceLockRuleAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("Not signed in.");
+  await assertMasterAdmin(session);
+
+  const daysRaw = String(formData.get("daysAfter") ?? "").trim();
+  const daysAfter = /^\d+$/.test(daysRaw) ? Number(daysRaw) : NaN;
+  const minuteOfDay = parseLockTimeInput(String(formData.get("lockTime") ?? ""));
+  if (minuteOfDay === null) throw new Error("Enter the time attendance should lock.");
+  const rule = { daysAfter, minuteOfDay };
+  if (!isValidAttendanceLockRule(rule)) {
+    throw new Error(`Pick a lock day from the meeting day up to ${MAX_LOCK_DAYS_AFTER} days after.`);
+  }
+
+  const before = await getAttendanceLockRule();
+  await prisma.attendanceLockSetting.upsert({
+    where: { id: "main" },
+    create: { id: "main", daysAfter, minuteOfDay },
+    update: { daysAfter, minuteOfDay },
+  });
+
+  if (before.daysAfter !== daysAfter || before.minuteOfDay !== minuteOfDay) {
+    await recordAudit(session, {
+      action: "attendance.lockRule",
+      summary: `Changed when attendance locks to ${attendanceLockRuleLabel(rule)}`,
+      entityType: "AttendanceLockSetting",
+      entityId: "main",
+      details: [{ label: "Locks at", from: attendanceLockRuleLabel(before), to: attendanceLockRuleLabel(rule) }],
+    });
+  }
+
+  revalidatePath("/portal/admin/attendance", "layout");
+  revalidatePath("/portal/den/attendance", "layout");
 }

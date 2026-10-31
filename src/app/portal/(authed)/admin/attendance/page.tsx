@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getAdminScoutingYears, getAdminMeetingOverview } from "@/lib/attendanceData";
 import { formatMeetingDate } from "@/lib/attendanceSchedule";
-import { canAccessLeaderAttendance, requireAttendanceSession } from "@/lib/authorize";
+import { canAccessLeaderAttendance, isMasterAdminSession, requireAttendanceSession } from "@/lib/authorize";
+import AttendanceLockSettingsCard from "@/components/AttendanceLockSettingsCard";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
 import FileExportButton from "@/components/FileExportButton";
 import MeetingTimeline from "@/components/MeetingTimeline";
+import { getAttendanceLockRule } from "@/lib/attendanceLockSetting";
 
 export default async function AdminAttendancePage({
   searchParams,
@@ -32,6 +34,9 @@ export default async function AdminAttendancePage({
   }
 
   const { dates } = await getAdminMeetingOverview(scoutingYear);
+  const lockRule = await getAttendanceLockRule();
+  // Only the master admin (mattrosen) sets when attendance locks.
+  const showLockSettings = await isMasterAdminSession(session);
 
   return (
     <>
@@ -57,6 +62,8 @@ export default async function AdminAttendancePage({
 
       {showLeaderTab && <AttendanceSubNav active="scouts" year={scoutingYear} />}
 
+      {showLockSettings && <AttendanceLockSettingsCard rule={lockRule} />}
+
       <div style={{ marginBottom: 16 }}>
         <FileExportButton
           className="btn btn-quiet"
@@ -67,6 +74,7 @@ export default async function AdminAttendancePage({
 
       <MeetingTimeline
         dates={dates}
+        lockRule={lockRule}
         renderRow={(m) =>
           m.status === "NO_MEETING" ? (
             <Link className="meeting-row no-meeting" href={`/portal/admin/attendance/${m.id}`} key={m.id}>

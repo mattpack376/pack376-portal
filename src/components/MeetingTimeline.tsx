@@ -1,4 +1,4 @@
-import { currentMeetingTag, splitMeetingTimeline } from "@/lib/attendanceLock";
+import { currentMeetingTag, splitMeetingTimeline, type AttendanceLockRule } from "@/lib/attendanceLock";
 
 /**
  * The attendance date list as a scroll: dates that have passed (locked) roll
@@ -8,13 +8,16 @@ import { currentMeetingTag, splitMeetingTimeline } from "@/lib/attendanceLock";
  */
 export default function MeetingTimeline<T extends { id: string; date: Date; status: string }>({
   dates,
+  lockRule,
   renderRow,
 }: {
   dates: T[];
+  /** When attendance locks — getAttendanceLockRule(). A date moves to Past Meetings at its lock. */
+  lockRule: AttendanceLockRule;
   renderRow: (meeting: T) => React.ReactNode;
 }) {
   const now = new Date();
-  const { past, upcoming, current } = splitMeetingTimeline(dates, now);
+  const { past, upcoming, current } = splitMeetingTimeline(dates, lockRule, now);
 
   return (
     <div className="meeting-list">
@@ -27,7 +30,7 @@ export default function MeetingTimeline<T extends { id: string; date: Date; stat
       {upcoming.map((m) =>
         m === current ? (
           <div className="meeting-current" key={m.id}>
-            <div className="meeting-current-tag">{currentMeetingTag(m.date, now)}</div>
+            <div className="meeting-current-tag">{currentMeetingTag(m.date, lockRule, now)}</div>
             {renderRow(m)}
           </div>
         ) : (

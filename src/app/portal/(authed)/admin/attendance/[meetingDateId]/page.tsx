@@ -5,6 +5,7 @@ import { formatMeetingDate } from "@/lib/attendanceSchedule";
 import { RANK_INFO } from "@/lib/rankConfig";
 import { canAccessLeaderAttendance, canResetDenAttendance, requireAttendanceSession } from "@/lib/authorize";
 import { canEditMeetingAttendance, isAttendanceLocked } from "@/lib/attendanceLock";
+import { getAttendanceLockRule } from "@/lib/attendanceLockSetting";
 import AttendanceControl from "@/components/AttendanceControl";
 import AttendanceLockNotice from "@/components/AttendanceLockNotice";
 import AttendanceSubNav from "@/components/AttendanceSubNav";
@@ -25,9 +26,10 @@ export default async function AdminMeetingAttendancePage({
   const data = await getMeetingDetailForAdmin(meetingDateId);
   if (!data) notFound();
   const { meeting, eventLabel, scoutingYear, dens } = data;
-  // Past noon the day after the meeting, only Admins can edit — see attendanceLock.ts.
-  const canEdit = canEditMeetingAttendance(session.role, meeting.date);
-  const meetingLocked = isAttendanceLocked(meeting.date);
+  // Past the saved lock time (9 PM the day after, unless changed), only Admins can edit — see attendanceLock.ts.
+  const lockRule = await getAttendanceLockRule();
+  const canEdit = canEditMeetingAttendance(session.role, meeting.date, lockRule);
+  const meetingLocked = isAttendanceLocked(meeting.date, lockRule);
   const canReset = canEdit && canResetDenAttendance(session);
   const cancelled = meeting.status === "NO_MEETING";
 
@@ -49,7 +51,7 @@ export default async function AdminMeetingAttendancePage({
       )}
 
       {canEdit && <MeetingLabelForm meetingDateId={meeting.id} label={meeting.label} />}
-      <AttendanceLockNotice meetingDate={meeting.date} locked={!canEdit} lockedForOthers={canEdit && meetingLocked} />
+      <AttendanceLockNotice meetingDate={meeting.date} lockRule={lockRule} locked={!canEdit} lockedForOthers={canEdit && meetingLocked} />
 
       {cancelled ? (
         <div className="info-card">This meeting was cancelled — no attendance to take.</div>

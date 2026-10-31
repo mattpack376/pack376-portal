@@ -59,7 +59,7 @@ const CLAIMING_TABS = {
   },
   attendance: {
     label: "Attendance",
-    description: "Every attendance mark, den reset, meeting status and meeting label change.",
+    description: "Every attendance mark, den reset, meeting status and meeting label change, and changes to when attendance locks.",
     categories: ["attendance"],
   },
   dues: {
