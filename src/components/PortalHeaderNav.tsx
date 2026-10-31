@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PortalNav from "@/components/PortalNav";
 import LogoutButton from "@/components/LogoutButton";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
@@ -23,6 +23,26 @@ export default function PortalHeaderNav({
   isRaffleHelper?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const collapsibleRef = useRef<HTMLDivElement>(null);
+
+  // Publish the pinned header's real height as --portal-header-h, so sticky
+  // section headings and #anchor jumps sit just below it. It varies with the
+  // role's nav (it wraps on narrower desktops), the badge size and the iPhone
+  // safe area; offsetHeight includes that safe-area padding. The open phone
+  // menu is absolutely positioned, so opening it doesn't change the height.
+  useEffect(() => {
+    const header = collapsibleRef.current?.closest<HTMLElement>(".portal-header");
+    if (!header) return;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty("--portal-header-h", `${header.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(header);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--portal-header-h");
+    };
+  }, []);
 
   return (
     <>
@@ -33,7 +53,7 @@ export default function PortalHeaderNav({
       >
         &#9776;
       </button>
-      <div className={`portal-collapsible${open ? " open" : ""}`}>
+      <div ref={collapsibleRef} className={`portal-collapsible${open ? " open" : ""}`}>
         <PortalNav
           role={role}
           hasLinkedScouts={hasLinkedScouts}

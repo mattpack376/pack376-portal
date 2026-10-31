@@ -4,8 +4,6 @@ import { useEffect } from "react";
 
 /** A restored offset this small is Chrome's toolbar inset (~112px), not where the visitor was reading. */
 const MAX_STRAY_OFFSET = 200;
-/** How long after the page loads Chrome may still be restoring the scroll position. */
-const WATCH_MS = 1500;
 
 /**
  * Chrome on iPhone counts its toolbars as part of the page, and on a refresh or
@@ -41,14 +39,12 @@ export default function ChromeIosScrollReset() {
     window.addEventListener("load", resetIfStray, { once: true });
     window.addEventListener("pageshow", resetIfStray, { once: true });
     const timer = window.setTimeout(resetIfStray, 400);
-    const stop = window.setTimeout(() => {
-      window.removeEventListener("touchstart", onTouch);
-      window.removeEventListener("wheel", onTouch);
-    }, WATCH_MS);
+    // The touch/wheel watch stays on until the page is left (each fires once),
+    // so a slow page whose load lands after the visitor started scrolling is
+    // never yanked back to the top.
 
     return () => {
       window.clearTimeout(timer);
-      window.clearTimeout(stop);
       window.removeEventListener("touchstart", onTouch);
       window.removeEventListener("wheel", onTouch);
       window.removeEventListener("load", resetIfStray);

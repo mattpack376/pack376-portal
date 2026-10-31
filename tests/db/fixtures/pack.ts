@@ -66,7 +66,8 @@ export function packFixtures(prisma: PrismaClient) {
     return prisma.event.create({
       data: {
         title: data.title ?? `Event ${next()}`,
-        eventDate: data.eventDate ?? new Date("2030-06-01T00:00:00.000Z"),
+        // Far in the future so it always counts as upcoming (self-registration refuses past events).
+        eventDate: data.eventDate ?? new Date("2199-06-01T00:00:00.000Z"),
         feeCents: data.feeCents === undefined ? 2500 : data.feeCents,
         adultFeeCents: data.adultFeeCents === undefined ? 1000 : data.adultFeeCents,
         guestChildFeeCents: data.guestChildFeeCents === undefined ? 500 : data.guestChildFeeCents,

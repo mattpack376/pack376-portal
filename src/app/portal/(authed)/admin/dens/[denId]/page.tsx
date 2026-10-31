@@ -11,6 +11,7 @@ import { setScoutActiveAction } from "@/lib/actions/scouts";
 import ScoutChecklist from "@/components/ScoutChecklist";
 import { paymentSummariesByScout, type PaymentSummary } from "@/lib/scoutDeletion";
 import { paymentDeletionWarning } from "@/lib/paymentRecords";
+import InitiallyOpenDetails from "@/components/InitiallyOpenDetails";
 
 export default async function AdminDenDetailPage({
   params,
@@ -76,8 +77,9 @@ export default async function AdminDenDetailPage({
       </div>
 
       <div className="info-card" style={{ marginBottom: 24 }}>
-        {/* Folded by default so the advancement cards sit near the top; open it to rename, deactivate, remove or add scouts. */}
-        <details open={scouts.length === 0}>
+        {/* Folded by default so the advancement cards sit near the top; open it to rename, deactivate, remove or add
+            scouts. An empty den starts open, and stays open after its first scout is added. */}
+        <InitiallyOpenDetails initialOpen={scouts.length === 0}>
         <summary className="roster-summary">
           <h3>Roster</h3>
           <span className="badge-pill badge-den badge-count" style={{ whiteSpace: "nowrap" }}>
@@ -219,7 +221,7 @@ export default async function AdminDenDetailPage({
             <button type="submit" className="btn btn-primary">Add Scout</button>
           </form>
         )}
-        </details>
+        </InitiallyOpenDetails>
       </div>
 
       <ScoutChecklist scouts={scouts} editable collapsible />

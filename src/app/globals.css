@@ -1511,6 +1511,16 @@ details[open] > .event-toggle::before { transform: rotate(90deg); }
   display: flex;
   flex-direction: column;
 }
+/*
+ * Height of the pinned portal header, for things that stick or scroll to just
+ * below it. PortalHeaderNav measures the real header and sets this on <html>
+ * (it changes with the role's nav, wrapping and width); these are only the
+ * values before that runs — 60px badge + row padding (48px badge at 360px and below).
+ */
+:root { --portal-header-h: calc(88px + env(safe-area-inset-top)); }
+@media (max-width: 640px) { :root { --portal-header-h: calc(84px + env(safe-area-inset-top)); } }
+@media (max-width: 360px) { :root { --portal-header-h: calc(72px + env(safe-area-inset-top)); } }
+
 .portal-header {
   background: var(--scout-blue);
   color: var(--white);
@@ -1938,15 +1948,16 @@ details[open] > .roster-summary { margin-bottom: 14px; }
 .meeting-label-form .form-field { margin-bottom: 0; flex: 1 1 240px; max-width: 420px; }
 .meeting-label-form .form-note { flex-basis: 100%; margin-top: 0; }
 
-.attendance-group { margin-bottom: 28px; }
+/* A den jump link (#den-…) lands the group just below the pinned header, not under it. */
+.attendance-group { margin-bottom: 28px; scroll-margin-top: var(--portal-header-h); }
 .attendance-group-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   position: sticky;
-  /* Sits just under the pinned portal header (~68px: 14px padding x2 + 40px badge). */
-  top: calc(68px + env(safe-area-inset-top));
+  /* Sits just under the pinned portal header (see --portal-header-h). */
+  top: var(--portal-header-h);
   background: var(--cream);
   padding: 10px 0;
   z-index: 5;
@@ -2056,7 +2067,6 @@ details[open] > .roster-summary { margin-bottom: 14px; }
  */
 @media (max-width: 640px) {
   .portal-header-row { padding: 12px 16px; }
-  .attendance-group-head { top: calc(64px + env(safe-area-inset-top)); }
   .portal-main { padding: 24px 16px 48px; }
   .portal-shell .info-card { padding: 20px; }
   .portal-shell .page-head,
@@ -2878,6 +2888,7 @@ button.raffle-box:focus-visible { outline: 3px solid var(--scout-blue-light); ou
   .site-header { position: relative; }
   .portal-header { position: relative; }
   .attendance-group-head { top: 0; }
+  .attendance-group { scroll-margin-top: 0; }
   .nav-row { padding-top: 6px; padding-bottom: 6px; }
   .portal-header-row { padding-top: 6px; padding-bottom: 6px; }
   .brand-badge { width: 40px; height: 40px; }
@@ -2902,6 +2913,8 @@ button.raffle-box:focus-visible { outline: 3px solid var(--scout-blue-light); ou
     max-width: none;
     max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     overflow-y: auto;
+    /* Over the pinned portal header (z 100), same as the phone bottom sheet, so a tall form's top stays reachable. */
+    z-index: 101;
   }
 }
 
