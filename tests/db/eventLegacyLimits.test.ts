@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { before, beforeEach, describe, it } from "node:test";
 import { openTransaction, waitForLockWait, withTestDatabase } from "../support/db";
 import { form, resetTestState, runAs, settle, type SessionUser } from "../support/context";
-import { packFixtures } from "./fixtures/pack";
+import { DEFAULT_EVENT_DATE, packFixtures } from "./fixtures/pack";
 
 const db = withTestDatabase("event_legacy_limits");
 let events: typeof import("@/lib/actions/events");
@@ -63,7 +63,7 @@ function editEvent(eventId: string, fields: Fields = {}) {
         id: eventId,
         title: LONG_TITLE,
         category: "GENERAL",
-        eventDate: "2030-06-01",
+        eventDate: DEFAULT_EVENT_DATE,
         description: LONG_DESCRIPTION,
         fee: "2500000.00",
         adultFee: "10.00",

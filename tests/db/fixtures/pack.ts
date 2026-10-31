@@ -11,6 +11,14 @@ import type { SessionUser } from "../../support/context";
 let counter = 0;
 const next = () => ++counter;
 
+/**
+ * fx.event()'s default date, as the edit form sends it. Far in the future so it
+ * always counts as upcoming (self-registration refuses past events). A test
+ * that re-saves a fixture event through the form must send this date, or the
+ * save records a date change.
+ */
+export const DEFAULT_EVENT_DATE = "2199-06-01";
+
 export function packFixtures(prisma: PrismaClient) {
   async function den(rank: Rank = "TIGER") {
     return prisma.den.create({ data: { rank, scoutingYear: "2026-2027", label: `D${next()}` } });
@@ -66,8 +74,7 @@ export function packFixtures(prisma: PrismaClient) {
     return prisma.event.create({
       data: {
         title: data.title ?? `Event ${next()}`,
-        // Far in the future so it always counts as upcoming (self-registration refuses past events).
-        eventDate: data.eventDate ?? new Date("2199-06-01T00:00:00.000Z"),
+        eventDate: data.eventDate ?? new Date(`${DEFAULT_EVENT_DATE}T00:00:00.000Z`),
         feeCents: data.feeCents === undefined ? 2500 : data.feeCents,
         adultFeeCents: data.adultFeeCents === undefined ? 1000 : data.adultFeeCents,
         guestChildFeeCents: data.guestChildFeeCents === undefined ? 500 : data.guestChildFeeCents,
