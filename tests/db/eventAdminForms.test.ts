@@ -422,7 +422,9 @@ describe("withdrawing a guest group vs recording a payment against it", () => {
 
     const outcome = await pending;
     assert.equal(outcome.ok, false);
-    assert.match(outcome.ok ? "" : outcome.error.message, /payments recorded/);
+    // The parent-facing refusal deliberately doesn't mention payments (parents don't see what the pack has collected).
+    assert.match(outcome.ok ? "" : outcome.error.message, /can't be removed here/);
+    assert.doesNotMatch(outcome.ok ? "" : outcome.error.message, /payment/i);
     assert.ok(await db.prisma.eventGuestGroup.findUnique({ where: { id: group.id } }));
     assert.equal(await db.prisma.eventGuestGroupPayment.count({ where: { eventGuestGroupId: group.id } }), 1);
   });
