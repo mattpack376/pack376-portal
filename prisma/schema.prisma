@@ -113,6 +113,7 @@ model User {
   auditEntries             AuditLog[]
   receiptsIssued           Receipt[]
   rafflePaymentsLogged     RafflePayment[]
+  ledgerEntriesCreated     LedgerEntry[]            @relation("LedgerEntryCreatedBy")
   // A per-person permission an Admin switches on from the 50/50 Raffles page:
   // this login can open the raffles, sell and correct boxes, and record a
   // buyer's payment — and nothing else an Admin can do there. See
@@ -1354,4 +1355,125 @@ model PaymentRecord {
   @@unique([kind, originalId])
   @@index([deletedAt])
   @@index([status])
+}
+
+/// Money direction on a ledger line: IN adds to the bank balance, OUT takes away.
+enum LedgerDirection {
+  IN
+  OUT
+}
+
+/// FUND categories are the pack's own money (General Fund, Dues, Fundraising…).
+/// EVENT categories hold money collected for one event or trip; their positive
+/// balance is set aside, so it comes off Available to Spend.
+enum LedgerCategoryKind {
+  FUND
+  EVENT
+}
+
+enum LedgerEntryOrigin {
+  /// Typed into the Ledger page.
+  MANUAL
+  /// Brought over once from the treasurer's Google Sheet (importBatchId set).
+  IMPORTED
+  /// Reserved for frozen copies of automatic lines (not written yet).
+  SNAPSHOT
+}
+
+/// A bucket the pack's money is tracked in, like the summary boxes on the
+/// treasurer's Sheet. nameKey is the trimmed, lower-cased name (set by the
+/// app), so two categories can't differ only by case. An archived category is
+/// left out of the pickers but keeps its entries and its balance.
+model LedgerCategory {
+  id        String             @id @default(cuid())
+  name      String
+  nameKey   String             @unique
+  kind      LedgerCategoryKind @default(FUND)
+  sortOrder Int                @default(0)
+  archived  Boolean            @default(false)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  entries   LedgerEntry[]
+}
+
+/// One line of the pack's bank ledger (/portal/admin/ledger). Money is whole
+/// cents, always positive, with direction saying which way it went. A move
+/// between categories is two lines sharing a transferId (OUT of one, IN to
+/// the other), so the bank balance doesn't change. Lines are never deleted:
+/// deletedAt marks one removed, and it can be restored. updatedAt doubles as
+/// the edit version, so an edit made from an out-of-date page is refused.
+/// CHECKs on amount, description and note length, and on importBatchId going
+/// with origin IMPORTED, are in migration 20261102120000_ledger.
+model LedgerEntry {
+  id              String             @id @default(cuid())
+  entryDate       DateTime           @db.Date
+  description     String
+  categoryId      String
+  category        LedgerCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  direction       LedgerDirection
+  amountCents     Int
+  note            String?
+  origin          LedgerEntryOrigin  @default(MANUAL)
+  transferId      String?
+  importBatchId   String?
+  importBatch     LedgerImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Restrict)
+  /// The Sheet row an imported line came from; keeps the Sheet's order within a day.
+  importRowNumber Int?
+  createdByUserId String?
+  createdByUser   User?              @relation("LedgerEntryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByName   String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+  deletedByName   String?
+
+  @@index([entryDate])
+  @@index([categoryId])
+  @@index([transferId])
+  @@index([importBatchId])
+}
+
+/// One import of the treasurer's Sheet rows. fingerprint is a hash of the
+/// rows as read, so the same rows can't be brought in twice; undoneAt marks
+/// an import taken back (its lines are then marked deleted).
+model LedgerImportBatch {
+  id             String        @id @default(cuid())
+  fingerprint    String
+  /// Where the rows came from, e.g. the Sheet tab's name or an uploaded file's.
+  sourceLabel    String
+  rowCount       Int
+  inflowCents    Int
+  outflowCents   Int
+  importedByName String
+  importedAt     DateTime      @default(now())
+  undoneAt       DateTime?
+  undoneByName   String?
+  entries        LedgerEntry[]
+
+  @@index([fingerprint])
+}
+
+/// The Ledger's settings and the Google Sheet copy's status. One row, id
+/// "main". cutoverDate is set by the import: the day the portal took over
+/// from the Sheet. The sync fields belong to the Sheet copy (src/lib/ledgerSync.ts).
+model LedgerSettings {
+  id                String    @id @default("main")
+  cutoverDate       DateTime? @db.Date
+  /// Off = the portal stops writing its tab in the Sheet, without a redeploy.
+  syncEnabled       Boolean   @default(true)
+  /// The spreadsheet and tab (Google's sheetId) the portal's own tab was made in.
+  spreadsheetId     String?
+  sheetTabId        Int?
+  /// Set when a ledger change asks for a sync; a sync is due while it's after syncedThrough.
+  syncRequestedAt   DateTime?
+  /// The database time just before the last successful sync read the ledger.
+  syncedThrough     DateTime?
+  /// While in the future, a sync is running and others leave it alone.
+  syncLeaseUntil    DateTime?
+  lastSyncAttemptAt DateTime?
+  lastSyncedAt      DateTime?
+  /// A short, safe message — never a key, token or Google's raw reply.
+  lastSyncError     String?
+  lastSyncRowCount  Int?
+  updatedAt         DateTime  @updatedAt
 }

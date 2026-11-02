@@ -12,11 +12,17 @@ import {
   isDenScopedRole,
   isMasterAdminSession,
   isReservedUsername,
+  MASTER_ONLY_ACCOUNT_MESSAGE,
 } from "@/lib/authorize";
 import { generatePassword } from "@/lib/passwords";
 import { CREDENTIAL_TRANSACTION, issueTokenInTransaction, lockUserRow } from "@/lib/resetTokens";
 import { getAppBaseUrl } from "@/lib/appUrl";
-import { canSetUserActive, isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
+import {
+  canSetUserActive,
+  isMasterAdminUsername,
+  isMasterOnlyMutableUsername,
+  isProtectedUsername,
+} from "@/lib/masterAdmins";
 import { ASSIGNABLE_ROLES, DEN_ASSIGNABLE_ROLES, ROLE_LABELS, type AssignableRole } from "@/lib/roleLabels";
 import { sendAccountLinkEmail } from "@/lib/email";
 import { formatPhoneNumber } from "@/lib/phone";
@@ -156,10 +162,11 @@ export async function resetPasswordAction(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
   if (!user) return { ok: false as const, error: "User not found." };
 
-  // Only a master admin can reset a master admin's password. Without this,
-  // a regular admin could reset the master's credentials and — if that
-  // account has no email — have the new link revealed to them on screen.
-  const masterOnly = "Only a master admin can reset a master admin's password.";
+  // Only a master admin can reset a master admin's or a ledger account's
+  // password (isMasterOnlyMutableUsername). Without this, a regular admin
+  // could reset that account's credentials and — if it has no email — have
+  // the new link revealed to them on screen.
+  const masterOnly = MASTER_ONLY_ACCOUNT_MESSAGE;
   try {
     await assertCanMutateUser(session, user);
   } catch {
@@ -193,7 +200,7 @@ export async function resetPasswordAction(userId: string) {
         where: { id: userId },
         select: { username: true, displayName: true, email: true },
       });
-      if (isMasterAdminUsername(current.username) && !viewerIsMaster) return "forbidden" as const;
+      if (isMasterOnlyMutableUsername(current.username) && !viewerIsMaster) return "forbidden" as const;
       await tx.user.update({
         where: { id: userId },
         data: {
@@ -253,7 +260,7 @@ export async function updateUserEmailAction(formData: FormData) {
     select: { username: true, displayName: true, email: true },
   });
   if (!user) throw new Error("User not found.");
-  // A master admin's contact identity can only be changed by another master admin.
+  // A master admin's or ledger account's contact identity can only be changed by a master admin.
   await assertCanMutateUser(session, user);
 
   await prisma.$transaction([
@@ -293,7 +300,7 @@ export async function updateUserPhoneAction(formData: FormData) {
     select: { username: true, displayName: true, phone: true },
   });
   if (!user) throw new Error("User not found.");
-  // A master admin's contact identity can only be changed by another master admin.
+  // A master admin's or ledger account's contact identity can only be changed by a master admin.
   await assertCanMutateUser(session, user);
 
   await prisma.$transaction([
@@ -335,7 +342,7 @@ export async function updateUserDisplayNameAction(formData: FormData) {
     select: { username: true, displayName: true },
   });
   if (!user) throw new Error("User not found.");
-  // A master admin's display identity can only be changed by another master admin.
+  // A master admin's or ledger account's display identity can only be changed by a master admin.
   await assertCanMutateUser(session, user);
 
   await prisma.$transaction([

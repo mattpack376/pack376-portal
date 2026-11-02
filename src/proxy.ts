@@ -61,6 +61,12 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
   // requireMasterAdminSession() on the page, which bounces everyone else.
   { test: (p) => p.startsWith("/portal/admin/audit"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/reset"), roles: ["ADMIN"] },
+  // The Ledger is for two named accounts (LEDGER_USERNAMES), which this
+  // cookie-only layer can't check — the audit rule's twin. ADMIN is the
+  // tightest coarse rule; requireLedgerSession() on every page and the export
+  // route is the real gate. Checked before the generic /portal/admin rule,
+  // which would also let Junior Admin through.
+  { test: (p) => p.startsWith("/portal/admin/ledger"), roles: ["ADMIN"] },
   // Dues: Admin edits, Junior Admin and Committee Member read. Mirrors
   // requireDuesViewSession().
   { test: (p) => p.startsWith("/portal/admin/dues"), roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE"] },

@@ -7,15 +7,41 @@
 export const MASTER_ADMIN_USERNAMES = ["mattrosen"];
 
 /**
+ * The two people who keep the pack's books: only they can open the Ledger
+ * (/portal/admin/ledger) — read it, add to it, or export it. Decided by
+ * username on top of role ADMIN, like the master admins. To change who, edit
+ * this list in code and deploy; every name here must also be in
+ * PROTECTED_USERNAMES (a unit test checks), so the name can never be deleted
+ * and then recreated by someone else.
+ */
+export const LEDGER_USERNAMES = ["mattrosen", "dianaliz"];
+
+/**
  * Accounts that can never be deleted from the admin panel, by anyone. Every
- * master admin is protected; the others here are ordinary Admins, and any
- * Admin can still edit them. To remove one, edit this list in code and
- * deploy.
+ * master admin is protected; the others here are ordinary Admins. Any Admin
+ * can still edit howell; a ledger account (LEDGER_USERNAMES) is only a
+ * master admin's to change — see isMasterOnlyMutableUsername. To remove one,
+ * edit this list in code and deploy.
  */
 export const PROTECTED_USERNAMES = [...MASTER_ADMIN_USERNAMES, "howell", "dianaliz"];
 
 export function isMasterAdminUsername(username: string) {
   return MASTER_ADMIN_USERNAMES.includes(username.trim().toLowerCase());
+}
+
+export function isLedgerUsername(username: string) {
+  return LEDGER_USERNAMES.includes(username.trim().toLowerCase());
+}
+
+/**
+ * Accounts only a master admin may change — password reset, email, phone,
+ * display name and the rest: the master admins themselves, and the ledger
+ * accounts, since whoever controls one of those logins reads and writes the
+ * pack's books. Without this an ordinary Admin could reset a ledger account's
+ * password and, if it has no email, be shown the new link on screen.
+ */
+export function isMasterOnlyMutableUsername(username: string) {
+  return isMasterAdminUsername(username) || isLedgerUsername(username);
 }
 
 export function isProtectedUsername(username: string) {

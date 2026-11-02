@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName, RANK_ORDER } from "@/lib/rankConfig";
 import { isMasterAdminSession, requireAdminSession } from "@/lib/authorize";
-import { canSetUserActive, isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
+import { canSetUserActive, isMasterAdminUsername, isMasterOnlyMutableUsername, isProtectedUsername } from "@/lib/masterAdmins";
 import { isAllDensTestUsername } from "@/lib/denTestAccounts";
 import {
   updateUserDensAction,
@@ -45,12 +45,15 @@ export default async function ManageUserPage({
 
   const masterAccount = isMasterAdminUsername(user.username);
   const protectedAccount = isProtectedUsername(user.username);
+  // A master admin's or a ledger account's details, password included.
+  const masterOnlyAccount = isMasterOnlyMutableUsername(user.username);
   // Mirrors the guards in src/lib/actions/users.ts: a master admin's role is
-  // fixed in code and only a master admin edits that account; protected
-  // accounts can't be deleted; moving anyone into or out of Admin, and
-  // deleting any Admin, is the master admin's call (assertCanGrantRole).
+  // fixed in code; only a master admin edits a master or ledger account
+  // (assertCanMutateUser); protected accounts can't be deleted; moving anyone
+  // into or out of Admin, and deleting any Admin, is the master admin's call
+  // (assertCanGrantRole).
   const roleEditable = !masterAccount && (user.role !== "ADMIN" || viewerIsMaster);
-  const detailsEditable = !masterAccount || viewerIsMaster;
+  const detailsEditable = !masterOnlyAccount || viewerIsMaster;
   const deletable = !protectedAccount && (user.role !== "ADMIN" || viewerIsMaster);
   // Mirrors setUserActiveAction: the switch is only drawn where it would go through.
   const activeSwitchable = canSetUserActive({ userId: session.userId, isMaster: viewerIsMaster }, user);
@@ -107,7 +110,11 @@ export default async function ManageUserPage({
       ) : protectedAccount ? (
         <div className="info-card" style={{ marginBottom: 24 }}>
           <h3>🔒 Protected Account</h3>
-          <p>This account can&apos;t be deleted from the admin panel — only by editing src/lib/masterAdmins.ts in code and deploying.</p>
+          <p>
+            This account can&apos;t be deleted from the admin panel — only by editing src/lib/masterAdmins.ts in code and
+            deploying.
+            {masterOnlyAccount && " It keeps the pack's books, so only a master admin can change its details or reset its password."}
+          </p>
         </div>
       ) : null}
 

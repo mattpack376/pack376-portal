@@ -237,9 +237,9 @@ async function loadLinkableAccount(userId: string, leaderId: string | null) {
  * typed on the list for them moves onto the login first — but only into
  * blanks: an address already on the account is never overwritten. Mirrors
  * onto any scout-contact rows the login is tied to, like the account page's
- * own email/phone edits. Skipped for the master admin's account unless the
- * viewer is the master. Returns the account's contact info afterwards, plus
- * the audit lines for whatever moved.
+ * own email/phone edits. Skipped for a master admin's or ledger account
+ * unless the viewer is a master admin (assertCanMutateUser). Returns the
+ * account's contact info afterwards, plus the audit lines for whatever moved.
  */
 async function moveContactOntoAccount(
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>,

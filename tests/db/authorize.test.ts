@@ -66,6 +66,8 @@ before(async () => {
   for (const role of ALL_ROLES) await make(role, role, role === "DEN" ? { denIds: [denId] } : {});
   await make("COMMITTEE_WITH_DEN", "COMMITTEE", { denIds: [denId] });
   await make("MASTER", "ADMIN", { username: "mattrosen" });
+  // The other ledger account (LEDGER_USERNAMES): an ordinary Admin otherwise.
+  await make("LEDGER", "ADMIN", { username: "dianaliz" });
 });
 
 /** What the guard did: null when it let the user through, else where it redirected. */
@@ -144,6 +146,10 @@ describe("page guards are never looser than the proxy", () => {
     { path: "/portal/admin/receipts", guard: () => authz.requireAdminSession() },
     { path: "/portal/admin/audit", guard: () => authz.requireMasterAdminSession() },
     { path: "/portal/admin/reset", guard: () => authz.requireMasterAdminSession() },
+    { path: "/portal/admin/ledger", guard: () => authz.requireLedgerSession() },
+    { path: "/portal/admin/ledger/categories", guard: () => authz.requireLedgerSession() },
+    { path: "/portal/admin/ledger/import", guard: () => authz.requireLedgerSession() },
+    { path: "/portal/admin/ledger/export", guard: () => authz.requireLedgerSession() },
     { path: "/portal/admin/dues", guard: () => authz.requireDuesViewSession() },
     { path: "/portal/admin/events", guard: () => authz.requireEventsViewSession() },
     { path: "/portal/admin/events/guests/export", guard: () => authz.requireAdminSession() },
@@ -180,6 +186,82 @@ describe("page guards are never looser than the proxy", () => {
     assert.notEqual(await guardOutcome(users.COMMITTEE, () => authz.requireParentContactsSession()), null);
     assert.equal(await guardOutcome(users.MASTER, () => authz.requireMasterAdminSession()), null);
     assert.equal(await guardOutcome(users.PARENT, () => authz.requireParentSession()), null);
+  });
+});
+
+describe("the Ledger is for the two ledger accounts only", () => {
+  /** The session payload getSession() would hand an action for this user. */
+  const payload = (user: SessionUser) => ({
+    userId: user.id,
+    role: user.role,
+    denIds: user.denIds ?? [],
+    scoutIds: [],
+    displayName: "Ledger test",
+    sv: user.sessionVersion,
+  });
+
+  it("requireLedgerSession lets in mattrosen and dianaliz and sends everyone else away", async () => {
+    assert.equal(await guardOutcome(users.MASTER, () => authz.requireLedgerSession()), null);
+    assert.equal(await guardOutcome(users.LEDGER, () => authz.requireLedgerSession()), null);
+    // Any other Admin goes back to the dashboard; every other level to its own home.
+    assert.equal(await guardOutcome(users.ADMIN, () => authz.requireLedgerSession()), "/portal/admin");
+    for (const role of ALL_ROLES.filter((r) => r !== "ADMIN")) {
+      assert.equal(await guardOutcome(users[role], () => authz.requireLedgerSession()), session.homeForRole(role), role);
+    }
+  });
+
+  it("assertLedgerAccess throws for everyone but the ledger accounts", async () => {
+    for (const key of Object.keys(users)) {
+      const outcome = await settle(runAs(users[key], () => authz.assertLedgerAccess(payload(users[key]))));
+      if (key === "MASTER" || key === "LEDGER") assert.ok(outcome.ok, key);
+      else assert.ok(!outcome.ok && /ledger access only/.test(outcome.error.message), key);
+    }
+  });
+
+  it("isLedgerSession only answers true for an ADMIN with a ledger username", async () => {
+    assert.equal(await authz.isLedgerSession(payload(users.LEDGER)), true);
+    assert.equal(await authz.isLedgerSession(payload(users.ADMIN)), false);
+    // A ledger username on a non-Admin session doesn't count.
+    assert.equal(await authz.isLedgerSession({ ...payload(users.LEDGER), role: "JUNIOR_ADMIN" }), false);
+  });
+
+  it("only a master admin can change a ledger account", async () => {
+    const target = { username: "dianaliz" };
+    const plain = await settle(authz.assertCanMutateUser(payload(users.ADMIN), target));
+    assert.ok(!plain.ok && plain.error.message === authz.MASTER_ONLY_ACCOUNT_MESSAGE);
+    // Not even the other ledger account, which isn't a master admin.
+    assert.ok(!(await settle(authz.assertCanMutateUser(payload(users.LEDGER), { username: "mattrosen" }))).ok);
+    assert.ok((await settle(authz.assertCanMutateUser(payload(users.MASTER), target))).ok);
+  });
+
+  it("a plain Admin can't reset dianaliz's password; mattrosen can", async () => {
+    const actions = await import("@/lib/actions/users");
+    const before = await db.prisma.user.findUniqueOrThrow({ where: { id: users.LEDGER.id } });
+
+    const refused = await runAs(users.ADMIN, () => actions.resetPasswordAction(users.LEDGER.id));
+    assert.deepEqual(refused, { ok: false, error: authz.MASTER_ONLY_ACCOUNT_MESSAGE });
+    const unchanged = await db.prisma.user.findUniqueOrThrow({ where: { id: users.LEDGER.id } });
+    assert.equal(unchanged.passwordHash, before.passwordHash);
+    assert.equal(unchanged.sessionVersion, before.sessionVersion);
+    assert.equal(await db.prisma.passwordResetToken.count({ where: { userId: users.LEDGER.id } }), 0);
+
+    // A plain Admin can't change her email either.
+    const email = await settle(
+      runAs(users.ADMIN, () => {
+        const data = new FormData();
+        data.set("userId", users.LEDGER.id);
+        data.set("email", "taken-over@example.com");
+        return actions.updateUserEmailAction(data);
+      }),
+    );
+    assert.ok(!email.ok);
+    assert.equal((await db.prisma.user.findUniqueOrThrow({ where: { id: users.LEDGER.id } })).email, before.email);
+
+    const allowed = await runAs(users.MASTER, () => actions.resetPasswordAction(users.LEDGER.id));
+    assert.equal(allowed.ok, true);
+    // Her old sessions stop working; keep the fixture's session usable for later tests.
+    const after = await db.prisma.user.findUniqueOrThrow({ where: { id: users.LEDGER.id } });
+    users.LEDGER.sessionVersion = after.sessionVersion;
   });
 });
 
@@ -224,7 +306,8 @@ describe("/api export routes", () => {
     it(`${route.path}: refuses other roles; a private, no-store file for the rest`, async () => {
       for (const key of Object.keys(users)) {
         const response = await call(users[key], route.load, route.path, route.params?.());
-        if (route.allowed.includes(key)) {
+        // The ledger account is an ordinary Admin everywhere else.
+        if (route.allowed.includes(key === "LEDGER" ? "ADMIN" : key)) {
           assert.equal(response.status, 200, `${key} should get the file`);
           assert.equal(response.headers.get("Cache-Control"), "private, no-store", key);
           assert.match(response.headers.get("Content-Disposition") ?? "", /^attachment; filename="/, key);

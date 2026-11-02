@@ -47,6 +47,10 @@ type TestState = {
   resendQueue: ResendBehavior[];
   /** Named pause points tests can install; see pausePoint(). */
   pauses: Record<string, (() => Promise<void>) | undefined>;
+  /** Callbacks given to next/server's after() (see mocks/next-server.mjs); run them with runAfterCallbacks(). */
+  afterCallbacks: (() => unknown)[];
+  /** Makes after() throw, as it does outside a Next.js request. */
+  afterThrows: boolean;
 };
 
 const state = (globalThis as unknown as { __pack376Test?: TestState }).__pack376Test;
@@ -133,4 +137,14 @@ export function resetTestState() {
   testState.blobHost = "test.public.blob.vercel-storage.com";
   testState.resendQueue.length = 0;
   testState.pauses = {};
+  testState.afterCallbacks.length = 0;
+  testState.afterThrows = false;
+}
+
+/** Runs (and clears) everything queued with after(), in order, as Next does once the response is sent. */
+export async function runAfterCallbacks() {
+  while (testState.afterCallbacks.length > 0) {
+    const callback = testState.afterCallbacks.shift()!;
+    await callback();
+  }
 }

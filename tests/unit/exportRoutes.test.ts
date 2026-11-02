@@ -18,6 +18,7 @@ const APP = join(ROOT, "src", "app");
 /** Route handlers that send no private file, with why. */
 const NOT_DOWNLOADS: Record<string, string> = {
   "src/app/portal/logout/route.ts": "clears the session cookie and redirects; no data",
+  "src/app/api/cron/ledger-sync/route.ts": "cron trigger: checks the CRON_SECRET bearer, returns only a status JSON, no records",
 };
 
 /** Helpers that build the whole download response with the private, no-store header. */

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { denDisplayName } from "@/lib/rankConfig";
 import { isMasterAdminSession, requireAdminSession } from "@/lib/authorize";
-import { isMasterAdminUsername } from "@/lib/masterAdmins";
+import { isMasterOnlyMutableUsername } from "@/lib/masterAdmins";
 import { isAllDensTestUsername } from "@/lib/denTestAccounts";
 import { ROLE_LABELS, ROLE_BADGE_CLASSES } from "@/lib/roleLabels";
 import { formatPhoneNumber } from "@/lib/phone";
@@ -78,8 +78,8 @@ export default async function AdminUsersPage() {
                 )}
               </td>
               <td className="actions">
-                {/* A master admin's password is only a master admin's to reset. */}
-                {(viewerIsMaster || !isMasterAdminUsername(user.username)) && (
+                {/* A master admin's or ledger account's password is only a master admin's to reset. */}
+                {(viewerIsMaster || !isMasterOnlyMutableUsername(user.username)) && (
                   <ResetPasswordButton userId={user.id} />
                 )}
                 <Link

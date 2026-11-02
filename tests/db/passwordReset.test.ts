@@ -857,7 +857,7 @@ describe("Admin reset", () => {
     const master = await makeUser({ role: "ADMIN", username: "mattrosen" });
     const counts = countBcrypt();
     const result = await runAs(admin, () => users.resetPasswordAction(master.id));
-    assert.deepEqual(result, { ok: false, error: "Only a master admin can reset a master admin's password." });
+    assert.deepEqual(result, { ok: false, error: "Only a master admin can change this account." });
     assert.equal(counts.hash, 0);
     const after = await userRow(master.id);
     assert.equal(after.passwordHash, ORIGINAL_HASH);

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, RANK_INFO, denDisplayName } from "@/lib/rankConfig";
-import { isMasterAdminSession, requireAdvancementSession } from "@/lib/authorize";
+import { isLedgerSession, isMasterAdminSession, requireAdvancementSession } from "@/lib/authorize";
+import { getLedger } from "@/lib/ledgerData";
+import { formatCents } from "@/lib/duesData";
 import EmailAllButton from "@/components/EmailAllButton";
 
 export default async function AdminDashboardPage() {
@@ -34,6 +36,10 @@ export default async function AdminDashboardPage() {
   const paymentRecordsWaiting =
     session.role === "ADMIN" ? await prisma.paymentRecord.count({ where: { status: "NEEDS_DECISION" } }) : 0;
   const everyoneEmails = [...parentEmails, ...userEmails, ...leaderEmails].map((r) => r.email);
+  // The two ledger accounts get the bank balance at a glance. Loaded only
+  // inside this check: the ledger is theirs alone, and this page is open to
+  // Junior Admins and Committee Members too.
+  const ledgerSummary = (await isLedgerSession(session)) ? (await getLedger()).summary : null;
 
   dens.sort((a, b) => {
     if (a.scoutingYear !== b.scoutingYear) return b.scoutingYear.localeCompare(a.scoutingYear);
@@ -78,6 +84,19 @@ export default async function AdminDashboardPage() {
             — refunded, kept by the pack, or entered by mistake.{" "}
             <Link href="/portal/admin/payment-records" style={{ fontWeight: 700 }}>
               Review them →
+            </Link>
+          </p>
+        </div>
+      )}
+
+      {ledgerSummary && (
+        <div className="info-card" style={{ marginBottom: 24 }}>
+          <h3>Ledger</h3>
+          <p style={{ marginBottom: 0 }}>
+            Bank balance <strong>{formatCents(ledgerSummary.bankBalanceCents)}</strong> · Available to spend{" "}
+            <strong>{formatCents(ledgerSummary.availableToSpendCents)}</strong>.{" "}
+            <Link href="/portal/admin/ledger" style={{ fontWeight: 700 }}>
+              Open the ledger →
             </Link>
           </p>
         </div>

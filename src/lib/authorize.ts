@@ -1,14 +1,24 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { getSessionState } from "@/lib/auth";
 import { homeForRole, type SessionPayload } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { isMasterAdminUsername, isProtectedUsername } from "@/lib/masterAdmins";
+import {
+  isLedgerUsername,
+  isMasterAdminUsername,
+  isMasterOnlyMutableUsername,
+  isProtectedUsername,
+} from "@/lib/masterAdmins";
 
 /*
  * Permission levels, most to least access:
  *
  * - Master Admin (ADMIN + a username in masterAdmins.ts): everything.
+ * - Ledger (ADMIN + a username in LEDGER_USERNAMES, masterAdmins.ts): the
+ *   pack's books at /portal/admin/ledger. Not a level of its own — exactly two
+ *   people, on top of whatever else their Admin account can do. Only a master
+ *   admin can change a ledger account (isMasterOnlyMutableUsername).
  * - Admin: everything except the audit log, Start a Fresh Year, and creating
  *   or deleting Admin accounts (which includes promoting someone to Admin).
  *   Admins can edit each other's accounts.
@@ -517,14 +527,29 @@ export async function requireParentSession(): Promise<SessionPayload> {
 }
 
 /**
+ * The signed-in Admin's username, read once per request however many of the
+ * master-admin and ledger checks below ask for it (the layout, the page and
+ * its actions all do).
+ */
+const adminUsername = cache(async (userId: string): Promise<string | null> => {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  return user?.username ?? null;
+});
+
+/** Null for anyone but an ADMIN, without a query. */
+async function sessionAdminUsername(session: SessionPayload): Promise<string | null> {
+  if (session.role !== "ADMIN") return null;
+  return adminUsername(session.userId);
+}
+
+/**
  * Whether this session is a master admin (src/lib/masterAdmins.ts). Needs a
  * username lookup, so pages that only branch on it (rather than gating on it)
  * call this instead of requireMasterAdminSession.
  */
 export async function isMasterAdminSession(session: SessionPayload) {
-  if (session.role !== "ADMIN") return false;
-  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { username: true } });
-  return !!user && isMasterAdminUsername(user.username);
+  const username = await sessionAdminUsername(session);
+  return !!username && isMasterAdminUsername(username);
 }
 
 /**
@@ -534,26 +559,55 @@ export async function isMasterAdminSession(session: SessionPayload) {
  */
 export async function requireMasterAdminSession(): Promise<SessionPayload> {
   const session = await requireAdminSession();
-  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { username: true } });
-  if (!user || !isMasterAdminUsername(user.username)) redirect("/portal/admin");
+  if (!(await isMasterAdminSession(session))) redirect("/portal/admin");
   return session;
 }
 
 /** For Server Actions: throws unless the acting user is a master admin. */
 export async function assertMasterAdmin(session: SessionPayload) {
-  if (session.role !== "ADMIN") throw new Error("Not authorized: master admin only.");
-  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { username: true } });
-  if (!user || !isMasterAdminUsername(user.username)) {
+  if (!(await isMasterAdminSession(session))) {
     throw new Error("Not authorized: master admin only.");
   }
 }
 
 /**
+ * Whether this session may use the Ledger: an ADMIN whose username is in
+ * LEDGER_USERNAMES (src/lib/masterAdmins.ts). For pages that only branch on
+ * it — the nav link, the dashboard card.
+ */
+export async function isLedgerSession(session: SessionPayload) {
+  const username = await sessionAdminUsername(session);
+  return !!username && isLedgerUsername(username);
+}
+
+/**
+ * For Server Components / pages and the ledger's export route: only the
+ * ledger accounts get in. Every other Admin is sent to the dashboard, everyone
+ * else to their own home page.
+ */
+export async function requireLedgerSession(): Promise<SessionPayload> {
+  const session = await requireAdminSession();
+  if (!(await isLedgerSession(session))) redirect("/portal/admin");
+  return session;
+}
+
+/** For Server Actions: throws unless the acting user is a ledger account. */
+export async function assertLedgerAccess(session: SessionPayload) {
+  if (!(await isLedgerSession(session))) {
+    throw new Error("Not authorized: ledger access only.");
+  }
+}
+
+/** The refusal for a change to an account only a master admin may change. */
+export const MASTER_ONLY_ACCOUNT_MESSAGE = "Only a master admin can change this account.";
+
+/**
  * The single guard every mutation that reaches a User row must pass — not
- * just the ones in the Users panel. A master admin account
- * (src/lib/masterAdmins.ts) can only be changed by a master admin; otherwise
- * a regular Admin could reset the master's password and sign in as them.
- * Other Admin accounts, protected or not, are editable by any Admin.
+ * just the ones in the Users panel. A master admin account, or a ledger
+ * account (isMasterOnlyMutableUsername in src/lib/masterAdmins.ts), can only
+ * be changed by a master admin; otherwise a regular Admin could reset that
+ * password and sign in as them. Other Admin accounts, protected or not, are
+ * editable by any Admin.
  *
  * That includes the paths outside src/lib/actions/users.ts: the parent
  * contact editor and the Parent Portal revoke button in actions/parents.ts
@@ -561,8 +615,10 @@ export async function assertMasterAdmin(session: SessionPayload) {
  * here instead of re-deriving the rule.
  */
 export async function assertCanMutateUser(session: SessionPayload, target: { username: string }) {
-  if (!isMasterAdminUsername(target.username)) return;
-  await assertMasterAdmin(session);
+  if (!isMasterOnlyMutableUsername(target.username)) return;
+  if (!(await isMasterAdminSession(session))) {
+    throw new Error(MASTER_ONLY_ACCOUNT_MESSAGE);
+  }
 }
 
 /**

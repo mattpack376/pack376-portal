@@ -174,6 +174,11 @@ Preview values:
       email families.
 - [ ] Vercel → Settings → Deployment Protection: previews require Vercel
       Authentication (not public).
+- [ ] The Ledger's Google variables (§2.7) are set for **Production only**.
+      Previews and local copies use only `GOOGLE_LEDGER_TEST_SPREADSHEET_ID`
+      (a throwaway spreadsheet) and ignore the real spreadsheet ID even if it
+      is set, but the service-account key itself shouldn't be in Preview
+      either.
 
 ### 2.2 Least-privilege database logins
 
@@ -191,6 +196,8 @@ change tables. `MIGRATION_DATABASE_URL` exists for that split
 4. After each migration that adds a table, grant the site login access to it
    (or set default privileges once, as the owner:
    `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO pack376_app;`).
+   The Ledger (migration `20261102120000_ledger`) added four:
+   `LedgerCategory`, `LedgerEntry`, `LedgerImportBatch` and `LedgerSettings`.
 
 ### 2.3 Encrypted database connections
 
@@ -219,13 +226,79 @@ Pushing to `main` deploys to production **and runs database migrations**.
 - [ ] Vercel team members and their roles; database provider, Resend and
       domain registrar accounts. Remove anyone who has stepped down.
 - [ ] Two-factor authentication on every one of those accounts, and on the
-      email accounts that receive Admin password-reset links.
+      email accounts that receive Admin password-reset links — including the
+      Google account that owns the pack's ledger Sheet and the Google Cloud
+      project holding the Ledger's service account (§2.7).
 
 ### 2.6 Secrets
 
 `AUTH_SECRET` signs every session: changing it signs everyone out (a quick way
 to end all sessions after a suspected compromise). Rotate the Resend key and
 Blob token if a laptop or account that held them is lost.
+
+The Ledger's Google service-account key (`GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`)
+can edit the whole ledger spreadsheet, not just the portal's tab. Rotate it
+once a year (each September), and at once if a laptop or account that held it
+is lost:
+
+1. Google Cloud console → IAM & Admin → Service Accounts → the ledger sync
+   account → Keys → Add key → JSON. Save the file **outside** the repository
+   folder (`.gitignore` also refuses common key file names, but don't rely on
+   it).
+2. Paste its `private_key` into Vercel's Production
+   `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` (quotes and `\n` are fine; the portal
+   cleans them up), redeploy, and click **Sync now** on the Ledger page.
+3. Back on Keys, **delete the old key**, then delete the downloaded file.
+
+If the key may have leaked, do step 3 first: deleting the key in Google Cloud
+stops it working within minutes, before anything else. (Removing the service
+account from the Sheet's Share list also cuts it off.) `CRON_SECRET` only
+starts a sync; change it (`openssl rand -hex 32`) if it is ever exposed.
+
+### 2.7 Google Sheet copy of the Ledger
+
+The portal writes a copy of the Ledger to one tab, **Portal Ledger**, in the
+treasurer's Google Sheet. It signs in as a Google service account and only
+ever writes the tab it created (marked with developer metadata
+`pack376-portal-ledger`); it refuses a hand-made tab of that name. With the
+variables unset the copy is simply off, and the Ledger works without it.
+
+Vercel → Settings → Environment Variables, **Production only**, each marked
+Sensitive (never put any of these values in the repository: it is public):
+
+| Variable | Value |
+|---|---|
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | the key file's `client_email` |
+| `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | the key file's `private_key` |
+| `GOOGLE_LEDGER_SPREADSHEET_ID` | the long ID in the Sheet's address, between `/d/` and `/edit` (`<spreadsheet-id>`) |
+| `CRON_SECRET` | `openssl rand -hex 32` (at least 32 characters, or the daily run is refused) |
+
+For trying the sync on a preview or locally, set
+`GOOGLE_LEDGER_TEST_SPREADSHEET_ID` to a **throwaway** spreadsheet shared with
+the same service account. Outside production the real ID is never used.
+
+Checks:
+
+- [ ] Google Cloud → APIs & Services: the **Google Sheets API is enabled**
+      in the service account's project. If it isn't, the Ledger page says
+      "Turn on the Google Sheets API for the service account's project".
+- [ ] The ledger Sheet's Share → General access is **Restricted** (not
+      "Anyone with the link"): it holds family names and amounts. Shared with
+      the service account as Editor, Notify unchecked.
+- [ ] Vercel → Settings → Functions: **Fluid compute is on**. The sync runs
+      after the page answers and needs the ledger pages' 60-second limit; with
+      it off, Hobby cuts functions off at 10 seconds.
+- [ ] Vercel → Settings → Cron Jobs lists `/api/cron/ledger-sync` (daily,
+      around 10:00 UTC; Hobby runs it once a day at an imprecise time within
+      the hour).
+- [ ] The Ledger page shows "last updated" within the last day and no error.
+      Its messages are kept short on purpose: "Share the Sheet with … as
+      Editor" (not shared), "Spreadsheet not found" (wrong ID),
+      "Service account key or server clock is wrong" (key deleted or pasted
+      wrong), "Google is busy; will retry" (quota; it retries by itself).
+- [ ] To stop the portal writing to the Sheet without a redeploy (while the
+      Sheet is being rearranged, say): Ledger → Import & Settings → Turn the
+      Sheet Copy Off.
 
 ---
 

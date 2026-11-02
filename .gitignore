@@ -41,3 +41,16 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Google service-account key files (the Ledger's Sheet sync). The key goes in
+# Vercel's environment variables only; keep the downloaded file outside this
+# folder, and never commit it — this repo is public.
+*service-account*.json
+*-sa-key*.json
+pack376-portal-*.json
+# Google's own name for a downloaded key: <project-id>-<12 hex digits>.json.
+*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
+
+# Local security-review write-ups and reproduction scripts. Never commit
+# them — this repo is public.
+/security-review-*/

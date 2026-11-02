@@ -13,6 +13,7 @@ export default function PortalHeaderNav({
   hasLinkedScouts = false,
   hasDens = false,
   isMasterAdmin = false,
+  isLedgerUser = false,
   isRaffleHelper = false,
 }: {
   role: Role;
@@ -20,6 +21,7 @@ export default function PortalHeaderNav({
   hasLinkedScouts?: boolean;
   hasDens?: boolean;
   isMasterAdmin?: boolean;
+  isLedgerUser?: boolean;
   isRaffleHelper?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -59,6 +61,7 @@ export default function PortalHeaderNav({
           hasLinkedScouts={hasLinkedScouts}
           hasDens={hasDens}
           isMasterAdmin={isMasterAdmin}
+          isLedgerUser={isLedgerUser}
           isRaffleHelper={isRaffleHelper}
           onNavigate={() => setOpen(false)}
         />

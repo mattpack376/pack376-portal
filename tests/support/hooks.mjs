@@ -25,6 +25,8 @@ globalThis.__pack376Test ??= {
   blobHost: "test.public.blob.vercel-storage.com",
   resendQueue: [],
   pauses: {},
+  afterCallbacks: [],
+  afterThrows: false,
 };
 
 // Signing test sessions needs a secret; never the real one.
@@ -38,6 +40,7 @@ const MOCKS = {
   "next/cache": "next-cache.mjs",
   "next/navigation": "next-navigation.mjs",
   "next/headers": "next-headers.mjs",
+  "next/server": "next-server.mjs",
   "@vercel/firewall": "firewall.mjs",
   "@vercel/blob": "blob.mjs",
   resend: "resend.mjs",
