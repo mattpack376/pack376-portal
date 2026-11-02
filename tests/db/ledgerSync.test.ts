@@ -5,6 +5,11 @@
  * Sync now action's access check. Nothing here talks to Google, and the sync
  * never writes an audit entry.
  *
+ * The ledger logins come from LEDGER_USERNAMES: `keeper` is the first and
+ * `treasurer` the last — the same login while only one is listed (the beta
+ * from 2026-11-02). dianaliz, while she isn't listed, is refused like any
+ * other Admin.
+ *
  * All names and amounts are invented.
  */
 import assert from "node:assert/strict";
@@ -14,6 +19,7 @@ import { withTestDatabase } from "../support/db";
 import { asAnonymous, form, resetTestState, runAs, settle, testState, type SessionUser } from "../support/context";
 import { todayDateOnlyString } from "@/lib/dateOnly";
 import type { SheetGrid, StoredPortalTab } from "@/lib/googleSheets";
+import { LEDGER_USERNAMES } from "@/lib/masterAdmins";
 
 const db = withTestDatabase("ledger_sync");
 let sync: typeof import("@/lib/ledgerSync");
@@ -21,10 +27,14 @@ let ledger: typeof import("@/lib/actions/ledger");
 let syncActions: typeof import("@/lib/actions/ledgerSync");
 let SheetsError: typeof import("@/lib/googleSheets").SheetsError;
 
-let master: SessionUser;
+let keeper: SessionUser;
 let treasurer: SessionUser;
 let plainAdmin: SessionUser;
 let juniorAdmin: SessionUser;
+/** One login per ledger account, in LEDGER_USERNAMES order. */
+const keepers: SessionUser[] = [];
+/** Admins Sync now must refuse: plainAdmin, and dianaliz while she isn't in LEDGER_USERNAMES. */
+let refusedAdmins: [string, SessionUser][] = [];
 let fundraisingId = "";
 
 const GOOGLE_ENV = [
@@ -51,10 +61,16 @@ before(async () => {
     const user = await db.prisma.user.create({ data: { username, passwordHash: "x", role, displayName } });
     return { id: user.id, role, sessionVersion: 0, displayName };
   }
-  master = await make("mattrosen", "ADMIN", "Ledger Master");
-  treasurer = await make("dianaliz", "ADMIN", "Ledger Treasurer");
+  assert.ok(LEDGER_USERNAMES.length > 0, "LEDGER_USERNAMES is empty");
+  for (const username of LEDGER_USERNAMES) keepers.push(await make(username, "ADMIN", `Ledger ${username}`));
+  keeper = keepers[0];
+  treasurer = keepers[keepers.length - 1];
   plainAdmin = await make("sync-plain-admin", "ADMIN", "Plain Admin");
   juniorAdmin = await make("sync-junior", "JUNIOR_ADMIN", "Junior Admin");
+  refusedAdmins = [["plain Admin", plainAdmin]];
+  if (!LEDGER_USERNAMES.includes("dianaliz")) {
+    refusedAdmins.push(["dianaliz (not a ledger account)", await make("dianaliz", "ADMIN", "Unlisted Treasurer")]);
+  }
   fundraisingId = (await db.prisma.ledgerCategory.create({ data: { name: "Fundraising", nameKey: "fundraising", sortOrder: 10 } })).id;
 });
 
@@ -87,7 +103,7 @@ const settings = () => db.prisma.ledgerSettings.findUniqueOrThrow({ where: { id:
 const ledgerAuditCount = () => db.prisma.auditLog.count({ where: { category: "ledger" } });
 
 async function addLine(description: string, amount = "20") {
-  const result = await runAs(master, () =>
+  const result = await runAs(keeper, () =>
     ledger.addLedgerEntryAction(
       form({ entryDate: todayDateOnlyString(), description, categoryId: fundraisingId, direction: "IN", amount, note: "" }),
     ),
@@ -241,11 +257,12 @@ describe("Sync now", () => {
   it("refuses a plain Admin, a Junior Admin and an anonymous visitor", async () => {
     await sync.markLedgerSyncRequested();
     const before = JSON.stringify(await settings());
-    for (const [who, call] of [
-      ["plain Admin", (fn: () => Promise<unknown>) => runAs(plainAdmin, fn)],
-      ["Junior Admin", (fn: () => Promise<unknown>) => runAs(juniorAdmin, fn)],
-      ["anonymous", async (fn: () => Promise<unknown>) => (await asAnonymous(fn)).result],
-    ] as const) {
+    const callers: [string, (fn: () => Promise<unknown>) => Promise<unknown>][] = [
+      ...refusedAdmins.map(([who, user]): [string, (fn: () => Promise<unknown>) => Promise<unknown>] => [who, (fn) => runAs(user, fn)]),
+      ["Junior Admin", (fn) => runAs(juniorAdmin, fn)],
+      ["anonymous", async (fn) => (await asAnonymous(fn)).result],
+    ];
+    for (const [who, call] of callers) {
       const outcome = await settle(call(() => syncActions.syncLedgerNowAction()));
       assert.ok(!outcome.ok, `let the ${who} through`);
       assert.match(outcome.error.message, /Not authorized/);
@@ -254,7 +271,7 @@ describe("Sync now", () => {
   });
 
   it("tells a ledger account when the Sheet isn't set up", async () => {
-    for (const user of [master, treasurer]) {
+    for (const user of keepers) {
       const state = await runAs(user, () => syncActions.syncLedgerNowAction());
       assert.equal(state.status, "skipped");
       assert.match(state.message ?? "", /isn't set up/);

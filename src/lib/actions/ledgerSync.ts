@@ -9,7 +9,7 @@ import type { LedgerSyncStatus } from "@/lib/ledgerSync";
 /*
  * The Ledger's "Sync now" button. Its own "use server" file (every export of
  * one is a public endpoint), so the sync code itself stays out of
- * actions/ledger.ts. Only the two ledger accounts can run it. Not audited:
+ * actions/ledger.ts. Only the ledger accounts can run it. Not audited:
  * it changes nothing in the portal, only refreshes the Sheet's copy.
  */
 

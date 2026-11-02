@@ -1,12 +1,16 @@
 /*
  * The Ledger's one-time Sheet import against a real database, fed a CSV (the
- * upload path) so no Google request is made. Only the two ledger accounts
- * may run any import action: each export is called as a plain Admin, a
- * Junior Admin and an anonymous visitor and must change nothing — the list
- * is read from the module, so a new action that forgets the guard fails here.
- * Then preview → confirm (batch, categories, lines, linked move, cutover,
- * audit), the refusals (a second import, a changed file, rows with errors,
- * a bad cutover), and undo → import again.
+ * upload path) so no Google request is made. Only the ledger accounts
+ * (LEDGER_USERNAMES) may run any import action: each export is called as a
+ * plain Admin, a Junior Admin and an anonymous visitor (and as dianaliz while
+ * she isn't listed) and must change nothing — the list is read from the
+ * module, so a new action that forgets the guard fails here. Then preview →
+ * confirm (batch, categories, lines, linked move, cutover, and the audit entry
+ * while LEDGER_AUDIT_ENABLED is on), the refusals (a second import, a changed
+ * file, rows with errors, a bad cutover), and undo → import again.
+ *
+ * `keeper` is the first ledger account and `treasurer` the last — the same
+ * login while only one is listed (the beta from 2026-11-02).
  *
  * All names and amounts are invented; dates are relative to today.
  */
@@ -16,31 +20,46 @@ import { withTestDatabase } from "../support/db";
 import { asAnonymous, form, resetTestState, runAs, settle, testState, type SessionUser } from "../support/context";
 import { todayDateOnly } from "@/lib/dateOnly";
 import type { LedgerImportPreview } from "@/lib/actions/ledgerImport";
+import { LEDGER_USERNAMES } from "@/lib/masterAdmins";
 
 const db = withTestDatabase("ledger_import");
 let actions: typeof import("@/lib/actions/ledgerImport");
 let ledgerActions: typeof import("@/lib/actions/ledger");
 let ledgerData: typeof import("@/lib/ledgerData");
+/** LEDGER_AUDIT_ENABLED, read after db.ready (ledgerAudit.ts loads the Prisma client). */
+let auditEnabled = false;
+/** How many audit entries one import or undo writes. */
+const AUDITED = () => (auditEnabled ? 1 : 0);
 
-let master: SessionUser;
+let keeper: SessionUser;
 let treasurer: SessionUser;
 let plainAdmin: SessionUser;
 let juniorAdmin: SessionUser;
+/** Admins the import must refuse: plainAdmin, and dianaliz while she isn't in LEDGER_USERNAMES. */
+let refusedAdmins: [string, SessionUser][] = [];
 
 before(async () => {
   await db.ready;
   actions = await import("@/lib/actions/ledgerImport");
   ledgerActions = await import("@/lib/actions/ledger");
   ledgerData = await import("@/lib/ledgerData");
+  ({ LEDGER_AUDIT_ENABLED: auditEnabled } = await import("@/lib/ledgerAudit"));
 
   async function make(username: string, role: SessionUser["role"], displayName: string): Promise<SessionUser> {
     const user = await db.prisma.user.create({ data: { username, passwordHash: "x", role, displayName } });
     return { id: user.id, role, sessionVersion: 0, displayName };
   }
-  master = await make("mattrosen", "ADMIN", "Ledger Master");
-  treasurer = await make("dianaliz", "ADMIN", "Ledger Treasurer");
+  assert.ok(LEDGER_USERNAMES.length > 0, "LEDGER_USERNAMES is empty");
+  const keepers: SessionUser[] = [];
+  for (const username of LEDGER_USERNAMES) keepers.push(await make(username, "ADMIN", `Ledger ${username}`));
+  keeper = keepers[0];
+  treasurer = keepers[keepers.length - 1];
   plainAdmin = await make("import-plain-admin", "ADMIN", "Plain Admin");
   juniorAdmin = await make("import-junior", "JUNIOR_ADMIN", "Junior Admin");
+  refusedAdmins = [["plain Admin", plainAdmin]];
+  if (!LEDGER_USERNAMES.includes("dianaliz")) {
+    refusedAdmins.push(["dianaliz (not a ledger account)", await make("dianaliz", "ADMIN", "Unlisted Treasurer")]);
+  }
   await ledgerData.ensureGeneralFund();
 });
 
@@ -128,8 +147,8 @@ async function undoActive(user: SessionUser) {
 
 describe("only the ledger accounts can run any import action", () => {
   it("refuses a plain Admin, a Junior Admin and an anonymous visitor, changing nothing", async () => {
-    const view = await preview(master);
-    assert.deepEqual(await runAs(master, () => actions.confirmLedgerImportAction(confirmForm(view))), {});
+    const view = await preview(keeper);
+    assert.deepEqual(await runAs(keeper, () => actions.confirmLedgerImportAction(confirmForm(view))), {});
     const batch = await db.prisma.ledgerImportBatch.findFirstOrThrow({ where: { undoneAt: null } });
 
     const forms: Record<string, () => FormData> = {
@@ -150,7 +169,7 @@ describe("only the ledger accounts can run any import action", () => {
     resetTestState();
     const before = await importState();
     const callers: [string, (fn: () => Promise<unknown>) => Promise<unknown>][] = [
-      ["plain Admin", (fn) => runAs(plainAdmin, fn)],
+      ...refusedAdmins.map(([who, user]): [string, (fn: () => Promise<unknown>) => Promise<unknown>] => [who, (fn) => runAs(user, fn)]),
       ["Junior Admin", (fn) => runAs(juniorAdmin, fn)],
       ["anonymous", async (fn) => (await asAnonymous(fn)).result],
     ];
@@ -164,7 +183,7 @@ describe("only the ledger accounts can run any import action", () => {
     }
     assert.equal(testState.revalidated.length, 0, "nothing was revalidated");
 
-    await undoActive(master);
+    await undoActive(keeper);
   });
 });
 
@@ -190,7 +209,7 @@ describe("preview", () => {
   });
 
   it("offers the existing category with the same name (the first test's import made them)", async () => {
-    const view = await preview(master);
+    const view = await preview(keeper);
     for (const mapping of view.mappings) {
       const existing = await db.prisma.ledgerCategory.findUniqueOrThrow({ where: { nameKey: mapping.key } });
       assert.equal(mapping.target, existing.id, mapping.name);
@@ -200,7 +219,7 @@ describe("preview", () => {
   it("names the row with a future date, with a likely fix", async () => {
     const future = new Date(todayDateOnly().getTime() + 3 * 365 * 86_400_000);
     const typo = `${future.getUTCMonth() + 1}/${future.getUTCDate()}/${String(future.getUTCFullYear()).slice(2)}`;
-    const view = await preview(master, ledgerCsv(`,${typo},Spring trip deposits,Spring Trip,$375.00,,`));
+    const view = await preview(keeper, ledgerCsv(`,${typo},Spring trip deposits,Spring Trip,$375.00,,`));
     assert.equal(view.parse.errors.length, 1);
     assert.equal(view.parse.errors[0].sheetRow, 18);
     assert.match(view.parse.errors[0].message, /^Row 18: .* is in the future\./);
@@ -210,22 +229,22 @@ describe("preview", () => {
   it("refuses a missing or oversized file", async () => {
     const empty = new FormData();
     empty.set("source", "csv");
-    assert.match((await runAs(master, () => actions.previewLedgerImportAction(empty))).error ?? "", /Choose the CSV file/);
+    assert.match((await runAs(keeper, () => actions.previewLedgerImportAction(empty))).error ?? "", /Choose the CSV file/);
     const big = new FormData();
     big.set("source", "csv");
     big.set("file", csvFile("x".repeat(600 * 1024)));
-    assert.match((await runAs(master, () => actions.previewLedgerImportAction(big))).error ?? "", /too large/);
+    assert.match((await runAs(keeper, () => actions.previewLedgerImportAction(big))).error ?? "", /too large/);
   });
 
   it("says the Sheet connection isn't set up when asked to read the Sheet", async () => {
-    const result = await runAs(master, () => actions.previewLedgerImportAction(form({ source: "sheet", tab: "2026-2027" })));
+    const result = await runAs(keeper, () => actions.previewLedgerImportAction(form({ source: "sheet", tab: "2026-2027" })));
     assert.match(result.error ?? "", /isn't set up/);
   });
 });
 
 describe("confirm and undo", () => {
-  it("imports the lines, categories, linked move and cutover in one go, with its audit entry", async () => {
-    const view = await preview(master);
+  it("imports the lines, categories, linked move and cutover in one go, with its audit entry while auditing is on", async () => {
+    const view = await preview(keeper);
     const result = await runAs(treasurer, () => actions.confirmLedgerImportAction(confirmForm(view, { pairs: ["16-17"] })));
     assert.deepEqual(result, {});
     assert.ok(testState.revalidated.includes("/portal/admin/ledger"));
@@ -235,7 +254,7 @@ describe("confirm and undo", () => {
     assert.equal(batch.fingerprint, view.parse.fingerprint);
     assert.equal(batch.inflowCents, 578108);
     assert.equal(batch.outflowCents, 439021);
-    assert.equal(batch.importedByName, "Ledger Treasurer");
+    assert.equal(batch.importedByName, treasurer.displayName);
     assert.match(batch.sourceLabel, /ledger\.csv/);
 
     const entries = await db.prisma.ledgerEntry.findMany({
@@ -268,7 +287,7 @@ describe("confirm and undo", () => {
 
     const settings = await db.prisma.ledgerSettings.findUniqueOrThrow({ where: { id: "main" } });
     assert.equal(settings.cutoverDate?.toISOString().slice(0, 10), isoDaysAgo(9));
-    assert.equal(await db.prisma.auditLog.count({ where: { action: "ledger.import", entityId: batch.id } }), 1);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "ledger.import", entityId: batch.id } }), AUDITED());
 
     // The ledger's balances match the Sheet's boxes.
     const ledger = await ledgerData.getLedger();
@@ -280,57 +299,57 @@ describe("confirm and undo", () => {
 
   it("refuses a second import while one is in the ledger", async () => {
     const before = await importState();
-    const result = await runAs(master, () => actions.previewLedgerImportAction(previewForm()));
+    const result = await runAs(keeper, () => actions.previewLedgerImportAction(previewForm()));
     assert.match(result.error ?? "", /Undo the earlier import first/);
     const fake = { parse: { fingerprint: "0".repeat(64) }, mappings: [], defaultCutover: isoDaysAgo(9) } as unknown as LedgerImportPreview;
-    const confirm = await runAs(master, () => actions.confirmLedgerImportAction(confirmForm(fake)));
+    const confirm = await runAs(keeper, () => actions.confirmLedgerImportAction(confirmForm(fake)));
     assert.match(confirm.error ?? "", /Undo the earlier import first/);
     assert.equal(await importState(), before);
   });
 
   it("undo takes the lines back out and clears the cutover; a second undo does nothing", async () => {
     const batch = await db.prisma.ledgerImportBatch.findFirstOrThrow({ where: { undoneAt: null } });
-    await runAs(master, () => actions.undoLedgerImportAction(form({ id: batch.id })));
+    await runAs(keeper, () => actions.undoLedgerImportAction(form({ id: batch.id })));
 
     const after = await db.prisma.ledgerImportBatch.findUniqueOrThrow({ where: { id: batch.id } });
     assert.ok(after.undoneAt);
-    assert.equal(after.undoneByName, "Ledger Master");
+    assert.equal(after.undoneByName, keeper.displayName);
     assert.equal(await db.prisma.ledgerEntry.count({ where: { importBatchId: batch.id, deletedAt: null } }), 0);
     assert.equal((await db.prisma.ledgerSettings.findUniqueOrThrow({ where: { id: "main" } })).cutoverDate, null);
-    assert.equal(await db.prisma.auditLog.count({ where: { action: "ledger.import.undo", entityId: batch.id } }), 1);
+    assert.equal(await db.prisma.auditLog.count({ where: { action: "ledger.import.undo", entityId: batch.id } }), AUDITED());
 
     // The undone lines aren't offered for restore, and restoring one by id does nothing.
     const ledger = await ledgerData.getLedger();
     assert.equal(ledger.summary.bankBalanceCents, 0);
     assert.ok(!ledger.deletedEntries.some((e) => e.importBatchId === batch.id));
     const one = await db.prisma.ledgerEntry.findFirstOrThrow({ where: { importBatchId: batch.id } });
-    await runAs(master, () => ledgerActions.restoreLedgerEntryAction(form({ id: one.id })));
+    await runAs(keeper, () => ledgerActions.restoreLedgerEntryAction(form({ id: one.id })));
     assert.ok((await db.prisma.ledgerEntry.findUniqueOrThrow({ where: { id: one.id } })).deletedAt);
 
     const before = await importState();
-    await runAs(master, () => actions.undoLedgerImportAction(form({ id: batch.id })));
+    await runAs(keeper, () => actions.undoLedgerImportAction(form({ id: batch.id })));
     assert.equal(await importState(), before);
   });
 
   it("can import again after an undo, into the categories the first import made", async () => {
-    const view = await preview(master);
+    const view = await preview(keeper);
     assert.ok(view.mappings.every((m) => m.target !== "new"), "the earlier categories are offered");
-    assert.deepEqual(await runAs(master, () => actions.confirmLedgerImportAction(confirmForm(view))), {});
+    assert.deepEqual(await runAs(keeper, () => actions.confirmLedgerImportAction(confirmForm(view))), {});
     assert.equal(await db.prisma.ledgerImportBatch.count({ where: { undoneAt: null } }), 1);
     assert.equal((await ledgerData.getLedger()).summary.bankBalanceCents, 139087);
-    await undoActive(master);
+    await undoActive(keeper);
   });
 
   it("refuses a file that changed since the preview, rows with errors, a clashing new category and a bad cutover", async () => {
-    const view = await preview(master);
+    const view = await preview(keeper);
     const before = await importState();
-    const refusal = async (data: FormData) => (await runAs(master, () => actions.confirmLedgerImportAction(data))).error ?? "";
+    const refusal = async (data: FormData) => (await runAs(keeper, () => actions.confirmLedgerImportAction(data))).error ?? "";
 
     const changed = ledgerCsv(`,${daysAgo(10)},Spring trip deposits,Spring Trip,$376.00,,`);
     assert.match(await refusal(confirmForm(view, { text: changed })), /isn't the one that was previewed/);
 
     const broken = ledgerCsv(`,${daysAgo(10)},Spring trip deposits,,$375.00,,`);
-    const brokenView = await preview(master, broken);
+    const brokenView = await preview(keeper, broken);
     assert.equal(brokenView.parse.errors.length, 1);
     assert.match(await refusal(confirmForm(brokenView, { text: broken })), /need fixing/);
 
@@ -347,13 +366,32 @@ describe("confirm and undo", () => {
   });
 });
 
+describe("the audit log while Ledger auditing is off", () => {
+  it("gets nothing from a preview, an import or an undo", async (t) => {
+    if (auditEnabled) {
+      t.skip("LEDGER_AUDIT_ENABLED is on: the confirm and undo tests check each entry");
+      return;
+    }
+    const ledgerAudits = () =>
+      db.prisma.auditLog.count({ where: { OR: [{ category: "ledger" }, { action: { startsWith: "ledger." } }] } });
+    const view = await preview(keeper);
+    assert.deepEqual(await runAs(treasurer, () => actions.confirmLedgerImportAction(confirmForm(view))), {});
+    const batch = await db.prisma.ledgerImportBatch.findFirstOrThrow({ where: { undoneAt: null } });
+    assert.equal(await db.prisma.ledgerEntry.count({ where: { importBatchId: batch.id } }), 9);
+    await runAs(keeper, () => actions.undoLedgerImportAction(form({ id: batch.id })));
+    assert.ok((await db.prisma.ledgerImportBatch.findUniqueOrThrow({ where: { id: batch.id } })).undoneAt);
+    // Nothing from these, nor from any import or undo earlier in this file.
+    assert.equal(await ledgerAudits(), 0);
+  });
+});
+
 describe("the Import & Settings page", () => {
   it("renders for a ledger account with and without an import in the ledger", async () => {
     const { default: Page } = await import("@/app/portal/(authed)/admin/ledger/import/page");
-    assert.ok((await settle(runAs(master, async () => Page()))).ok);
-    const view = await preview(master);
-    assert.deepEqual(await runAs(master, () => actions.confirmLedgerImportAction(confirmForm(view))), {});
+    assert.ok((await settle(runAs(keeper, async () => Page()))).ok);
+    const view = await preview(keeper);
+    assert.deepEqual(await runAs(keeper, () => actions.confirmLedgerImportAction(confirmForm(view))), {});
     assert.ok((await settle(runAs(treasurer, async () => Page()))).ok);
-    await undoActive(master);
+    await undoActive(keeper);
   });
 });

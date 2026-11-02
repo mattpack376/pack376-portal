@@ -7,14 +7,17 @@
 export const MASTER_ADMIN_USERNAMES = ["mattrosen"];
 
 /**
- * The two people who keep the pack's books: only they can open the Ledger
+ * Who keeps the pack's books: only these accounts can open the Ledger
  * (/portal/admin/ledger) — read it, add to it, or export it. Decided by
  * username on top of role ADMIN, like the master admins. To change who, edit
  * this list in code and deploy; every name here must also be in
  * PROTECTED_USERNAMES (a unit test checks), so the name can never be deleted
  * and then recreated by someone else.
+ *
+ * Beta (from 2026-11-02): mattrosen only. Add "dianaliz" back when the beta
+ * ends — that also makes her account master-only to change again.
  */
-export const LEDGER_USERNAMES = ["mattrosen", "dianaliz"];
+export const LEDGER_USERNAMES = ["mattrosen"];
 
 /**
  * Accounts that can never be deleted from the admin panel, by anyone. Every

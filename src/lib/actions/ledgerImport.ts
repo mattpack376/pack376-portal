@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertLedgerAccess } from "@/lib/authorize";
-import { recordAuditInTransaction, auditMoney, auditDate } from "@/lib/audit";
+import { auditMoney, auditDate } from "@/lib/audit";
+import { recordLedgerAudit } from "@/lib/ledgerAudit";
 import { textField } from "@/lib/formValues";
 import { readDateOnlyField, todayDateOnly, toDateOnlyString } from "@/lib/dateOnly";
 import { isSheetsConfigured } from "@/lib/googleSheetsConfig";
@@ -23,7 +24,7 @@ import type { LedgerCategoryKind } from "@/generated/prisma/enums";
 /*
  * The Ledger's one-time import of the treasurer's Google Sheet tab — its own
  * "use server" file (every export is a public endpoint), with the parsing in
- * src/lib/ledgerImport.ts. Only the two ledger accounts can run any of it.
+ * src/lib/ledgerImport.ts. Only the ledger accounts can run any of it.
  *
  * Preview reads the tab (through the Sheets API, or a CSV saved from it) and
  * shows what would be imported. Confirm reads the SAME source again — the
@@ -337,7 +338,7 @@ export async function confirmLedgerImportAction(formData: FormData): Promise<Led
           update: { cutoverDate },
         });
 
-        await recordAuditInTransaction(tx, session, {
+        await recordLedgerAudit(tx, session, {
           action: "ledger.import",
           summary: `Imported ${parse.rows.length} ledger lines from the ${batch.sourceLabel} (in ${auditMoney(parse.totals.inflowCents)}, out ${auditMoney(parse.totals.outflowCents)}); the portal takes over on ${auditDate(cutoverDate)}`,
           entityType: "LedgerImportBatch",
@@ -391,7 +392,7 @@ export async function undoLedgerImportAction(formData: FormData): Promise<void> 
     const before = await tx.ledgerSettings.findUnique({ where: { id: "main" }, select: { cutoverDate: true } });
     if (before?.cutoverDate) await tx.ledgerSettings.update({ where: { id: "main" }, data: { cutoverDate: null } });
 
-    await recordAuditInTransaction(tx, session, {
+    await recordLedgerAudit(tx, session, {
       action: "ledger.import.undo",
       summary: `Undid the ledger import from the ${batch.sourceLabel} — ${count} ${count === 1 ? "line" : "lines"} came off the ledger`,
       entityType: "LedgerImportBatch",

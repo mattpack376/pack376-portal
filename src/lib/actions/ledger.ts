@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertLedgerAccess } from "@/lib/authorize";
-import { recordAuditInTransaction, changedFields, auditMoney, auditDate } from "@/lib/audit";
+import { changedFields, auditMoney, auditDate } from "@/lib/audit";
+import { recordLedgerAudit } from "@/lib/ledgerAudit";
 import { dollarsToCents, hasControlCharacters, MAX_NOTE_LENGTH, textField } from "@/lib/formValues";
 import { readDateOnlyField, todayDateOnly } from "@/lib/dateOnly";
 import { ledgerCategoryNameKey } from "@/lib/ledgerMath";
@@ -14,7 +15,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { LedgerCategoryKind, LedgerDirection } from "@/generated/prisma/enums";
 
 /*
- * The Ledger's Server Actions — only the two ledger accounts
+ * The Ledger's Server Actions — only the ledger accounts
  * (LEDGER_USERNAMES) can run any of them. A "use server" file makes every
  * export a public endpoint, so this file exports actions and nothing else:
  * the loaders are in src/lib/ledgerData.ts and the Sheet sync in its own
@@ -202,7 +203,7 @@ export async function addLedgerEntryAction(formData: FormData): Promise<LedgerFo
           createdByName: session.displayName,
         },
       });
-      await recordAuditInTransaction(tx, session, {
+      await recordLedgerAudit(tx, session, {
         action: "ledger.entry.add",
         summary: `Added a ${auditMoney(amountCents)} ledger line “${description}” (money ${direction === "IN" ? "in" : "out"}, ${category.name})`,
         entityType: "LedgerEntry",
@@ -249,7 +250,7 @@ export async function updateLedgerEntryAction(formData: FormData): Promise<Ledge
       });
       if (count === 0) throw new LedgerInputError(OUT_OF_DATE, true);
 
-      await recordAuditInTransaction(tx, session, {
+      await recordLedgerAudit(tx, session, {
         action: "ledger.entry.update",
         summary: `Edited the ledger line “${description}” — now ${auditMoney(amountCents)} ${direction === "IN" ? "in" : "out"}, ${category.name}`,
         entityType: "LedgerEntry",
@@ -286,7 +287,7 @@ export async function deleteLedgerEntryAction(formData: FormData): Promise<void>
       const halves = await tx.ledgerEntry.findMany({ where: { transferId: entry.transferId }, include: { category: true } });
       const from = halves.find((h) => h.direction === "OUT")?.category.name ?? "?";
       const to = halves.find((h) => h.direction === "IN")?.category.name ?? "?";
-      await recordAuditInTransaction(tx, session, {
+      await recordLedgerAudit(tx, session, {
         action: "ledger.transfer.delete",
         summary: `Deleted the ${auditMoney(entry.amountCents)} move from ${from} to ${to} (“${entry.description}”) — kept under Deleted entries`,
         entityType: "LedgerEntry",
@@ -299,7 +300,7 @@ export async function deleteLedgerEntryAction(formData: FormData): Promise<void>
         ],
       });
     } else {
-      await recordAuditInTransaction(tx, session, {
+      await recordLedgerAudit(tx, session, {
         action: "ledger.entry.delete",
         summary: `Deleted the ${auditMoney(entry.amountCents)} ledger line “${entry.description}” — kept under Deleted entries`,
         entityType: "LedgerEntry",
@@ -339,7 +340,7 @@ export async function restoreLedgerEntryAction(formData: FormData): Promise<void
     const { count } = await tx.ledgerEntry.updateMany({ where, data: { deletedAt: null, deletedByName: null } });
     if (count === 0) return false;
 
-    await recordAuditInTransaction(tx, session, {
+    await recordLedgerAudit(tx, session, {
       action: "ledger.entry.restore",
       summary: entry.transferId
         ? `Restored the ${auditMoney(entry.amountCents)} move between categories “${entry.description}” (both lines)`
@@ -391,7 +392,7 @@ export async function addLedgerTransferAction(formData: FormData): Promise<Ledge
       };
       await tx.ledgerEntry.create({ data: { ...common, categoryId: from.id, direction: "OUT" } });
       await tx.ledgerEntry.create({ data: { ...common, categoryId: to.id, direction: "IN" } });
-      await recordAuditInTransaction(tx, session, {
+      await recordLedgerAudit(tx, session, {
         action: "ledger.transfer.add",
         summary: `Moved ${auditMoney(amountCents)} from ${from.name} to ${to.name} (“${description}”) — the bank balance is unchanged`,
         entityType: "LedgerEntry",
@@ -429,7 +430,7 @@ export async function createLedgerCategoryAction(formData: FormData): Promise<Le
         const last = await tx.ledgerCategory.aggregate({ _max: { sortOrder: true } });
         const sortOrder = readSortOrder(typedOrder, Math.min((last._max.sortOrder ?? 0) + 10, MAX_SORT_ORDER));
         const category = await tx.ledgerCategory.create({ data: { name, nameKey, kind, sortOrder } });
-        await recordAuditInTransaction(tx, session, {
+        await recordLedgerAudit(tx, session, {
           action: "ledger.category.create",
           summary: `Added the ledger category “${name}” (${kindLabel(kind)})`,
           entityType: "LedgerCategory",
@@ -478,7 +479,7 @@ export async function updateLedgerCategoryAction(formData: FormData): Promise<Le
           Archived: [before.archived, archived],
         });
         if (details.length === 0) return;
-        await recordAuditInTransaction(tx, session, {
+        await recordLedgerAudit(tx, session, {
           action: "ledger.category.update",
           summary:
             before.name === name ? `Edited the ledger category “${name}”` : `Renamed the ledger category “${before.name}” to “${name}”`,
@@ -511,7 +512,7 @@ export async function deleteLedgerCategoryAction(formData: FormData): Promise<Le
           );
         }
         await tx.ledgerCategory.delete({ where: { id } });
-        await recordAuditInTransaction(tx, session, {
+        await recordLedgerAudit(tx, session, {
           action: "ledger.category.delete",
           summary: `Deleted the unused ledger category “${category.name}”`,
           entityType: "LedgerCategory",
@@ -550,7 +551,7 @@ export async function updateLedgerSettingsAction(formData: FormData): Promise<Le
       const wasEnabled = before?.syncEnabled ?? true;
       await tx.ledgerSettings.upsert({ where: { id: "main" }, create: { id: "main", syncEnabled }, update: { syncEnabled } });
       if (wasEnabled === syncEnabled) return;
-      await recordAuditInTransaction(tx, session, {
+      await recordLedgerAudit(tx, session, {
         action: "ledger.settings.update",
         summary: syncEnabled
           ? "Turned the Ledger's Google Sheet copy back on"

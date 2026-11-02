@@ -1,11 +1,12 @@
 /*
- * The Ledger is for two named accounts, not a role, so the general page-guard
- * tests can't tell its guard from a plain requireAdminSession(). This checks
- * the parts that make it two people:
+ * The Ledger is for named accounts (LEDGER_USERNAMES), not a role, so the
+ * general page-guard tests can't tell its guard from a plain
+ * requireAdminSession(). This checks the parts that make it those people:
  *
  * - every ledger name is lowercase (usernames are stored that way) and
  *   protected, so it can't be deleted and then recreated by someone else;
- * - only a master admin may change a ledger account;
+ * - only a master admin may change a ledger account, and dianaliz (a ledger
+ *   account outside the 2026-11 beta) is master-only exactly while listed;
  * - every page and route under admin/ledger opens with exactly
  *   `await requireLedgerSession()`, before anything else.
  *
@@ -21,6 +22,7 @@ import {
   PROTECTED_USERNAMES,
   isLedgerUsername,
   isMasterOnlyMutableUsername,
+  isProtectedUsername,
 } from "@/lib/masterAdmins";
 
 // npm test runs from the repository root.
@@ -51,6 +53,12 @@ describe("ledger accounts", () => {
     // A protected but ordinary Admin stays editable by any Admin.
     assert.ok(!isMasterOnlyMutableUsername("howell"));
     assert.ok(!isMasterOnlyMutableUsername("someone-else"));
+  });
+
+  it("make dianaliz master-only to change exactly while she's listed, and protected either way", () => {
+    assert.equal(isMasterOnlyMutableUsername("dianaliz"), LEDGER_USERNAMES.includes("dianaliz"));
+    assert.equal(isLedgerUsername("dianaliz"), LEDGER_USERNAMES.includes("dianaliz"));
+    assert.ok(isProtectedUsername("dianaliz"));
   });
 });
 

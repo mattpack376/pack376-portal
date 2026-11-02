@@ -1,12 +1,17 @@
 /*
- * The Ledger's Server Actions against a real database. Only the two ledger
+ * The Ledger's Server Actions against a real database. Only the ledger
  * accounts (LEDGER_USERNAMES) may run them: every exported action is called
- * as a plain Admin, a Junior Admin and an anonymous visitor and must change
- * nothing — the list is read from the module itself, so a new action that
- * forgets assertLedgerAccess fails here. Then the actions themselves: adding,
- * editing (with the version check), deleting and restoring lines, moves
- * between categories, categories, settings, the input checks, and the audit
- * entry written with each change.
+ * as a plain Admin, a Junior Admin and an anonymous visitor (and as dianaliz
+ * while she isn't listed) and must change nothing — the list is read from the
+ * module itself, so a new action that forgets assertLedgerAccess fails here.
+ * Then the actions themselves: adding, editing (with the version check),
+ * deleting and restoring lines, moves between categories, categories,
+ * settings, the input checks, and the audit entry written with each change
+ * while LEDGER_AUDIT_ENABLED is on (none while it's off).
+ *
+ * The ledger logins come from LEDGER_USERNAMES, so these tests follow that
+ * list: `keeper` is the first ledger account and `treasurer` the last — the
+ * same login while only one is listed (the beta from 2026-11-02).
  *
  * All names and amounts are invented.
  */
@@ -15,15 +20,24 @@ import { before, beforeEach, describe, it } from "node:test";
 import { withTestDatabase } from "../support/db";
 import { asAnonymous, form, resetTestState, runAs, settle, testState, type SessionUser } from "../support/context";
 import { todayDateOnly, todayDateOnlyString, toDateOnlyString } from "@/lib/dateOnly";
+import { LEDGER_USERNAMES } from "@/lib/masterAdmins";
 
 const db = withTestDatabase("ledger");
 let ledger: typeof import("@/lib/actions/ledger");
 let ledgerData: typeof import("@/lib/ledgerData");
+/** LEDGER_AUDIT_ENABLED, read after db.ready (ledgerAudit.ts loads the Prisma client). */
+let auditEnabled = false;
+/** How many audit entries one ledger change writes. */
+const AUDITED = () => (auditEnabled ? 1 : 0);
 
-let master: SessionUser;
+/** One login per ledger account, in LEDGER_USERNAMES order. */
+const keepers: SessionUser[] = [];
+let keeper: SessionUser;
 let treasurer: SessionUser;
 let plainAdmin: SessionUser;
 let juniorAdmin: SessionUser;
+/** Admins the ledger must refuse: plainAdmin, and dianaliz while she isn't in LEDGER_USERNAMES. */
+let refusedAdmins: [string, SessionUser][] = [];
 
 let generalId = "";
 let fundraisingId = "";
@@ -33,15 +47,21 @@ before(async () => {
   await db.ready;
   ledger = await import("@/lib/actions/ledger");
   ledgerData = await import("@/lib/ledgerData");
+  ({ LEDGER_AUDIT_ENABLED: auditEnabled } = await import("@/lib/ledgerAudit"));
 
   async function make(username: string, role: SessionUser["role"], displayName: string): Promise<SessionUser> {
     const user = await db.prisma.user.create({ data: { username, passwordHash: "x", role, displayName } });
     return { id: user.id, role, sessionVersion: 0, displayName };
   }
-  master = await make("mattrosen", "ADMIN", "Ledger Master");
-  treasurer = await make("dianaliz", "ADMIN", "Ledger Treasurer");
+  for (const username of LEDGER_USERNAMES) keepers.push(await make(username, "ADMIN", `Ledger ${username}`));
+  keeper = keepers[0];
+  treasurer = keepers[keepers.length - 1];
   plainAdmin = await make("ledger-plain-admin", "ADMIN", "Plain Admin");
   juniorAdmin = await make("ledger-junior", "JUNIOR_ADMIN", "Junior Admin");
+  refusedAdmins = [["plain Admin", plainAdmin]];
+  if (!LEDGER_USERNAMES.includes("dianaliz")) {
+    refusedAdmins.push(["dianaliz (not a ledger account)", await make("dianaliz", "ADMIN", "Unlisted Treasurer")]);
+  }
 
   await ledgerData.ensureGeneralFund();
   generalId = (await db.prisma.ledgerCategory.findUniqueOrThrow({ where: { nameKey: "general fund" } })).id;
@@ -94,15 +114,16 @@ const auditCount = (action: string, entityId?: string) =>
 
 describe("only the ledger accounts can run any ledger action", () => {
   it("refuses a plain Admin, a Junior Admin and an anonymous visitor, changing nothing", async () => {
-    const line = await addLine(master, { description: "Guarded line" });
-    const transfer = await runAs(master, () =>
+    assert.ok(keepers.length > 0, "LEDGER_USERNAMES is empty");
+    const line = await addLine(keeper, { description: "Guarded line" });
+    const transfer = await runAs(keeper, () =>
       ledger.addLedgerTransferAction(
         form({ entryDate: TODAY(), fromCategoryId: fundraisingId, toCategoryId: generalId, amount: "5", description: "Guarded move" }),
       ),
     );
     assert.deepEqual(transfer, {});
-    const deletedLine = await addLine(master, { description: "Guarded deleted line" });
-    await runAs(master, () => ledger.deleteLedgerEntryAction(form({ id: deletedLine.id })));
+    const deletedLine = await addLine(keeper, { description: "Guarded deleted line" });
+    await runAs(keeper, () => ledger.deleteLedgerEntryAction(form({ id: deletedLine.id })));
     const unused = await db.prisma.ledgerCategory.create({ data: { name: "Unused Guarded", nameKey: "unused guarded" } });
 
     // A form for each action that would change something if the guard let it through.
@@ -134,7 +155,7 @@ describe("only the ledger accounts can run any ledger action", () => {
     resetTestState();
     const before = await ledgerState();
     const callers: [string, (fn: () => Promise<unknown>) => Promise<unknown>][] = [
-      ["plain Admin", (fn) => runAs(plainAdmin, fn)],
+      ...refusedAdmins.map(([who, user]): [string, (fn: () => Promise<unknown>) => Promise<unknown>] => [who, (fn) => runAs(user, fn)]),
       ["Junior Admin", (fn) => runAs(juniorAdmin, fn)],
       ["anonymous", async (fn) => (await asAnonymous(fn)).result],
     ];
@@ -164,17 +185,19 @@ describe("the ledger pages and export", () => {
   it("send a plain Admin, a Junior Admin and an anonymous visitor away", async () => {
     for (const [name, load] of PAGES) {
       const { default: Page } = await load();
-      assert.equal(redirectOf(await settle(runAs(plainAdmin, async () => Page(props)))), "/portal/admin", name);
+      for (const [who, user] of refusedAdmins) {
+        assert.equal(redirectOf(await settle(runAs(user, async () => Page(props)))), "/portal/admin", `${name} as ${who}`);
+      }
       assert.equal(redirectOf(await settle(runAs(juniorAdmin, async () => Page(props)))), "/portal/admin", name);
       const anonymous = await settle(asAnonymous(async () => Page(props)).then((r) => r.result));
       assert.equal(redirectOf(anonymous), "/portal/login", name);
     }
   });
 
-  it("render for both ledger accounts", async () => {
+  it("render for every ledger account", async () => {
     for (const [name, load] of PAGES) {
       const { default: Page } = await load();
-      for (const user of [master, treasurer]) {
+      for (const user of keepers) {
         const outcome = await settle(runAs(user, async () => Page(props)));
         assert.ok(outcome.ok, `${name}: ${outcome.ok ? "" : outcome.error.message}`);
       }
@@ -184,9 +207,11 @@ describe("the ledger pages and export", () => {
   it("export a private CSV only to the ledger accounts", async () => {
     const { GET } = await import("@/app/portal/(authed)/admin/ledger/export/route");
     const request = () => new Request("https://portal.pack376nyc.org/portal/admin/ledger/export?year=all");
-    assert.equal(redirectOf(await settle(runAs(plainAdmin, () => GET(request())))), "/portal/admin");
+    for (const [who, user] of refusedAdmins) {
+      assert.equal(redirectOf(await settle(runAs(user, () => GET(request())))), "/portal/admin", who);
+    }
 
-    await addLine(master, { description: "=HYPERLINK(\"x\")", amount: "3" });
+    await addLine(keeper, { description: "=HYPERLINK(\"x\")", amount: "3" });
     const response = await runAs(treasurer, () => GET(request()));
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("Cache-Control"), "private, no-store");
@@ -197,8 +222,8 @@ describe("the ledger pages and export", () => {
 });
 
 describe("lines", () => {
-  it("both ledger accounts can add a line, with its audit entry", async () => {
-    for (const user of [master, treasurer]) {
+  it("every ledger account can add a line, with its audit entry while auditing is on", async () => {
+    for (const user of keepers) {
       const row = await addLine(user, { description: `Added by ${user.displayName}`, note: "Check #101\r\nsecond line" });
       assert.equal(row.amountCents, 12550);
       assert.equal(row.direction, "IN");
@@ -208,7 +233,7 @@ describe("lines", () => {
       assert.equal(row.createdByName, user.displayName);
       assert.equal(row.note, "Check #101\nsecond line");
       assert.equal(toDateOnlyString(row.entryDate), TODAY());
-      assert.equal(await auditCount("ledger.entry.add", row.id), 1);
+      assert.equal(await auditCount("ledger.entry.add", row.id), AUDITED());
     }
     assert.ok(testState.revalidated.includes("/portal/admin/ledger"));
   });
@@ -229,33 +254,33 @@ describe("lines", () => {
     assert.equal(after.amountCents, 2000);
     assert.equal(after.categoryId, generalId);
     assert.notEqual(after.updatedAt.toISOString(), version);
-    assert.equal(await auditCount("ledger.entry.update", row.id), 1);
+    assert.equal(await auditCount("ledger.entry.update", row.id), AUDITED());
 
     // The same form again, from the page as it was before the first save.
-    const stale = await runAs(master, () =>
+    const stale = await runAs(keeper, () =>
       ledger.updateLedgerEntryAction(entryForm({ id: row.id, version, description: "Second edit", amount: "1" })),
     );
     assert.equal(stale.stale, true);
     assert.match(stale.error ?? "", /changed since the page loaded/);
     const unchanged = await db.prisma.ledgerEntry.findUniqueOrThrow({ where: { id: row.id } });
     assert.equal(unchanged.description, "Edited");
-    assert.equal(await auditCount("ledger.entry.update", row.id), 1);
+    assert.equal(await auditCount("ledger.entry.update", row.id), AUDITED());
   });
 
   it("deletes a line without removing it, and restores it", async () => {
-    const row = await addLine(master, { description: "Delete and restore" });
-    await runAs(master, () => ledger.deleteLedgerEntryAction(form({ id: row.id })));
+    const row = await addLine(keeper, { description: "Delete and restore" });
+    await runAs(keeper, () => ledger.deleteLedgerEntryAction(form({ id: row.id })));
     const deleted = await db.prisma.ledgerEntry.findUniqueOrThrow({ where: { id: row.id } });
     assert.ok(deleted.deletedAt);
-    assert.equal(deleted.deletedByName, master.displayName);
-    assert.equal(await auditCount("ledger.entry.delete", row.id), 1);
+    assert.equal(deleted.deletedByName, keeper.displayName);
+    assert.equal(await auditCount("ledger.entry.delete", row.id), AUDITED());
 
     // A second click does nothing more.
-    await runAs(master, () => ledger.deleteLedgerEntryAction(form({ id: row.id })));
-    assert.equal(await auditCount("ledger.entry.delete", row.id), 1);
+    await runAs(keeper, () => ledger.deleteLedgerEntryAction(form({ id: row.id })));
+    assert.equal(await auditCount("ledger.entry.delete", row.id), AUDITED());
 
     // A deleted line can't be edited.
-    const edit = await runAs(master, () =>
+    const edit = await runAs(keeper, () =>
       ledger.updateLedgerEntryAction(entryForm({ id: row.id, version: deleted.updatedAt.toISOString() })),
     );
     assert.equal(edit.stale, true);
@@ -264,7 +289,7 @@ describe("lines", () => {
     const restored = await db.prisma.ledgerEntry.findUniqueOrThrow({ where: { id: row.id } });
     assert.equal(restored.deletedAt, null);
     assert.equal(restored.deletedByName, null);
-    assert.equal(await auditCount("ledger.entry.restore", row.id), 1);
+    assert.equal(await auditCount("ledger.entry.restore", row.id), AUDITED());
   });
 
   it("refuses bad input and saves nothing", async () => {
@@ -291,7 +316,7 @@ describe("lines", () => {
     ];
     const before = await ledgerState();
     for (const [overrides, message] of cases) {
-      const result = await runAs(master, () => ledger.addLedgerEntryAction(entryForm({ description: "Refused", ...overrides })));
+      const result = await runAs(keeper, () => ledger.addLedgerEntryAction(entryForm({ description: "Refused", ...overrides })));
       assert.match(result.error ?? "", message, JSON.stringify(overrides).slice(0, 80));
     }
     assert.equal(await ledgerState(), before);
@@ -299,10 +324,10 @@ describe("lines", () => {
 
   it("keeps a line in its archived category when an edit leaves the category alone", async () => {
     const category = await db.prisma.ledgerCategory.create({ data: { name: "Soon Archived", nameKey: "soon archived" } });
-    const row = await addLine(master, { description: "In a soon-archived category", categoryId: category.id });
+    const row = await addLine(keeper, { description: "In a soon-archived category", categoryId: category.id });
     await db.prisma.ledgerCategory.update({ where: { id: category.id }, data: { archived: true } });
 
-    const result = await runAs(master, () =>
+    const result = await runAs(keeper, () =>
       ledger.updateLedgerEntryAction(
         entryForm({ id: row.id, version: row.updatedAt.toISOString(), categoryId: category.id, description: "Still here" }),
       ),
@@ -328,7 +353,7 @@ describe("moves between categories", () => {
     assert.deepEqual(halves.map((h) => h.direction).sort(), ["IN", "OUT"]);
     assert.equal(halves.find((h) => h.direction === "OUT")?.categoryId, campoutId);
     assert.equal(halves.find((h) => h.direction === "IN")?.categoryId, fundraisingId);
-    assert.equal(await auditCount("ledger.transfer.add", halves[0].transferId ?? ""), 1);
+    assert.equal(await auditCount("ledger.transfer.add", halves[0].transferId ?? ""), AUDITED());
 
     const after = await ledgerData.getLedger();
     assert.equal(after.summary.bankBalanceCents, before.summary.bankBalanceCents);
@@ -346,17 +371,17 @@ describe("moves between categories", () => {
     await runAs(treasurer, () => ledger.deleteLedgerEntryAction(form({ id: half.id })));
     const deleted = await db.prisma.ledgerEntry.findMany({ where: { transferId: half.transferId } });
     assert.ok(deleted.every((h) => h.deletedAt), "both halves are deleted");
-    assert.equal(await auditCount("ledger.transfer.delete", half.transferId ?? ""), 1);
+    assert.equal(await auditCount("ledger.transfer.delete", half.transferId ?? ""), AUDITED());
 
     const other = halves[1];
-    await runAs(master, () => ledger.restoreLedgerEntryAction(form({ id: other.id })));
+    await runAs(keeper, () => ledger.restoreLedgerEntryAction(form({ id: other.id })));
     const restored = await db.prisma.ledgerEntry.findMany({ where: { transferId: half.transferId } });
     assert.ok(restored.every((h) => h.deletedAt === null), "both halves are back");
   });
 
   it("refuses moving money into the same category", async () => {
     const before = await ledgerState();
-    const result = await runAs(master, () =>
+    const result = await runAs(keeper, () =>
       ledger.addLedgerTransferAction(form({ entryDate: TODAY(), fromCategoryId: generalId, toCategoryId: generalId, amount: "5" })),
     );
     assert.match(result.error ?? "", /two different categories/);
@@ -366,11 +391,11 @@ describe("moves between categories", () => {
 
 describe("categories", () => {
   it("adds one, refuses a duplicate name in any case, edits and archives it", async () => {
-    assert.deepEqual(await runAs(master, () => ledger.createLedgerCategoryAction(form({ name: "  Pinewood   Derby ", kind: "EVENT" }))), {});
+    assert.deepEqual(await runAs(keeper, () => ledger.createLedgerCategoryAction(form({ name: "  Pinewood   Derby ", kind: "EVENT" }))), {});
     const created = await db.prisma.ledgerCategory.findUniqueOrThrow({ where: { nameKey: "pinewood derby" } });
     assert.equal(created.name, "Pinewood Derby");
     assert.equal(created.kind, "EVENT");
-    assert.equal(await auditCount("ledger.category.create", created.id), 1);
+    assert.equal(await auditCount("ledger.category.create", created.id), AUDITED());
 
     const duplicate = await runAs(treasurer, () => ledger.createLedgerCategoryAction(form({ name: "PINEWOOD DERBY", kind: "FUND" })));
     assert.match(duplicate.error ?? "", /already exists/);
@@ -394,35 +419,35 @@ describe("categories", () => {
       5,
       true,
     ]);
-    assert.equal(await auditCount("ledger.category.update", created.id), 1);
+    assert.equal(await auditCount("ledger.category.update", created.id), AUDITED());
   });
 
   it("doesn't bring General Fund back after it is renamed", async () => {
     assert.deepEqual(
-      await runAs(master, () => ledger.updateLedgerCategoryAction(form({ id: generalId, name: "Operating", kind: "FUND", sortOrder: "0" }))),
+      await runAs(keeper, () => ledger.updateLedgerCategoryAction(form({ id: generalId, name: "Operating", kind: "FUND", sortOrder: "0" }))),
       {},
     );
     await ledgerData.getLedger();
     assert.equal(await db.prisma.ledgerCategory.findUnique({ where: { nameKey: "general fund" } }), null);
     assert.deepEqual(
-      await runAs(master, () => ledger.updateLedgerCategoryAction(form({ id: generalId, name: "General Fund", kind: "FUND", sortOrder: "0" }))),
+      await runAs(keeper, () => ledger.updateLedgerCategoryAction(form({ id: generalId, name: "General Fund", kind: "FUND", sortOrder: "0" }))),
       {},
     );
   });
 
   it("deletes only a category nothing has used, deleted lines included", async () => {
     const used = await db.prisma.ledgerCategory.create({ data: { name: "Used Once", nameKey: "used once" } });
-    const row = await addLine(master, { description: "Uses a category", categoryId: used.id });
-    await runAs(master, () => ledger.deleteLedgerEntryAction(form({ id: row.id })));
+    const row = await addLine(keeper, { description: "Uses a category", categoryId: used.id });
+    await runAs(keeper, () => ledger.deleteLedgerEntryAction(form({ id: row.id })));
 
-    const refused = await runAs(master, () => ledger.deleteLedgerCategoryAction(form({ id: used.id })));
+    const refused = await runAs(keeper, () => ledger.deleteLedgerCategoryAction(form({ id: used.id })));
     assert.match(refused.error ?? "", /Archive it instead/);
     assert.ok(await db.prisma.ledgerCategory.findUnique({ where: { id: used.id } }));
 
     const unused = await db.prisma.ledgerCategory.create({ data: { name: "Never Used", nameKey: "never used" } });
     assert.deepEqual(await runAs(treasurer, () => ledger.deleteLedgerCategoryAction(form({ id: unused.id }))), {});
     assert.equal(await db.prisma.ledgerCategory.findUnique({ where: { id: unused.id } }), null);
-    assert.equal(await auditCount("ledger.category.delete", unused.id), 1);
+    assert.equal(await auditCount("ledger.category.delete", unused.id), AUDITED());
   });
 });
 
@@ -430,12 +455,12 @@ describe("settings", () => {
   it("turns the Sheet copy off and on, auditing only real changes", async () => {
     const audits = () => auditCount("ledger.settings.update");
     const start = await audits();
-    assert.deepEqual(await runAs(master, () => ledger.updateLedgerSettingsAction(form({ syncEnabled: "false" }))), {});
+    assert.deepEqual(await runAs(keeper, () => ledger.updateLedgerSettingsAction(form({ syncEnabled: "false" }))), {});
     assert.equal((await db.prisma.ledgerSettings.findUniqueOrThrow({ where: { id: "main" } })).syncEnabled, false);
-    assert.equal(await audits(), start + 1);
+    assert.equal(await audits(), start + AUDITED());
 
-    assert.deepEqual(await runAs(master, () => ledger.updateLedgerSettingsAction(form({ syncEnabled: "false" }))), {});
-    assert.equal(await audits(), start + 1, "no change, no entry");
+    assert.deepEqual(await runAs(keeper, () => ledger.updateLedgerSettingsAction(form({ syncEnabled: "false" }))), {});
+    assert.equal(await audits(), start + AUDITED(), "no change, no entry");
 
     assert.deepEqual(await runAs(treasurer, () => ledger.updateLedgerSettingsAction(form({ syncEnabled: "true" }))), {});
     assert.equal((await db.prisma.ledgerSettings.findUniqueOrThrow({ where: { id: "main" } })).syncEnabled, true);
@@ -469,12 +494,34 @@ describe("getLedger", () => {
   });
 
   it("lists deleted lines separately and leaves them out of every balance", async () => {
-    const row = await addLine(master, { description: "Deleted from the balance", amount: "1000" });
+    const row = await addLine(keeper, { description: "Deleted from the balance", amount: "1000" });
     const before = await ledgerData.getLedger();
-    await runAs(master, () => ledger.deleteLedgerEntryAction(form({ id: row.id })));
+    await runAs(keeper, () => ledger.deleteLedgerEntryAction(form({ id: row.id })));
     const after = await ledgerData.getLedger();
     assert.equal(after.summary.bankBalanceCents, before.summary.bankBalanceCents - 100000);
     assert.ok(!after.allRows.some((r) => r.id === row.id));
     assert.ok(after.deletedEntries.some((r) => r.id === row.id));
+  });
+});
+
+describe("the audit log while Ledger auditing is off", () => {
+  it("gets nothing from adding, editing, deleting or restoring a line", async (t) => {
+    if (auditEnabled) {
+      t.skip("LEDGER_AUDIT_ENABLED is on: the tests above check each change's entry");
+      return;
+    }
+    const ledgerAudits = () =>
+      db.prisma.auditLog.count({ where: { OR: [{ category: "ledger" }, { action: { startsWith: "ledger." } }] } });
+    const row = await addLine(keeper, { description: "Not audited" });
+    const saved = await runAs(treasurer, () =>
+      ledger.updateLedgerEntryAction(entryForm({ id: row.id, version: row.updatedAt.toISOString(), description: "Not audited, edited" })),
+    );
+    assert.deepEqual(saved, {});
+    await runAs(keeper, () => ledger.deleteLedgerEntryAction(form({ id: row.id })));
+    assert.ok((await db.prisma.ledgerEntry.findUniqueOrThrow({ where: { id: row.id } })).deletedAt);
+    await runAs(treasurer, () => ledger.restoreLedgerEntryAction(form({ id: row.id })));
+    assert.equal((await db.prisma.ledgerEntry.findUniqueOrThrow({ where: { id: row.id } })).deletedAt, null);
+    // Nothing from these, nor from any change earlier in this file.
+    assert.equal(await ledgerAudits(), 0);
   });
 });

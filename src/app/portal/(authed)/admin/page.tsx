@@ -36,7 +36,7 @@ export default async function AdminDashboardPage() {
   const paymentRecordsWaiting =
     session.role === "ADMIN" ? await prisma.paymentRecord.count({ where: { status: "NEEDS_DECISION" } }) : 0;
   const everyoneEmails = [...parentEmails, ...userEmails, ...leaderEmails].map((r) => r.email);
-  // The two ledger accounts get the bank balance at a glance. Loaded only
+  // The ledger accounts get the bank balance at a glance. Loaded only
   // inside this check: the ledger is theirs alone, and this page is open to
   // Junior Admins and Committee Members too.
   const ledgerSummary = (await isLedgerSession(session)) ? (await getLedger()).summary : null;

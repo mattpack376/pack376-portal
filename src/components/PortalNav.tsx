@@ -33,7 +33,7 @@ export default function PortalNav({
   hasDens?: boolean;
   /** Master admin (src/lib/masterAdmins.ts) — adds the Audit Log link. */
   isMasterAdmin?: boolean;
-  /** One of the two ledger accounts (LEDGER_USERNAMES in src/lib/masterAdmins.ts) — adds the Ledger link under Money. */
+  /** One of the ledger accounts (LEDGER_USERNAMES in src/lib/masterAdmins.ts) — adds the Ledger link under Money. */
   isLedgerUser?: boolean;
   /** Has the per-person Raffle Helper permission — adds the 50/50 Raffles link for levels that don't already have it. */
   isRaffleHelper?: boolean;

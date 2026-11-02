@@ -26,7 +26,7 @@ const ALL_YEARS = "all";
 /**
  * The pack's bank ledger: what came in and went out, by category, with the
  * running bank balance — what the treasurer's Google Sheet used to be. Only
- * the two ledger accounts (LEDGER_USERNAMES) can open it; every other Admin is
+ * the ledger accounts (LEDGER_USERNAMES) can open it; every other Admin is
  * sent to the dashboard by requireLedgerSession.
  */
 export default async function LedgerPage({
@@ -74,7 +74,7 @@ export default async function LedgerPage({
           <h2>Ledger</h2>
           <p>
             The pack&apos;s bank account, line by line: what came in, what went out, and the balance after each. Only
-            the two ledger accounts can see this page.
+            the accounts set up for the Ledger can see this page.
           </p>
         </div>
         <FileExportButton className="btn btn-quiet" href={exportHref} label="Export CSV" />

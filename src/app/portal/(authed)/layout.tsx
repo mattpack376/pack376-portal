@@ -12,7 +12,7 @@ export default async function AuthedPortalLayout({
   // Only shows the master-admin links in the nav; each of those pages still
   // checks for itself. Returns early without a query for anyone but an ADMIN.
   const isMasterAdmin = await isMasterAdminSession(session);
-  // Same for the Ledger link (two named Admin accounts); shares the username
+  // Same for the Ledger link (named Admin accounts); shares the username
   // lookup above.
   const isLedgerUser = await isLedgerSession(session);
   // Same idea for the per-person Raffle Helper permission: it only decides
