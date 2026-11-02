@@ -19,13 +19,15 @@ export const maxDuration = 60;
 
 /**
  * The Ledger's categories: add, rename, Fund or Event, order, archive, and
- * delete one nothing has used. An Event category's positive balance is held
+ * delete (a category with lines moves them to another one first). An Event category's positive balance is held
  * for that event, so it comes off Available to Spend.
  */
 export default async function LedgerCategoriesPage() {
   await requireLedgerSession();
   const ledger = await getLedger();
   const totals = new Map(ledger.summary.categories.map((c) => [c.id, c]));
+  // Re-key the move-to pickers when the category list changes (React 19 form reset).
+  const moveTargetsKey = ledger.activeCategories.map((c) => c.id).join(",");
 
   return (
     <>
@@ -37,7 +39,8 @@ export default async function LedgerCategoriesPage() {
             Each line in the ledger goes in one category. <strong>Fund</strong> categories are the pack&apos;s own
             money; an <strong>Event</strong> category holds money collected for one event or trip, which is set aside
             from Available to Spend until it&apos;s spent or moved out. Archiving takes a category out of the pickers
-            but keeps its lines and balance.
+            but keeps its lines and balance. Deleting one that has lines moves them to another category first, so the
+            bank balance stays the same.
           </p>
         </div>
       </div>
@@ -118,7 +121,7 @@ export default async function LedgerCategoriesPage() {
                         Save Changes
                       </SubmitButton>
                     </EditPopover>
-                    {category.entryCount === 0 && (
+                    {category.entryCount === 0 ? (
                       <ActionForm action={deleteLedgerCategoryAction}>
                         <input type="hidden" name="id" value={category.id} />
                         <ConfirmSubmitButton
@@ -129,6 +132,43 @@ export default async function LedgerCategoriesPage() {
                           Delete
                         </ConfirmSubmitButton>
                       </ActionForm>
+                    ) : (
+                      <EditPopover action={deleteLedgerCategoryAction} label="Delete">
+                        <input type="hidden" name="id" value={category.id} />
+                        <p style={{ marginTop: 0 }}>
+                          “{category.name}” has {category.entryCount} line{category.entryCount === 1 ? "" : "s"} (deleted
+                          ones included). They move to the category you pick, then this one is deleted. The bank balance
+                          doesn&apos;t change.
+                        </p>
+                        <div className="form-field">
+                          <label htmlFor={`category-move-${category.id}`}>Move its lines to</label>
+                          <select
+                            key={`move-${category.id}-${moveTargetsKey}`}
+                            id={`category-move-${category.id}`}
+                            name="moveToCategoryId"
+                            required
+                            defaultValue=""
+                          >
+                            <option value="" disabled>
+                              Pick a category…
+                            </option>
+                            {ledger.activeCategories
+                              .filter((target) => target.id !== category.id)
+                              .map((target) => (
+                                <option key={target.id} value={target.id}>
+                                  {target.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                        <ConfirmSubmitButton
+                          className="btn btn-danger btn-small"
+                          pendingLabel="Deleting…"
+                          message={`Delete “${category.name}” and move its ${category.entryCount} line${category.entryCount === 1 ? "" : "s"} to the category you picked?`}
+                        >
+                          Move Lines and Delete
+                        </ConfirmSubmitButton>
+                      </EditPopover>
                     )}
                   </td>
                 </tr>

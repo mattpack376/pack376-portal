@@ -435,19 +435,42 @@ describe("categories", () => {
     );
   });
 
-  it("deletes only a category nothing has used, deleted lines included", async () => {
-    const used = await db.prisma.ledgerCategory.create({ data: { name: "Used Once", nameKey: "used once" } });
-    const row = await addLine(keeper, { description: "Uses a category", categoryId: used.id });
-    await runAs(keeper, () => ledger.deleteLedgerEntryAction(form({ id: row.id })));
-
-    const refused = await runAs(keeper, () => ledger.deleteLedgerCategoryAction(form({ id: used.id })));
-    assert.match(refused.error ?? "", /Archive it instead/);
-    assert.ok(await db.prisma.ledgerCategory.findUnique({ where: { id: used.id } }));
-
+  it("deletes an unused category outright", async () => {
     const unused = await db.prisma.ledgerCategory.create({ data: { name: "Never Used", nameKey: "never used" } });
     assert.deepEqual(await runAs(treasurer, () => ledger.deleteLedgerCategoryAction(form({ id: unused.id }))), {});
     assert.equal(await db.prisma.ledgerCategory.findUnique({ where: { id: unused.id } }), null);
     assert.equal(await auditCount("ledger.category.delete", unused.id), AUDITED());
+  });
+
+  it("deletes a category with lines by moving every line (deleted ones too) to another, balance unchanged", async () => {
+    const event = await db.prisma.ledgerCategory.create({ data: { name: "Old Event", nameKey: "old event", kind: "EVENT" } });
+    const live = await addLine(keeper, { description: "Old event payment", categoryId: event.id, amount: "40.00" });
+    const gone = await addLine(keeper, { description: "Old event mistake", categoryId: event.id, amount: "5.00" });
+    await runAs(keeper, () => ledger.deleteLedgerEntryAction(form({ id: gone.id })));
+    const before = (await ledgerData.getLedger()).summary.bankBalanceCents;
+
+    // A category with lines needs somewhere to put them.
+    const noTarget = await runAs(keeper, () => ledger.deleteLedgerCategoryAction(form({ id: event.id })));
+    assert.match(noTarget.error ?? "", /Pick a category to move them to/);
+    const self = await runAs(keeper, () => ledger.deleteLedgerCategoryAction(form({ id: event.id, moveToCategoryId: event.id })));
+    assert.match(self.error ?? "", /different category/);
+    const archived = await db.prisma.ledgerCategory.create({ data: { name: "Archived Fund", nameKey: "archived fund", archived: true } });
+    const toArchived = await runAs(keeper, () =>
+      ledger.deleteLedgerCategoryAction(form({ id: event.id, moveToCategoryId: archived.id })),
+    );
+    assert.match(toArchived.error ?? "", /archived/);
+    assert.ok(await db.prisma.ledgerCategory.findUnique({ where: { id: event.id } }));
+
+    assert.deepEqual(
+      await runAs(keeper, () => ledger.deleteLedgerCategoryAction(form({ id: event.id, moveToCategoryId: fundraisingId }))),
+      {},
+    );
+    assert.equal(await db.prisma.ledgerCategory.findUnique({ where: { id: event.id } }), null);
+    for (const id of [live.id, gone.id]) {
+      assert.equal((await db.prisma.ledgerEntry.findUniqueOrThrow({ where: { id } })).categoryId, fundraisingId);
+    }
+    assert.equal((await ledgerData.getLedger()).summary.bankBalanceCents, before);
+    assert.equal(await auditCount("ledger.category.delete", event.id), AUDITED());
   });
 });
 

@@ -497,37 +497,56 @@ export async function updateLedgerCategoryAction(formData: FormData): Promise<Le
 }
 
 /** Only a category no line has ever used — deleted lines included, since they can be restored. */
+/**
+ * Deletes a category. One with lines in it (deleted lines count) needs
+ * `moveToCategoryId`: every one of its lines moves there first, so the bank
+ * balance doesn't change — only which category the money sits in.
+ */
 export async function deleteLedgerCategoryAction(formData: FormData): Promise<LedgerFormResult> {
   const session = await ledgerSession();
   return formResult(async () => {
     const id = readId(formData.get("id"), "category");
+    const moveToRaw = textField(formData.get("moveToCategoryId"));
     let deleted = false;
     try {
       await prisma.$transaction(async (tx) => {
-        const category = await tx.ledgerCategory.findUnique({ where: { id }, include: { _count: { select: { entries: true } } } });
-        if (!category) return;
-        if (category._count.entries > 0) {
-          throw new LedgerInputError(
-            `“${category.name}” has lines in the ledger (deleted ones count too), so it can't be deleted. Archive it instead.`,
-          );
+        // Locking the row also holds off a line being added to it meanwhile.
+        const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "LedgerCategory" WHERE id = ${id} FOR UPDATE`;
+        if (locked.length === 0) return;
+        const category = await tx.ledgerCategory.findUniqueOrThrow({
+          where: { id },
+          include: { _count: { select: { entries: true } } },
+        });
+        const lineCount = category._count.entries;
+        let moveTo: { id: string; name: string } | null = null;
+        if (lineCount > 0) {
+          if (!moveToRaw) {
+            throw new LedgerInputError(`“${category.name}” has lines in the ledger. Pick a category to move them to.`);
+          }
+          if (moveToRaw === id) throw new LedgerInputError("Pick a different category to move the lines to.");
+          moveTo = await usableCategory(tx, moveToRaw);
+          await tx.ledgerEntry.updateMany({ where: { categoryId: id }, data: { categoryId: moveTo.id } });
         }
         await tx.ledgerCategory.delete({ where: { id } });
         await recordLedgerAudit(tx, session, {
           action: "ledger.category.delete",
-          summary: `Deleted the unused ledger category “${category.name}”`,
+          summary: moveTo
+            ? `Deleted the ledger category “${category.name}”, moving its ${lineCount} line${lineCount === 1 ? "" : "s"} to “${moveTo.name}”`
+            : `Deleted the unused ledger category “${category.name}”`,
           entityType: "LedgerCategory",
           entityId: id,
           details: [
             { label: "Name", from: category.name, to: "—" },
             { label: "Kind", from: kindLabel(category.kind), to: "—" },
+            ...(moveTo ? [{ label: "Lines moved", from: category.name, to: `${moveTo.name} (${lineCount})` }] : []),
           ],
         });
         deleted = true;
       });
     } catch (error) {
-      // A line was added to it in the meantime: the foreign key refused the delete.
+      // The category to move to was deleted in the meantime.
       if ((error as { code?: unknown })?.code === "P2003") {
-        throw new LedgerInputError("That category is now in use, so it can't be deleted. Archive it instead.", true);
+        throw new LedgerInputError("Something changed while deleting. Reload the page and try again.", true);
       }
       throw error;
     }
