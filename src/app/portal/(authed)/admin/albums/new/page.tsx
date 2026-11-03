@@ -58,7 +58,7 @@ export default function NewAlbumPage() {
               id="photoAlbumUrl"
               name="photoAlbumUrl"
               type="url"
-              placeholder="https://photos.pack376nyc.org/s/…"
+              placeholder="https://…"
               maxLength={ALBUM_FIELD_LIMITS.photoAlbumUrl}
               required
             />

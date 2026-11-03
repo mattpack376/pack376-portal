@@ -356,7 +356,7 @@ failing on the server — redeploy, and check the versions in §1.1.
 ### 3.3 Taking a child's photo down
 
 1. Portal: delete the album, or upload a different cover.
-2. Photo library (photos.pack376nyc.org): remove the photo, or revoke the
+2. Photo library (wherever the album link points): remove the photo, or revoke the
    album's share link.
 3. If the photo must disappear from caches quickly: purge the project's CDN
    cache in Vercel (Project → Settings → Caches, where your plan offers it).
