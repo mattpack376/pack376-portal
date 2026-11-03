@@ -74,10 +74,6 @@ export default async function GalleryPage() {
     <>
       <Header />
       <SiteBanner />
-      <div className="construction-banner" role="status">
-        <span aria-hidden="true">🚧</span> Under Construction — this page is still being built.
-        Album links are coming soon. <span aria-hidden="true">🚧</span>
-      </div>
 
       <section className="page-hero">
         <div className="eyebrow" style={{ background: "rgba(255,255,255,0.15)", color: "var(--scout-gold)" }}>
