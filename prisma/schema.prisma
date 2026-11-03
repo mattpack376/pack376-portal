@@ -461,10 +461,35 @@ model PhotoAlbum {
   eventDate     DateTime @db.Date
   description   String?
   coverImageUrl String?
-  photoAlbumUrl String
+  /// An outside album link from before photos were hosted here. Optional, and not shown on the public site.
+  photoAlbumUrl String?
   isVisible     Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  photos        AlbumPhoto[]
+}
+
+/**
+ * One event photo in an album, hosted by the site itself (up to
+ * MAX_PHOTOS_PER_ALBUM per album, src/lib/albumPhotoRules.ts). Two uploaded
+ * copies, both cleaned of their metadata and watermarked: a large one for the
+ * full-screen view and a small one for the grid. The public page never links
+ * to either directly; it loads them through /album-photos/[photoId]/[size],
+ * which stops serving them as soon as the album is hidden or the photo is
+ * deleted.
+ */
+model AlbumPhoto {
+  id        String     @id @default(cuid())
+  albumId   String
+  album     PhotoAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  imageUrl  String
+  thumbUrl  String
+  width     Int
+  height    Int
+  sortOrder Int
+  createdAt DateTime   @default(now())
+
+  @@index([albumId, sortOrder])
 }
 
 /**

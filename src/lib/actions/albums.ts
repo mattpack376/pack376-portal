@@ -40,7 +40,7 @@ function isSafeHttpUrl(raw: string): boolean {
   }
 }
 
-type AlbumFields = { title: string; eventDate: Date; description: string; photoAlbumUrl: string };
+type AlbumFields = { title: string; eventDate: Date; description: string; photoAlbumUrl: string | null };
 
 /**
  * The album form's text fields, checked. Done before any cover upload, so a
@@ -52,8 +52,8 @@ function readAlbumFields(formData: FormData): AlbumFields | { error: string } {
   const description = normalizeLineBreaks(textField(formData.get("description")));
   const photoAlbumUrl = textField(formData.get("photoAlbumUrl"));
 
-  if (!title || !eventDateRaw || !photoAlbumUrl) {
-    return { error: "Title, event date, and photo album link are required." };
+  if (!title || !eventDateRaw) {
+    return { error: "Title and event date are required." };
   }
   if (title.length > ALBUM_FIELD_LIMITS.title) {
     return { error: `Keep the title to ${ALBUM_FIELD_LIMITS.title} characters or fewer.` };
@@ -66,10 +66,16 @@ function readAlbumFields(formData: FormData): AlbumFields | { error: string } {
   if (!isDateOnlyString(eventDateRaw)) {
     return { error: "Enter a valid event date." };
   }
-  if (photoAlbumUrl.length > ALBUM_FIELD_LIMITS.photoAlbumUrl || !isSafeHttpUrl(photoAlbumUrl)) {
+  // Optional since event photos are hosted here; checked only when one is given.
+  if (photoAlbumUrl && (photoAlbumUrl.length > ALBUM_FIELD_LIMITS.photoAlbumUrl || !isSafeHttpUrl(photoAlbumUrl))) {
     return { error: "Enter a valid photo album link starting with https://" };
   }
-  return { title, eventDate: new Date(`${eventDateRaw}T00:00:00.000Z`), description, photoAlbumUrl };
+  return {
+    title,
+    eventDate: new Date(`${eventDateRaw}T00:00:00.000Z`),
+    description,
+    photoAlbumUrl: photoAlbumUrl || null,
+  };
 }
 
 type UploadedCover = { url: string; metadataRemoved: boolean };
@@ -169,7 +175,7 @@ export async function createAlbumAction(
     details: [
       { label: "Title", from: "—", to: fields.title },
       { label: "Event date", from: "—", to: auditDate(fields.eventDate) },
-      { label: "Album link", from: "—", to: fields.photoAlbumUrl },
+      ...(fields.photoAlbumUrl ? [{ label: "Album link", from: "—", to: fields.photoAlbumUrl }] : []),
       ...(cover ? [{ label: "Cover image", from: "—", to: coverAuditValue(cover) }] : []),
     ],
   });
@@ -269,15 +275,18 @@ export async function updateAlbumAction(
 
   revalidatePath("/portal/admin/albums");
   revalidatePath("/gallery");
+  revalidatePath(`/gallery/${albumId}`);
   redirect("/portal/admin/albums");
 }
 
 export type AlbumVisibilityResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Publishes or hides an album on the public gallery. Hiding only takes the
- * listing down: the cover photo stays reachable at its direct URL until the
- * album is deleted (see docs/security-operations.md).
+ * Publishes or hides an album on the public gallery. Hiding takes the listing
+ * and the album's page down, and its event photos stop loading (they're only
+ * served through /album-photos/…, which checks this flag). The cover photo
+ * stays reachable at its direct URL until the album is deleted (see
+ * docs/security-operations.md).
  */
 export async function toggleAlbumVisibilityAction(albumId: string, isVisible: boolean): Promise<AlbumVisibilityResult> {
   const session = await requireAlbumEditor();
@@ -301,6 +310,7 @@ export async function toggleAlbumVisibilityAction(albumId: string, isVisible: bo
 
   revalidatePath("/portal/admin/albums");
   revalidatePath("/gallery");
+  revalidatePath(`/gallery/${albumId}`);
   return { ok: true };
 }
 
@@ -316,9 +326,13 @@ export async function deleteAlbumAction(formData: FormData) {
     // Same lock as updateAlbumAction, so an edit that's replacing the cover
     // right now finishes first and this deletes the cover it left.
     await tx.$queryRaw`SELECT 1 FROM "PhotoAlbum" WHERE "id" = ${albumId} FOR UPDATE`;
-    const current = await tx.photoAlbum.findUnique({ where: { id: albumId } });
+    const current = await tx.photoAlbum.findUnique({
+      where: { id: albumId },
+      include: { photos: { select: { imageUrl: true, thumbUrl: true } } },
+    });
     // Already gone (a second click, or another admin): nothing left to do.
     if (!current) return null;
+    // Its event photos' rows go with it (ON DELETE CASCADE); their files are removed below.
     await tx.photoAlbum.delete({ where: { id: albumId } });
     await recordAuditInTransaction(tx, session, {
       action: "album.delete",
@@ -327,8 +341,11 @@ export async function deleteAlbumAction(formData: FormData) {
       entityId: albumId,
       details: [
         { label: "Title", from: current.title, to: "—" },
-        { label: "Album link", from: current.photoAlbumUrl, to: "—" },
+        ...(current.photoAlbumUrl ? [{ label: "Album link", from: current.photoAlbumUrl, to: "—" }] : []),
         ...(current.coverImageUrl ? [{ label: "Cover image", from: "Uploaded", to: "Deleted from storage" }] : []),
+        ...(current.photos.length
+          ? [{ label: "Event photos", from: String(current.photos.length), to: "Deleted from storage" }]
+          : []),
       ],
     });
     return current;
@@ -338,8 +355,15 @@ export async function deleteAlbumAction(formData: FormData) {
   // only the row left the cover public at its original URL, which is the
   // opposite of what this button is usually pressed for. After the commit,
   // like every other cleanup.
-  if (album) await deleteUploadedBlob(album.coverImageUrl);
+  if (album) {
+    await deleteUploadedBlob(album.coverImageUrl);
+    for (const photo of album.photos) {
+      await deleteUploadedBlob(photo.imageUrl);
+      await deleteUploadedBlob(photo.thumbUrl);
+    }
+  }
 
   revalidatePath("/portal/admin/albums");
   revalidatePath("/gallery");
+  revalidatePath(`/gallery/${albumId}`);
 }

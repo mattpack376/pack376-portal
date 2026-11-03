@@ -19,6 +19,8 @@ const APP = join(ROOT, "src", "app");
 const NOT_DOWNLOADS: Record<string, string> = {
   "src/app/portal/logout/route.ts": "clears the session cookie and redirects; no data",
   "src/app/api/cron/ledger-sync/route.ts": "cron trigger: checks the CRON_SECRET bearer, returns only a status JSON, no records",
+  "src/app/album-photos/[photoId]/[size]/route.ts":
+    "public event photos for the public album page: serves only photos of visible albums, no private records",
 };
 
 /** Helpers that build the whole download response with the private, no-store header. */

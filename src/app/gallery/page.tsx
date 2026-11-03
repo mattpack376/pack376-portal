@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import Header from "@/components/Header";
 import SiteBanner from "@/components/SiteBanner";
 import Footer from "@/components/Footer";
@@ -17,15 +18,20 @@ export const metadata: Metadata = {
 };
 
 export default async function GalleryPage() {
-  const albums = await prisma.photoAlbum.findMany({ where: { isVisible: true }, orderBy: { eventDate: "desc" } });
+  const albums = await prisma.photoAlbum.findMany({
+    where: { isVisible: true },
+    orderBy: { eventDate: "desc" },
+    include: { _count: { select: { photos: true } } },
+  });
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const past = albums.filter((a) => a.eventDate < today);
 
   const renderAlbums = (list: typeof albums) => (
     <div className="album-card-grid">
-      {list.map((album) => (
-        <div className="album-tile" key={album.id}>
+      {list.map((album) => {
+        const photoCount = album._count.photos;
+        const cover = (
           <div className="album-tile-cover">
             <Image
               src={album.coverImageUrl || "/cub-scout-emblem.png"}
@@ -35,13 +41,32 @@ export default async function GalleryPage() {
               style={{ objectFit: album.coverImageUrl ? "cover" : "contain" }}
             />
           </div>
+        );
+        const body = (
           <div className="album-tile-body">
             <div className="album-tile-date">{formatLongDate(album.eventDate)}</div>
             <h3>{album.title}</h3>
             {album.description && <p>{album.description}</p>}
+            {photoCount > 0 && (
+              <span className="link">
+                See {photoCount} photo{photoCount === 1 ? "" : "s"} →
+              </span>
+            )}
           </div>
-        </div>
-      ))}
+        );
+        // Only albums with event photos open to a page of their own.
+        return photoCount > 0 ? (
+          <Link className="album-tile album-tile-link" key={album.id} href={`/gallery/${album.id}`}>
+            {cover}
+            {body}
+          </Link>
+        ) : (
+          <div className="album-tile" key={album.id}>
+            {cover}
+            {body}
+          </div>
+        );
+      })}
     </div>
   );
 

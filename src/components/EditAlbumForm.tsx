@@ -14,7 +14,7 @@ export default function EditAlbumForm({
     eventDate: Date;
     description: string | null;
     coverImageUrl: string | null;
-    photoAlbumUrl: string;
+    photoAlbumUrl: string | null;
   };
 }) {
   // Puts the edits back if the save is turned down (a refused cover photo, say).
@@ -61,21 +61,21 @@ export default function EditAlbumForm({
           )}
           <input id="coverImage" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
           <p className="form-note">
-            Upload a photo from your device (JPEG, PNG, WEBP, or GIF, up to 8MB) — download it from our
-            photo library first, don&apos;t paste a link. Leave blank to keep the current cover image. The
+            Upload a photo from your device (JPEG, PNG, WEBP, or GIF, up to 8MB). Leave blank to keep the
+            current cover image. The
             photo&apos;s hidden details (like the location it was taken) are removed when it&apos;s saved.
           </p>
         </div>
         <div className="form-field">
-          <label htmlFor="photoAlbumUrl">Photo Album Link</label>
+          <label htmlFor="photoAlbumUrl">Outside Album Link (optional)</label>
           <input
             id="photoAlbumUrl"
             name="photoAlbumUrl"
             type="url"
-            defaultValue={album.photoAlbumUrl}
+            defaultValue={album.photoAlbumUrl ?? ""}
             maxLength={ALBUM_FIELD_LIMITS.photoAlbumUrl}
-            required
           />
+          <p className="form-note">Kept for the record only — it isn&apos;t shown on the public site.</p>
         </div>
         {state?.error && (
           <p className="form-error" role="alert">

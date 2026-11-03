@@ -5,13 +5,17 @@ import { requireAlbumSession } from "@/lib/authorize";
 import { formatLongDate } from "@/lib/dateOnly";
 import { deleteAlbumAction } from "@/lib/actions/albums";
 import AlbumVisibilityToggle from "@/components/AlbumVisibilityToggle";
+import { MAX_PHOTOS_PER_ALBUM } from "@/lib/albumPhotoRules";
 
 export default async function AdminAlbumsPage() {
   // Checked here as well as in the layout: a layout isn't re-run on every
   // navigation and doesn't stop this page rendering, so the page guards its own data.
   const session = await requireAlbumSession();
   const canDelete = session.role === "ADMIN";
-  const albums = await prisma.photoAlbum.findMany({ orderBy: { eventDate: "desc" } });
+  const albums = await prisma.photoAlbum.findMany({
+    orderBy: { eventDate: "desc" },
+    include: { _count: { select: { photos: true } } },
+  });
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const upcoming = albums.filter((a) => a.eventDate >= today).reverse();
@@ -29,6 +33,7 @@ export default async function AdminAlbumsPage() {
           )}
         </td>
         <td data-label="Date">{formatLongDate(album.eventDate)}</td>
+        <td data-label="Photos">{album._count.photos}</td>
         <td className="actions">
           <AlbumVisibilityToggle albumId={album.id} isVisible={album.isVisible} />
           <Link
@@ -61,10 +66,12 @@ export default async function AdminAlbumsPage() {
         <div>
           <div className="eyebrow">Admin</div>
           <h2>Photo Albums</h2>
-          <p>Link out to a photo album for each event — leaders keep the photos there, this just curates the list.</p>
+          <p>One album per event, with a cover photo and up to {MAX_PHOTOS_PER_ALBUM} event photos. Use Edit to add or remove photos.</p>
           <p className="form-note">
-            Hide takes an album off the public gallery, but its cover photo can still be opened by anyone who
-            already has the photo&apos;s direct link. To take a photo down for good, delete the album (Admin only).
+            Hide takes an album and its event photos off the public site (photos can take up to an hour to clear
+            from caches). Its cover photo can still be opened by anyone who already has the cover&apos;s direct
+            link. To take one event photo down for good, remove it on the album&apos;s Edit page; to take the whole
+            album down, delete it (Admin only).
           </p>
         </div>
         <Link className="btn btn-primary" href="/portal/admin/albums/new">+ New Album</Link>
@@ -80,6 +87,7 @@ export default async function AdminAlbumsPage() {
               <tr>
                 <th>Title</th>
                 <th>Date</th>
+                <th>Photos</th>
                 <th></th>
               </tr>
             </thead>
@@ -99,6 +107,7 @@ export default async function AdminAlbumsPage() {
               <tr>
                 <th>Title</th>
                 <th>Date</th>
+                <th>Photos</th>
                 <th></th>
               </tr>
             </thead>

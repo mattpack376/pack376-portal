@@ -355,9 +355,14 @@ failing on the server — redeploy, and check the versions in §1.1.
 
 ### 3.3 Taking a child's photo down
 
-1. Portal: delete the album, or upload a different cover.
-2. Photo library (wherever the album link points): remove the photo, or revoke the
-   album's share link.
+1. Portal: an event photo — open the album's Edit page and press Remove on
+   it (Admin or Photographer); both stored copies are deleted. A cover —
+   upload a different one. The whole album — Hide it at once, then delete it
+   (Admin only). Event photos are never kept by the CDN, so Hide and Remove
+   stop them loading straight away; a visitor's own browser may keep one it
+   already showed for up to five minutes.
+2. Any outside photo library an old album link points to: remove the photo
+   there too, or revoke that album's share link.
 3. If the photo must disappear from caches quickly: purge the project's CDN
    cache in Vercel (Project → Settings → Caches, where your plan offers it).
    The gallery's resized copies are cached too, and go with it.

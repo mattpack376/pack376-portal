@@ -10,8 +10,12 @@ import { prisma } from "@/lib/prisma";
  */
 const BLOB_HOSTNAME = "jyclzu7uphezevn7.public.blob.vercel-storage.com";
 
-/** Every prefix this app uploads under. Matches BLOB_PATHNAMES in next.config.ts. */
-const OWNED_PREFIXES = ["/album-covers/", "/event-flyers/", "/trip-flyers/"];
+/**
+ * Every prefix this app uploads under. The first three match BLOB_PATHNAMES in
+ * next.config.ts; event photos (album-photos) are never shown through
+ * next/image, so they aren't listed there.
+ */
+const OWNED_PREFIXES = ["/album-covers/", "/event-flyers/", "/trip-flyers/", "/album-photos/"];
 
 /**
  * The real store, plus — only under NODE_ENV=test, and only when a test file
@@ -50,12 +54,13 @@ function isOwnedBlobUrl(raw: string): boolean {
  * committed, or a queued retry hours later.
  */
 async function isBlobUrlInUse(url: string): Promise<boolean> {
-  const [albums, events, trips] = await Promise.all([
+  const [albums, photos, events, trips] = await Promise.all([
     prisma.photoAlbum.count({ where: { coverImageUrl: url } }),
+    prisma.albumPhoto.count({ where: { OR: [{ imageUrl: url }, { thumbUrl: url }] } }),
     prisma.event.count({ where: { flyerUrl: url } }),
     prisma.tripPage.count({ where: { flyerUrl: url } }),
   ]);
-  return albums + events + trips > 0;
+  return albums + photos + events + trips > 0;
 }
 
 const MINUTE = 60 * 1000;

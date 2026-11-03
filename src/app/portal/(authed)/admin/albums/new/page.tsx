@@ -13,7 +13,7 @@ export default function NewAlbumPage() {
       <div className="section-head">
         <div className="eyebrow">Admin</div>
         <h2>Add a Photo Album</h2>
-        <p>Paste the shareable link to the album in our photo library, then upload a cover photo — photos stay hosted there, this just lists the album on the site.</p>
+        <p>Add the event and a cover photo. Once it&apos;s saved, open it with Edit to upload the event photos.</p>
       </div>
 
       <div className="info-card" style={{ maxWidth: 480 }}>
@@ -47,21 +47,21 @@ export default function NewAlbumPage() {
             <label htmlFor="coverImage">Cover Image (optional)</label>
             <input id="coverImage" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
             <p className="form-note">
-              Upload a photo from your device (JPEG, PNG, WEBP, or GIF, up to 8MB) — download it from our
-              photo library first, don&apos;t paste a link. Leave blank to use the pack emblem. The
+              Upload a photo from your device (JPEG, PNG, WEBP, or GIF, up to 8MB). Leave blank to use the
+              pack emblem. The
               photo&apos;s hidden details (like the location it was taken) are removed when it&apos;s saved.
             </p>
           </div>
           <div className="form-field">
-            <label htmlFor="photoAlbumUrl">Photo Album Link</label>
+            <label htmlFor="photoAlbumUrl">Outside Album Link (optional)</label>
             <input
               id="photoAlbumUrl"
               name="photoAlbumUrl"
               type="url"
               placeholder="https://…"
               maxLength={ALBUM_FIELD_LIMITS.photoAlbumUrl}
-              required
             />
+            <p className="form-note">Kept for the record only — it isn&apos;t shown on the public site.</p>
           </div>
           {state?.error && (
             <p className="form-error" role="alert">
