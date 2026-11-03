@@ -36,7 +36,8 @@ export const ROLE_LABELS: Record<string, string> = {
 /** One-line summary shown next to each option in the role pickers. */
 export const ROLE_DESCRIPTIONS: Record<AssignableRole, string> = {
   ADMIN: "full access, except audit log, starting a fresh year, and creating or deleting admins",
-  JUNIOR_ADMIN: "advancement & attendance for all dens, add scouts, view dues & event balances, post the top banner",
+  JUNIOR_ADMIN:
+    "advancement & attendance for all dens, add scouts, view dues & event balances, post the top banner, add/edit photo albums",
   COMMITTEE: "advancement & attendance for all dens, view photo consent & dues",
   DEN: "advancement & attendance for their assigned den(s), no money",
   ATTENDANCE_ADMIN: "attendance for all dens",

@@ -198,6 +198,7 @@ describe("page guards are never looser than the proxy", () => {
   it("still lets the intended roles reach their pages", async () => {
     assert.equal(await guardOutcome(users.TRIP_VIEWER, () => authz.requireTripPageSession()), null);
     assert.equal(await guardOutcome(users.PHOTOGRAPHER, () => authz.requireAlbumSession()), null);
+    assert.equal(await guardOutcome(users.JUNIOR_ADMIN, () => authz.requireAlbumSession()), null);
     assert.equal(await guardOutcome(users.ATTENDANCE_ADMIN, () => authz.requireAttendanceSession()), null);
     assert.equal(await guardOutcome(users.ATTENDANCE_ADMIN, () => authz.requireLeaderAttendanceSession()), null);
     assert.equal(await guardOutcome(users.COMMITTEE_WITH_DEN, () => authz.requireParentContactsSession()), null);

@@ -45,7 +45,7 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
   // broader attendance rule below lets in. Mirrors requireLeaderAttendanceSession().
   { test: (p) => p.startsWith("/portal/admin/attendance/leaders"), roles: ["ADMIN", "JUNIOR_ADMIN", "ATTENDANCE_ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/attendance"), roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE", "ATTENDANCE_ADMIN"] },
-  { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "PHOTOGRAPHER"] },
+  { test: (p) => p.startsWith("/portal/admin/albums"), roles: ["ADMIN", "JUNIOR_ADMIN", "PHOTOGRAPHER"] },
   { test: (p) => p.startsWith("/portal/admin/users"), roles: ["ADMIN"] },
   { test: (p) => p.startsWith("/portal/admin/parent-portal"), roles: ["ADMIN"] },
   // Receipts (donation and payment PDFs, with the pack's EIN) are Admin-only, no Junior Admin.

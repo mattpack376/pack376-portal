@@ -24,6 +24,7 @@ let rules: typeof import("@/lib/albumPhotoRules");
 
 let admin: SessionUser;
 let photographer: SessionUser;
+let juniorAdmin: SessionUser;
 let parent: SessionUser;
 
 before(async () => {
@@ -38,6 +39,7 @@ before(async () => {
   };
   admin = await make("photos-admin", "ADMIN");
   photographer = await make("photos-photographer", "PHOTOGRAPHER");
+  juniorAdmin = await make("photos-junior", "JUNIOR_ADMIN");
   parent = await make("photos-parent", "PARENT");
 });
 
@@ -124,6 +126,19 @@ describe("uploadAlbumPhotoAction", () => {
     const spread = (s: Awaited<ReturnType<typeof region>>) => s.channels[0].max - s.channels[0].min;
     assert.ok(spread(corner) > 100, "watermark lettering should be in the bottom-right corner");
     assert.ok(spread(clear) < 20, "the rest of the photo should be untouched");
+  });
+
+  it("a Junior Admin can upload too", async () => {
+    const album = await makeAlbum("Junior upload");
+    assert.deepEqual(await upload(juniorAdmin, album.id), { ok: true });
+    assert.equal(await db.prisma.albumPhoto.count({ where: { albumId: album.id } }), 1);
+  });
+
+  it("a Junior Admin still can't delete a whole album", async () => {
+    const album = await makeAlbum("Junior can't delete");
+    const refused = await settle(runAs(juniorAdmin, () => albums.deleteAlbumAction(form({ albumId: album.id }))));
+    assert.equal(refused.ok, false);
+    assert.equal(await db.prisma.photoAlbum.count({ where: { id: album.id } }), 1);
   });
 
   it("is refused for anyone who can't edit albums, and nothing is uploaded", async () => {

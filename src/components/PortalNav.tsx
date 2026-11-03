@@ -101,7 +101,8 @@ export default function PortalNav({
         ];
       case "JUNIOR_ADMIN":
         // Same shape as ADMIN minus what they can't reach: Money is
-        // read-only for them, Homepage Content is the top banner alone, and
+        // read-only for them, Homepage Content is the top banner alone, Photo
+        // Albums is everything but deleting a whole album, and
         // there are no event pages (requireTripPageSession turns them away).
         // The calendar is view-only for them, as for every role below Admin.
         return [
@@ -126,6 +127,7 @@ export default function PortalNav({
             ],
           },
           { href: "/portal/admin/homepage-events", label: "Top Banner" },
+          { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/admin/calendar", label: "Calendar" },
         ];
       case "COMMITTEE":
