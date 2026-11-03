@@ -430,6 +430,21 @@ section { padding: 64px 0; }
   letter-spacing: 0.02em;
 }
 
+/* ---------- Under Construction warning (gallery page, temporary) ---------- */
+.construction-banner {
+  background: #ffd23f;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-image: repeating-linear-gradient(-45deg, #000 0 12px, #ffd23f 12px 24px) 6;
+  color: #000;
+  text-align: center;
+  padding: 12px 20px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Fact bar (floats over the hero/section boundary) ---------- */
 .fact-bar-wrap {
   position: relative;

@@ -40,9 +40,6 @@ export default async function GalleryPage() {
             <div className="album-tile-date">{formatLongDate(album.eventDate)}</div>
             <h3>{album.title}</h3>
             {album.description && <p>{album.description}</p>}
-            <a className="link" href={album.photoAlbumUrl} target="_blank" rel="noopener noreferrer">
-              View Photos →
-            </a>
           </div>
         </div>
       ))}
@@ -53,6 +50,10 @@ export default async function GalleryPage() {
     <>
       <Header />
       <SiteBanner />
+      <div className="construction-banner" role="status">
+        <span aria-hidden="true">🚧</span> Under Construction — this page is still being built.
+        Album links are coming soon. <span aria-hidden="true">🚧</span>
+      </div>
 
       <section className="page-hero">
         <div className="eyebrow" style={{ background: "rgba(255,255,255,0.15)", color: "var(--scout-gold)" }}>
@@ -60,8 +61,8 @@ export default async function GalleryPage() {
         </div>
         <h1>Photo Albums</h1>
         <p>
-          Photos live in our private, pack-only photo library — click into an album to browse and
-          download. Ask a den leader if you&apos;d like to add photos to an album.
+          A peek at our pack nights, campouts, and events. Ask a den leader if you&apos;d like to
+          add photos to an album.
         </p>
       </section>
       <div className="wave-divider" style={{ marginTop: -1 }}>
