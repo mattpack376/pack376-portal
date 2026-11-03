@@ -13,14 +13,13 @@ export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Photo Albums — Pack 376",
-  description: "Photos from Pack 376 pack nights, campouts, and events — past and upcoming.",
+  description: "Photos from Pack 376 pack nights, campouts, and events.",
 };
 
 export default async function GalleryPage() {
   const albums = await prisma.photoAlbum.findMany({ where: { isVisible: true }, orderBy: { eventDate: "desc" } });
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
-  const upcoming = albums.filter((a) => a.eventDate >= today).reverse();
   const past = albums.filter((a) => a.eventDate < today);
 
   const renderAlbums = (list: typeof albums) => (
@@ -76,20 +75,6 @@ export default async function GalleryPage() {
       </div>
 
       <section style={{ paddingTop: 24 }}>
-        <div className="container">
-          <div className="section-head center">
-            <div className="eyebrow">Save the Date</div>
-            <h2>Upcoming Events</h2>
-          </div>
-          {upcoming.length === 0 ? (
-            <p style={{ textAlign: "center" }}>No upcoming albums yet — check back soon.</p>
-          ) : (
-            renderAlbums(upcoming)
-          )}
-        </div>
-      </section>
-
-      <section style={{ background: "var(--white)" }}>
         <div className="container">
           <div className="section-head center">
             <div className="eyebrow">Throwbacks</div>
