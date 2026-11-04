@@ -29,7 +29,12 @@ const NAV_ITEMS = [
  * no prop and gets normal same-app links.
  */
 export default function Header({ mainSiteOrigin }: { mainSiteOrigin?: string }) {
-  const pathname = usePathname();
+  // The homepage is a cached page rebuilt every 5 minutes, and Next renders
+  // that rebuild with the path "/index" instead of "/". Without this, the
+  // server-sent HTML never highlights Home, and it only lights up after an
+  // in-app navigation — so the menu looked different on a fresh load.
+  const rawPathname = usePathname();
+  const pathname = rawPathname === "/index" ? "/" : rawPathname;
   const [open, setOpen] = useState(false);
   const navLinksRef = useRef<HTMLDivElement>(null);
 
