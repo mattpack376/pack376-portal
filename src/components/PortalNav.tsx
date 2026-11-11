@@ -96,8 +96,14 @@ export default function PortalNav({
               { href: "/portal/admin/albums", label: "Photo Albums" },
             ],
           },
-          // Master admin only; the page itself also checks.
-          ...(isMasterAdmin ? [{ href: "/portal/admin/audit", label: "Audit Log" }] : []),
+          {
+            label: "Audits",
+            children: [
+              { href: "/portal/audits/advancement", label: "Advancement Audits" },
+              // Master admin only; the page itself also checks.
+              ...(isMasterAdmin ? [{ href: "/portal/admin/audit", label: "Audit Log" }] : []),
+            ],
+          },
         ];
       case "JUNIOR_ADMIN":
         // Same shape as ADMIN minus what they can't reach: Money is
@@ -129,6 +135,7 @@ export default function PortalNav({
           { href: "/portal/admin/homepage-events", label: "Top Banner" },
           { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/admin/calendar", label: "Calendar" },
+          { href: "/portal/audits/advancement", label: "Advancement Audits" },
         ];
       case "COMMITTEE":
         return [
@@ -170,6 +177,8 @@ export default function PortalNav({
           { href: "/portal/roster/leaders", label: "Committee & Leaders" },
           { href: withDenId("/portal/roster/family-view"), label: "Family View" },
           { href: "/portal/admin/calendar", label: "Calendar" },
+          // Their own den(s) only, read-only — where an Admin's "needs correction" notes show up.
+          { href: "/portal/audits/advancement", label: "Advancement Audits" },
         ];
     }
   })();

@@ -37,6 +37,10 @@ const ROUTE_RULES: { test: (pathname: string) => boolean; roles: Role[] }[] = [
     test: (p) => p.startsWith("/portal/roster"),
     roles: ["ADMIN", "JUNIOR_ADMIN", "COMMITTEE", "DEN", "ATTENDANCE_ADMIN", "PHOTOGRAPHER"],
   },
+  // Audits -> Advancement: Admin and Junior Admin for every den, a Den Leader
+  // for their own den(s) (narrowed on the page). Mirrors
+  // requireAdvancementAuditSession() in authorize.ts.
+  { test: (p) => p.startsWith("/portal/audits"), roles: ["ADMIN", "JUNIOR_ADMIN", "DEN"] },
   // Editing who's on the leader & committee attendance list — checked before
   // the attendance rule below, which would otherwise let every attendance
   // role in. Mirrors requireAdminSession() on the Manage List page.

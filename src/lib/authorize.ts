@@ -284,6 +284,30 @@ export function canResetLeaderAttendance(session: Session) {
   return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN";
 }
 
+/**
+ * Audits -> Advancement (/portal/audits/advancement): Admin and Junior Admin
+ * for every den, and a Den Leader for their assigned den(s) only — the data
+ * loader narrows a Den Leader to session.denIds. Committee Members are left
+ * out (the user's choice, 2026-11-10). Mirrors the proxy.ts rule.
+ */
+export async function requireAdvancementAuditSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN" && session.role !== "DEN") {
+    redirect(homeForRole(session.role));
+  }
+  return session;
+}
+
+/** Sees every den on the advancement audit and can flag or resolve records; a Den Leader only reads. */
+export function isAdvancementAuditEditor(session: Session) {
+  return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN";
+}
+
+/** For the advancement audit's Server Actions — see isAdvancementAuditEditor. */
+export function assertAdvancementAuditEditor(session: Session) {
+  if (!isAdvancementAuditEditor(session)) throw new Error("Not authorized.");
+}
+
 /** Admin, Junior Admin or Committee Member for any den's advancement; a den login only for its assigned den(s). */
 export function assertAdvancementDenAccess(session: SessionPayload, denId: string) {
   if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "COMMITTEE") return;

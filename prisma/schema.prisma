@@ -93,6 +93,7 @@ model User {
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
   advancementUpdates       AdvancementRecord[]
+  advancementAuditMarks    AdvancementAuditMark[]
   attendanceUpdates        Attendance[]
   leaderAttendanceUpdates  AdultLeaderAttendance[]
   duesPaymentsLogged       DuesPayment[]
@@ -278,8 +279,37 @@ model AdvancementRecord {
   updatedAt       DateTime  @updatedAt
   updatedByUserId String?
   updatedByUser   User?     @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  auditMark       AdvancementAuditMark?
 
   @@unique([scoutId, adventureId])
+}
+
+enum AdvancementAuditMarkKind {
+  // An Admin looked at the flags on this record and accepted them as they are.
+  RESOLVED
+  // An Admin wants the den leader to fix this record.
+  NEEDS_CORRECTION
+}
+
+/**
+ * The one decision an Admin or Junior Admin has made about an advancement
+ * record on Audits -> Advancement. At most one per record; a new decision
+ * replaces the old one. It only counts while the record is unchanged:
+ * recordUpdatedAt is the record's updatedAt when the decision was made, so
+ * once someone edits the record the mark is ignored and the record is checked
+ * afresh (a "needs correction" mark clears itself when the leader fixes it).
+ * See src/lib/advancementAuditRules.ts.
+ */
+model AdvancementAuditMark {
+  id              String                   @id @default(cuid())
+  recordId        String                   @unique
+  record          AdvancementRecord        @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  kind            AdvancementAuditMarkKind
+  note            String
+  recordUpdatedAt DateTime
+  markedByUserId  String?
+  markedByUser    User?                    @relation(fields: [markedByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime                 @default(now())
 }
 
 model MeetingDate {

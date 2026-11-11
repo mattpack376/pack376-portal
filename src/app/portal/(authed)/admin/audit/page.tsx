@@ -117,6 +117,15 @@ export default async function AuditLogPage({
         </p>
       </div>
 
+      <SegmentedNav
+        noPrint
+        active="log"
+        items={[
+          { key: "advancement", href: "/portal/audits/advancement", label: "Advancement" },
+          { key: "log", href: "/portal/admin/audit", label: "Audit Log" },
+        ]}
+      />
+
       <SegmentedNav items={tabs} active={view} noPrint />
 
       <p className="form-note" style={{ marginTop: -12, marginBottom: 20 }}>

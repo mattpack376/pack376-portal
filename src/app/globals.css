@@ -3399,3 +3399,81 @@ html { -webkit-tap-highlight-color: transparent; }
 @media (hover: none) {
   :where(a, button, summary, label):active { opacity: 0.7; }
 }
+
+/* ---------- Audits -> Advancement (/portal/audits/advancement) ---------- */
+.aa-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.aa-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  padding: 14px 16px;
+  border-top: 4px solid var(--scout-blue);
+  color: var(--ink);
+  text-decoration: none;
+}
+.aa-metric:hover { box-shadow: var(--shadow-pop); }
+.aa-metric-review { border-top-color: var(--scout-gold-dark); }
+.aa-metric-flags { border-top-color: var(--carnival-red); }
+.aa-metric-ready { border-top-color: var(--money-green); }
+.aa-metric-value { font-family: var(--font-display); font-size: 28px; font-weight: 800; line-height: 1.1; }
+.aa-metric-label { font-weight: 700; font-size: 14px; }
+.aa-metric-sub { font-size: 12.5px; color: var(--ink-soft); }
+@media screen and (max-width: 900px) {
+  .aa-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.aa-bulk { margin-bottom: 20px; padding: 16px 20px; }
+.aa-scout { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.aa-scout input[type="checkbox"] { margin-top: 3px; }
+
+.aa-status-flagged { background: var(--carnival-red); color: var(--white); }
+.aa-status-correction { background: var(--scout-gold); color: var(--scout-blue-dark); }
+.aa-status-resolved { background: var(--cream-dark); color: var(--ink-soft); }
+.aa-status-ready { background: var(--teal); color: var(--white); }
+.aa-status-awarded { background: var(--money-green); color: var(--white); }
+.aa-mark-note { display: block; margin-top: 6px; max-width: 260px; }
+
+.aa-tag {
+  display: inline-block;
+  margin: 0 6px 4px 0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--carnival-red-dark);
+  background: rgba(228, 0, 43, 0.08);
+  cursor: help;
+}
+
+.aa-table td.actions { min-width: 150px; }
+.aa-history { margin-top: 6px; }
+.aa-history > summary { list-style: none; }
+.aa-history > summary::-webkit-details-marker { display: none; }
+.aa-history-body {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--cream);
+  border-radius: 10px;
+  max-width: 320px;
+  font-size: 13.5px;
+}
+.aa-history-list { list-style: none; padding: 0; margin: 6px 0 0; }
+.aa-history-list li { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-top: 1px solid var(--cream-dark); }
+
+/* A row that needs someone gets an edge, on the desktop table and as a card. */
+.aa-table tbody tr.aa-row-flagged > td:first-child { box-shadow: inset 4px 0 0 var(--carnival-red); }
+.aa-table tbody tr.aa-row-needs_correction > td:first-child { box-shadow: inset 4px 0 0 var(--scout-gold-dark); }
+@media screen and (max-width: 900px) {
+  .aa-table tbody tr.aa-row-flagged { border-left: 4px solid var(--carnival-red); }
+  .aa-table tbody tr.aa-row-needs_correction { border-left: 4px solid var(--scout-gold-dark); }
+  .aa-table tbody tr > td:first-child { box-shadow: none !important; }
+  .aa-history-body { max-width: none; }
+}
