@@ -63,6 +63,7 @@ export default async function AdminScoutDuesPage({
               id="overrideAmount"
               name="amount"
               type="number"
+              inputMode="decimal"
               min="0"
               step="0.01"
               placeholder="Leave blank for standard fee"
@@ -81,7 +82,7 @@ export default async function AdminScoutDuesPage({
           <input type="hidden" name="scoutId" value={scout.id} />
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
             <label htmlFor="amount">Amount ($)</label>
-            <input id="amount" name="amount" type="number" min="0.01" step="0.01" required />
+            <input id="amount" name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required />
           </div>
           <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
             <label htmlFor="paidOn">Date</label>

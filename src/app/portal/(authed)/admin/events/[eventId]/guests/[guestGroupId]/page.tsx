@@ -147,7 +147,7 @@ export default async function AdminGuestGroupPage({
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
             <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
               <label htmlFor="amount">Amount ($)</label>
-              <input id="amount" name="amount" type="number" min="0.01" step="0.01" required />
+              <input id="amount" name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required />
             </div>
             <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
               <label htmlFor="paidOn">Date</label>

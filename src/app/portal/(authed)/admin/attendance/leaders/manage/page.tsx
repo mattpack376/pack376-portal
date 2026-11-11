@@ -133,6 +133,9 @@ function LeaderFields({
               id={`${idPrefix}-email`}
               name="email"
               type="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               maxLength={200}
               defaultValue={leader?.email ?? ""}
               placeholder="e.g. jane@example.com"

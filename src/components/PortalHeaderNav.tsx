@@ -51,6 +51,7 @@ export default function PortalHeaderNav({
       <button
         className="portal-nav-toggle"
         aria-label="Toggle menu"
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         &#9776;

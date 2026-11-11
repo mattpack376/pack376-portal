@@ -59,7 +59,7 @@ export default function NewDenPage() {
             </div>
             <div className="form-field">
               <label htmlFor="username">Username (if creating login)</label>
-              <input id="username" name="username" type="text" placeholder="e.g. wolf2026" />
+              <input id="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} name="username" type="text" placeholder="e.g. wolf2026" />
             </div>
             {state?.error && <p className="form-error">{state.error}</p>}
             <button type="submit" className="btn btn-primary" disabled={pending}>

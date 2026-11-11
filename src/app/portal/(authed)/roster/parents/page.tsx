@@ -244,6 +244,9 @@ export default async function ParentContactsPage({
                                   <input
                                     name="email"
                                     type="email"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellCheck={false}
                                     defaultValue={parent.email ?? ""}
                                     className="parent-input"
                                     style={inputStyle}
@@ -298,7 +301,7 @@ export default async function ParentContactsPage({
                         >
                           <input type="hidden" name="scoutId" value={scout.id} />
                           <input name="name" required placeholder="Parent name" className="parent-input" style={inputStyle} />
-                          <input name="email" type="email" placeholder="Email" className="parent-input" style={inputStyle} />
+                          <input name="email" type="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="Email" className="parent-input" style={inputStyle} />
                           <input name="phone" type="tel" placeholder="Phone" className="parent-input" style={inputStyle} />
                           <button type="submit" className="btn btn-primary btn-small" style={buttonStyle}>Add Parent</button>
                         </form>

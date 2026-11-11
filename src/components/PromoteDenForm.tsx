@@ -60,7 +60,7 @@ export default function PromoteDenForm({
         </div>
         <div className="form-field">
           <label htmlFor="username">Username (if creating login)</label>
-          <input id="username" name="username" type="text" defaultValue={suggestedUsername} />
+          <input id="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} name="username" type="text" defaultValue={suggestedUsername} />
         </div>
         {state?.error && <p className="form-error">{state.error}</p>}
         <button type="submit" className="btn btn-red" disabled={pending}>

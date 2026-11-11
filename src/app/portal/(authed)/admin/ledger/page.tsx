@@ -146,7 +146,7 @@ export default async function LedgerPage({
                 </div>
                 <div className="form-field">
                   <label htmlFor="move-amount">Amount ($)</label>
-                  <input id="move-amount" name="amount" type="number" min="0.01" max="1000000" step="0.01" required />
+                  <input id="move-amount" name="amount" type="number" inputMode="decimal" min="0.01" max="1000000" step="0.01" required />
                 </div>
               </div>
               <div className="form-row" style={{ alignItems: "flex-end" }}>

@@ -71,6 +71,9 @@ export default function CreateParentForm({ scouts }: { scouts: ScoutOption[] }) 
           <input
             id="new-parent-email"
             type="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Emails the setup link"

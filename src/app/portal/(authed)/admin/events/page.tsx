@@ -116,15 +116,15 @@ export default async function AdminEventsPage() {
           <div className="form-row">
             <div className="form-field">
               <label htmlFor="fee">Default Fee Per Scout ($, optional)</label>
-              <input id="fee" name="fee" type="number" min="0" step="0.01" placeholder="Also required for parent self-signup" />
+              <input id="fee" name="fee" type="number" inputMode="decimal" min="0" step="0.01" placeholder="Also required for parent self-signup" />
             </div>
             <div className="form-field">
               <label htmlFor="adultFee">Default Fee Per Adult ($, optional)</label>
-              <input id="adultFee" name="adultFee" type="number" min="0" step="0.01" placeholder="Also required for parent self-signup" />
+              <input id="adultFee" name="adultFee" type="number" inputMode="decimal" min="0" step="0.01" placeholder="Also required for parent self-signup" />
             </div>
             <div className="form-field">
               <label htmlFor="guestChildFee">Default Fee Per Guest Child ($, optional)</label>
-              <input id="guestChildFee" name="guestChildFee" type="number" min="0" step="0.01" placeholder="Also required for parent self-signup" />
+              <input id="guestChildFee" name="guestChildFee" type="number" inputMode="decimal" min="0" step="0.01" placeholder="Also required for parent self-signup" />
             </div>
           </div>
           <div className="form-field">

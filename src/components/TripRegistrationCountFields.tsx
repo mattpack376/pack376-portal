@@ -111,6 +111,7 @@ export default function TripRegistrationCountFields({
           id={`${idPrefix}-amountOwed`}
           name="amountOwed"
           type="number"
+          inputMode="decimal"
           min="0"
           step="0.01"
           required={!owedPending}

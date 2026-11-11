@@ -31,7 +31,7 @@ export default function ContactForm() {
       </div>
       <div className="form-field">
         <label htmlFor="cf-email">Email</label>
-        <input type="email" id="cf-email" name="email" required />
+        <input type="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} id="cf-email" name="email" required />
       </div>
       <div className="form-field">
         <label htmlFor="cf-message">Message</label>

@@ -117,6 +117,7 @@ export default function PaymentsTab({
               id={`${id}-amount`}
               name="amount"
               type="number"
+              inputMode="decimal"
               min="0.01"
               step="0.01"
               required
@@ -355,7 +356,7 @@ export default function PaymentsTab({
                 </div>
                 <div className="form-field">
                   <label htmlFor="loose-amount">Amount ($)</label>
-                  <input id="loose-amount" name="amount" type="number" min="0.01" step="0.01" required />
+                  <input id="loose-amount" name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required />
                 </div>
               </div>
               <div className="form-row">

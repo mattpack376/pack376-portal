@@ -1355,6 +1355,9 @@ section { padding: 64px 0; }
 .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
   outline: none;
   border-color: var(--scout-gold);
+  /* The gold border alone is too faint on white to show which field is
+     active; the blue ring outside it is what you actually see. */
+  box-shadow: 0 0 0 2px var(--scout-blue-light);
 }
 /*
  * One height for every single-line control, so a date next to a text field
@@ -3367,4 +3370,32 @@ button.raffle-box:focus-visible { outline: 3px solid var(--scout-blue-light); ou
    view when Close took focus. Cap the picture so the image and the Close button both fit without scrolling. */
 @media (max-height: 480px) and (max-width: 1100px) {
   .enlarge-dialog img { width: auto !important; max-width: 100%; max-height: calc(90dvh - 110px); margin: 0 auto; object-fit: contain; }
+}
+
+/* ---------- Focus and tap feedback (site-wide defaults) ---------- */
+/*
+ * A visible ring for anyone moving through the page with a keyboard
+ * (focus-visible, so a mouse click or tap doesn't draw it). :where() keeps
+ * these at zero specificity, so the element-specific rings above still win.
+ * Gold on the blue header/footer, blue everywhere else.
+ */
+:where(a, button, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 3px solid var(--scout-blue-light);
+  outline-offset: 2px;
+}
+:where(.site-header, .portal-header, .site-footer) :where(a, button, summary):focus-visible {
+  outline-color: var(--scout-gold);
+}
+:where(input[type="checkbox"], input[type="radio"]):focus-visible {
+  outline: 3px solid var(--scout-blue-light);
+  outline-offset: 2px;
+}
+/*
+ * Phones flash a grey box over anything tapped, which looks like a web page
+ * rather than an app. Swap it for a brief dim of the thing itself, on touch
+ * screens only (buttons with their own pressed state still get it too).
+ */
+html { -webkit-tap-highlight-color: transparent; }
+@media (hover: none) {
+  :where(a, button, summary, label):active { opacity: 0.7; }
 }

@@ -101,6 +101,7 @@ export default function LedgerEntryFields({
           id={`${idPrefix}amount`}
           name="amount"
           type="number"
+          inputMode="decimal"
           min="0.01"
           max="1000000"
           step="0.01"

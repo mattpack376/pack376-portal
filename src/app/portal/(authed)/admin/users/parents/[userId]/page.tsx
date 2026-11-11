@@ -74,7 +74,7 @@ export default async function ManageParentAccountPage({
           <input type="hidden" name="userId" value={user.id} />
           <div className="form-field" style={{ marginBottom: 0, flex: 1 }}>
             <label htmlFor="email">Email</label>
-            <input id="email" name="email" type="email" defaultValue={user.email ?? ""} />
+            <input id="email" name="email" type="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} defaultValue={user.email ?? ""} />
           </div>
           <SaveButton className="btn btn-primary">Save</SaveButton>
         </form>

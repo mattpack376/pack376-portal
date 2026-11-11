@@ -111,6 +111,9 @@ export default function ReceiptResendButton({
       <div className="form-field" style={{ margin: 0, flex: "1 1 200px", minWidth: 0 }}>
         <input
           type="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           inputMode="email"
           autoComplete="off"
           maxLength={MAX_EMAIL_LENGTH}

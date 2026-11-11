@@ -48,6 +48,7 @@ export default function GuestGroupCountFields({
             id={`${idPrefix}-adultCount`}
             name="adultCount"
             type="number"
+            inputMode="numeric"
             min="0"
             max={maxPeople}
             step="1"
@@ -65,6 +66,7 @@ export default function GuestGroupCountFields({
             id={`${idPrefix}-childCount`}
             name="childCount"
             type="number"
+            inputMode="numeric"
             min="0"
             max={maxPeople}
             step="1"
@@ -83,6 +85,7 @@ export default function GuestGroupCountFields({
           id={`${idPrefix}-amountOwed`}
           name="amountOwed"
           type="number"
+          inputMode="decimal"
           min="0"
           step="0.01"
           required

@@ -185,6 +185,7 @@ export default async function AdminEventDetailPage({
                 id="edit-fee"
                 name="fee"
                 type="number"
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 defaultValue={event.feeCents !== null ? centsFieldText(event.feeCents) : undefined}
@@ -197,6 +198,7 @@ export default async function AdminEventDetailPage({
                 id="edit-adultFee"
                 name="adultFee"
                 type="number"
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 defaultValue={event.adultFeeCents !== null ? centsFieldText(event.adultFeeCents) : undefined}
@@ -209,6 +211,7 @@ export default async function AdminEventDetailPage({
                 id="edit-guestChildFee"
                 name="guestChildFee"
                 type="number"
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 defaultValue={event.guestChildFeeCents !== null ? centsFieldText(event.guestChildFeeCents) : undefined}
@@ -345,6 +348,7 @@ export default async function AdminEventDetailPage({
                 id="amountOwed"
                 name="amountOwed"
                 type="number"
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 required

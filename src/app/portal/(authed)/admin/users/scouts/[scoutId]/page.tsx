@@ -113,7 +113,7 @@ export default async function ManageScoutPage({
             </div>
             <div className="form-field">
               <label htmlFor="scouterId">Scouter ID#</label>
-              <input id="scouterId" name="scouterId" type="text" defaultValue={scout.scouterId ?? ""} />
+              <input id="scouterId" name="scouterId" type="text" inputMode="numeric" defaultValue={scout.scouterId ?? ""} />
             </div>
           </div>
           <SaveButton className="btn btn-primary">Save Changes</SaveButton>

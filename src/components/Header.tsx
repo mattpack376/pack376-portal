@@ -67,6 +67,7 @@ export default function Header({ mainSiteOrigin }: { mainSiteOrigin?: string }) 
         <button
           className="nav-toggle"
           aria-label="Toggle menu"
+          aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >
           &#9776;

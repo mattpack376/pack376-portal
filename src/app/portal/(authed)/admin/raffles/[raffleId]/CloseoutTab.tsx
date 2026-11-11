@@ -103,7 +103,7 @@ export default function CloseoutTab({
                   <div className="form-row">
                     <div className="form-field">
                       <label htmlFor="winningBox">Winning Box</label>
-                      <input id="winningBox" name="winningBox" type="number" min="1" max={raffle.boxCount} step="1" required />
+                      <input id="winningBox" name="winningBox" type="number" inputMode="numeric" min="1" max={raffle.boxCount} step="1" required />
                     </div>
                     <div className="form-field">
                       <label htmlFor="winnerName">Winner&apos;s Name (optional)</label>
@@ -281,6 +281,7 @@ export default function CloseoutTab({
                     id="edit-boxCount"
                     name="boxCount"
                     type="number"
+                    inputMode="numeric"
                     min="1"
                     max={MAX_RAFFLE_BOXES}
                     step="1"
@@ -292,11 +293,11 @@ export default function CloseoutTab({
               <div className="form-row">
                 <div className="form-field">
                   <label htmlFor="edit-price">Price Per Box ($)</label>
-                  <input id="edit-price" name="price" type="number" min="0.01" step="0.01" required defaultValue={(raffle.priceCents / 100).toFixed(2)} />
+                  <input id="edit-price" name="price" type="number" inputMode="decimal" min="0.01" step="0.01" required defaultValue={(raffle.priceCents / 100).toFixed(2)} />
                 </div>
                 <div className="form-field">
                   <label htmlFor="edit-prizePercent">Winner&apos;s Share (%)</label>
-                  <input id="edit-prizePercent" name="prizePercent" type="number" min="0" max="100" step="1" required defaultValue={raffle.prizePercent} />
+                  <input id="edit-prizePercent" name="prizePercent" type="number" inputMode="numeric" min="0" max="100" step="1" required defaultValue={raffle.prizePercent} />
                 </div>
               </div>
               <div className="form-field">

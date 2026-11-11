@@ -38,7 +38,7 @@ export default function CreateAdminForm({ canCreateAdmins }: { canCreateAdmins: 
     <form onSubmit={handleSubmit}>
       <div className="form-field">
         <label htmlFor="new-admin-username">Username</label>
-        <input id="new-admin-username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+        <input id="new-admin-username" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} required />
       </div>
       <div className="form-field">
         <label htmlFor="new-admin-name">Display Name</label>
@@ -55,6 +55,9 @@ export default function CreateAdminForm({ canCreateAdmins }: { canCreateAdmins: 
         <input
           id="new-admin-email"
           type="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Emails a setup link instead of showing it on screen"

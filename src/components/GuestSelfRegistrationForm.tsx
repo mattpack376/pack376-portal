@@ -70,6 +70,7 @@ export default function GuestSelfRegistrationForm({
               id={`adultCount-${eventId}`}
               name="adultCount"
               type="number"
+              inputMode="numeric"
               min="0"
               max={SELF_SERVICE_GUEST_GROUP_MAX_PEOPLE}
               step="1"
@@ -84,6 +85,7 @@ export default function GuestSelfRegistrationForm({
               id={`childCount-${eventId}`}
               name="childCount"
               type="number"
+              inputMode="numeric"
               min="0"
               max={SELF_SERVICE_GUEST_GROUP_MAX_PEOPLE}
               step="1"

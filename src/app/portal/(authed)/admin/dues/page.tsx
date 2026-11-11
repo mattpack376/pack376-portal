@@ -71,6 +71,7 @@ export default async function AdminDuesPage({
                 id="amount"
                 name="amount"
                 type="number"
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 defaultValue={amountCents === null ? "" : (amountCents / 100).toFixed(2)}

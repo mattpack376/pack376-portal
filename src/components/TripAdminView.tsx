@@ -309,6 +309,7 @@ export default async function TripAdminView({
                             id={`${idPrefix}expense-amount-${e.id}`}
                             name="amount"
                             type="number"
+                            inputMode="decimal"
                             min="0.01"
                             step="0.01"
                             required
@@ -366,7 +367,7 @@ export default async function TripAdminView({
               </div>
               <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
                 <label htmlFor="expense-amount">Amount ($)</label>
-                <input id="expense-amount" name="amount" type="number" min="0.01" step="0.01" required />
+                <input id="expense-amount" name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required />
               </div>
               <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
                 <label htmlFor="expense-spentOn">Date</label>
@@ -479,6 +480,7 @@ export default async function TripAdminView({
                     id="regularPrice"
                     name="regularPrice"
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     step="0.01"
                     required
@@ -491,6 +493,7 @@ export default async function TripAdminView({
                     id="earlyBirdPrice"
                     name="earlyBirdPrice"
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     step="0.01"
                     defaultValue={trip.earlyBirdPriceCents !== null ? (trip.earlyBirdPriceCents / 100).toFixed(2) : undefined}
@@ -513,6 +516,7 @@ export default async function TripAdminView({
                   id="freeAgeAndUnder"
                   name="freeAgeAndUnder"
                   type="number"
+                  inputMode="numeric"
                   min="0"
                   step="1"
                   defaultValue={trip.freeAgeAndUnder ?? undefined}
@@ -926,7 +930,7 @@ export default async function TripAdminView({
                           <div className="form-row">
                             <div className="form-field" style={{ flex: 1, minWidth: 200 }}>
                               <label htmlFor={`contactEmail-${reg.id}`}>Email</label>
-                              <input id={`contactEmail-${reg.id}`} name="contactEmail" type="email" required defaultValue={reg.contactEmail} />
+                              <input id={`contactEmail-${reg.id}`} name="contactEmail" type="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} required defaultValue={reg.contactEmail} />
                             </div>
                             <div className="form-field">
                               <label htmlFor={`contactPhone-${reg.id}`}>Phone</label>
@@ -1021,7 +1025,7 @@ export default async function TripAdminView({
                             <input type="hidden" name="tripRegistrationId" value={reg.id} />
                             <div className="form-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
                               <label htmlFor={`amount-${reg.id}`}>Amount ($)</label>
-                              <input id={`amount-${reg.id}`} name="amount" type="number" min="0.01" step="0.01" required />
+                              <input id={`amount-${reg.id}`} name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required />
                             </div>
                             <div className="form-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
                               <label htmlFor={`paidOn-${reg.id}`}>Date</label>
@@ -1097,7 +1101,7 @@ export default async function TripAdminView({
                 <div className="form-row">
                   <div className="form-field" style={{ flex: 1, minWidth: 180 }}>
                     <label htmlFor="add-contactEmail">Email</label>
-                    <input id="add-contactEmail" name="contactEmail" type="email" required />
+                    <input id="add-contactEmail" name="contactEmail" type="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} required />
                   </div>
                   <div className="form-field" style={{ flex: 1, minWidth: 140 }}>
                     <label htmlFor="add-contactPhone">Phone</label>
@@ -1107,12 +1111,12 @@ export default async function TripAdminView({
                 <div className="form-row">
                   <div className="form-field">
                     <label htmlFor="add-payingCount">Paying Attendees</label>
-                    <input id="add-payingCount" name="payingCount" type="number" min="0" step="1" defaultValue={1} />
+                    <input id="add-payingCount" name="payingCount" type="number" inputMode="numeric" min="0" step="1" defaultValue={1} />
                   </div>
                   {trip.freeAgeAndUnder !== null && (
                     <div className="form-field">
                       <label htmlFor="add-freeCount">Free Attendees</label>
-                      <input id="add-freeCount" name="freeCount" type="number" min="0" step="1" defaultValue={0} />
+                      <input id="add-freeCount" name="freeCount" type="number" inputMode="numeric" min="0" step="1" defaultValue={0} />
                     </div>
                   )}
                 </div>

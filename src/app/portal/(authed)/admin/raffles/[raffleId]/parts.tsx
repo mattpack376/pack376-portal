@@ -77,6 +77,7 @@ export function RecordPaymentPopover({
           id={`${id}-amount`}
           name="amount"
           type="number"
+          inputMode="decimal"
           min="0.01"
           step="0.01"
           required

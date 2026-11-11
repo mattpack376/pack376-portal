@@ -158,17 +158,17 @@ export default async function AdminRafflesPage() {
                 </div>
                 <div className="form-field">
                   <label htmlFor="boxCount">Number of Boxes</label>
-                  <input id="boxCount" name="boxCount" type="number" min="1" max={MAX_RAFFLE_BOXES} step="1" required defaultValue="100" />
+                  <input id="boxCount" name="boxCount" type="number" inputMode="numeric" min="1" max={MAX_RAFFLE_BOXES} step="1" required defaultValue="100" />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-field">
                   <label htmlFor="price">Price Per Box ($)</label>
-                  <input id="price" name="price" type="number" min="0.01" step="0.01" required defaultValue="10" />
+                  <input id="price" name="price" type="number" inputMode="decimal" min="0.01" step="0.01" required defaultValue="10" />
                 </div>
                 <div className="form-field">
                   <label htmlFor="prizePercent">Winner&apos;s Share (%)</label>
-                  <input id="prizePercent" name="prizePercent" type="number" min="0" max="100" step="1" required defaultValue="50" />
+                  <input id="prizePercent" name="prizePercent" type="number" inputMode="numeric" min="0" max="100" step="1" required defaultValue="50" />
                 </div>
               </div>
               <div className="form-field">

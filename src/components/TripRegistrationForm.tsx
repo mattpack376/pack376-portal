@@ -234,6 +234,9 @@ function TripRegistrationFields({
             id="contactEmail"
             name="contactEmail"
             type="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             required
             maxLength={MAX_EMAIL_LENGTH}
             autoComplete="email"

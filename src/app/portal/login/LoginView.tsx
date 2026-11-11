@@ -52,6 +52,9 @@ export default function LoginView({
             name="username"
             type="text"
             autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             maxLength={MAX_USERNAME_LENGTH}
             defaultValue={state.username ?? ""}
             required

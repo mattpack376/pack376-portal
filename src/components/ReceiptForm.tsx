@@ -278,6 +278,9 @@ export default function ReceiptForm({
         <input
           id="receipt-email"
           type="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           inputMode="email"
           autoComplete="off"
           maxLength={MAX_EMAIL_LENGTH}
