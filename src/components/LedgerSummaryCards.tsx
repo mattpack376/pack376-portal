@@ -7,42 +7,61 @@ function shown(category: LedgerCategorySummary) {
   return !category.archived || category.netCents !== 0;
 }
 
-/**
- * One box's categories as a table: income and expenses in their own columns,
- * then what's left. On a phone each row becomes a small card (the shared
- * .data-table rules).
- */
-function CategoryTable({ categories, label }: { categories: LedgerCategorySummary[]; label: string }) {
+function CategoryLine({ category }: { category: LedgerCategorySummary }) {
   return (
-    <table className="data-table" style={{ marginBottom: 0, boxShadow: "none" }}>
-      <thead>
-        <tr>
-          <th>{label}</th>
-          <th>Income</th>
-          <th>Expenses</th>
-          <th>Balance</th>
-        </tr>
-      </thead>
-      <tbody>
-        {categories.map((c) => (
-          <tr key={c.id}>
-            <td>
-              {c.name}
-              {c.archived && <span className="form-note"> (archived)</span>}
-            </td>
-            <td data-label="Income" className={c.inCents > 0 ? "balance-positive" : undefined}>
-              {formatCents(c.inCents)}
-            </td>
-            <td data-label="Expenses" className={c.outCents > 0 ? "balance-negative" : undefined}>
-              {formatCents(c.outCents)}
-            </td>
-            <td data-label="Balance" className={balanceClass(c.netCents)} style={{ fontWeight: 700 }}>
-              {formatCents(c.netCents)}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <p style={{ marginBottom: 8 }}>
+      <strong>{category.name}:</strong> <span className={balanceClass(category.netCents)}>{formatCents(category.netCents)}</span>
+      <span className="form-note" style={{ display: "block", marginTop: 0 }}>
+        {formatCents(category.inCents)} in · {formatCents(category.outCents)} out
+        {category.archived ? " · archived" : ""}
+      </span>
+    </p>
+  );
+}
+
+/**
+ * One side of the Funds box: each fund that had money move this way, with
+ * its total, then the total for the side. Funds with nothing on this side
+ * are left off.
+ */
+function FlowColumn({
+  title,
+  funds,
+  pick,
+  className,
+}: {
+  title: string;
+  funds: LedgerCategorySummary[];
+  pick: (category: LedgerCategorySummary) => number;
+  className: string;
+}) {
+  const lines = funds.filter((c) => pick(c) > 0);
+  const total = lines.reduce((sum, c) => sum + pick(c), 0);
+  return (
+    <div>
+      <h4 className="ledger-flow-title">{title}</h4>
+      {lines.length === 0 ? (
+        <p className="form-note" style={{ marginBottom: 0 }}>
+          None yet.
+        </p>
+      ) : (
+        <dl className="raffle-ledger">
+          {lines.map((c) => (
+            <div key={c.id}>
+              <dt>
+                {c.name}
+                {c.archived ? " (archived)" : ""}
+              </dt>
+              <dd className={className}>{formatCents(pick(c))}</dd>
+            </div>
+          ))}
+          <div className="is-total">
+            <dt>Total</dt>
+            <dd className={className}>{formatCents(total)}</dd>
+          </div>
+        </dl>
+      )}
+    </div>
   );
 }
 
@@ -92,16 +111,24 @@ export default function LedgerSummaryCards({
       </div>
 
       <div className="card-row">
-        <div className="info-card">
+        {/* Wider than its neighbor, so Inflow and Outflow fit side by side. */}
+        <div className="info-card" style={{ flex: "2 1 480px" }}>
           <h3>Funds</h3>
-          {funds.length === 0 ? <p style={{ marginBottom: 0 }}>No fund categories yet.</p> : <CategoryTable categories={funds} label="Fund" />}
+          {funds.length === 0 ? (
+            <p style={{ marginBottom: 0 }}>No fund categories yet.</p>
+          ) : (
+            <div className="ledger-flow-cols">
+              <FlowColumn title="Inflow (+)" funds={funds} pick={(c) => c.inCents} className="balance-positive" />
+              <FlowColumn title="Outflow (−)" funds={funds} pick={(c) => c.outCents} className="balance-negative" />
+            </div>
+          )}
         </div>
         <div className="info-card">
           <h3>Balances for Events</h3>
           {events.length === 0 ? (
             <p style={{ marginBottom: 0 }}>No event categories yet. Mark a category as an Event on the Categories tab.</p>
           ) : (
-            <CategoryTable categories={events} label="Event" />
+            events.map((c) => <CategoryLine key={c.id} category={c} />)
           )}
         </div>
       </div>

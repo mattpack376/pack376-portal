@@ -2897,6 +2897,11 @@ button.raffle-box:focus-visible { outline: 3px solid var(--scout-blue-light); ou
 }
 .raffle-ledger .is-total dt,
 .raffle-ledger .is-total dd { font-size: 17px; color: var(--scout-blue-dark); font-weight: 700; }
+/* The Ledger's Funds box: money in on the left, money out on the right; stacked when there's no room. */
+.ledger-flow-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px 32px; }
+.ledger-flow-title { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); margin: 0 0 2px; padding-bottom: 6px; border-bottom: 2px solid var(--cream-dark); }
+.ledger-flow-cols .raffle-ledger dd.balance-positive { color: var(--money-green); }
+.ledger-flow-cols .raffle-ledger dd.balance-negative { color: var(--carnival-red-dark); }
 /* A struck-out payment keeps its line, visibly out of the count. */
 .data-table tr.raffle-voided > td { color: var(--ink-soft); }
 .data-table tr.raffle-voided > td.raffle-amount { text-decoration: line-through; }
