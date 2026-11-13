@@ -5,7 +5,6 @@ import {
   AUDIT_TABS,
   AUDIT_PAGE_SIZES,
   DEFAULT_AUDIT_PAGE_SIZE,
-  HIDDEN_TEST_ACCOUNT_NAMES,
   NO_ACCOUNT_ROLE,
   auditCategoryLabel,
   getAuditLogPage,
@@ -43,7 +42,6 @@ export default async function AuditLogPage({
     ip?: string;
     page?: string;
     per?: string;
-    test?: string;
   }>;
 }) {
   await requireMasterAdminSession();
@@ -54,17 +52,14 @@ export default async function AuditLogPage({
   const pageSize = parseAuditPageSize(params.per);
   const pageParam = Number(params.page);
   const requestedPage = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
-  const showTestAccounts = params.test === "show";
 
-  const { entries, total, page, pageCount, hidesTestAccounts, hiddenTestCount, actors, categories, dens, roles } =
-    await getAuditLogPage({
+  const { entries, total, page, pageCount, actors, categories, dens, roles } = await getAuditLogPage({
     tab: view,
     role,
     actorUserId: params.actor || undefined,
     category: params.category || undefined,
     denId: params.denId || undefined,
     ipAddress: params.ip || undefined,
-    showTestAccounts,
     page: requestedPage,
     pageSize,
   });
@@ -87,9 +82,8 @@ export default async function AuditLogPage({
   /** The current tab and filters at another page — or, from the Per page
    *  links, at another page size (back to page 1, since the old page number
    *  means something different at a new size). */
-  const pageHref = (targetPage: number, size: number = pageSize, showTest: boolean = showTestAccounts) => {
+  const pageHref = (targetPage: number, size: number = pageSize) => {
     const query = new URLSearchParams({ view });
-    if (showTest) query.set("test", "show");
     if (role) query.set("role", role);
     if (params.actor) query.set("actor", params.actor);
     if (params.category) query.set("category", params.category);
@@ -146,7 +140,6 @@ export default async function AuditLogPage({
       <form method="get" className="info-card no-print" style={{ marginBottom: 24, padding: 20 }}>
         <input type="hidden" name="view" value={view} />
         {params.ip && <input type="hidden" name="ip" value={params.ip} />}
-        {showTestAccounts && <input type="hidden" name="test" value="show" />}
         {pageSize !== DEFAULT_AUDIT_PAGE_SIZE && <input type="hidden" name="per" value={pageSize} />}
         <div className="form-row" style={{ marginBottom: 12, alignItems: "flex-end" }}>
           <div className="form-field">
@@ -213,28 +206,6 @@ export default async function AuditLogPage({
             </div>
           )}
         </div>
-        {/* Only on Sign-ins and Failed Sign-ins, and only when there's
-            something to hide or something being shown. */}
-        {(hiddenTestCount > 0 || (showTestAccounts && !hidesTestAccounts && !params.actor && (view === "signins" || view === "failedSignins"))) && (
-          <p className="form-note" style={{ marginTop: 0, marginBottom: 8 }}>
-            {hiddenTestCount > 0 ? (
-              <>
-                Hiding {hiddenTestCount} {hiddenTestCount === 1 ? "entry" : "entries"} from your test accounts (
-                {HIDDEN_TEST_ACCOUNT_NAMES.join(", ")}).{" "}
-                <Link href={pageHref(1, pageSize, true)} scroll={false}>
-                  Show them
-                </Link>
-              </>
-            ) : (
-              <>
-                Including your test accounts ({HIDDEN_TEST_ACCOUNT_NAMES.join(", ")}).{" "}
-                <Link href={pageHref(1, pageSize, false)} scroll={false}>
-                  Hide them
-                </Link>
-              </>
-            )}
-          </p>
-        )}
         {params.ip && (
           <p className="form-note" style={{ marginTop: 0, marginBottom: 8 }}>
             Showing only activity from <strong style={{ fontWeight: 700 }}>{params.ip}</strong>.

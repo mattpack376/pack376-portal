@@ -133,25 +133,6 @@ export function parseAuditRoleFilter(value: string | undefined): AuditRoleFilter
   return value !== undefined && Object.hasOwn(RoleEnum, value) ? (value as Role) : undefined;
 }
 
-/**
- * The master admin's own logins, used for testing every level of the portal.
- * Their sign-ins swamped the Sign-ins and Failed Sign-ins tabs, so those two
- * tabs leave them out unless "Show my test accounts" is clicked (or one of
- * them is picked in the Who dropdown). Nothing is deleted — every other tab,
- * and an IP address's "everything from here" view, still shows them.
- *
- * Matched on the display name stored with each entry, case-insensitively, so
- * it covers entries from logins that have since been renamed or deleted.
- */
-export const HIDDEN_TEST_ACCOUNT_NAMES = ["Matthew Rosen", "Matt Rosen", "Matt Bouncer"] as const;
-export const TEST_ACCOUNT_HIDING_TABS: readonly AuditTab[] = ["signins", "failedSignins"];
-
-function testAccountWhere(): Prisma.AuditLogWhereInput {
-  return {
-    OR: HIDDEN_TEST_ACCOUNT_NAMES.map((name) => ({ actorDisplayName: { equals: name, mode: "insensitive" as const } })),
-  };
-}
-
 /** The "Per page" choices. The first is the default. */
 export const AUDIT_PAGE_SIZES = [10, 25, 50, 75, 100] as const;
 export type AuditPageSize = (typeof AUDIT_PAGE_SIZES)[number];
@@ -231,8 +212,6 @@ export type AuditFilters = {
   denId?: string;
   /** Exact client address — reached by clicking one in the table, not a dropdown. */
   ipAddress?: string;
-  /** Include HIDDEN_TEST_ACCOUNT_NAMES on the tabs that hide them by default. */
-  showTestAccounts?: boolean;
   page: number;
   pageSize: AuditPageSize;
 };
@@ -245,14 +224,7 @@ export type AuditFilters = {
  * want to look them up.
  */
 export async function getAuditLogPage(filters: AuditFilters) {
-  const tabScope = tabWhere(filters.tab);
-  const hidesTestAccounts =
-    TEST_ACCOUNT_HIDING_TABS.includes(filters.tab) && !filters.showTestAccounts && !filters.actorUserId;
-  // The Who dropdown keeps listing the test accounts (from tabScope), so
-  // picking one of them still works; everything else counts without them.
-  const scopeWhere: Prisma.AuditLogWhereInput = hidesTestAccounts
-    ? { AND: [tabScope, { NOT: testAccountWhere() }] }
-    : tabScope;
+  const scopeWhere = tabWhere(filters.tab);
   const where: Prisma.AuditLogWhereInput = {
     ...scopeWhere,
     ...(filters.role ? { actorRole: filters.role === NO_ACCOUNT_ROLE ? null : filters.role } : {}),
@@ -277,16 +249,15 @@ export async function getAuditLogPage(filters: AuditFilters) {
    * offer "Advancement" in the What dropdown. Grouped in the database rather
    * than derived from `entries`, which is only the current page.
    */
-  const [actorGroups, categoryGroups, denGroups, roleGroups, hiddenTestCount] = await Promise.all([
+  const [actorGroups, categoryGroups, denGroups, roleGroups] = await Promise.all([
     prisma.auditLog.groupBy({
       by: ["actorUserId", "actorUsername", "actorDisplayName"],
-      where: tabScope,
+      where: scopeWhere,
       _count: { _all: true },
     }),
     prisma.auditLog.groupBy({ by: ["category"], where: scopeWhere, _count: { _all: true } }),
     prisma.auditLog.groupBy({ by: ["denId"], where: { ...scopeWhere, denId: { not: null } } }),
     prisma.auditLog.groupBy({ by: ["actorRole"], where: scopeWhere, _count: { _all: true } }),
-    hidesTestAccounts ? prisma.auditLog.count({ where: { AND: [tabScope, testAccountWhere()] } }) : 0,
   ]);
 
   const actors = actorGroups
@@ -326,8 +297,6 @@ export async function getAuditLogPage(filters: AuditFilters) {
     total,
     page: filters.page,
     pageCount: Math.max(1, Math.ceil(total / filters.pageSize)),
-    hidesTestAccounts,
-    hiddenTestCount,
     actors,
     categories,
     dens,
