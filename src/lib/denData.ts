@@ -3,6 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { ELECTIVES_REQUIRED } from "@/lib/rankConfig";
 import { toDateOnlyString } from "@/lib/dateOnly";
 import type { AdventureType, Rank } from "@/generated/prisma/enums";
+import type { RequirementRow } from "@/lib/requirementProgress";
+
+/** One requirement as the card shows it: the official text plus this scout's check. */
+export type ChecklistRequirement = RequirementRow & {
+  completed: boolean;
+  /** YYYY-MM-DD, or null when not checked. */
+  completedDate: string | null;
+};
 
 export type ChecklistAdventure = {
   id: string;
@@ -16,6 +24,12 @@ export type ChecklistAdventure = {
   awardedDate: string | null;
   updatedAt: Date | null;
   updatedByUsername: string | null;
+  /** Another way to earn the adventure (a religious emblem), shown above its requirements. */
+  requirementsNote: string | null;
+  /** Top-level requirements needed; null means all. */
+  requirementsPick: number | null;
+  /** Flat, in no particular order — the card builds the tree (@/lib/requirementProgress). */
+  requirements: ChecklistRequirement[];
 };
 
 export type ChecklistScout = {
@@ -41,6 +55,7 @@ type ScoutWithRecords = {
     updatedAt: Date;
     updatedByUser: { username: string } | null;
   }[];
+  requirementRecords: { requirementId: string; completed: boolean; completedDate: Date | null }[];
 };
 
 type AdventureRow = {
@@ -49,10 +64,34 @@ type AdventureRow = {
   type: AdventureType;
   sortOrder: number;
   note: string | null;
+  requirementsNote: string | null;
+  requirementsPick: number | null;
+  requirements: RequirementRow[];
 };
+
+/** What every checklist query loads for an adventure, requirements included. */
+const ADVENTURE_SELECT = {
+  id: true,
+  rank: true,
+  name: true,
+  type: true,
+  sortOrder: true,
+  note: true,
+  requirementsNote: true,
+  requirementsPick: true,
+  requirements: {
+    select: { id: true, parentId: true, code: true, text: true, pick: true, isGroup: true, sortOrder: true },
+  },
+} as const;
+
+/** A scout's requirement checks, loaded alongside their adventure records. */
+const REQUIREMENT_RECORDS_INCLUDE = {
+  select: { requirementId: true, completed: true, completedDate: true },
+} as const;
 
 function toChecklistScout(scout: ScoutWithRecords, adventures: AdventureRow[]): ChecklistScout {
   const recordByAdventureId = new Map(scout.records.map((r) => [r.adventureId, r]));
+  const requirementRecordById = new Map(scout.requirementRecords.map((r) => [r.requirementId, r]));
   const list: ChecklistAdventure[] = adventures.map((adv) => {
     const rec = recordByAdventureId.get(adv.id);
     return {
@@ -66,6 +105,13 @@ function toChecklistScout(scout: ScoutWithRecords, adventures: AdventureRow[]): 
       awardedDate: toDateOnlyString(rec?.awardedDate),
       updatedAt: rec?.updatedAt ?? null,
       updatedByUsername: rec?.updatedByUser?.username ?? null,
+      requirementsNote: adv.requirementsNote,
+      requirementsPick: adv.requirementsPick,
+      requirements: adv.requirements.map((req) => {
+        const check = requirementRecordById.get(req.id);
+        const completed = check?.completed ?? false;
+        return { ...req, completed, completedDate: completed ? toDateOnlyString(check?.completedDate) : null };
+      }),
     };
   });
   const required = list.filter((a) => a.type === "REQUIRED");
@@ -91,7 +137,10 @@ export async function getDenChecklist(denId: string) {
         // Inactive scouts drop off the checklist; their records stay on file.
         where: { active: true },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-        include: { records: { include: { updatedByUser: { select: { username: true } } } } },
+        include: {
+          records: { include: { updatedByUser: { select: { username: true } } } },
+          requirementRecords: REQUIREMENT_RECORDS_INCLUDE,
+        },
       },
     },
   });
@@ -106,6 +155,7 @@ export async function getDenChecklist(denId: string) {
   const adventures = await prisma.adventure.findMany({
     where: { rank: den.rank },
     orderBy: { sortOrder: "asc" },
+    select: ADVENTURE_SELECT,
   });
 
   // Sorted here rather than trusting the DB collation, so "alex" doesn't land after "Zane".
@@ -126,7 +176,11 @@ export async function getScoutsAdvancementByIds(scoutIds: string[]): Promise<Che
   const scouts = await prisma.scout.findMany({
     where: { id: { in: scoutIds }, active: true },
     orderBy: [{ firstName: "asc" }],
-    include: { den: true, records: { include: { updatedByUser: { select: { username: true } } } } },
+    include: {
+      den: true,
+      records: { include: { updatedByUser: { select: { username: true } } } },
+      requirementRecords: REQUIREMENT_RECORDS_INCLUDE,
+    },
   });
   if (scouts.length === 0) return [];
 
@@ -144,6 +198,7 @@ export async function getScoutsAdvancementByIds(scoutIds: string[]): Promise<Che
   const adventures = await prisma.adventure.findMany({
     where: { rank: { in: ranks } },
     orderBy: { sortOrder: "asc" },
+    select: ADVENTURE_SELECT,
   });
   const adventuresByRank = new Map<Rank, AdventureRow[]>();
   for (const adv of adventures) {

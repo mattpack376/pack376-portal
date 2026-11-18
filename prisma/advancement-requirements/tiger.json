@@ -1,0 +1,373 @@
+{
+  "rank": "TIGER",
+  "compiledOn": "2026-11-18",
+  "adventures": [
+    {
+      "portalName": "Bobcat",
+      "officialName": "Bobcat Tiger",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/bobcat-tiger/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Get to know the members of your den.", "pick": null, "children": [] },
+        { "code": "2", "text": "Recite the Scout Oath with your den, including your Tiger adult partner.", "pick": null, "children": [] },
+        { "code": "3", "text": "Have your Tiger adult partner or den leader read the Scout Law to you. Demonstrate your understanding of being trustworthy, helpful, or friendly.", "pick": null, "children": [] },
+        { "code": "4", "text": "Demonstrate the Cub Scout sign, Cub Scout salute and Cub Scout handshake. Show how each are used.", "pick": null, "children": [] },
+        { "code": "5", "text": "Share with your Tiger adult partner, at a den meeting or at home, a time when you have demonstrated the Cub Scout motto “Do Your Best.”", "pick": null, "children": [] },
+        { "code": "6", "text": "At home, with your parent or legal guardian do the activities in the booklet “How to Protect Your Children from Child Abuse: A Parent’s Guide.”", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Tigers in the Wild",
+      "officialName": "Tigers in the Wild",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/tigers-in-the-wild/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify the Cub Scout Six Essentials. Show what you do with each item.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your den leader or Tiger adult partner, learn about the Outdoor Code.", "pick": null, "children": [] },
+        { "code": "3", "text": "With your den, pack, or family, take a walk outside spending for at least 20 minutes exploring the outdoors with your Cub Scout Six Essentials. While outside, identify things that you see with your Tiger adult partner that are natural and things that are manmade.", "pick": null, "children": [] },
+        { "code": "4", "text": "Identify common animals that are found where you live. Learn which of those animals is domesticated and which animal is wild. Draw a picture of your favorite animal.", "pick": null, "children": [] },
+        { "code": "5", "text": "Look for a tree where you live. Describe how this tree is helpful.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Tiger Bites",
+      "officialName": "Tiger Bites",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/tiger-bites/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify the 5 different food groups.", "pick": null, "children": [] },
+        { "code": "2", "text": "Practice hand washing. Point out when you should wash your hands.", "pick": null, "children": [] },
+        { "code": "3", "text": "Be active for 30 minutes.", "pick": null, "children": [] },
+        { "code": "4", "text": "Practice methods that help you sleep.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Team Tiger",
+      "officialName": "Team Tiger",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/team-tiger/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Play a game with your den, or family members, that has a set of rules. Discuss why rules are important to the game you are playing.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your Tiger Adult Partner, choose a job that will help your team. Follow through by doing that job at least once.", "pick": null, "children": [] },
+        { "code": "3", "text": "Play a game that requires at least 2 teams with your den, or two other family members. Afterwards discuss what it means to be part of a team and what makes a good team member.", "pick": null, "children": [] },
+        { "code": "4", "text": "Participate in a service project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Tiger's Roar",
+      "officialName": "Tiger’s Roar",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/tigers-roar/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With permission from your parent or legal guardian watch the Protect Yourself Rules video for the Tiger rank.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your Tiger adult partner, demonstrate Shout, Run, Tell as explained in the Protect Yourself Rules video.", "pick": null, "children": [] },
+        { "code": "3", "text": "With your Tiger adult partner, demonstrate how to access emergency services.", "pick": null, "children": [] },
+        { "code": "4", "text": "With your Tiger adult partner, demonstrate that you know what to do if you get lost or separated.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Tiger Circles",
+      "officialName": "Tiger Circles",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/tiger-circles/",
+      "pick": null,
+      "note": "This Adventure may be earned by completing the requirements below OR by completing a Religious Emblem of the Cub Scouts family’s choosing.",
+      "requirements": [
+        { "code": "1", "text": "With your parent or legal guardian talk about your family’s faith traditions. Identify three holidays or celebrations that are part of your family’s faith traditions. Draw a picture of your favorite family’s faith tradition holiday or celebration.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your family, attend a religious service OR other gathering that shows how your family expresses Family & Reverence.", "pick": null, "children": [] },
+        { "code": "3", "text": "Carry out an act of kindness.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Archery*",
+      "officialName": "Archery Tiger",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_Archery-Adventure-Lesson-Plan_051624.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify and wear appropriate safety gear. (Lions and Tigers: with the help of their adult partner.)", "pick": null, "children": [] },
+        { "code": "2", "text": "Demonstrate the archery range safety rules and whistle commands. (Lions and Tigers will recite rules and commands with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands. (Lions and Tigers: with the help of their adult partner.)", "pick": null, "children": [] },
+        { "code": "4", "text": "Identify the main parts of your shooting equipment and how to properly use them. (Lions and Tigers with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate proper stance and shooting techniques. (Lions and Tigers: with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "6", "text": "Shoot 3 arrows at target. Repeat and try to improve your score. A minimum of 6 arrows are shot.", "pick": null, "children": [] },
+        { "code": "7", "text": "Demonstrate how to safely retrieve your arrows.", "pick": null, "children": [] },
+        { "code": "8", "text": "Discuss how to put away and properly store your archery shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "BB Gun*",
+      "officialName": "BB Guns",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_BB-Adventure-Lesson-Plan_051724.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Explain what you should do if you find a gun. Recite the 4 safety reminders (Tigers with the help of their adult partner).", "pick": null, "children": [] },
+        { "code": "2", "text": "Identify and wear the appropriate safety gear (Tigers with the help of their adult partner).", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands (Tigers with the help of their adult partner).", "pick": null, "children": [] },
+        { "code": "4", "text": "Show how to use the safety mechanism. (Tigers with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate how to properly load, fire, and secure your BB gun (Tigers with the help of their adult partner).", "pick": null, "children": [] },
+        { "code": "6", "text": "Demonstrate one of the positions for shooting a BB gun (Tigers with the help of their adult partner). Note: this is a demonstration requirement and not mandatory as a shooting requirement.", "pick": null, "children": [] },
+        { "code": "7", "text": "Fire 5 BBs at the target. With the help of your Tiger adult partner, score your target. Repeat and do your best to improve your score. Fire at least 10 BBs.", "pick": null, "children": [] },
+        { "code": "8", "text": "Discuss how to put away and properly store your BB gun and shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Champions for Nature",
+      "officialName": "Champions for Nature Tiger",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/champions-for-nature-tiger/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Discover the difference between renewable natural resources and non-renewable natural resources.", "pick": null, "children": [] },
+        { "code": "2", "text": "Learn about the 3 R’s: Reduce, Reuse, Recycle.", "pick": null, "children": [] },
+        { "code": "3", "text": "Discover what happens to the garbage in your community", "pick": null, "children": [] },
+        { "code": "4", "text": "Participate in a conservation project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Curiosity, Intrigue, and Magical Mysteries",
+      "officialName": "Curiosity, Intrigue, and Magical Mysteries",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/curiosity-intrigue-and-magical-mysteries/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn a magic trick. Practice the trick. Share the trick with you den or family members.", "pick": null, "children": [] },
+        { "code": "2", "text": "Demonstrate how a magic trick works to your den, family or Tiger adult partner.", "pick": null, "children": [] },
+        { "code": "3", "text": "Write your name in secret code.", "pick": null, "children": [] },
+        { "code": "4", "text": "Write a message with the code. Challenge your den, family or Tiger adult partner to read your coded message.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Designed by Tiger",
+      "officialName": "Designed by Tiger",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/designed-by-tiger/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Think about something that you would like to build. Draw a picture of what the final project should look like.", "pick": null, "children": [] },
+        { "code": "2", "text": "Using your drawing as a guide, build the project.", "pick": null, "children": [] },
+        { "code": "3", "text": "When completed, discuss with your Tiger adult partner what could be done to improve your project.", "pick": null, "children": [] },
+        { "code": "4", "text": "Make the improvement to your project.", "pick": null, "children": [] },
+        { "code": "5", "text": "Make a drawing of your final project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Fish On",
+      "officialName": "Fish On",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/fish-on/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With your den or Tiger adult partner, identify the body of water where you will go fishing.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your Tiger adult partner, learn the rules of fishing safely.", "pick": null, "children": [] },
+        { "code": "3", "text": "Draw a picture of the type of fish you think lives in the water where you are going fishing.", "pick": null, "children": [] },
+        { "code": "4", "text": "Go fishing with your Tiger adult partner.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Floats and Boats",
+      "officialName": "Floats and Boats",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/floats-and-boats/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify five different types of boats.", "pick": null, "children": [] },
+        { "code": "2", "text": "Identify five things that float and five things that do not float.", "pick": null, "children": [] },
+        { "code": "3", "text": "Build or create a model boat and float it on the water. This can be made from recycled materials or other items.", "pick": null, "children": [] },
+        { "code": "4", "text": "Show that you can put on and fasten a life jacket correctly and learn when it is safe to enter a boat.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Good Knights",
+      "officialName": "Good Knights",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/good-knights/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Discuss with your den or Tiger adult partner what it means to have courteous behavior, how a knight behaves. Tell another Tiger which points of the Scout Law help you to have the same Knightly behavior.", "pick": null, "children": [] },
+        { "code": "2", "text": "Create a shield that can be for your den or a personal shield.", "pick": null, "children": [] },
+        { "code": "3", "text": "Using recycled and other materials, design and build a small castle in your den or at home.", "pick": null, "children": [] },
+        { "code": "4", "text": "Do a Good Turn.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Let's Camp",
+      "officialName": "Let’s Camp Tiger",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/lets-camp-tiger/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn about the buddy system and how it works in the outdoors.", "pick": null, "children": [] },
+        { "code": "2", "text": "Before going on the overnight campout, discuss what type of weather is expected and what type of clothes you should wear.", "pick": null, "children": [] },
+        { "code": "3", "text": "Pack up your Cub Scout Six Essentials for the campout.", "pick": null, "children": [] },
+        { "code": "4", "text": "Learn a camping skill.", "pick": null, "children": [] },
+        { "code": "5", "text": "Attend a council or district Cub Scout overnight camp or attend a campout with your pack.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Race Time",
+      "officialName": "Race Time Tiger",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/race-time-tiger/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With your Tiger adult partner, assemble and decorate either a Pinewood Derby® car or a Raingutter Regatta™ boat.", "pick": null, "children": [] },
+        { "code": "2", "text": "Learn the rules of the race for the vehicle chosen in requirement 1.", "pick": null, "children": [] },
+        { "code": "3", "text": "Before the race, discuss with your Tiger adult partner how you will demonstrate good sportsmanship during the race.", "pick": null, "children": [] },
+        { "code": "4", "text": "With your Tiger adult partner, participate in a Pinewood Derby® or a Raingutter Regatta™.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Rolling Tigers",
+      "officialName": "Rolling Tigers",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/rolling-tigers/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn the ABC’s of bike gear (air, brakes, chain.)", "pick": null, "children": [] },
+        { "code": "2", "text": "With your den or Tiger adult partner, learn about the safety gear you should use while riding a bicycle.", "pick": null, "children": [] },
+        { "code": "3", "text": "With your den or Tiger adult partner, learn the safety rules to follow when riding a bicycle.", "pick": null, "children": [] },
+        { "code": "4", "text": "With your den or Tiger adult partner, demonstrate proper hand signals.", "pick": null, "children": [] },
+        { "code": "5", "text": "With your Tiger adult partner or family, ride a bike or begin learning how to ride a bike.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Safe and Smart",
+      "officialName": "Safe and Smart",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/safe-and-smart/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Memorize your address. Recite it to your Tiger adult partner or den leader.", "pick": null, "children": [] },
+        { "code": "2", "text": "Memorize an emergency contact’s phone number. Recite it to your Tiger adult partner or den leader.", "pick": null, "children": [] },
+        { "code": "3", "text": "Show you can Stop, Drop and Roll.", "pick": null, "children": [] },
+        { "code": "4", "text": "With your Tiger adult partner or den leader, create a fire escape plan for your home or den meeting place. Include your outside meet-up spot. Practice the escape route you would take.", "pick": null, "children": [] },
+        { "code": "5", "text": "With your Tiger adult partner, find the location of the smoke detectors in your home or den meeting place. Confirm they are working properly.", "pick": null, "children": [] },
+        { "code": "6", "text": "With your Tiger adult partner or den leader, learn why matches and lighters are only for adults.", "pick": null, "children": [] },
+        { "code": "7", "text": "Visit an emergency responder station or have an emergency responder visit your den.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Slingshot*",
+      "officialName": "Slingshot",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_Slingshot-Adventure-Lesson-Plan_051624.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify and wear appropriate safety gear. (Lions and Tigers: with the help of their adult partner.)", "pick": null, "children": [] },
+        { "code": "2", "text": "Recite the safety rules for using a slingshot. (Lions and Tigers: with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands. (Lions and Tigers: with the help of their adult partner.)", "pick": null, "children": [] },
+        { "code": "4", "text": "Explore the parts of a slingshot and their proper usage. (Lions and Tigers: with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "5", "text": "Discover the types of ammunition that may be used and types that may not be used. (Lions and Tigers: with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "6", "text": "Shoot 3 shots at a target. Repeat and do your best to improve your score. Shoot at least 6 shots.", "pick": null, "children": [] },
+        { "code": "7", "text": "Discuss how to put away and properly store your slingshot and shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Sky Is the Limit",
+      "officialName": "Sky is the Limit",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/sky-is-the-limit/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Observe the night sky with your den or Tiger adult partner. Talk about the items you see or might see there.", "pick": null, "children": [] },
+        { "code": "2", "text": "Look at distant objects through a telescope, binoculars, or camera. Show how to focus the device you choose.", "pick": null, "children": [] },
+        { "code": "3", "text": "Observe in the sky or select from a book, chart, computer, or electronic device two constellations that are easy to see in the night sky. With your den or Tiger adult partner, find out the constellation name and how to identify them. Create a picture of one of the constellations.", "pick": null, "children": [] },
+        { "code": "4", "text": "Create a homemade model of a constellation.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Stories in Shapes",
+      "officialName": "Stories in Shapes",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/stories-in-shapes/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Explore art in your community.", "pick": null, "children": [] },
+        { "code": "2", "text": "Look closely at art or a picture of art with your den or Tiger adult partner. Decide what you like about the art, and share your ideas with your den, family or Tiger adult partner.", "pick": null, "children": [] },
+        { "code": "3", "text": "Create a piece of art using shapes.", "pick": null, "children": [] },
+        { "code": "4", "text": "Learn how to spell your name in Braille and sign language.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Summertime Fun",
+      "officialName": "Summertime Fun Tiger",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/summertime-fun-tiger/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Anytime during May through August participate in a total of three Cub Scout activities.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Tech All Around",
+      "officialName": "Tech All Around",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/tech-all-around/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Discover technology around your home, meeting place, or neighborhood.", "pick": null, "children": [] },
+        { "code": "2", "text": "Discover ways that digital technology can make life easier.", "pick": null, "children": [] },
+        { "code": "3", "text": "Identify an item of digital technology you use at home. Demonstrate to your adult partner how you use it safely.", "pick": null, "children": [] },
+        { "code": "4", "text": "With your parent or legal guardian, set up a policy for digital devices.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Tiger Tag",
+      "officialName": "Tiger Tag",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/tiger-tag/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Play an active game with your den. Share with your Tiger adult partner or your den why you like this game.", "pick": null, "children": [] },
+        { "code": "2", "text": "Play a relay game with your den. Share with your Tiger adult partner or your den why you like this game.", "pick": null, "children": [] },
+        { "code": "3", "text": "Discuss what it means to be a good sport in a game with your Tiger adult partner or other Tigers.", "pick": null, "children": [] },
+        { "code": "4", "text": "Attend a sporting event.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Tiger-iffic!",
+      "officialName": "Tiger-iffic!",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/tiger-iffic/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Play at least two different games by yourself; one may be a video game.", "pick": null, "children": [] },
+        { "code": "2", "text": "Play a board game or another inside game with one or more members of your den or family.", "pick": null, "children": [] },
+        { "code": "3", "text": "With other members of your den or family, invent a game, or change the rules of a game you know, and play the game.", "pick": null, "children": [] },
+        { "code": "4", "text": "Play a team game with your den or family.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Tigers in the Water",
+      "officialName": "Tigers in the Water",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/tigers-in-the-water/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn about the swimming safety rules that you need to follow.", "pick": null, "children": [] },
+        { "code": "2", "text": "Demonstrate how to enter the swimming area properly.", "pick": null, "children": [] },
+        { "code": "3", "text": "With your Tiger adult partner as your buddy, be active in water depths matching your ability for 20 minutes.", "pick": null, "children": [] },
+        { "code": "4", "text": "Place your face in the water and blow bubbles.", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate a flutter kick.", "pick": null, "children": [] },
+        { "code": "6", "text": "Demonstrate how to exit the swimming area properly.", "pick": null, "children": [] }
+      ]
+    }
+  ],
+  "notes": [
+    "Tiger has no 'choose N of' rules: every requirement in every Tiger adventure is required.",
+    "Tiger Circles can also be earned by completing a religious emblem instead of requirements 1-3 (adventure-level 'note' field), the same as Lion's Pride.",
+    "Archery*, BB Gun* and Slingshot* have no scouting.org adventure page. Their requirements come from the official 2024 range lesson plans linked from scouting.org/outdoor-programs/range-activities/cub-scout-shooting-sports/ (Archery and Slingshot 05/16/24, BB Gun 05/17/24). Only the Tiger parts are kept: each shooting requirement is the Tiger line, and clauses for older ranks are dropped (Archery/Slingshot req 3; BB Gun reqs 3 and 6).",
+    "Slingshot: the lesson plan's requirement 6 (types of targets) is for Bear, Webelos and AOL only, so Tiger Slingshot is numbered 1-7, the same as Lion.",
+    "Summertime Fun Tiger has a single requirement.",
+    "Names that differ between the portal and scouting.org (portalName kept as the match key, nothing renamed): 'Sky Is the Limit' vs 'Sky is the Limit'; 'BB Gun*' vs 'BB Guns'. The others differ only by the rank suffix scouting.org adds (e.g. 'Let’s Camp Tiger').",
+    "scouting.org lists exactly these 26 Tiger adventures (6 required, 17 elective, 3 special electives: Archery, Slingshot, BB Guns). Nothing is missing from the portal and nothing is extra.",
+    "Text is copied exactly as published, including the source's typos: 'Share the trick with you den' (Curiosity req 1), no closing period on Champions for Nature req 3, and 'spending for at least 20 minutes' (Tigers in the Wild req 3)."
+  ]
+}

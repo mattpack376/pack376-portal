@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ChecklistAdventure } from "@/lib/denData";
 import { formatAuditTooltip } from "@/lib/auditTooltip";
 import { formatDateOnly } from "@/lib/dateOnly";
@@ -12,6 +13,7 @@ export default function AdventureCheckbox({
   disabled,
   onToggle,
   onEditDates,
+  children,
 }: {
   adventure: ChecklistAdventure;
   checked: boolean;
@@ -23,6 +25,8 @@ export default function AdventureCheckbox({
   disabled: boolean;
   onToggle: () => void;
   onEditDates: () => void;
+  /** The requirements expander, under the dates. */
+  children?: ReactNode;
 }) {
   const tooltip = adventure.updatedAt
     ? formatAuditTooltip(
@@ -76,6 +80,8 @@ export default function AdventureCheckbox({
           )}
         </div>
       )}
+
+      {children}
     </div>
   );
 }

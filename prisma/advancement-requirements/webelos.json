@@ -1,0 +1,398 @@
+{
+  "rank": "WEBELOS",
+  "compiledOn": "2026-11-18",
+  "adventures": [
+    {
+      "portalName": "Bobcat",
+      "officialName": "Bobcat Webelos",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/bobcat-webelos/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Get to know members of your den.", "pick": null, "children": [] },
+        { "code": "2", "text": "Recite the Scout Oath and the Scout Law with your den and den leader. Describe the three points of the Scout Oath.", "pick": null, "children": [] },
+        { "code": "3", "text": "Learn about the Scout Law.", "pick": null, "children": [] },
+        { "code": "4", "text": "With your den create a den Code of Conduct.", "pick": null, "children": [] },
+        { "code": "5", "text": "Learn about the denner position and responsibilities.", "pick": null, "children": [] },
+        { "code": "6", "text": "Demonstrate the Cub Scout sign, Cub Scout salute and Cub Scout handshake. Show how each is used.", "pick": null, "children": [] },
+        { "code": "7", "text": "At home, with your parent or legal guardian do the activities in the booklet “How to Protect Your Children from Child Abuse: A Parent’s Guide.”", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Webelos Walkabout",
+      "officialName": "Webelos Walkabout",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/webelos-walkabout/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Prepare for a 2-mile walk outside. Gather your Cub Scout Six Essentials and weather appropriate clothing and shoes.", "pick": null, "children": [] },
+        { "code": "2", "text": "Plan a 2-mile route for your walk.", "pick": null, "children": [] },
+        { "code": "3", "text": "Check the weather forecast for the time of your planned 2-mile walk.", "pick": null, "children": [] },
+        { "code": "4", "text": "Review the four points of Scouting America SAFE Checklist and how you will apply them on your 2-mile walk.", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate first aid for each of the following events that could occur on your 2-mile walk: blister, sprained ankle, sunburn, dehydration and heat related illness.", "pick": null, "children": [] },
+        { "code": "6", "text": "With your den, pack, or family, go on your 2-mile walk while practicing the Leave No Trace Principles for Kids and Outdoor Code.", "pick": null, "children": [] },
+        { "code": "7", "text": "After your 2-mile walk, discuss with your den what went well and what you would do differently next time.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Stronger, Faster, Higher",
+      "officialName": "Stronger, Faster, Higher",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/stronger-faster-higher/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With your den or family, plan, cook, and eat a balanced meal.", "pick": null, "children": [] },
+        { "code": "2", "text": "Be active for 30 minutes with your den or at least one other person in a way that includes both stretching and moving.", "pick": null, "children": [] },
+        { "code": "3", "text": "Be active for 15 minutes doing personal exercises that boost your heart rate, use your muscles, and work on flexibility.", "pick": null, "children": [] },
+        { "code": "4", "text": "Do a relaxing activity for 10 minutes.", "pick": null, "children": [] },
+        { "code": "5", "text": "Review your Scouting America Annual Health and Medical Record with your parent or legal guardian. Discuss your ability to participate in den and pack activities.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "My Community",
+      "officialName": "My Community",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/my-community/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn about majority and plurality types of voting.", "pick": null, "children": [] },
+        { "code": "2", "text": "Speak with someone who is elected to their position. Discover the type of voting that was used for to elect them and why.", "pick": null, "children": [] },
+        { "code": "3", "text": "Choose a federal law and create a timeline of the history of the law. Include the involvement of the 3 branches of government.", "pick": null, "children": [] },
+        { "code": "4", "text": "Participate in a service project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "My Safety",
+      "officialName": "My Safety",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/my-safety/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With permission from your parent or legal guardian, watch the Protect Yourself Rules video for the Webelos rank.", "pick": null, "children": [] },
+        { "code": "2", "text": "Identify items in your house that are hazardous and make sure they are stored properly. Identify on the package where it describes what to do if someone is accidentally exposed to them.", "pick": null, "children": [] },
+        { "code": "3", "text": "Identify ways you and your family keep your home or your meeting space safe.", "pick": null, "children": [] },
+        { "code": "4", "text": "Complete the Be Prepared for Natural Events worksheet. Complete a worksheet for at least two natural events most likely to happen near where you live.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "My Family",
+      "officialName": "My Family",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/my-family/",
+      "pick": null,
+      "note": "This Adventure may be earned by completing the requirements below OR by completing a Religious Emblem of the Cub Scouts family’s choosing.",
+      "requirements": [
+        { "code": "1", "text": "With your parent or legal guardian, talk about your family’s faith traditions. Identify three holidays or celebrations that are part of your family’s faith traditions. Make a craft, work of art, or a food item that is part of your family’s faith traditions.", "pick": null, "children": [] },
+        { "code": "2", "text": "Carry out an act of kindness.", "pick": null, "children": [] },
+        { "code": "3", "text": "With your parent or legal guardian identify a religion or faith that is different from your own. Identify two things that it has in common with your family’s beliefs.", "pick": null, "children": [] },
+        { "code": "4", "text": "Discuss with our parent or legal guardian what it means to be reverent. Tell how you practice being reverent in your daily life.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Aquanaut",
+      "officialName": "Aquanaut",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/aquanaut/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "State the safety precautions you need to take before doing any swimming activity.", "pick": null, "children": [] },
+        { "code": "2", "text": "Explain the meaning of “order of rescue” and demonstrate the reach and throw rescue techniques from land.", "pick": null, "children": [] },
+        { "code": "3", "text": "Learn how to prevent and treat hypothermia.", "pick": null, "children": [] },
+        { "code": "4", "text": "Attempt to tread water.", "pick": null, "children": [] },
+        { "code": "5", "text": "Attempt Scouting America swimmer test.", "pick": null, "children": [] },
+        { "code": "6", "text": "Have 30 minutes, or more, of free swim time where you practice the Buddy System and stay within your ability group. The qualified adult supervision should conduct at least three buddy checks per half hour swimming.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Archery*",
+      "officialName": "Archery Webelos",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_Archery-Adventure-Lesson-Plan_051624.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify and wear appropriate safety gear.", "pick": null, "children": [] },
+        { "code": "2", "text": "Demonstrate the archery range safety rules and whistle commands.", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands. (Additionally, Webelos and Arrow of Light will “Demonstrate proper range commands and explain them to an adult or to another Scout”)", "pick": null, "children": [] },
+        { "code": "4", "text": "Identify the main parts of your shooting equipment and how to properly use them.", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate proper stance and shooting techniques.", "pick": null, "children": [] },
+        { "code": "6", "text": "Shoot 5 arrows at target. Repeat three times and try to improve your score. A minimum of 20 arrows are shot.", "pick": null, "children": [] },
+        { "code": "7", "text": "Demonstrate how to safely retrieve your arrows.", "pick": null, "children": [] },
+        { "code": "8", "text": "Discuss how to put away and properly store your archery shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Art Explosion",
+      "officialName": "Art Explosion",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/art-explosion/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Create a piece of art by exploring drawing techniques using pencils.", "pick": null, "children": [] },
+        { "code": "2", "text": "Using a digital image, explore the effect of filters by changing an image using different editing or in-camera techniques.", "pick": null, "children": [] },
+        { "code": "3", "text": "Create a piece of art using paint as your medium.", "pick": null, "children": [] },
+        { "code": "4", "text": "Create a piece of art combining at least two media.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Aware and Care",
+      "officialName": "Aware and Care",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/aware-and-care/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Do an activity that shows the challenges of a being visually impaired.", "pick": null, "children": [] },
+        { "code": "2", "text": "Do an activity that shows the challenges of being hearing impaired.", "pick": null, "children": [] },
+        { "code": "3", "text": "Explore barriers to access.", "pick": null, "children": [] },
+        { "code": "4", "text": "Meet someone who has a disability or someone who works with people with disabilities about what obstacles they must overcome and how they do it.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "BB Gun*",
+      "officialName": "BB Guns",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_BB-Adventure-Lesson-Plan_051724.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Explain what you should do if you find a gun. Recite the 4 safety reminders.", "pick": null, "children": [] },
+        { "code": "2", "text": "Identify and wear the appropriate safety gear.", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands (additionally Bear, Webelos and Arrow of Light Scouts are to demonstrate proper range commands and explain them to an adult or another scout).", "pick": null, "children": [] },
+        { "code": "4", "text": "Show how to use the safety mechanism.", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate how to properly load, fire, and secure your BB gun.", "pick": null, "children": [] },
+        { "code": "6", "text": "Demonstrate one of the positions for shooting a BB gun (additionally Webelos and Arrow of Light are to demonstrate prone, bench and sitting positions for shooting a BB gun). Note: this is a demonstration requirement and not mandatory as a shooting requirement.", "pick": null, "children": [] },
+        { "code": "7", "text": "Shoot 5 shots at a target. Repeat three times and do your best to improve your score each time. Shoot at least 20 BBs", "pick": null, "children": [] },
+        { "code": "8", "text": "Discuss how to put away and properly store your BB gun and shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Build It",
+      "officialName": "Build It",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/build-it/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn about some basic tools and the proper use of each tool. Learn about and understand the need for safety when you work with tools.", "pick": null, "children": [] },
+        { "code": "2", "text": "Demonstrate how to check for plumb, level, and square when building.", "pick": null, "children": [] },
+        { "code": "3", "text": "With the guidance of your Webelos den leader, parent, or legal guardian, select a carpentry project that requires it to be either plumb, level, and/or square. Create a list of materials and tools you will need to complete the project.", "pick": null, "children": [] },
+        { "code": "4", "text": "Build your carpentry project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Catch the Big One",
+      "officialName": "Catch the Big One",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/catch-the-big-one/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Make a plan to go fishing. Determine where you will go and what type of fish you plan to catch. All of the following requirements are to be completed based on your choice.", "pick": null, "children": [] },
+        { "code": "2", "text": "Use Scouting America SAFE Checklist to plan what you need for your fishing experience.", "pick": null, "children": [] },
+        { "code": "3", "text": "Describe the environment where the fish might be found.", "pick": null, "children": [] },
+        { "code": "4", "text": "Make a list of the equipment and materials you will need to fish.", "pick": null, "children": [] },
+        { "code": "5", "text": "Determine the best type of knot to tie your hook to your line and tie it.", "pick": null, "children": [] },
+        { "code": "6", "text": "Choose the appropriate type of fishing rod and tackle you will be using. Have an adult review your gear.", "pick": null, "children": [] },
+        { "code": "7", "text": "Using what you have learned about fish and fishing equipment, spend at least one hour fishing following local guidelines and regulations.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Champions for Nature",
+      "officialName": "Champions for Nature Webelos",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/champions-for-nature-webelos/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Discover the four components that make up a habitat: food, water, shelter, space.", "pick": null, "children": [] },
+        { "code": "2", "text": "Pick an animal that is currently threatened or endangered to complete requirements 3, 4, and 5.", "pick": null, "children": [] },
+        { "code": "3", "text": "Identify the characteristics that classify an animal as a threatened or endangered species.", "pick": null, "children": [] },
+        { "code": "4", "text": "Explore what caused this animal to be threatened or endangered.", "pick": null, "children": [] },
+        { "code": "5", "text": "Research what is currently being done to protect the animal.", "pick": null, "children": [] },
+        { "code": "6", "text": "Participate in a conservation service project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Chef's Knife",
+      "officialName": "Chef’s Knife",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/chefs-knife/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Read, understand, and promise to follow the “Cub Scout Knife Safety Rules.”", "pick": null, "children": [] },
+        { "code": "2", "text": "Demonstrate the knife safety circle.", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate that you know how to care for and use a kitchen knife safely.", "pick": null, "children": [] },
+        { "code": "4", "text": "Choose the correct cooking knife and demonstrate how to properly slice, dice, and mince.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Earth Rocks!",
+      "officialName": "Earth Rocks",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/earth-rocks/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Examine the three types of rocks, sedimentary, igneous, and metamorphic.", "pick": null, "children": [] },
+        { "code": "2", "text": "Find a rock, safely break it apart and examine it.", "pick": null, "children": [] },
+        { "code": "3", "text": "Make a mineral test kit and test minerals according to the Mohs scale of mineral hardness. Using the rock cycle chart or one like it, discuss how hardness determines which materials can be used in homes, in landscapes, or for recreation.", "pick": null, "children": [] },
+        { "code": "4", "text": "Grow a crystal.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Let's Camp",
+      "officialName": "Let’s Camp Webelos",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/lets-camp-webelos/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With your den, pack, or family, plan and participate in a campout.", "pick": null, "children": [] },
+        { "code": "2", "text": "Upon arrival at the campground, determine where to set up a tent.", "pick": null, "children": [] },
+        { "code": "3", "text": "Set up your tent without help from an adult.", "pick": null, "children": [] },
+        { "code": "4", "text": "Identify a potential weather hazard that could occur in your area. Determine the action you will take if you experience the weather hazard during the campout.", "pick": null, "children": [] },
+        { "code": "5", "text": "Show how to tie a bowline. Explain when this knot should be used and why.", "pick": null, "children": [] },
+        { "code": "6", "text": "Know the fire safety rules. Using those rules, locate a safe area to build a campfire.", "pick": null, "children": [] },
+        { "code": "7", "text": "Using tinder, kindling, and fuel wood, properly build a teepee fire lay. If circumstances permit, and there is no local restriction on fires, show how to safely light the fire while under adult supervision. After allowing the fire to burn safely, extinguish the flames with minimal impact to the fire site.", "pick": null, "children": [] },
+        { "code": "8", "text": "Recite the Outdoor Code and Leave No Trace Principles for Kids from Memory.", "pick": null, "children": [] },
+        { "code": "9", "text": "After your campout, share the things you did to follow the Outdoor Code and Leave No Trace Principles for Kids with your den or family.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Math on the Trail",
+      "officialName": "Math on the Trail",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/math-on-the-trail/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Determine your walking pace by walking ¼ mile. Make a projection on how long it would take you to walk 2 miles.", "pick": null, "children": [] },
+        { "code": "2", "text": "Walk 2 miles and record the time it took you to complete the two miles.", "pick": null, "children": [] },
+        { "code": "3", "text": "Make a projection on how long it would take you to hike a 20-mile trail over two days. List all the factors to consider for your projection.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Modular Design",
+      "officialName": "Modular Design",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/modular-design/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn what modular design is and identify three things that use modular design in their construction.", "pick": null, "children": [] },
+        { "code": "2", "text": "Using modular-based building pieces, build a model without a set of instructions.", "pick": null, "children": [] },
+        { "code": "3", "text": "Using the model made in requirement 2, create a set of step-by-step instructions on how to make your model.", "pick": null, "children": [] },
+        { "code": "4", "text": "Have someone make your model using your instructions.", "pick": null, "children": [] },
+        { "code": "5", "text": "Using the same modular pieces used in requirement 2, build another model of something different.", "pick": null, "children": [] },
+        { "code": "6", "text": "With your parent or legal guardian’s permission, watch a video demonstrating how something was built using modular design.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Paddle Onward",
+      "officialName": "Paddle Onward",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/paddle-onward/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Before attempting requirements 5, 6, 7, 8 and 9 for this Adventure, you must pass Scouting America swimmer test.", "pick": null, "children": [] },
+        { "code": "2", "text": "Pick a paddle craft for which to complete all requirements: canoe, kayak, or stand-up paddleboard.", "pick": null, "children": [] },
+        { "code": "3", "text": "Review Safety Afloat.", "pick": null, "children": [] },
+        { "code": "4", "text": "Demonstrate how to choose and properly wear a life jacket that is the correct size.", "pick": null, "children": [] },
+        { "code": "5", "text": "Jump feet first into water over your head while wearing a life jacket Then swim 25 feet wearing the life jacket.", "pick": null, "children": [] },
+        { "code": "6", "text": "Demonstrate how to enter and exit a canoe, kayak, or stand-up paddleboard safely.", "pick": null, "children": [] },
+        { "code": "7", "text": "Discuss what to do if your canoe or kayak tips over or you fall off your stand-up paddleboard.", "pick": null, "children": [] },
+        { "code": "8", "text": "Learn how to pick a paddle that is the right size for you. Explore how the paddle craft responds to moving the paddle.", "pick": null, "children": [] },
+        { "code": "9", "text": "Have 30 minutes, or more, of canoe, kayak, or stand-up paddleboard paddle time.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Pedal Away",
+      "officialName": "Pedal Away",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/pedal-away/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Decide on gear and supplies you should bring for a long bike ride.", "pick": null, "children": [] },
+        { "code": "2", "text": "Discover how multi-gear bicycles work and how they benefit a rider .", "pick": null, "children": [] },
+        { "code": "3", "text": "Practice how to lubricate a chain.", "pick": null, "children": [] },
+        { "code": "4", "text": "Pick a bicycle lock that you will use. Demonstrate how it locks and unlocks, how it secures your bicycle, and how you carry it while you are riding your bicycle.", "pick": null, "children": [] },
+        { "code": "5", "text": "With your family, den, or pack, use a map and plan a bicycle ride that is at least 5 miles.", "pick": null, "children": [] },
+        { "code": "6", "text": "With your den, pack, or family and using the buddy system, go on a bicycle ride that is a minimum of 5 miles.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Race Time",
+      "officialName": "Race Time Webelos",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/race-time-webelos/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With an adult, build either a Pinewood Derby® and car or a Raingutter Regatta™ boat.", "pick": null, "children": [] },
+        { "code": "2", "text": "Learn the rules of the race for the vehicle chosen in requirement 1.", "pick": null, "children": [] },
+        { "code": "3", "text": "Explore the properties of friction and how it impacts your chosen vehicle.", "pick": null, "children": [] },
+        { "code": "4", "text": "Before the race, discuss with your den how you will demonstrate good sportsmanship during the race.", "pick": null, "children": [] },
+        { "code": "5", "text": "Participate in a Pinewood Derby® or a Raingutter Regatta™.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Slingshot*",
+      "officialName": "Slingshot",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_Slingshot-Adventure-Lesson-Plan_051624.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify and wear appropriate safety gear.", "pick": null, "children": [] },
+        { "code": "2", "text": "Recite the safety rules for using a slingshot.", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands. (Additionally, Webelos and Arrow of Light will “Demonstrate proper range commands and explain them to an adult or to another Scout”)", "pick": null, "children": [] },
+        { "code": "4", "text": "Explore the parts of a slingshot and their proper usage.", "pick": null, "children": [] },
+        { "code": "5", "text": "Discover the types of ammunition that may be used and types that may not be used.", "pick": null, "children": [] },
+        { "code": "6", "text": "Discover the types of targets that may be used and types that may not be used.", "pick": null, "children": [] },
+        { "code": "7", "text": "Shoot 5 shots at a target. Repeat twice and do your best to improve your score each time. Shoot at least 15 shots.", "pick": null, "children": [] },
+        { "code": "8", "text": "Discuss how to put away and properly store your slingshot and shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Summertime Fun",
+      "officialName": "Summertime Fun Webelos",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/summertime-fun-webelos/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Anytime during May through August participate in a total of three Cub Scout activities.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Tech on the Trail",
+      "officialName": "Tech on the Trail",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/tech-on-the-trail/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Discuss how technology can help keep you safe in the outdoors.", "pick": null, "children": [] },
+        { "code": "2", "text": "Explore Global Positioning Satellite and how to use it.", "pick": null, "children": [] },
+        { "code": "3", "text": "With an adult, choose an online mapping program tool and plan a 2-mile trek.", "pick": null, "children": [] },
+        { "code": "4", "text": "Take your 2-mile trek.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Yo-Yo",
+      "officialName": "Yo-yo",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/yo-yo/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn the safety rules of using a yo-yo and always follow them.", "pick": null, "children": [] },
+        { "code": "2", "text": "Discover how to find the proper yo-yo string length for you.", "pick": null, "children": [] },
+        { "code": "3", "text": "Explain why it is important to have the correct string length and to be in the right location before throwing a yo-yo.", "pick": null, "children": [] },
+        { "code": "4", "text": "Demonstrate how to properly string a yo-yo and how to create a slip knot.", "pick": null, "children": [] },
+        { "code": "5", "text": "Conduct the pendulum experiment with a yo-yo. Explain what happens to the yo-yo when the string is longer.", "pick": null, "children": [] },
+        { "code": "6", "text": "Show that you can properly wind a yo-yo.", "pick": null, "children": [] },
+        { "code": "7", "text": "Attempt each of the following: gravity pull, sleeper, breakaway.", "pick": null, "children": [] }
+      ]
+    }
+  ],
+  "notes": [
+    "Webelos has no 'choose N of' rules: every requirement in every Webelos adventure is required.",
+    "My Family can also be earned by completing a religious emblem instead of requirements 1-4 (adventure-level 'note' field), the same as the other ranks' faith adventures.",
+    "Bobcat Webelos has 7 requirements and, unlike Lion through Bear, no 'Do Your Best' requirement. That matches the live page.",
+    "Archery*, BB Gun* and Slingshot* have no scouting.org adventure page. Their requirements come from the official 2024 range lesson plans (Archery and Slingshot 05/16/24, BB Gun 05/17/24). Only the Webelos parts are kept: helper parentheticals for younger ranks are dropped, and each shooting requirement is the Webelos line.",
+    "Webelos picks up the older-rank clauses in the range electives: Archery and Slingshot requirement 3 (explain range commands to an adult or another Scout), BB Gun requirement 3 (from Bear), and BB Gun requirement 6 (demonstrate prone, bench and sitting positions). Slingshot has all 8 requirements, as at Bear.",
+    "The BB Gun Webelos shooting line has no closing period in the source ('Shoot at least 20 BBs'); it's kept that way.",
+    "Paddle Onward requirement 1 is a prerequisite (pass the swimmer test before 5-9). It's still listed as a normal checkable requirement.",
+    "Summertime Fun Webelos has a single requirement.",
+    "Names that differ between the portal and scouting.org (portalName kept as the match key, nothing renamed): 'Earth Rocks!' vs 'Earth Rocks'; 'Yo-Yo' vs 'Yo-yo'; 'Chef's Knife' vs 'Chef’s Knife' (curly apostrophe only); 'BB Gun*' vs 'BB Guns'. The others differ only by the rank suffix scouting.org adds (e.g. 'Let’s Camp Webelos').",
+    "scouting.org lists exactly these 26 Webelos adventures (6 required, 17 elective, 3 special electives: Archery, Slingshot, BB Guns). Nothing is missing from the portal and nothing is extra.",
+    "Text is copied exactly as published, including the source's typos: 'Discuss with our parent' (My Family req 4), 'used for to elect them' (My Community req 2), 'challenges of a being visually impaired' (Aware and Care req 1), 'a rider .' (Pedal Away req 2), 'Pinewood Derby® and car' (Race Time req 1), 'life jacket Then' (Paddle Onward req 5), and 'from Memory' (Let’s Camp req 8)."
+  ]
+}

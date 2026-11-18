@@ -1,0 +1,299 @@
+{
+  "rank": "LION",
+  "compiledOn": "2026-11-18",
+  "adventures": [
+    {
+      "portalName": "Bobcat",
+      "officialName": "Bobcat Lion",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/bobcat-lion/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Get to know the members of your den.", "pick": null, "children": [] },
+        { "code": "2", "text": "Have your Lion adult partner or den leader read the Scout Law to you. Demonstrate your understanding of being friendly.", "pick": null, "children": [] },
+        { "code": "3", "text": "Share with your Lion adult partner, during a den meeting or at home, a time when you have demonstrated the Cub Scout motto “Do Your Best.”", "pick": null, "children": [] },
+        { "code": "4", "text": "At home, with your parent or legal guardian, do the activities in the booklet “How to Protect Your Children from Child Abuse: A Parent’s Guide.”", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Mountain Lion",
+      "officialName": "Mountain Lion",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/mountain-lion/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify the Cub Scout Six Essentials. Show what you do with each item.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your den, pack, or family, take a walk outside spending for at least 20 minutes exploring the outdoors with your Cub Scout Six Essentials. While outside, identify things that you see with your Lion adult partner that are natural and things that are manmade.", "pick": null, "children": [] },
+        { "code": "3", "text": "Discover what S.A.W. means.", "pick": null, "children": [] },
+        { "code": "4", "text": "Identify common animals that are found where you live. Separate those animals into domesticated and wild.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Fun on the Run",
+      "officialName": "Fun on the Run",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/fun-on-the-run/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify the five different food groups.", "pick": null, "children": [] },
+        { "code": "2", "text": "Practice hand washing. Point out when you should wash your hands.", "pick": null, "children": [] },
+        { "code": "3", "text": "Be active for 20 minutes.", "pick": null, "children": [] },
+        { "code": "4", "text": "Practice methods that help you rest.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "King of the Jungle",
+      "officialName": "King of the Jungle",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/king-of-the-jungle/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Draw a picture or take a photo of the people you live with.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your Lion adult partner, choose a job that will help your family. Follow through by doing that job at least once.", "pick": null, "children": [] },
+        { "code": "3", "text": "Talk with a grandparent or other older adult about what citizenship means to them.", "pick": null, "children": [] },
+        { "code": "4", "text": "Participate in a service project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Lion's Roar",
+      "officialName": "Lion’s Roar",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/lions-roar/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With permission from your parent or legal guardian watch the Protect Yourself Rules video for the Lion rank.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your Lion adult partner, demonstrate Shout, Run, Tell as explained in the Protect Yourself Rules video.", "pick": null, "children": [] },
+        { "code": "3", "text": "With your Lion adult partner, demonstrate how to access emergency services.", "pick": null, "children": [] },
+        { "code": "4", "text": "With your Lion adult partner, demonstrate how to safely cross a street or walk in a parking lot.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Lion's Pride",
+      "officialName": "Lion’s Pride",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/lions-pride/",
+      "pick": null,
+      "note": "This Adventure may be earned by completing the requirements below OR by completing a Religious Emblem of the Cub Scouts family’s choosing.",
+      "requirements": [
+        { "code": "1", "text": "With your parent or legal guardian talk about your family’s faith traditions. Draw a picture of your favorite family’s faith tradition holiday or celebration.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your family, attend a religious service OR other gathering that shows how your family expresses Family & Reverence.", "pick": null, "children": [] },
+        { "code": "3", "text": "Make a cheerful card or a drawing for someone you love and give it to them.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Archery*",
+      "officialName": "Archery Lion",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_Archery-Adventure-Lesson-Plan_051624.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify and wear appropriate safety gear. (Lions and Tigers: with the help of their adult partner.)", "pick": null, "children": [] },
+        { "code": "2", "text": "Demonstrate the archery range safety rules and whistle commands. (Lions and Tigers will recite rules and commands with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands. (Lions and Tigers: with the help of their adult partner.)", "pick": null, "children": [] },
+        { "code": "4", "text": "Identify the main parts of your shooting equipment and how to properly use them. (Lions and Tigers with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate proper stance and shooting techniques. (Lions and Tigers: with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "6", "text": "Shoot 2 arrows at target. Repeat and try to improve your score. A minimum of 4 arrows are shot.", "pick": null, "children": [] },
+        { "code": "7", "text": "Demonstrate how to safely retrieve your arrows.", "pick": null, "children": [] },
+        { "code": "8", "text": "Discuss how to put away and properly store your archery shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Build It Up, Knock It Down",
+      "officialName": "Build It Up, Knock It Down",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/build-it-up-knock-it-down/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With your Lion adult partner, build a structure.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your den or family, build a structure.", "pick": null, "children": [] },
+        { "code": "3", "text": "Build something that is designed to be knocked down.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Champions for Nature",
+      "officialName": "Champions for Nature Lion",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/champions-for-nature-lion/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Discover the difference between natural resources and man-made items.", "pick": null, "children": [] },
+        { "code": "2", "text": "Discover the difference between organic, paper, plastic, metal and glass waste.", "pick": null, "children": [] },
+        { "code": "3", "text": "Discover recycling.", "pick": null, "children": [] },
+        { "code": "4", "text": "Participate in a conservation service project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Count on Me",
+      "officialName": "Count On Me",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/count-on-me/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Make a Lion using only squares, triangles, and circles.", "pick": null, "children": [] },
+        { "code": "2", "text": "Play a game with your Lion adult partner or den that is based on counting or numbers.", "pick": null, "children": [] },
+        { "code": "3", "text": "Organize a group of items based on shape, then based on color, and one other category. Count how many different shapes are in each category. After organizing them build anything using only one category.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Everyday Tech",
+      "officialName": "Everyday Tech",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/everyday-tech/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Discover technology around your home, meeting place, or neighborhood.", "pick": null, "children": [] },
+        { "code": "2", "text": "Discover ways that digital technology can make life easier.", "pick": null, "children": [] },
+        { "code": "3", "text": "Identify an item of digital technology you use at home. Demonstrate to your Lion adult partner how you use it safely.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Gizmos & Gadgets",
+      "officialName": "Gizmos and Gadgets",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/gizmos-and-gadgets/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Explore properties of motion.", "pick": null, "children": [] },
+        { "code": "2", "text": "Explore properties of force.", "pick": null, "children": [] },
+        { "code": "3", "text": "Use household materials to create a useful object.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Go Fish",
+      "officialName": "Go Fish",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/go-fish/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With your Lion adult partner, learn the rules of fishing safely.", "pick": null, "children": [] },
+        { "code": "2", "text": "Draw a picture of the type of fish you think lives in the water where you are going fishing.", "pick": null, "children": [] },
+        { "code": "3", "text": "Go fishing with your Lion adult partner.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "I'll Do It Myself",
+      "officialName": "I’ll Do It Myself",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/ill-do-it-myself/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Make and use a “lion bag” for personal Scouting gear.", "pick": null, "children": [] },
+        { "code": "2", "text": "Construct a personal care checklist.", "pick": null, "children": [] },
+        { "code": "3", "text": "Put on your shoes without help. Take them off and put them away.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Let's Camp",
+      "officialName": "Let’s Camp Lion",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/lets-camp-lion/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn about the buddy system and how it works in the outdoors.", "pick": null, "children": [] },
+        { "code": "2", "text": "Before going on the overnight campout, discuss what type of weather is expected and what type of clothes you should wear.", "pick": null, "children": [] },
+        { "code": "3", "text": "Pack up your Cub Scout Six Essentials for the campout.", "pick": null, "children": [] },
+        { "code": "4", "text": "Attend a council or district Cub Scout overnight camp or attend an overnight campout with your pack.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "On A Roll",
+      "officialName": "On a Roll",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/on-a-roll/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With your den or Lion adult partner, learn about the safety gear you should use while riding a bicycle.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your den or Lion adult partner, learn the safety rules to follow when riding a bicycle.", "pick": null, "children": [] },
+        { "code": "3", "text": "With your Lion adult partner or family, ride a bicycle wearing appropriate safety gear and follow safety rules.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "On Your Mark",
+      "officialName": "On Your Mark",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/on-your-mark/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Play a game with your den.", "pick": null, "children": [] },
+        { "code": "2", "text": "Participate in an obstacle course relay.", "pick": null, "children": [] },
+        { "code": "3", "text": "Build a box derby and participate in a race.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Pick My Path",
+      "officialName": "Pick My Path",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/pick-my-path-lion/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Explain that choices have consequences.", "pick": null, "children": [] },
+        { "code": "2", "text": "Perform a Good Turn for another person.", "pick": null, "children": [] },
+        { "code": "3", "text": "Learn the basic rules of a game and play the game.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Race Time",
+      "officialName": "Race Time Lion",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/race-time-lion/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With your Lion adult partner, assemble and decorate either a Pinewood Derby® car or a Raingutter Regatta™ boat.", "pick": null, "children": [] },
+        { "code": "2", "text": "Learn the rules of the race for the vehicle chosen in Requirement 1.", "pick": null, "children": [] },
+        { "code": "3", "text": "Before the race, discuss with your Lion adult partner how you will demonstrate good sportsmanship during the race.", "pick": null, "children": [] },
+        { "code": "4", "text": "With your Lion adult partner, participate in a Pinewood Derby® or a Raingutter Regatta™.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Ready, Set, Grow",
+      "officialName": "Ready, Set, Grow",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/ready-set-grow/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Discover where the food we eat comes from.", "pick": null, "children": [] },
+        { "code": "2", "text": "Plant a small garden outside or in a container.", "pick": null, "children": [] },
+        { "code": "3", "text": "Visit with an individual who can demonstrate different ways to garden (outside, greenhouse, container, etc.) and the basic skills needed to garden.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Slingshot*",
+      "officialName": "Slingshot",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_Slingshot-Adventure-Lesson-Plan_051624.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify and wear appropriate safety gear. (Lions and Tigers: with the help of their adult partner.)", "pick": null, "children": [] },
+        { "code": "2", "text": "Recite the safety rules for using a slingshot. (Lions and Tigers: with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands. (Lions and Tigers: with the help of their adult partner.)", "pick": null, "children": [] },
+        { "code": "4", "text": "Explore the parts of a slingshot and their proper usage. (Lions and Tigers: with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "5", "text": "Discover the types of ammunition that may be used and types that may not be used. (Lions and Tigers: with the help of their adult partner)", "pick": null, "children": [] },
+        { "code": "6", "text": "Shoot 2 shots at a target. Repeat and do your best to improve your score. Shoot at least 4 shots.", "pick": null, "children": [] },
+        { "code": "7", "text": "Discuss how to put away and properly store your slingshot and shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Time to Swim",
+      "officialName": "Time to Swim",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/time-to-swim/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn about the swimming safety rules that you need to follow.", "pick": null, "children": [] },
+        { "code": "2", "text": "Demonstrate how to enter the swimming area properly.", "pick": null, "children": [] },
+        { "code": "3", "text": "With your Lion adult partner as your buddy, be active in water depths matching your ability for 20 minutes.", "pick": null, "children": [] },
+        { "code": "4", "text": "Place your face in the water and blow bubbles.", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate how to exit the swimming area properly.", "pick": null, "children": [] }
+      ]
+    }
+  ],
+  "notes": [
+    "Lion has no 'choose N of' rules: every requirement in every Lion adventure is required.",
+    "Lion's Pride can also be earned by completing a religious emblem instead of requirements 1-3 (adventure-level 'note' field). Step 2 should show this note and allow marking the adventure complete without the requirements.",
+    "Archery* and Slingshot* have no scouting.org adventure page. Their requirements come from the official 2024 Range lesson plans linked from scouting.org/outdoor-programs/range-activities/cub-scout-shooting-sports/ (dated 05/16/24). Only the Lion parts are kept: the shooting requirement is the Lion line, and requirement 3 leaves out the clause that applies only to Webelos and Arrow of Light.",
+    "Slingshot: the lesson plan's requirement 6 (types of targets) is for Bear, Webelos and AOL only. The plan says that for Lion, Tiger and Wolf the storage requirement is the 7th, so Lion Slingshot is numbered 1-7.",
+    "Names that differ between the portal and scouting.org (portalName kept as the match key, nothing renamed): 'Gizmos & Gadgets' vs 'Gizmos and Gadgets'; 'Count on Me' vs 'Count On Me'; 'On A Roll' vs 'On a Roll'.",
+    "scouting.org lists exactly these 22 Lion adventures (6 required, 14 elective, 2 special electives: Archery and Slingshot). Nothing is missing from the portal and nothing is extra.",
+    "Requirement text is copied exactly as published, including curly quotes, ®/™, and the source's own wording ('spending for at least 20 minutes')."
+  ]
+}

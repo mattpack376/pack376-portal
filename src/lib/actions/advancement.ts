@@ -17,6 +17,14 @@ export type AdventureChange = {
   awardedDate: string | null;
 };
 
+/** One requirement's check inside an adventure (see model RequirementRecord). */
+export type RequirementChange = {
+  requirementId: string;
+  completed: boolean;
+  /** YYYY-MM-DD. Required when completed; ignored (and cleared) when not. */
+  completedDate: string | null;
+};
+
 export type ApplyAdventureChangesResult = { ok: true } | { ok: false; error: string };
 
 /**
@@ -25,6 +33,13 @@ export type ApplyAdventureChangesResult = { ok: true } | { ok: false; error: str
  * real save; it turns away an oversized request before any database work.
  */
 const MAX_CHANGES = 200;
+
+/**
+ * Requirement checks one Apply can carry. The biggest rank has about 150
+ * requirements across all its adventures, so a card can't legitimately send
+ * more than that.
+ */
+const MAX_REQUIREMENT_CHANGES = 400;
 
 const UNREADABLE = "Those changes couldn't be read. Reload the page and try again.";
 
@@ -108,6 +123,44 @@ function readChanges(changes: unknown): ParsedChange[] {
   return [...byAdventure.values()];
 }
 
+type ParsedRequirementChange = { requirementId: string; completed: boolean; completedDate: Date | null };
+
+/** One requirement entry from the card, checked field by field like readChange. */
+function readRequirementChange(raw: unknown): ParsedRequirementChange {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw new AdvancementInputError(UNREADABLE);
+  const { requirementId, completed, completedDate } = raw as Record<string, unknown>;
+  if (typeof requirementId !== "string" || requirementId.length === 0 || requirementId.length > 64) {
+    throw new AdvancementInputError(UNREADABLE);
+  }
+  if (typeof completed !== "boolean") throw new AdvancementInputError(UNREADABLE);
+  const completedOn = readDate(completedDate);
+  if (!completed) return { requirementId, completed: false, completedDate: null };
+  if (!completedOn) throw new AdvancementInputError("A date is required for every requirement you check.");
+  return { requirementId, completed: true, completedDate: completedOn };
+}
+
+/** Every requirement change, each requirement once — the same rule as readChanges. */
+function readRequirementChanges(changes: unknown): ParsedRequirementChange[] {
+  if (changes === undefined || changes === null) return [];
+  if (!Array.isArray(changes) || changes.length > MAX_REQUIREMENT_CHANGES) throw new AdvancementInputError(UNREADABLE);
+  const byRequirement = new Map<string, ParsedRequirementChange>();
+  for (const raw of changes) {
+    const change = readRequirementChange(raw);
+    const earlier = byRequirement.get(change.requirementId);
+    if (
+      earlier &&
+      (earlier.completed !== change.completed ||
+        earlier.completedDate?.getTime() !== change.completedDate?.getTime())
+    ) {
+      throw new AdvancementInputError(
+        "The same requirement was changed twice in one save. Reload the page and try again.",
+      );
+    }
+    byRequirement.set(change.requirementId, change);
+  }
+  return [...byRequirement.values()];
+}
+
 function canEditDen(session: SessionPayload, denId: string) {
   try {
     assertAdvancementDenAccess(session, denId);
@@ -120,6 +173,7 @@ function canEditDen(session: SessionPayload, denId: string) {
 export async function applyAdventureChangesAction(
   scoutId: string,
   changes: AdventureChange[],
+  requirementChanges: RequirementChange[] = [],
 ): Promise<ApplyAdventureChangesResult> {
   const session = await getSession();
   if (!session) return { ok: false, error: "Not authorized." };
@@ -130,13 +184,15 @@ export async function applyAdventureChangesAction(
    * entry fails the whole Apply, not leaving half the card saved.
    */
   let parsed: ParsedChange[];
+  let parsedRequirements: ParsedRequirementChange[];
   try {
     parsed = readChanges(changes);
+    parsedRequirements = readRequirementChanges(requirementChanges);
   } catch (error) {
     if (error instanceof AdvancementInputError) return { ok: false, error: error.message };
     throw error;
   }
-  if (parsed.length === 0) return { ok: true };
+  if (parsed.length === 0 && parsedRequirements.length === 0) return { ok: true };
 
   // Someone who can't edit this den is turned away before taking any lock.
   const current = await prisma.scout.findUnique({ where: { id: scoutId }, select: { denId: true } });
@@ -169,23 +225,53 @@ export async function applyAdventureChangesAction(
         // only ever shows those, so anything else would be saved where no
         // one can see or undo it.
         const adventureIds = parsed.map((p) => p.adventureId);
-        const adventures = await tx.adventure.findMany({
-          where: { id: { in: adventureIds }, rank: scout.den.rank },
-          select: { id: true, name: true },
-        });
+        const adventures =
+          adventureIds.length === 0
+            ? []
+            : await tx.adventure.findMany({
+                where: { id: { in: adventureIds }, rank: scout.den.rank },
+                select: { id: true, name: true },
+              });
         if (adventures.length !== adventureIds.length) {
           throw new AdvancementInputError(
             "One or more of those adventures isn't part of this scout's rank. Reload the page and try again.",
           );
         }
 
+        // The same rule for requirements, and each has to be one with its own
+        // checkbox — not a "do two of these" group or a requirement whose
+        // lettered parts are what get checked.
+        const requirementIds = parsedRequirements.map((p) => p.requirementId);
+        const requirements =
+          requirementIds.length === 0
+            ? []
+            : await tx.adventureRequirement.findMany({
+                where: { id: { in: requirementIds }, isGroup: false, adventure: { rank: scout.den.rank } },
+                select: { id: true, code: true, adventure: { select: { name: true } }, _count: { select: { children: true } } },
+              });
+        if (requirements.length !== requirementIds.length || requirements.some((r) => r._count.children > 0)) {
+          throw new AdvancementInputError(
+            "One or more of those requirements isn't part of this scout's rank. Reload the page and try again.",
+          );
+        }
+
         // Read the current state before writing so the audit entry can show
         // what each adventure actually went from, and so an Apply that
         // re-submits untouched checkboxes doesn't log them as changes.
-        const existing = await tx.advancementRecord.findMany({
-          where: { scoutId, adventureId: { in: adventureIds } },
-          select: { adventureId: true, completed: true, completedDate: true, awardedDate: true },
-        });
+        const existing =
+          adventureIds.length === 0
+            ? []
+            : await tx.advancementRecord.findMany({
+                where: { scoutId, adventureId: { in: adventureIds } },
+                select: { adventureId: true, completed: true, completedDate: true, awardedDate: true },
+              });
+        const existingRequirements =
+          requirementIds.length === 0
+            ? []
+            : await tx.requirementRecord.findMany({
+                where: { scoutId, requirementId: { in: requirementIds } },
+                select: { requirementId: true, completed: true, completedDate: true },
+              });
 
         for (const { adventureId, completed, completedDate, awardedDate } of parsed) {
           await tx.advancementRecord.upsert({
@@ -201,7 +287,14 @@ export async function applyAdventureChangesAction(
             },
           });
         }
-        return { scout, adventures, existing };
+        for (const { requirementId, completed, completedDate } of parsedRequirements) {
+          await tx.requirementRecord.upsert({
+            where: { scoutId_requirementId: { scoutId, requirementId } },
+            update: { completed, completedDate, updatedByUserId: session.userId },
+            create: { scoutId, requirementId, completed, completedDate, updatedByUserId: session.userId },
+          });
+        }
+        return { scout, adventures, existing, requirements, existingRequirements };
       },
       { timeout: 15_000, maxWait: 10_000 },
     );
@@ -210,7 +303,7 @@ export async function applyAdventureChangesAction(
     throw error;
   }
 
-  const { scout, adventures, existing } = saved;
+  const { scout, adventures, existing, requirements, existingRequirements } = saved;
   const adventureName = new Map(adventures.map((a) => [a.id, a.name]));
   const priorByAdventure = new Map(existing.map((r) => [r.adventureId, r]));
   const scoutName = `${scout.firstName} ${scout.lastName}`;
@@ -222,12 +315,30 @@ export async function applyAdventureChangesAction(
     if (from === to) continue;
     details.push({ label: adventureName.get(change.adventureId) ?? change.adventureId, from, to });
   }
+  const adventureDetails = details.length;
+
+  const requirementLabel = new Map(
+    requirements.map((r) => [r.id, `${r.adventure.name} · requirement ${r.code}`]),
+  );
+  const priorByRequirement = new Map(existingRequirements.map((r) => [r.requirementId, r]));
+  for (const change of parsedRequirements) {
+    const prior = priorByRequirement.get(change.requirementId);
+    const from = describeRequirementState(prior?.completed ?? false, prior?.completedDate ?? null);
+    const to = describeRequirementState(change.completed, change.completedDate);
+    if (from === to) continue;
+    details.push({ label: requirementLabel.get(change.requirementId) ?? change.requirementId, from, to });
+  }
+  const requirementDetails = details.length - adventureDetails;
 
   if (details.length > 0) {
+    const counted = [
+      adventureDetails > 0 ? `${adventureDetails} adventure${adventureDetails === 1 ? "" : "s"}` : null,
+      requirementDetails > 0 ? `${requirementDetails} requirement${requirementDetails === 1 ? "" : "s"}` : null,
+    ].filter(Boolean);
     const summary =
       details.length === 1
         ? `${details[0].to === EMPTY ? "Cleared" : "Updated"} “${details[0].label}” for ${scoutName}`
-        : `Updated ${details.length} adventures for ${scoutName}`;
+        : `Updated ${counted.join(" and ")} for ${scoutName}`;
     await recordAudit(session, {
       action: "advancement.update",
       summary,
@@ -241,6 +352,11 @@ export async function applyAdventureChangesAction(
   revalidatePath("/portal/den");
   revalidatePath(`/portal/admin/dens/${scout.denId}`);
   return { ok: true };
+}
+
+/** One requirement's state as a single audit string: "Done Sep 10, 2026". */
+function describeRequirementState(completed: boolean, completedDate: Date | null): string {
+  return completed ? `Done ${auditDate(completedDate)}` : EMPTY;
 }
 
 /** One adventure's state as a single audit string: "Complete Sep 10, 2026 · awarded Oct 1, 2026". */

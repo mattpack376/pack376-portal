@@ -1974,6 +1974,48 @@ details[open] > .roster-summary { margin-bottom: 14px; }
 .adventure-dates .btn-link { font-size: 11.5px; margin-top: 2px; }
 .adventure-dates .btn-link:disabled { opacity: 0.5; cursor: default; }
 
+/*
+ * Per-requirement checklist (AdventureRequirements.tsx): a collapsed expander
+ * under each adventure. Open, the adventure takes the whole row of the grid so
+ * the official requirement text has room to read.
+ */
+.adventure-check-item:has(> .req-expander[open]) { grid-column: 1 / -1; }
+/* The adventure's who-changed-it tooltip is about the checkbox, not the requirements under it. */
+.audit-hover:has(.req-expander:hover)::after,
+.audit-hover:has(.req-expander:hover)::before { display: none; }
+.req-expander { margin-left: 30px; }
+.req-summary {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px;
+  min-height: 32px; cursor: pointer; list-style: none;
+  font-size: 12.5px; font-weight: 700; color: var(--scout-blue-dark);
+}
+.req-summary::-webkit-details-marker { display: none; }
+.req-summary::before { content: "▸"; display: inline-block; transition: transform 0.15s; }
+.req-expander[open] > .req-summary::before { transform: rotate(90deg); }
+.req-summary-count { font-weight: 600; color: var(--ink-soft); }
+.req-summary-count.all-met { color: var(--scout-blue-dark); font-weight: 700; }
+.req-summary-unsaved { color: var(--carnival-red-dark); }
+.req-body { padding: 4px 0 6px; }
+.req-note { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 8px; max-width: 70ch; }
+.req-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.req-list .req-list { margin-top: 4px; padding-left: 18px; }
+.req-item { padding: 4px 8px; border-radius: 8px; background: var(--white); }
+.req-item.completed { background: rgba(10, 163, 163, 0.12); }
+.req-item.pending-change { outline: 2px dashed var(--scout-gold-dark); outline-offset: -2px; }
+.req-check { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 13.5px; line-height: 1.4; }
+.req-check input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 0; accent-color: var(--scout-blue); }
+.req-code { font-weight: 700; }
+.req-parent-text { font-size: 13.5px; line-height: 1.4; padding: 4px 8px 0; }
+.req-pick-note { color: var(--ink-soft); font-weight: 600; }
+.req-date { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 4px 0 2px 30px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+.req-item .req-date input { width: auto; height: auto; margin: 0; font-size: 13px; padding: 2px 6px; border: 1px solid rgba(26, 26, 46, 0.25); border-radius: 6px; font-family: inherit; background: var(--white); }
+.req-date-line { display: block; padding: 2px 0 2px 30px; font-size: 11.5px; font-weight: 600; color: var(--ink-soft); }
+.req-all-met {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 10px;
+  padding: 8px 10px; border-radius: 8px; background: var(--cream-dark);
+  font-size: 13px; font-weight: 700; color: var(--scout-blue-dark);
+}
+
 .advancement-apply-row { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 16px; }
 .advancement-apply-error { font-size: 12.5px; font-weight: 700; color: var(--carnival-red); }
 .btn-link { background: none; border: none; padding: 0; font-size: 13px; font-weight: 700; color: var(--ink-soft); text-decoration: underline; cursor: pointer; }
@@ -3481,4 +3523,17 @@ html { -webkit-tap-highlight-color: transparent; }
   .aa-table tbody tr.aa-row-needs_correction { border-left: 4px solid var(--scout-gold-dark); }
   .aa-table tbody tr > td:first-child { box-shadow: none !important; }
   .aa-history-body { max-width: none; }
+}
+
+/* Requirement checklist on a phone / touch screen: 48px rows and toggles, 16px date field (no iOS zoom), less indent. */
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  .req-expander { margin-left: 0; }
+  .req-summary { min-height: 48px; font-size: 13px; }
+  .req-item .req-check { min-height: 48px; align-items: center; padding: 6px 0; }
+  .req-check input { width: 22px; height: 22px; align-self: flex-start; margin-top: 7px; }
+  .req-date { padding-left: 32px; }
+  .req-item .req-date input { font-size: 16px; min-height: var(--control-height); max-width: 100%; }
+  .req-date-line,
+  .req-note { font-size: 12px; }
+  .req-list .req-list { padding-left: 10px; }
 }

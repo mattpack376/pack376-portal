@@ -5,6 +5,8 @@ import { applyAdventureChangesAction } from "@/lib/actions/advancement";
 import type { ChecklistScout } from "@/lib/denData";
 import AdventureCheckbox from "@/components/AdventureCheckbox";
 import AdventureDatesDialog, { type AdventureDates } from "@/components/AdventureDatesDialog";
+import AdventureRequirements, { sameDraft, type RequirementDraft } from "@/components/AdventureRequirements";
+import { todayDateOnlyString } from "@/lib/dateOnly";
 
 /** One row's draft state: what Apply Changes will write. */
 type DraftRecord = { completed: boolean; completedDate: string | null; awardedDate: string | null };
@@ -34,17 +36,32 @@ export default function ScoutAdvancementCard({
       ])
     ) as Record<string, DraftRecord>;
 
+  const initialRequirements = () =>
+    Object.fromEntries(
+      scout.adventures.flatMap((a) =>
+        a.requirements.map((r) => [r.id, { completed: r.completed, completedDate: r.completedDate }])
+      )
+    ) as Record<string, RequirementDraft>;
+
   const [savedState, setSavedState] = useState<Record<string, DraftRecord>>(initial);
   const [draftState, setDraftState] = useState(savedState);
+  const [savedRequirements, setSavedRequirements] = useState(initialRequirements);
+  const [draftRequirements, setDraftRequirements] = useState(savedRequirements);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   /** Adventure whose date dialog is open, if any. */
   const [dialogAdventureId, setDialogAdventureId] = useState<string | null>(null);
+  /** Completion date to suggest when the dialog opens from "All requirements met". */
+  const [dialogPrefill, setDialogPrefill] = useState<string | null>(null);
 
   const dirtyIds = scout.adventures
     .map((a) => a.id)
     .filter((id) => !sameRecord(draftState[id], savedState[id]));
-  const isDirty = dirtyIds.length > 0;
+  const dirtyRequirementIds = Object.keys(draftRequirements).filter(
+    (id) => !sameDraft(draftRequirements[id], savedRequirements[id])
+  );
+  const changeCount = dirtyIds.length + dirtyRequirementIds.length;
+  const isDirty = changeCount > 0;
 
   /*
    * Checking a box asks for the dates first — nothing enters the draft until
@@ -60,6 +77,7 @@ export default function ScoutAdvancementCard({
         [adventureId]: { completed: false, completedDate: null, awardedDate: null },
       }));
     } else {
+      setDialogPrefill(null);
       setDialogAdventureId(adventureId);
     }
   }
@@ -67,7 +85,39 @@ export default function ScoutAdvancementCard({
   function handleEditDates(adventureId: string) {
     if (!editable) return;
     setError(null);
+    setDialogPrefill(null);
     setDialogAdventureId(adventureId);
+  }
+
+  /** From "All requirements met": the usual dates dialog, dated to the last requirement done. */
+  function handleMarkComplete(adventureId: string, completedDate: string | null) {
+    if (!editable) return;
+    setError(null);
+    setDialogPrefill(completedDate);
+    setDialogAdventureId(adventureId);
+  }
+
+  /*
+   * A requirement check goes into the draft dated today, no dialog — the date
+   * input beside it changes that. Re-checking one that was saved as done
+   * brings back its saved date. Unchecking an adventure leaves these alone.
+   */
+  function handleRequirementToggle(requirementId: string) {
+    if (!editable) return;
+    setError(null);
+    setDraftRequirements((prev) => {
+      const saved = savedRequirements[requirementId];
+      const next: RequirementDraft = prev[requirementId]?.completed
+        ? { completed: false, completedDate: null }
+        : { completed: true, completedDate: saved?.completed ? saved.completedDate : todayDateOnlyString() };
+      return { ...prev, [requirementId]: next };
+    });
+  }
+
+  function handleRequirementDate(requirementId: string, date: string) {
+    if (!editable) return;
+    setError(null);
+    setDraftRequirements((prev) => ({ ...prev, [requirementId]: { completed: true, completedDate: date || null } }));
   }
 
   function handleDialogSave(adventureId: string, dates: AdventureDates) {
@@ -84,17 +134,29 @@ export default function ScoutAdvancementCard({
 
   function handleDiscard() {
     setDraftState(savedState);
+    setDraftRequirements(savedRequirements);
     setError(null);
   }
 
   function handleApply() {
     if (!isDirty || isPending) return;
     const changes = dirtyIds.map((adventureId) => ({ adventureId, ...draftState[adventureId] }));
+    const requirementChanges = dirtyRequirementIds.map((requirementId) => ({
+      requirementId,
+      ...draftRequirements[requirementId],
+    }));
+    if (requirementChanges.some((r) => r.completed && !r.completedDate)) {
+      setError("Enter a date for every requirement you check.");
+      return;
+    }
+    const appliedAdventures = draftState;
+    const appliedRequirements = draftRequirements;
     startTransition(async () => {
       try {
-        const result = await applyAdventureChangesAction(scout.id, changes);
+        const result = await applyAdventureChangesAction(scout.id, changes, requirementChanges);
         if (result.ok) {
-          setSavedState(draftState);
+          setSavedState(appliedAdventures);
+          setSavedRequirements(appliedRequirements);
           setError(null);
         } else {
           // Nothing was saved: the server checks the whole Apply before
@@ -128,7 +190,19 @@ export default function ScoutAdvancementCard({
       disabled={isPending}
       onToggle={() => handleToggle(adv.id)}
       onEditDates={() => handleEditDates(adv.id)}
-    />
+    >
+      <AdventureRequirements
+        adventure={adv}
+        adventureChecked={draftState[adv.id].completed}
+        draft={draftRequirements}
+        saved={savedRequirements}
+        editable={editable}
+        disabled={isPending}
+        onToggle={handleRequirementToggle}
+        onDateChange={handleRequirementDate}
+        onMarkComplete={(date) => handleMarkComplete(adv.id, date)}
+      />
+    </AdventureCheckbox>
   );
 
   const pill = (
@@ -167,7 +241,7 @@ export default function ScoutAdvancementCard({
             disabled={!isDirty || isPending}
             onClick={handleApply}
           >
-            {isPending ? "Saving…" : isDirty ? `Apply Changes (${dirtyIds.length})` : "Apply Changes"}
+            {isPending ? "Saving…" : isDirty ? `Apply Changes (${changeCount})` : "Apply Changes"}
           </button>
         </div>
       )}
@@ -183,7 +257,9 @@ export default function ScoutAdvancementCard({
                   completedDate: draftState[dialogAdventure.id].completedDate,
                   awardedDate: draftState[dialogAdventure.id].awardedDate,
                 }
-              : null
+              : dialogPrefill
+                ? { completedDate: dialogPrefill, awardedDate: null }
+                : null
           }
           onSave={(dates) => handleDialogSave(dialogAdventure.id, dates)}
           onCancel={() => setDialogAdventureId(null)}

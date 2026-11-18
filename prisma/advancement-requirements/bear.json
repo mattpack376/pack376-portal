@@ -1,0 +1,395 @@
+{
+  "rank": "BEAR",
+  "compiledOn": "2026-11-18",
+  "adventures": [
+    {
+      "portalName": "Bobcat",
+      "officialName": "Bobcat Bear",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/bobcat-bear/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Get to know members of your den.", "pick": null, "children": [] },
+        { "code": "2", "text": "Recite the Scout Oath and Law with your den and den leader.", "pick": null, "children": [] },
+        { "code": "3", "text": "Learn about the Scout Oath. Identify the three points of the Scout Oath.", "pick": null, "children": [] },
+        { "code": "4", "text": "With your den create a den Code of Conduct.", "pick": null, "children": [] },
+        { "code": "5", "text": "Learn about the denner position and responsibilities.", "pick": null, "children": [] },
+        { "code": "6", "text": "Demonstrate the Cub Scout sign, Cub Scout salute, and Cub Scout handshake. Show how each is used.", "pick": null, "children": [] },
+        { "code": "7", "text": "Share with your den, or family, a time when you demonstrated the Cub Scout motto “Do Your Best.” Explain why it is important to do your best.", "pick": null, "children": [] },
+        { "code": "8", "text": "At home, with your parent or legal guardian do the activities in the booklet “How to Protect Your Children from Child Abuse: A Parent’s Guide.”", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Bear Habitat",
+      "officialName": "Bear Habitat",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/bear-habitat/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Prepare for a one-mile walk by gathering the Cub Scout Six Essentials and weather appropriate clothing and shoes.", "pick": null, "children": [] },
+        { "code": "2", "text": "“Know Before You Go” Identify the location of your walk on a map and confirm your one-mile route.", "pick": null, "children": [] },
+        { "code": "3", "text": "“Choose the Right Path” Learn about the path and surrounding area you will be walking on.", "pick": null, "children": [] },
+        { "code": "4", "text": "“Trash your Trash” Make a plan for what you will do with your personal trash or trash you find along the trail.", "pick": null, "children": [] },
+        { "code": "5", "text": "“Leave What You Find” Take pictures along your walk or bring a sketchbook to draw five things that you want to remember on your walk.", "pick": null, "children": [] },
+        { "code": "6", "text": "“Be Careful with Fire” Determine the fire danger rating along your path.", "pick": null, "children": [] },
+        { "code": "7", "text": "“Respect Wildlife” From a safe distance, identify as you look up, down, and around you, six signs of any mammals, birds, insects, reptiles.", "pick": null, "children": [] },
+        { "code": "8", "text": "“Be Kind to Other Visitors” Identify what you need to do as a den to be kind to others on the path.", "pick": null, "children": [] },
+        { "code": "9", "text": "Go on your one-mile walk while practicing your Leave No Trace Principles for Kids.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Bear Strong",
+      "officialName": "Bear Strong",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/bear-strong/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Sample food from three of the following food groups: protein, vegetables, fruits, dairy, and grains.", "pick": null, "children": [] },
+        { "code": "2", "text": "Be active for 30 minutes with your den or at least one other person that includes both stretching and moving.", "pick": null, "children": [] },
+        { "code": "3", "text": "Be active for 15 minutes doing personal exercises that include cardio, muscular strength, and flexibility.", "pick": null, "children": [] },
+        { "code": "4", "text": "Do a relaxing activity for 10 minutes.", "pick": null, "children": [] },
+        { "code": "5", "text": "Review your Scouting America Annual Health and Medical record with your parent or guardian. Discuss your ability to participate in den and pack activities.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Paws for Action",
+      "officialName": "Paws for Action",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/paws-for-action/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Familiarize yourself with the flag of the United States of America including the history, demonstrating how to raise and lower the flag, how to properly fold and display, and the United States etiquette.", "pick": null, "children": [] },
+        { "code": "2", "text": "Identify 3 symbols that represent the United States. Pick your favorite and make a model, work of art, or other craft that depicts the symbol.", "pick": null, "children": [] },
+        { "code": "3", "text": "Learn about the mission of any non-profit. Find out how they fund their activities and how volunteers are used to help.", "pick": null, "children": [] },
+        { "code": "4", "text": "Participate in a service project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Standing Tall",
+      "officialName": "Standing Tall",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/standing-tall/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With permission from your parent or legal guardian, watch the Protect Yourself Rules video for the Bear rank.", "pick": null, "children": [] },
+        { "code": "2", "text": "Complete the Personal Space Bubble worksheet that is part of the Protect Yourself Rules resources.", "pick": null, "children": [] },
+        { "code": "3", "text": "With your parent or legal guardian, set up a family policy for digital devices.", "pick": null, "children": [] },
+        { "code": "4", "text": "Identify common personal safety gear for your head, eyes, mouth, hands, and feet. List how each of these items protect you. Demonstrate the proper use of personal safety gear for an activity.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Fellowship",
+      "officialName": "Fellowship",
+      "type": "REQUIRED",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/fellowship/",
+      "pick": null,
+      "note": "This Adventure may be earned by completing the requirements below OR by completing a Religious Emblem of the Cub Scouts family’s choosing.",
+      "requirements": [
+        { "code": "1", "text": "With your parent or legal guardian talk about your family’s faith traditions. Identify three holidays or celebrations that are part of your family’s faith traditions. Make a craft, work of art, or a food item that is part of your favorite family’s faith tradition, holiday or celebration.", "pick": null, "children": [] },
+        { "code": "2", "text": "With your family, attend a religious service OR other gathering that shows how your family expresses reverence.", "pick": null, "children": [] },
+        { "code": "3", "text": "Carry out an act of kindness.", "pick": null, "children": [] },
+        { "code": "4", "text": "With your parent or legal guardian identify a religion or faith that is different from your own. Determine two things that it has in common with your family’s beliefs.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "A Bear Goes Fishing",
+      "officialName": "A Bear Goes Fishing",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/a-bear-goes-fishing/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn about three types of fish in your area.", "pick": null, "children": [] },
+        { "code": "2", "text": "Learn about your local fishing regulations with your den leader or an adult.", "pick": null, "children": [] },
+        { "code": "3", "text": "List three of the regulations you learned about, and one reason each regulation exists.", "pick": null, "children": [] },
+        { "code": "4", "text": "Become familiar with the safe use of the fishing equipment you will be using on your outing.", "pick": null, "children": [] },
+        { "code": "5", "text": "Learn the proper way to attach the hook, lure, or fly to the line.", "pick": null, "children": [] },
+        { "code": "6", "text": "Go on a fishing adventure, and for 30 minutes or more, put into practice the things you learned about fish and fishing equipment.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Archery*",
+      "officialName": "Archery Bear",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_Archery-Adventure-Lesson-Plan_051624.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify and wear appropriate safety gear.", "pick": null, "children": [] },
+        { "code": "2", "text": "Demonstrate the archery range safety rules and whistle commands.", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands.", "pick": null, "children": [] },
+        { "code": "4", "text": "Identify the main parts of your shooting equipment and how to properly use them.", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate proper stance and shooting techniques.", "pick": null, "children": [] },
+        { "code": "6", "text": "Shoot 5 arrows at a target. Repeat twice and do your best to improve your score each time. Shoot at least 15 arrows.", "pick": null, "children": [] },
+        { "code": "7", "text": "Demonstrate how to safely retrieve your arrows.", "pick": null, "children": [] },
+        { "code": "8", "text": "Discuss how to put away and properly store your archery shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Balancing Bears",
+      "officialName": "Balancing Bears",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/balancing-bears/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Make trail mix using trail mix math.", "pick": null, "children": [] },
+        { "code": "2", "text": "Identify an animal that has a pattern to its physical appearance. Investigate how the animal uses its pattern.", "pick": null, "children": [] },
+        { "code": "3", "text": "Find examples of bilateral symmetry in nature.", "pick": null, "children": [] },
+        { "code": "4", "text": "Find examples of radial symmetry in nature.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Baloo the Builder",
+      "officialName": "Baloo the Builder",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/baloo-the-builder/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Learn about some basic tools and the proper use of each tool. Learn about and understand the need for safety when you work with tools.", "pick": null, "children": [] },
+        { "code": "2", "text": "Practice using four of the tools you learned about in requirement 1.", "pick": null, "children": [] },
+        { "code": "3", "text": "Choose a project to build.", "pick": null, "children": [] },
+        { "code": "4", "text": "Determine the tools and materials needed to build your project in requirement 3.", "pick": null, "children": [] },
+        { "code": "5", "text": "Build your project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "BB Gun*",
+      "officialName": "BB Guns",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_BB-Adventure-Lesson-Plan_051724.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Explain what you should do if you find a gun. Recite the 4 safety reminders.", "pick": null, "children": [] },
+        { "code": "2", "text": "Identify and wear the appropriate safety gear.", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands (additionally Bear, Webelos and Arrow of Light Scouts are to demonstrate proper range commands and explain them to an adult or another scout).", "pick": null, "children": [] },
+        { "code": "4", "text": "Show how to use the safety mechanism.", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate how to properly load, fire, and secure your BB gun.", "pick": null, "children": [] },
+        { "code": "6", "text": "Demonstrate one of the positions for shooting a BB gun. Note: this is a demonstration requirement and not mandatory as a shooting requirement.", "pick": null, "children": [] },
+        { "code": "7", "text": "Fire 5 BBs at the target and score your target. Repeat twice and do your best to improve your score. Fire at least 15 BBs.", "pick": null, "children": [] },
+        { "code": "8", "text": "Discuss how to put away and properly store your BB gun and shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Bears Afloat",
+      "officialName": "Bears Afloat",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/bears-afloat/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Before attempting requirements 6 and 7 for this Adventure, you must pass Scouting America swimmer test.", "pick": null, "children": [] },
+        { "code": "2", "text": "Pick a paddle craft you’ll use to complete all requirements: canoe, kayak, or stand-up paddleboard.", "pick": null, "children": [] },
+        { "code": "3", "text": "With your den or an adult, discuss the role of qualified adult supervision at a paddle craft activity.", "pick": null, "children": [] },
+        { "code": "4", "text": "Explain the safety rules to follow when safely using a paddle craft.", "pick": null, "children": [] },
+        { "code": "5", "text": "Discover how to tell if a life jacket is the correct size and approved for your paddle craft activity. Demonstrate how to wear it.", "pick": null, "children": [] },
+        { "code": "6", "text": "Explore how your paddle craft responds as you move your paddle through the water from different places.", "pick": null, "children": [] },
+        { "code": "7", "text": "Have 30 minutes, or more, of canoe, kayak, or stand-up paddleboard paddle time.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Bears on Bikes",
+      "officialName": "Bears on Bikes",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/bears-on-bikes/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Show how to properly wear a bicycle helmet.", "pick": null, "children": [] },
+        { "code": "2", "text": "Decide what you should wear when riding a bike.", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper hand signals.", "pick": null, "children": [] },
+        { "code": "4", "text": "Demonstrate how to adjust saddle height.", "pick": null, "children": [] },
+        { "code": "5", "text": "Demonstrate how to operate brakes.", "pick": null, "children": [] },
+        { "code": "6", "text": "Learn how to use a pump to inflate your tires. Discuss why riding with low-pressure or flat tires is unsafe and can cause damage to your bike.", "pick": null, "children": [] },
+        { "code": "7", "text": "With your family, den, or pack, follow the buddy system and go on a 30-minute bike ride.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Champions for Nature",
+      "officialName": "Champions for Nature Bear",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/champions-for-nature-bear/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Discover natural resources.", "pick": null, "children": [] },
+        { "code": "2", "text": "Discover what happens to the wastewater in your community.", "pick": null, "children": [] },
+        { "code": "3", "text": "Investigate soil.", "pick": null, "children": [] },
+        { "code": "4", "text": "Investigate air pollution.", "pick": null, "children": [] },
+        { "code": "5", "text": "Participate in a conservation project.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Chef Tech",
+      "officialName": "Chef Tech",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/chef-tech/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Pick a kitchen appliance that uses technology to complete the following requirements.", "pick": null, "children": [] },
+        { "code": "2", "text": "With an adult, review the safety guidelines in the owner’s manual and follow all safety guidelines.", "pick": null, "children": [] },
+        { "code": "3", "text": "With adult supervision, download a cooking app or search online to find a recipe.", "pick": null, "children": [] },
+        { "code": "4", "text": "With adult supervision, follow the selected recipe and make the recipe.", "pick": null, "children": [] },
+        { "code": "5", "text": "Think of a way technology can improve the appliance used to make your recipe.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Critter Care",
+      "officialName": "Critter Care",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/critter-care/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify an animal that would be good pet for your family.", "pick": null, "children": [] },
+        { "code": "2", "text": "Choose two animals that are allowed as pets in your community. Compare and contrast why these pets may be a good choice for you.", "pick": null, "children": [] },
+        { "code": "3", "text": "Based on your choice in requirement 1, investigate how to properly care for your chosen animal.", "pick": null, "children": [] },
+        { "code": "4", "text": "Discover three ways a pet can help people.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Forensics",
+      "officialName": "Forensics",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/forensics/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Explore the term “forensics” and how it is used to help solve crimes.", "pick": null, "children": [] },
+        { "code": "2", "text": "Analyze your fingerprints.", "pick": null, "children": [] },
+        { "code": "3", "text": "Make a shoe imprint.", "pick": null, "children": [] },
+        { "code": "4", "text": "Do an analysis of four different substances: salt, sugar, baking soda and cornstarch.", "pick": null, "children": [] },
+        { "code": "5", "text": "Learn about chromatography and how it is used in solving crimes.", "pick": null, "children": [] },
+        { "code": "6", "text": "Find out how officers collect evidence.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Let's Camp",
+      "officialName": "Let’s Camp Bear",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/lets-camp-bear/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Review the buddy system and how it works in the outdoors.", "pick": null, "children": [] },
+        { "code": "2", "text": "Pack your Cub Scout Six Essentials for the campout.", "pick": null, "children": [] },
+        { "code": "3", "text": "In addition to your Cub Scout Six Essentials, show the personal items you need for your campout.", "pick": null, "children": [] },
+        { "code": "4", "text": "Help set up a tent. Determine a good spot for the tent. Explain why you picked the spot.", "pick": null, "children": [] },
+        { "code": "5", "text": "Attend a council or district Cub Scout overnight camp or attend a campout with your pack.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Marble Madness",
+      "officialName": "Marble Madness",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/marble-madness/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Make a marble bag.", "pick": null, "children": [] },
+        { "code": "2", "text": "Learn five words that are used when talking about marbles.", "pick": null, "children": [] },
+        { "code": "3", "text": "Play three different marble games.", "pick": null, "children": [] },
+        { "code": "4", "text": "Build a marble racetrack with at least two lanes.", "pick": null, "children": [] },
+        { "code": "5", "text": "Build a marble maze.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Race Time",
+      "officialName": "Race Time Bear",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/race-time-bear/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With an adult, build either a Pinewood Derby® car or a Raingutter Regatta™ boat.", "pick": null, "children": [] },
+        { "code": "2", "text": "Learn the rules of the race for the vehicle chosen in requirement 1.", "pick": null, "children": [] },
+        { "code": "3", "text": "Identify how you could increase the speed of your chosen vehicle.", "pick": null, "children": [] },
+        { "code": "4", "text": "Before the race, discuss with your den how you will demonstrate good sportsmanship during the race.", "pick": null, "children": [] },
+        { "code": "5", "text": "Participate in a Pinewood Derby® or a Raingutter Regatta™.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Roaring Laughter",
+      "officialName": "Roaring Laughter",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/roaring-laughter/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Think about what makes you laugh. Discuss these with your den or family.", "pick": null, "children": [] },
+        { "code": "2", "text": "Practice reading tongue twisters.", "pick": null, "children": [] },
+        { "code": "3", "text": "Play charades with your den or family.", "pick": null, "children": [] },
+        { "code": "4", "text": "Have a “funniest joke contest” with your den or family.", "pick": null, "children": [] },
+        { "code": "5", "text": "Practice “run-ons” with your den or family.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Salmon Run",
+      "officialName": "Salmon Run",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/salmon-run/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "With your den or an adult, identify the attributes of qualified adult supervision at a swimming activity.", "pick": null, "children": [] },
+        { "code": "2", "text": "Learn the three swimming ability groups for Scouting America and water depths appropriate for each.", "pick": null, "children": [] },
+        { "code": "3", "text": "Go swimming with your den, pack, or family for 30 minutes using the buddy system.", "pick": null, "children": [] },
+        { "code": "4", "text": "Demonstrate the use the buddy system, buddy checks, and ability groups with your den or an adult.", "pick": null, "children": [] },
+        { "code": "5", "text": "Attempt Scouting America beginner swim test.", "pick": null, "children": [] },
+        { "code": "6", "text": "Demonstrate both a reach rescue and a throw rescue.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Slingshot*",
+      "officialName": "Slingshot",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/wp-content/uploads/2024/05/2024_Cub-Scout_Slingshot-Adventure-Lesson-Plan_051624.pdf",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Identify and wear appropriate safety gear.", "pick": null, "children": [] },
+        { "code": "2", "text": "Recite the safety rules for using a slingshot.", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate proper range commands.", "pick": null, "children": [] },
+        { "code": "4", "text": "Explore the parts of a slingshot and their proper usage.", "pick": null, "children": [] },
+        { "code": "5", "text": "Discover the types of ammunition that may be used and types that may not be used.", "pick": null, "children": [] },
+        { "code": "6", "text": "Discover the types of targets that may be used and types that may not be used.", "pick": null, "children": [] },
+        { "code": "7", "text": "Shoot 5 shots at a target. Repeat twice and do your best to improve your score each time. Shoot at least 15 shots.", "pick": null, "children": [] },
+        { "code": "8", "text": "Discuss how to put away and properly store your slingshot and shooting equipment after use.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Summertime Fun",
+      "officialName": "Summertime Fun Bear",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/summertime-fun-bear/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Anytime during May through August participate in a total of three Cub Scout activities.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Super Science",
+      "officialName": "Super Science",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/super-science/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Conduct static electricity investigation.", "pick": null, "children": [] },
+        { "code": "2", "text": "Conduct the sink-or-float investigation.", "pick": null, "children": [] },
+        { "code": "3", "text": "Conduct the color-morphing investigation.", "pick": null, "children": [] },
+        { "code": "4", "text": "Conduct the color-layering investigation.", "pick": null, "children": [] }
+      ]
+    },
+    {
+      "portalName": "Whittling",
+      "officialName": "Whittling",
+      "type": "ELECTIVE",
+      "sourceUrl": "https://www.scouting.org/cub-scout-adventures/whittling/",
+      "pick": null,
+      "requirements": [
+        { "code": "1", "text": "Read, understand, and promise to abide by the “Cub Scout Knife Safety Rules.”", "pick": null, "children": [] },
+        { "code": "2", "text": "Demonstrate the knife safety circle.", "pick": null, "children": [] },
+        { "code": "3", "text": "Demonstrate that you know how to care for and use your pocketknife safely.", "pick": null, "children": [] },
+        { "code": "4", "text": "Make two carvings with a pocketknife.", "pick": null, "children": [] }
+      ]
+    }
+  ],
+  "notes": [
+    "Bear has no 'choose N of' rules: every requirement in every Bear adventure is required.",
+    "Fellowship can also be earned by completing a religious emblem instead of requirements 1-4 (adventure-level 'note' field), the same as the Lion, Tiger and Wolf faith adventures.",
+    "Archery*, BB Gun* and Slingshot* have no scouting.org adventure page. Their requirements come from the official 2024 range lesson plans (Archery and Slingshot 05/16/24, BB Gun 05/17/24). Only the Bear parts are kept: helper parentheticals for younger ranks are dropped, and each shooting requirement is the Bear line.",
+    "Bear is the first rank where Slingshot requirement 6 (types of targets) applies, so Bear Slingshot has all 8 requirements. The lesson plan's 'Bear, Webelos, Arrow of Light -' prefix and its 'not required for Lion, Tiger, or Wolf' note are dropped from the text.",
+    "BB Gun requirement 3 keeps the clause that applies to Bear and up (explain range commands to an adult or another scout). Archery requirement 3's extra clause starts at Webelos, so it isn't included for Bear.",
+    "Bears Afloat requirement 1 is a prerequisite (pass the swimmer test before requirements 6 and 7). It's still listed as a normal checkable requirement.",
+    "Summertime Fun Bear has a single requirement.",
+    "Names that differ between the portal and scouting.org (portalName kept as the match key, nothing renamed): 'BB Gun*' vs 'BB Guns'. The others differ only by the rank suffix scouting.org adds (e.g. 'Let’s Camp Bear').",
+    "scouting.org lists exactly these 26 Bear adventures (6 required, 17 elective, 3 special electives: Archery, Slingshot, BB Guns). Nothing is missing from the portal and nothing is extra.",
+    "Text is copied exactly as published, including the source's quirks: 'would be good pet' (Critter Care req 1), 'Demonstrate the use the buddy system' (Salmon Run req 4), and Bear Habitat req 7 ending '...insects, reptiles.'"
+  ]
+}

@@ -93,6 +93,7 @@ model User {
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
   advancementUpdates       AdvancementRecord[]
+  requirementUpdates       RequirementRecord[]
   advancementAuditMarks    AdvancementAuditMark[]
   attendanceUpdates        Attendance[]
   leaderAttendanceUpdates  AdultLeaderAttendance[]
@@ -223,6 +224,7 @@ model Scout {
   active                Boolean             @default(true)
   createdAt             DateTime            @default(now())
   records               AdvancementRecord[]
+  requirementRecords    RequirementRecord[]
   attendances           Attendance[]
   duesPayments          DuesPayment[]
   parents               Parent[]
@@ -253,32 +255,86 @@ model Parent {
 }
 
 model Adventure {
-  id        String              @id @default(cuid())
-  rank      Rank
-  name      String
-  type      AdventureType
-  sortOrder Int
-  note      String?
-  records   AdvancementRecord[]
+  id               String                 @id @default(cuid())
+  rank             Rank
+  name             String
+  type             AdventureType
+  sortOrder        Int
+  note             String?
+  // Another way to earn the adventure besides its requirements (the faith
+  // adventures: "OR by completing a Religious Emblem"). Shown above the
+  // requirement list; such an adventure can be checked off with none of its
+  // requirements logged.
+  requirementsNote String?
+  // How many top-level requirements earn the adventure; null means all.
+  requirementsPick Int?
+  records          AdvancementRecord[]
+  requirements     AdventureRequirement[]
 
   @@unique([rank, name])
 }
 
-model AdvancementRecord {
-  id              String    @id @default(cuid())
+/**
+ * One official requirement inside an adventure ("3", or a lettered part
+ * "3a" under it). Loaded from prisma/advancement-requirements/*.json by a
+ * generated migration (see prisma/requirementsData.ts), never edited in the
+ * app. A group node (isGroup) is a "do two of 4-7" wrapper with no checkbox
+ * of its own; pick says how many children are needed, null meaning all.
+ */
+model AdventureRequirement {
+  id          String                 @id @default(cuid())
+  adventureId String
+  adventure   Adventure              @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      AdventureRequirement?  @relation("RequirementTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    AdventureRequirement[] @relation("RequirementTree")
+  code        String
+  text        String
+  pick        Int?
+  isGroup     Boolean                @default(false)
+  sortOrder   Int
+  records     RequirementRecord[]
+
+  @@unique([adventureId, code])
+  @@index([parentId])
+}
+
+/**
+ * A scout's check on one requirement. Only adds detail under the adventure:
+ * AdvancementRecord stays the source of truth for whether the adventure is
+ * done, and unchecking an adventure leaves these as they are.
+ */
+model RequirementRecord {
+  id              String               @id @default(cuid())
   scoutId         String
-  scout           Scout     @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  scout           Scout                @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  requirementId   String
+  requirement     AdventureRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  completed       Boolean              @default(false)
+  completedDate   DateTime?            @db.Date
+  updatedAt       DateTime             @updatedAt
+  updatedByUserId String?
+  updatedByUser   User?                @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([scoutId, requirementId])
+  @@index([requirementId])
+}
+
+model AdvancementRecord {
+  id              String                @id @default(cuid())
+  scoutId         String
+  scout           Scout                 @relation(fields: [scoutId], references: [id], onDelete: Cascade)
   adventureId     String
-  adventure       Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
-  completed       Boolean   @default(false)
+  adventure       Adventure             @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+  completed       Boolean               @default(false)
   // Both are dates a leader types in, not audit stamps (updatedAt covers
   // that). awardedDate stays null until the badge is actually handed out at a
   // pack meeting, which is usually weeks after the adventure is finished.
-  completedDate   DateTime? @db.Date
-  awardedDate     DateTime? @db.Date
-  updatedAt       DateTime  @updatedAt
+  completedDate   DateTime?             @db.Date
+  awardedDate     DateTime?             @db.Date
+  updatedAt       DateTime              @updatedAt
   updatedByUserId String?
-  updatedByUser   User?     @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  updatedByUser   User?                 @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
   auditMark       AdvancementAuditMark?
 
   @@unique([scoutId, adventureId])
@@ -486,16 +542,16 @@ model PhotoConsentHistory {
 }
 
 model PhotoAlbum {
-  id            String   @id @default(cuid())
+  id            String       @id @default(cuid())
   title         String
-  eventDate     DateTime @db.Date
+  eventDate     DateTime     @db.Date
   description   String?
   coverImageUrl String?
   /// An outside album link from before photos were hosted here. Optional, and not shown on the public site.
   photoAlbumUrl String?
-  isVisible     Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isVisible     Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   photos        AlbumPhoto[]
 }
 
