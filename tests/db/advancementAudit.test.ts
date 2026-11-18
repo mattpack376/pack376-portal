@@ -144,6 +144,37 @@ describe("advancement audit: flag, resolve, clear", () => {
     assert.equal(statusOf((await load()).records, clean.id), "READY_FOR_AWARD");
   });
 
+  it("flags a partly logged adventure; a mark is pinned to requirement edits too", async () => {
+    const { scoutA, clean, admin } = await setup();
+    const reqs = [];
+    for (const code of ["1", "2"]) {
+      reqs.push(
+        await db.prisma.adventureRequirement.create({
+          data: { adventureId: clean.adventureId, code, text: `Requirement ${code}`, sortOrder: Number(code) },
+        }),
+      );
+    }
+    await db.prisma.requirementRecord.create({
+      data: { scoutId: scoutA.id, requirementId: reqs[0].id, completed: true, completedDate: d("2026-09-10") },
+    });
+    const load = () =>
+      runAs(admin, async () => data.loadAdvancementAudit((await (await import("@/lib/auth")).getSession())!, filters()));
+    const row = (await load()).records.find((r) => r.recordId === clean.id);
+    assert.equal(row?.status, "FLAGGED");
+    assert.deepEqual(row?.discrepancies, ["REQUIREMENTS_INCOMPLETE"]);
+
+    // Resolved after the requirement was saved: the mark holds.
+    const resolved = await post(admin, { intent: "resolve", recordId: [clean.id], note: "Done at camp", back: "" });
+    assert.match(redirectOf(resolved) ?? "", /done=resolve&n=1/);
+    assert.equal(statusOf((await load()).records, clean.id), "RESOLVED");
+
+    // Logging the second requirement is an edit: the mark lapses and the record is clean.
+    await db.prisma.requirementRecord.create({
+      data: { scoutId: scoutA.id, requirementId: reqs[1].id, completed: true, completedDate: d("2026-09-12") },
+    });
+    assert.equal(statusOf((await load()).records, clean.id), "READY_FOR_AWARD");
+  });
+
   it("resolve only takes records that fail a check; clear removes the mark", async () => {
     const { clean, bad, junior } = await setup();
     const result = await post(junior, { intent: "resolve", recordId: [clean.id, bad.id], note: "Award date is right", back: "" });

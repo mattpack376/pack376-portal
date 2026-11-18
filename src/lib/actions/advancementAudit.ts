@@ -7,7 +7,8 @@ import { getSession } from "@/lib/auth";
 import { isAdvancementAuditEditor } from "@/lib/authorize";
 import { recordAudit } from "@/lib/audit";
 import { todayDateOnly } from "@/lib/dateOnly";
-import { MAX_AUDIT_NOTE_LENGTH, auditRecord } from "@/lib/advancementAuditRules";
+import { MAX_AUDIT_NOTE_LENGTH, auditRecord, lastEdited } from "@/lib/advancementAuditRules";
+import { loadRequirementAuditInputs, requirementAuditInputFor } from "@/lib/advancementAuditData";
 
 /*
  * Bulk and single-row actions on Audits -> Advancement. One form posts the
@@ -78,8 +79,15 @@ async function applyMarks(
     },
   });
 
+  const requirementInputs = await loadRequirementAuditInputs(
+    records.map((r) => ({ scoutId: r.scoutId, adventureId: r.adventureId })),
+  );
+
   let applied = 0;
   for (const record of records) {
+    const requirements = requirementAuditInputFor(requirementInputs, record.scoutId, record.adventureId);
+    // Pinned to the latest edit of the adventure or its requirement checks, as the page judges it.
+    const updatedAt = lastEdited(record.updatedAt, requirements);
     const scoutName = `${record.scout.firstName} ${record.scout.lastName}`.trim();
     const what = `“${record.adventure.name}” for ${scoutName}`;
 
@@ -105,9 +113,10 @@ async function applyMarks(
           completed: record.completed,
           completedDate: record.completedDate,
           awardedDate: record.awardedDate,
-          updatedAt: record.updatedAt,
+          updatedAt,
           scoutingYear: record.scout.den.scoutingYear,
           mark: null,
+          requirements,
         },
         today,
       );
@@ -115,7 +124,7 @@ async function applyMarks(
     }
 
     const kind = intent === "flag" ? "NEEDS_CORRECTION" : "RESOLVED";
-    const data = { kind, note, recordUpdatedAt: record.updatedAt, markedByUserId: session.userId, createdAt: new Date() } as const;
+    const data = { kind, note, recordUpdatedAt: updatedAt, markedByUserId: session.userId, createdAt: new Date() } as const;
     await prisma.advancementAuditMark.upsert({
       where: { recordId: record.id },
       create: { recordId: record.id, ...data },

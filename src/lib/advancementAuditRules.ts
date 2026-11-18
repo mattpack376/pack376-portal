@@ -1,5 +1,6 @@
 import type { AdventureType, Rank } from "@/generated/prisma/enums";
 import { ELECTIVES_REQUIRED } from "@/lib/rankConfig";
+import { requirementProgress, type RequirementNode } from "@/lib/requirementProgress";
 
 /*
  * The checks behind Audits -> Advancement. Pure functions over plain data, so
@@ -8,8 +9,10 @@ import { ELECTIVES_REQUIRED } from "@/lib/rankConfig";
  *
  * The portal records advancement one adventure at a time: a leader ticks an
  * adventure complete with the date it was finished, and later types in the
- * date the badge was handed out. There is no parent submission, approval step
- * or outside sync, so every check here is about what those dates say.
+ * date the badge was handed out. Under each adventure they may also check off
+ * its requirements one by one, each with the date it was done. There is no
+ * parent submission, approval step or outside sync, so every check here is
+ * about what those dates say.
  */
 
 /** Something about a record's dates that doesn't add up. */
@@ -19,7 +22,10 @@ export type AdvancementDiscrepancyType =
   | "FUTURE_AWARDED_DATE"
   | "AWARDED_BEFORE_COMPLETED"
   | "AWARDED_NOT_COMPLETED"
-  | "OUTSIDE_PROGRAM_YEAR";
+  | "OUTSIDE_PROGRAM_YEAR"
+  | "REQUIREMENTS_INCOMPLETE"
+  | "FUTURE_REQUIREMENT_DATE"
+  | "REQUIREMENT_AFTER_COMPLETED";
 
 export const DISCREPANCY_LABELS: Record<AdvancementDiscrepancyType, string> = {
   MISSING_COMPLETED_DATE: "No completion date",
@@ -28,6 +34,9 @@ export const DISCREPANCY_LABELS: Record<AdvancementDiscrepancyType, string> = {
   AWARDED_BEFORE_COMPLETED: "Awarded before completed",
   AWARDED_NOT_COMPLETED: "Awarded but not complete",
   OUTSIDE_PROGRAM_YEAR: "Outside the scouting year",
+  REQUIREMENTS_INCOMPLETE: "Requirements partly logged",
+  FUTURE_REQUIREMENT_DATE: "Requirement dated in the future",
+  REQUIREMENT_AFTER_COMPLETED: "Requirement done after completion",
 };
 
 export const DISCREPANCY_HELP: Record<AdvancementDiscrepancyType, string> = {
@@ -37,6 +46,10 @@ export const DISCREPANCY_HELP: Record<AdvancementDiscrepancyType, string> = {
   AWARDED_BEFORE_COMPLETED: "The badge was handed out before the adventure was finished.",
   AWARDED_NOT_COMPLETED: "An award date is on file, but the adventure isn't checked complete.",
   OUTSIDE_PROGRAM_YEAR: "Completed before June 1 or after August 31 of this den's scouting year.",
+  REQUIREMENTS_INCOMPLETE:
+    "Checked complete, but only some of its requirements are logged. Log the rest, or resolve it if the scout finished them another way.",
+  FUTURE_REQUIREMENT_DATE: "One of its requirements is dated after today — probably a typo in the year or month.",
+  REQUIREMENT_AFTER_COMPLETED: "One of its requirements is dated after the day the adventure was marked complete.",
 };
 
 /** Where a record stands on the audit page. */
@@ -95,15 +108,62 @@ export type AuditMarkInput = {
   recordUpdatedAt: Date;
 };
 
+/** What a scout has logged under one adventure's requirements, as the checks need it. */
+export type AuditRequirementInput = {
+  /** Requirements the adventure lists; 0 means none on file, so nothing is checked. */
+  listed: number;
+  /** Whether the logged checks meet the adventure (its pick, lettered parts and groups counted). */
+  allMet: boolean;
+  /** The date of every requirement checked done. */
+  dates: Date[];
+  /** The adventure can be earned another way (a religious emblem), so partial logs are fine. */
+  hasAlternative: boolean;
+  /** The latest save of any of the scout's checks on this adventure, or null for none. */
+  updatedAt: Date | null;
+};
+
 export type AuditRecordInput = {
   completed: boolean;
   completedDate: Date | null;
   awardedDate: Date | null;
+  /** When the record was last edited — the adventure or any of its requirement checks (see lastEdited). */
   updatedAt: Date;
   /** "2026-2027" — the den's season. */
   scoutingYear: string;
   mark: AuditMarkInput | null;
+  /** Omitted or null when the adventure has no requirements on file. */
+  requirements?: AuditRequirementInput | null;
 };
+
+/**
+ * Sums up one scout's requirement checks on one adventure. Legacy completions
+ * (checked off before requirements were tracked) have no dates, so they are
+ * never flagged for missing requirements — only a partial log is.
+ */
+export function summarizeRequirements(
+  tree: readonly RequirementNode[],
+  adventurePick: number | null,
+  hasAlternative: boolean,
+  checks: readonly { requirementId: string; completed: boolean; completedDate: Date | null; updatedAt: Date }[],
+): AuditRequirementInput {
+  const done = checks.filter((c) => c.completed);
+  const progress = requirementProgress(tree, adventurePick, new Set(done.map((c) => c.requirementId)));
+  let updatedAt: Date | null = null;
+  for (const check of checks) if (!updatedAt || check.updatedAt > updatedAt) updatedAt = check.updatedAt;
+  return {
+    listed: progress.total,
+    allMet: progress.allMet,
+    dates: done.flatMap((c) => (c.completedDate ? [c.completedDate] : [])),
+    hasAlternative,
+    updatedAt,
+  };
+}
+
+/** The later of an adventure record's own save and its requirement checks' — what an audit mark is pinned to. */
+export function lastEdited(recordUpdatedAt: Date, requirements: AuditRequirementInput | null | undefined): Date {
+  const other = requirements?.updatedAt;
+  return other && other > recordUpdatedAt ? other : recordUpdatedAt;
+}
 
 /** June 1 of the season's first year through August 31 of its second — the school year plus both summers' edges. */
 export function programYearWindow(scoutingYear: string): { start: Date; end: Date } | null {
@@ -130,6 +190,16 @@ export function findDiscrepancies(record: AuditRecordInput, today: Date): Advanc
   const window = programYearWindow(record.scoutingYear);
   if (completedDate && window && (completedDate < window.start || completedDate > window.end)) {
     found.push("OUTSIDE_PROGRAM_YEAR");
+  }
+
+  const req = record.requirements;
+  if (req && req.listed > 0) {
+    if (req.dates.length > 0 && !req.allMet && !req.hasAlternative) found.push("REQUIREMENTS_INCOMPLETE");
+    if (req.dates.some((d) => d > today)) found.push("FUTURE_REQUIREMENT_DATE");
+    // A future date is already flagged above; this one is about the past.
+    if (completedDate && req.dates.some((d) => d > completedDate && d <= today)) {
+      found.push("REQUIREMENT_AFTER_COMPLETED");
+    }
   }
   return found;
 }

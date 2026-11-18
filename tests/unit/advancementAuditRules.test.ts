@@ -5,10 +5,13 @@ import {
   auditRecord,
   findDiscrepancies,
   hasEarnedRank,
+  lastEdited,
   programYearWindow,
+  summarizeRequirements,
   statusMatchesFilter,
   type AuditRecordInput,
 } from "@/lib/advancementAuditRules";
+import { buildRequirementTree } from "@/lib/requirementProgress";
 
 /** A stored date-only value (UTC midnight). */
 const day = (ymd: string) => new Date(`${ymd}T00:00:00Z`);
@@ -92,5 +95,57 @@ describe("advancement audit checks", () => {
     assert.ok(!hasEarnedRank(adventures, ["REQUIRED", "REQUIRED", "ELECTIVE"]));
     assert.ok(!hasEarnedRank(adventures, ["REQUIRED", "ELECTIVE", "ELECTIVE"]));
     assert.ok(!hasEarnedRank([], []));
+  });
+
+  describe("requirement checks", () => {
+    const tree = buildRequirementTree(
+      ["1", "2", "3"].map((id, i) => ({ id, parentId: null, code: id, text: id, pick: null, isGroup: false, sortOrder: i })),
+    );
+    const check = (requirementId: string, ymd: string | null, completed = true) => ({
+      requirementId,
+      completed,
+      completedDate: ymd ? day(ymd) : null,
+      updatedAt: new Date("2026-10-05T12:00:00Z"),
+    });
+    const withReqs = (checks: ReturnType<typeof check>[], hasAlternative = false) =>
+      rec({ requirements: summarizeRequirements(tree, null, hasAlternative, checks) });
+
+    it("all requirements logged before completion is clean", () => {
+      const checks = [check("1", "2026-09-20"), check("2", "2026-09-27"), check("3", "2026-10-02")];
+      assert.deepEqual(findDiscrepancies(withReqs(checks), today), []);
+    });
+
+    it("a legacy completion with nothing logged is not flagged", () => {
+      assert.deepEqual(findDiscrepancies(withReqs([]), today), []);
+      assert.deepEqual(findDiscrepancies(withReqs([check("1", null, false)]), today), []);
+    });
+
+    it("flags a partial log, unless the adventure can be earned another way", () => {
+      const partial = [check("1", "2026-09-20")];
+      assert.deepEqual(findDiscrepancies(withReqs(partial), today), ["REQUIREMENTS_INCOMPLETE"]);
+      assert.deepEqual(findDiscrepancies(withReqs(partial, true), today), []);
+    });
+
+    it("flags a requirement dated after completion, and a future one only as future", () => {
+      const late = [check("1", "2026-09-20"), check("2", "2026-09-27"), check("3", "2026-10-09")];
+      assert.deepEqual(findDiscrepancies(withReqs(late), today), ["REQUIREMENT_AFTER_COMPLETED"]);
+      const future = [check("1", "2026-09-20"), check("2", "2026-09-27"), check("3", "2027-10-09")];
+      assert.deepEqual(findDiscrepancies(withReqs(future), today), ["FUTURE_REQUIREMENT_DATE"]);
+    });
+
+    it("an unchecked adventure ignores its requirement checks", () => {
+      const r = rec({ completed: false, completedDate: null, requirements: summarizeRequirements(tree, null, false, [check("1", "2027-01-01")]) });
+      assert.equal(auditRecord(r, today), null);
+    });
+
+    it("a requirement edit after a mark counts as an edit", () => {
+      const reqs = summarizeRequirements(tree, null, false, [check("1", "2026-09-20")]);
+      const markedAt = new Date("2026-10-04T00:00:00Z");
+      assert.equal(lastEdited(base.updatedAt, reqs).toISOString(), "2026-10-05T12:00:00.000Z");
+      const r = rec({ updatedAt: lastEdited(base.updatedAt, reqs), requirements: reqs, mark: { kind: "NEEDS_CORRECTION", recordUpdatedAt: markedAt } });
+      assert.equal(activeMark(r), null);
+      assert.equal(auditRecord(r, today)?.status, "FLAGGED");
+      assert.equal(lastEdited(base.updatedAt, null), base.updatedAt);
+    });
   });
 });

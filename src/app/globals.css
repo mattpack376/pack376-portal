@@ -1263,6 +1263,26 @@ section { padding: 64px 0; }
 .rank-detail-body { padding: 24px 26px; }
 .rank-detail-body h2 { font-size: 22px; margin-bottom: 6px; }
 .rank-detail-body .tagline { color: var(--carnival-red); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+/* Rank Requirements page: every adventure's official requirements, folded away under each rank card. */
+.rank-adv { margin-top: 14px; border-top: 1px solid rgba(26, 26, 46, 0.1); padding-top: 10px; }
+.rank-adv summary { cursor: pointer; list-style: none; display: flex; align-items: flex-start; gap: 8px; }
+.rank-adv summary::-webkit-details-marker { display: none; }
+.rank-adv summary::before { content: "▸"; flex-shrink: 0; transition: transform 0.15s; }
+.rank-adv details[open] > summary::before,
+.rank-adv[open] > summary::before { transform: rotate(90deg); }
+.rank-adv-summary { font-weight: 700; color: var(--scout-blue-dark); font-size: 14.5px; padding: 6px 0; }
+.rank-adv-body { padding: 4px 0 2px; }
+.rank-adv-group { font-family: var(--font-display); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); margin: 12px 0 6px; }
+.rank-adv-item { background: var(--cream); border-radius: 10px; margin-bottom: 6px; }
+.rank-adv-item > summary { padding: 9px 12px; font-size: 14.5px; flex-wrap: wrap; }
+.rank-adv-name { font-weight: 700; color: var(--ink); }
+.rank-adv-count { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin-left: auto; }
+.rank-adv-reqs { padding: 0 14px 12px 30px; }
+.rank-adv-note { font-size: 13px; color: var(--ink-soft); margin: 0 0 8px; }
+.rank-adv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.5; }
+.rank-adv-list .rank-adv-list { margin-top: 6px; padding-left: 18px; }
+.rank-adv-code { font-weight: 700; }
+.rank-adv-pick { color: var(--ink-soft); font-weight: 600; }
 .adventure-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .adventure-tags span {
   background: var(--cream-dark);
@@ -3536,4 +3556,13 @@ html { -webkit-tap-highlight-color: transparent; }
   .req-date-line,
   .req-note { font-size: 12px; }
   .req-list .req-list { padding-left: 10px; }
+}
+
+/* Rank Requirements page on a phone: finger-sized toggles, less indent. */
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  .rank-adv summary { min-height: 48px; align-items: center; }
+  .rank-adv-reqs { padding-left: 14px; }
+  .rank-adv-list .rank-adv-list { padding-left: 10px; }
+  .rank-adv-count,
+  .rank-adv-note { font-size: 12.5px; }
 }

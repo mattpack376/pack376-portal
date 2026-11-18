@@ -3,6 +3,9 @@ import Header from "@/components/Header";
 import SiteBanner from "@/components/SiteBanner";
 import Footer from "@/components/Footer";
 import FileExportButton from "@/components/FileExportButton";
+import RankAdventureRequirements from "@/components/RankAdventureRequirements";
+import { getAdventuresByRank } from "@/lib/rankRequirementsData";
+import type { Rank } from "@/generated/prisma/enums";
 
 // For the top banner: it goes up and comes down on a schedule, which no admin
 // edit fires, so the page has to check again by itself. Same reasoning as the
@@ -15,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 type RankCard = {
+  rank: Rank;
   badgeClass: string;
   star: string;
   grade: string;
@@ -27,6 +31,7 @@ type RankCard = {
 
 const RANKS: RankCard[] = [
   {
+    rank: "LION",
     badgeClass: "rk-lion",
     star: "LION",
     grade: "Kindergarten",
@@ -37,6 +42,7 @@ const RANKS: RankCard[] = [
     pdf: "/requirements/Lion-Adventure-Requirements.pdf",
   },
   {
+    rank: "TIGER",
     badgeClass: "rk-tiger",
     star: "TIGER",
     grade: "1st Grade",
@@ -47,6 +53,7 @@ const RANKS: RankCard[] = [
     pdf: "/requirements/Tiger-Adventure-Requirements.pdf",
   },
   {
+    rank: "WOLF",
     badgeClass: "rk-wolf",
     star: "WOLF",
     grade: "2nd Grade",
@@ -57,6 +64,7 @@ const RANKS: RankCard[] = [
     pdf: "/requirements/Wolf-Adventure-Requirements.pdf",
   },
   {
+    rank: "BEAR",
     badgeClass: "rk-bear",
     star: "BEAR",
     grade: "3rd Grade",
@@ -67,6 +75,7 @@ const RANKS: RankCard[] = [
     pdf: "/requirements/Bear-Adventure-Requirements.pdf",
   },
   {
+    rank: "WEBELOS",
     badgeClass: "rk-webelos",
     star: "WEB",
     grade: "4th Grade",
@@ -77,6 +86,7 @@ const RANKS: RankCard[] = [
     pdf: "/requirements/Webelos-Adventure-Requirements.pdf",
   },
   {
+    rank: "AOL",
     badgeClass: "rk-aol",
     star: "AOL",
     grade: "5th Grade",
@@ -88,7 +98,8 @@ const RANKS: RankCard[] = [
   },
 ];
 
-export default function RankRequirementsPage() {
+export default async function RankRequirementsPage() {
+  const adventuresByRank = await getAdventuresByRank();
   return (
     <>
       <Header />
@@ -139,6 +150,7 @@ export default function RankRequirementsPage() {
                   label={`📄 Download ${rank.name} Adventure Requirements (PDF)`}
                   style={{ display: "inline-block", marginTop: 14, fontWeight: 700 }}
                 />
+                <RankAdventureRequirements rankName={rank.name} adventures={adventuresByRank.get(rank.rank) ?? []} />
               </div>
             </div>
           ))}

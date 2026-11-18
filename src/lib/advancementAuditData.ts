@@ -6,6 +6,7 @@ import { RANK_INFO, RANK_ORDER } from "@/lib/rankConfig";
 import { isDateOnlyString, toDateOnlyString, todayDateOnly } from "@/lib/dateOnly";
 import { scoutingYearForDate } from "@/lib/attendanceSchedule";
 import { isAdvancementAuditEditor } from "@/lib/authorize";
+import { buildRequirementTree } from "@/lib/requirementProgress";
 import {
   AUDIT_STATUS_FILTERS,
   auditRecord,
@@ -13,7 +14,10 @@ import {
   isAuditStatusFilter,
   statusMatchesFilter,
   activeMark,
+  lastEdited,
+  summarizeRequirements,
   type AdvancementAuditRecord,
+  type AuditRequirementInput,
   type AdvancementAuditStatus,
   type AuditStatusFilter,
 } from "@/lib/advancementAuditRules";
@@ -132,6 +136,84 @@ function shortDenName(rank: Rank, label: string) {
   return `${RANK_INFO[rank].label}${label ? ` ${label}` : ""} Den`;
 }
 
+const pairKey = (scoutId: string, adventureId: string) => `${scoutId}\u0000${adventureId}`;
+
+/**
+ * Each scout's requirement checks on each adventure, summed up for the audit
+ * checks. Keyed by scout + adventure; an adventure with no requirements on
+ * file has no entry. The audit page and the Resolve action both use this, so
+ * a mark is pinned to the same "last edited" time the page judges it by.
+ */
+export async function loadRequirementAuditInputs(
+  pairs: readonly { scoutId: string; adventureId: string }[],
+): Promise<Map<string, AuditRequirementInput>> {
+  const result = new Map<string, AuditRequirementInput>();
+  if (pairs.length === 0) return result;
+  // Deduped: a repeated id in a Prisma `in:` list breaks included relations (adapter-pg).
+  const adventureIds = [...new Set(pairs.map((p) => p.adventureId))];
+  const scoutIds = [...new Set(pairs.map((p) => p.scoutId))];
+
+  const [adventures, checks] = await Promise.all([
+    prisma.adventure.findMany({
+      where: { id: { in: adventureIds } },
+      select: {
+        id: true,
+        requirementsNote: true,
+        requirementsPick: true,
+        requirements: {
+          select: { id: true, parentId: true, code: true, text: true, pick: true, isGroup: true, sortOrder: true },
+        },
+      },
+    }),
+    prisma.requirementRecord.findMany({
+      where: { scoutId: { in: scoutIds }, requirement: { adventureId: { in: adventureIds } } },
+      select: {
+        scoutId: true,
+        requirementId: true,
+        completed: true,
+        completedDate: true,
+        updatedAt: true,
+        requirement: { select: { adventureId: true } },
+      },
+    }),
+  ]);
+
+  const checksByPair = new Map<string, typeof checks>();
+  for (const check of checks) {
+    const key = pairKey(check.scoutId, check.requirement.adventureId);
+    checksByPair.set(key, [...(checksByPair.get(key) ?? []), check]);
+  }
+  const adventureById = new Map(
+    adventures
+      .filter((a) => a.requirements.length > 0)
+      .map((a) => [a.id, { ...a, tree: buildRequirementTree(a.requirements) }]),
+  );
+
+  for (const { scoutId, adventureId } of pairs) {
+    const adventure = adventureById.get(adventureId);
+    if (!adventure) continue;
+    const key = pairKey(scoutId, adventureId);
+    result.set(
+      key,
+      summarizeRequirements(
+        adventure.tree,
+        adventure.requirementsPick,
+        adventure.requirementsNote !== null,
+        checksByPair.get(key) ?? [],
+      ),
+    );
+  }
+  return result;
+}
+
+export function requirementAuditInputFor(
+  inputs: Map<string, AuditRequirementInput>,
+  scoutId: string,
+  adventureId: string,
+): AuditRequirementInput | null {
+  return inputs.get(pairKey(scoutId, adventureId)) ?? null;
+}
+
 /** Every record in scope that passes the den, rank, date and name filters, checked, sorted, unpaged. */
 export async function loadAdvancementAudit(session: SessionPayload, filters: AdvancementAuditFilters) {
   const today = todayDateOnly();
@@ -175,6 +257,16 @@ export async function loadAdvancementAudit(session: SessionPayload, filters: Adv
     adventuresByRank.set(adventure.rank, [...(adventuresByRank.get(adventure.rank) ?? []), adventure]);
   }
 
+  const requirementInputs = await loadRequirementAuditInputs(
+    dens.flatMap((den) =>
+      den.scouts.flatMap((scout) =>
+        scout.records
+          .filter((r) => r.adventure.rank === den.rank)
+          .map((r) => ({ scoutId: scout.id, adventureId: r.adventureId })),
+      ),
+    ),
+  );
+
   const needle = filters.q?.toLowerCase() ?? null;
   const from = filters.from ? new Date(`${filters.from}T00:00:00Z`) : null;
   const to = filters.to ? new Date(`${filters.to}T00:00:00Z`) : null;
@@ -207,13 +299,16 @@ export async function loadAdvancementAudit(session: SessionPayload, filters: Adv
         const markInput = record.auditMark
           ? { kind: record.auditMark.kind, recordUpdatedAt: record.auditMark.recordUpdatedAt }
           : null;
+        const requirements = requirementAuditInputFor(requirementInputs, scout.id, record.adventureId);
+        const updatedAt = lastEdited(record.updatedAt, requirements);
         const input = {
           completed: record.completed,
           completedDate: record.completedDate,
           awardedDate: record.awardedDate,
-          updatedAt: record.updatedAt,
+          updatedAt,
           scoutingYear: den.scoutingYear,
           mark: markInput,
+          requirements,
         };
         const result = auditRecord(input, today);
         if (!result) continue;
@@ -231,7 +326,7 @@ export async function loadAdvancementAudit(session: SessionPayload, filters: Adv
           completedDate: toDateOnlyString(record.completedDate),
           awardedDate: toDateOnlyString(record.awardedDate),
           enteredBy: record.updatedByUser?.displayName ?? null,
-          updatedAt: record.updatedAt,
+          updatedAt,
           status: result.status,
           discrepancies: result.discrepancies,
           mark: mark
@@ -324,11 +419,13 @@ export async function getAdvancementHistory(
       for (const record of records) {
         if (record.scoutId !== entry.entityId) continue;
         for (const detail of details) {
-          if (detail?.label !== record.adventureName) continue;
+          // The adventure itself, or one of its requirements ("Bear Habitat · requirement 3").
+          const label = typeof detail?.label === "string" ? detail.label : "";
+          if (label !== record.adventureName && !label.startsWith(`${record.adventureName} · requirement `)) continue;
           history.get(record.recordId)?.push({
             at: entry.createdAt,
             who: entry.actorDisplayName,
-            text: `${String(detail.from)} → ${String(detail.to)}`,
+            text: `${label === record.adventureName ? "" : `Requirement ${label.slice(record.adventureName.length + " · requirement ".length)}: `}${String(detail.from)} → ${String(detail.to)}`,
           });
         }
       }
