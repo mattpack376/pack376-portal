@@ -12,6 +12,7 @@ import {
   type CalendarEvent,
   type MeetingRule,
 } from "@/lib/calendarData";
+import type { ExportCalendar } from "@/lib/calendarExport";
 
 type Row = Awaited<ReturnType<typeof prisma.calendarEvent.findMany>>[number];
 
@@ -91,6 +92,23 @@ async function attendanceCancellations(from: string) {
  * sections to render, and the Year at a Glance box. Hidden events are left out.
  */
 export async function getPublicCalendar(today: string) {
+  const { year, all, events, months } = await loadPublicCalendar(today);
+  return { yearLabel: year.label, events, months, glance: buildGlance(all, year, today) };
+}
+
+/**
+ * What the shareable PDF/PNG calendar (src/lib/calendarExport.ts) is drawn
+ * from: the same visible events, meetings and months as the public page, but
+ * with Year at a Glance cards for the whole year — a printed calendar is kept
+ * for months, so it lists the year's events rather than only what's still
+ * ahead today.
+ */
+export async function getCalendarExport(today: string): Promise<ExportCalendar> {
+  const { year, all, events, months } = await loadPublicCalendar(today);
+  return { yearLabel: year.label, events, months, glance: buildGlance(all, year, year.start), generatedOn: today };
+}
+
+async function loadPublicCalendar(today: string) {
   const year = scoutingYear(today);
   const [rows, rule, cancelled] = await Promise.all([
     prisma.calendarEvent.findMany({ where: { visible: true }, orderBy: [...CALENDAR_ORDER] }),
@@ -100,17 +118,17 @@ export async function getPublicCalendar(today: string) {
   const all = rows.map(toAdminEvent);
 
   const dated = all.filter((e): e is AdminCalendarEvent & { date: string } => !!e.date && e.date >= year.start && e.date <= year.end);
-  const events = dated.map(toPublicEvent);
-  const meetings = meetingEvents(rule, events, year.start, year.end).filter((m) => !cancelled.has(m.date));
+  const publicEvents = dated.map(toPublicEvent);
+  const meetings = meetingEvents(rule, publicEvents, year.start, year.end).filter((m) => !cancelled.has(m.date));
   // The meeting goes first so that on a Friday with a pack night, the meeting
   // (7:30 PM) reads above the event. The sort is stable, so same-day order holds.
-  const withMeetings = [...meetings, ...events].sort((a, b) => a.date.localeCompare(b.date));
+  const events = [...meetings, ...publicEvents].sort((a, b) => a.date.localeCompare(b.date));
 
-  const months = withMeetings.length
-    ? monthsBetween(withMeetings[0].date.slice(0, 7), withMeetings[withMeetings.length - 1].date.slice(0, 7))
+  const months = events.length
+    ? monthsBetween(events[0].date.slice(0, 7), events[events.length - 1].date.slice(0, 7))
     : [];
 
-  return { yearLabel: year.label, events: withMeetings, months, glance: buildGlance(all, year, today) };
+  return { year, all, events, months };
 }
 
 /** Every event, past and future, hidden or not, for the admin list. */

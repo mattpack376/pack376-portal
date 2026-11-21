@@ -3,7 +3,8 @@ import { requireCalendarViewSession } from "@/lib/authorize";
 import SaveButton from "@/components/SaveButton";
 import CalendarDateFields from "@/components/CalendarDateFields";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
-import { getAllCalendarEvents, getMeetingRule } from "@/lib/calendarEventsData";
+import CalendarExportCard from "@/components/CalendarExportCard";
+import { getAllCalendarEvents, getCalendarExport, getMeetingRule } from "@/lib/calendarEventsData";
 import { toggleCalendarEventVisibilityAction, updateMeetingRuleAction } from "@/lib/actions/calendar";
 import {
   AUDIENCE_LABELS,
@@ -64,8 +65,8 @@ export default async function CalendarAdminPage() {
   const session = await requireCalendarViewSession();
   // Every staff level reads the calendar here; only an Admin changes it.
   const canEdit = session.role === "ADMIN";
-  const [events, rule] = await Promise.all([getAllCalendarEvents(), getMeetingRule()]);
   const today = todayDateOnlyString();
+  const [events, rule, published] = await Promise.all([getAllCalendarEvents(), getMeetingRule(), getCalendarExport(today)]);
 
   const undated = events.filter((e) => !e.date);
   const byMonth = new Map<string, AdminCalendarEvent[]>();
@@ -98,6 +99,19 @@ export default async function CalendarAdminPage() {
           )}
         </div>
       </div>
+
+      {published.months.length > 0 && (
+        // The same PDF/PNG files as the public page, so a leader can grab a
+        // copy after editing. They're on the public host: a root-relative
+        // link would 404 on the portal subdomain.
+        <CalendarExportCard
+          months={published.months}
+          yearLabel={published.yearLabel}
+          defaultScope={published.months.includes(today.slice(0, 7)) ? today.slice(0, 7) : "full"}
+          baseUrl={getPublicBaseUrl()}
+          allowShare={false}
+        />
+      )}
 
       <div className="info-card" style={{ marginBottom: 28 }}>
         <h3>Regular Friday Meeting</h3>

@@ -243,6 +243,20 @@ export function longDateLabel(e: Pick<CalendarEvent, "date" | "endDate" | "eithe
   return e.eitherDay ? `${one(e.date)} or ${one(e.endDate)}` : `${one(e.date)} – ${one(e.endDate)}`;
 }
 
+/**
+ * The reason a night has no meeting, from how the title is worded: "Black
+ * Friday — No Meeting" -> "Black Friday", "No Scout Meeting - Camp Conron" ->
+ * "Camp Conron". A bare "No Meeting" has no reason to add. The card is already
+ * headed "No Meetings", so the repeated words only get in the way.
+ */
+export function noMeetingReason(title: string) {
+  return title
+    .replace(/\s*[—–-]\s*No (Scout )?Meeting\s*$/i, "")
+    .replace(/^No (Scout )?Meeting\s*[—–:-]\s*/i, "")
+    .replace(/^No (Scout )?Meeting$/i, "")
+    .trim();
+}
+
 /** Whole days from one YYYY-MM-DD to another (negative if `to` is earlier). */
 export function daysBetween(from: string, to: string): number {
   const a = parts(from);

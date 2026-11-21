@@ -215,7 +215,7 @@ export async function setMeetingStatusAction(meetingDateId: string, status: "SCH
   revalidatePath("/portal/admin/attendance/leaders");
   revalidatePath(`/portal/admin/attendance/leaders/${meetingDateId}`);
   // The public calendar drops the regular meeting on a cancelled Friday (getPublicCalendar).
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout"); // the page and its PDF/PNG files
   return { ok: true as const };
 }
 

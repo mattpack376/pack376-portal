@@ -77,6 +77,12 @@ const nextConfig: NextConfig = {
       pathname,
     })),
   },
+  // The shareable calendar files embed the site's fonts, read from disk at
+  // run time (src/lib/calendarExportFonts.ts). Nothing imports them, so
+  // they're listed here or the deployed route wouldn't have them.
+  outputFileTracingIncludes: {
+    "/calendar/export/[file]": ["./src/assets/fonts/*.ttf"],
+  },
   experimental: {
     serverActions: {
       // Cover photo uploads (src/lib/actions/albums.ts) go through Server Actions

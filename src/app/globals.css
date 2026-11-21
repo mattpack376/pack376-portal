@@ -721,6 +721,49 @@ section { padding: 64px 0; }
 .back-to-top:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--scout-gold-dark), 0 4px 10px rgba(26, 26, 46, 0.25); }
 .back-to-top:focus-visible { outline: 3px solid var(--scout-blue-light); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .back-to-top { transition: none; } }
+/* Calendar "Download or Share" card (CalendarExportCard), on /calendar and the admin calendar page. */
+.cal-export {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 20px;
+  margin: 28px 0 0;
+  padding: 22px 24px 18px;
+  background: var(--white);
+  border-top: 6px solid var(--carnival-red);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+.portal-main .cal-export, .page-head + .cal-export { margin: 0 0 28px; }
+.cal-export-head { flex: 1 1 100%; display: flex; align-items: center; gap: 14px; }
+.cal-export-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--scout-gold);
+  font-size: 22px;
+}
+.cal-export-head h3 { margin: 0; font-family: var(--font-display); font-size: 22px; color: var(--scout-blue); line-height: 1.15; }
+.cal-export-head p { margin: 2px 0 0; font-size: 14.5px; color: var(--ink-soft); }
+.cal-export .form-field { margin: 0; }
+.cal-export-which { flex: 1 1 200px; }
+.cal-export-format { flex: 1 1 240px; }
+.cal-export-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; flex: 0 1 auto; }
+.cal-export-actions .btn { min-height: var(--control-height); padding: 0 24px; }
+/* Room for the gold button's slab shadow, so it doesn't crowd the line below. */
+.cal-export-actions { padding-bottom: 8px; }
+.cal-export-status { flex: 1 1 100%; margin: 0; font-size: 14px; font-weight: 600; color: var(--scout-blue-dark); }
+.cal-export-status:empty { display: none; }
+@media (max-width: 640px) {
+  .cal-export { padding: 18px 16px 14px; }
+  .cal-export-actions { flex: 1 1 100%; }
+  .cal-export-actions .btn { flex: 1 1 0; }
+}
+@media print { .cal-export { display: none; } }
+
 @media print { .back-to-top { display: none; } }
 
 /* Calendar admin form */

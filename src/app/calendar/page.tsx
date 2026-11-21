@@ -4,8 +4,9 @@ import Header from "@/components/Header";
 import SiteBanner from "@/components/SiteBanner";
 import Footer from "@/components/Footer";
 import CalendarView from "@/components/CalendarView";
+import CalendarExportCard from "@/components/CalendarExportCard";
 import { getPublicCalendar } from "@/lib/calendarEventsData";
-import { isUpcoming, shortDate } from "@/lib/calendarData";
+import { isUpcoming, noMeetingReason, shortDate } from "@/lib/calendarData";
 import { todayDateOnlyString } from "@/lib/dateOnly";
 
 // Edits in the portal revalidate this page straight away. This is for the
@@ -72,20 +73,6 @@ function DateRibbon({
   );
 }
 
-/**
- * The reason a night has no meeting, from how the title is worded: "Black
- * Friday — No Meeting" -> "Black Friday", "No Scout Meeting - Camp Conron" ->
- * "Camp Conron". A bare "No Meeting" has no reason to add. The card is already
- * headed "No Meetings", so the repeated words only get in the way.
- */
-function noMeetingReason(title: string) {
-  return title
-    .replace(/\s*[—–-]\s*No (Scout )?Meeting\s*$/i, "")
-    .replace(/^No (Scout )?Meeting\s*[—–:-]\s*/i, "")
-    .replace(/^No (Scout )?Meeting$/i, "")
-    .trim();
-}
-
 export default async function CalendarPage() {
   const today = todayDateOnlyString();
   const { yearLabel, events, months, glance } = await getPublicCalendar(today);
@@ -107,6 +94,12 @@ export default async function CalendarPage() {
       return chipFor(e, reason ? `${shortDate(e.date)} · ${reason}` : shortDate(e.date));
     });
   const hasGlance = glance.length > 0 || scoutSundays.length > 0 || noMeetings.length > 0;
+  // The Download or Share card starts on this month while it's on the
+  // calendar, and on the full year before the first month or after the last.
+  const thisMonth = today.slice(0, 7);
+  const exportCard = (
+    <CalendarExportCard months={months} yearLabel={yearLabel} defaultScope={months.includes(thisMonth) ? thisMonth : "full"} />
+  );
 
   return (
     <>
@@ -173,12 +166,14 @@ export default async function CalendarPage() {
                     )}
                   </div>
                 )}
+                {exportCard}
               </div>
             </section>
           )}
 
           <section style={{ background: "var(--white)" }}>
             <div className="container">
+              {!hasGlance && exportCard}
               <CalendarView events={events} months={months} today={today} />
             </div>
           </section>
