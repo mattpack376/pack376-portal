@@ -21,8 +21,6 @@ const NOT_DOWNLOADS: Record<string, string> = {
   "src/app/api/cron/ledger-sync/route.ts": "cron trigger: checks the CRON_SECRET bearer, returns only a status JSON, no records",
   "src/app/album-photos/[photoId]/[size]/route.ts":
     "public event photos for the public album page: serves only photos of visible albums, no private records",
-  "src/app/calendar/export/[file]/route.ts":
-    "the public Calendar of Events as a PDF/PNG: only what the public /calendar page shows, no private records",
 };
 
 /** Helpers that build the whole download response with the private, no-store header. */

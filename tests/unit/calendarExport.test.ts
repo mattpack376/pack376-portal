@@ -10,6 +10,7 @@ import {
   miniMonth,
   monthWeeks,
   parseExportFileName,
+  wrapNarrow,
   wrapText,
   yearOverview,
   type ExportCalendar,
@@ -71,6 +72,16 @@ describe("calendar export text", () => {
     assert.equal(clipped.length, 2);
     assert.ok(clipped[1].endsWith("…"), clipped[1]);
     assert.ok(clipped.every((l) => mono(l, 1) <= 9));
+  });
+
+  it("wraps a chip at hyphens and hyphenates a word too long for the box", () => {
+    assert.deepEqual(wrapNarrow("Bring-a-Friend Night", mono, 1, 9, 3), ["Bring-a-", "Friend", "Night"]);
+    assert.deepEqual(wrapNarrow("Parish Anniversary", mono, 1, 8, 3), ["Parish", "Anniver-", "sary"]);
+    assert.deepEqual(wrapNarrow("Scout Meeting", mono, 1, 8, 3), ["Scout", "Meeting"]);
+    const clipped = wrapNarrow("Parish Anniversary Chartering Organization", mono, 1, 8, 3);
+    assert.equal(clipped.length, 3);
+    assert.ok(clipped[2].endsWith("…"), clipped[2]);
+    assert.ok(clipped.every((l) => mono(l, 1) <= 8), clipped.join("|"));
   });
 
   it("labels dates the way the details list reads them", () => {

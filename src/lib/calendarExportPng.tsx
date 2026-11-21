@@ -13,6 +13,7 @@ import {
   fitText,
   layoutMonth,
   miniMonth,
+  wrapNarrow,
   wrapText,
   yearOverview,
   type ChipKind,
@@ -84,9 +85,9 @@ function Header({ eyebrow, title, sub }: { eyebrow: string; title: string; sub: 
         {/* eslint-disable-next-line @next/next/no-img-element -- Satori draws plain <img>, not next/image */}
         <img src={EMBLEM} width={124} height={124} alt="" />
         <div style={{ display: "flex", flexDirection: "column", marginLeft: 28 }}>
-          <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 26, color: C.gold, letterSpacing: 2, lineHeight: 1.1 }}>{eyebrow}</div>
-          <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 70, color: C.white, lineHeight: 1.05, marginTop: 6 }}>{title}</div>
-          <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 26, color: "#cfe0f5", lineHeight: 1.1, marginTop: 4 }}>{sub}</div>
+          <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 30, color: C.gold, letterSpacing: 2, lineHeight: 1.1 }}>{eyebrow}</div>
+          <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 76, color: C.white, lineHeight: 1.05, marginTop: 6 }}>{title}</div>
+          <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 30, color: "#cfe0f5", lineHeight: 1.1, marginTop: 4 }}>{sub}</div>
         </div>
       </div>
       <div style={{ display: "flex", width: W, height: 22 }}>
@@ -104,18 +105,20 @@ function Swatch({ kind, w, h }: { kind: ChipKind; w: number; h: number }) {
   return <div style={{ width: w, height: h, borderRadius: 5, background: s.bg, border: `2px solid ${s.border ?? s.bg}` }} />;
 }
 
-const LEGEND_H = 2 * 40 + 24;
+const LEGEND_COLS = 3;
+const LEGEND_H = Math.ceil(LEGEND.length / LEGEND_COLS) * 50 + 24;
 
 function Legend() {
-  const rows = [LEGEND.slice(0, 4), LEGEND.slice(4)];
+  const rows: (typeof LEGEND)[number][][] = [];
+  for (let i = 0; i < LEGEND.length; i += LEGEND_COLS) rows.push(LEGEND.slice(i, i + LEGEND_COLS));
   return (
     <div style={{ display: "flex", flexDirection: "column", width: IW, height: LEGEND_H, paddingTop: 24 }}>
       {rows.map((row, r) => (
-        <div key={r} style={{ display: "flex", height: 40, alignItems: "center" }}>
+        <div key={r} style={{ display: "flex", height: 50, alignItems: "center" }}>
           {row.map((item) => (
-            <div key={item.kind} style={{ display: "flex", alignItems: "center", width: IW / 4 }}>
-              <Swatch kind={item.kind} w={36} h={22} />
-              <div style={{ fontFamily: BODY, fontWeight: 600, fontSize: 22, color: C.inkSoft, marginLeft: 10 }}>{item.label}</div>
+            <div key={item.kind} style={{ display: "flex", alignItems: "center", width: IW / LEGEND_COLS }}>
+              <Swatch kind={item.kind} w={36} h={26} />
+              <div style={{ fontFamily: BODY, fontWeight: 600, fontSize: 26, color: C.inkSoft, marginLeft: 10 }}>{item.label}</div>
             </div>
           ))}
         </div>
@@ -124,7 +127,7 @@ function Legend() {
   );
 }
 
-const FOOTER_H = 120;
+const FOOTER_H = 136;
 
 function Footer({ cal }: { cal: ExportCalendar }) {
   return (
@@ -140,10 +143,10 @@ function Footer({ cal }: { cal: ExportCalendar }) {
         background: C.blueDark,
       }}
     >
-      <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 28, color: C.gold, lineHeight: 1.2 }}>
+      <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 32, color: C.gold, lineHeight: 1.2 }}>
         {`${EXPORT_SITE} · Updated ${exportLongDate(cal.generatedOn)}`}
       </div>
-      <div style={{ fontFamily: BODY, fontWeight: 400, fontSize: 22, color: "#cfe0f5", marginTop: 4 }}>{EXPORT_DISCLAIMER}</div>
+      <div style={{ fontFamily: BODY, fontWeight: 400, fontSize: 26, color: "#cfe0f5", marginTop: 4 }}>{EXPORT_DISCLAIMER}</div>
     </div>
   );
 }
@@ -160,16 +163,34 @@ function Page({ height, children }: { height: number; children: ReactNode }) {
 // A month
 // ---------------------------------------------------------------------------
 
-const DOW_H = 52;
-const CHIP_TOP = 42;
-// Chips are two lines tall, so "Scout Meeting" and most titles read in full
-// in a cell a seventh of the image wide.
-const CHIP_H = 50;
-const CHIP_PITCH = 54;
-const CHIP_FONT = 18;
+const DOW_H = 58;
+const CHIP_TOP = 50;
+// 23 px: big enough to read when the picture is shown phone-wide (the first
+// version's 18 px wasn't). A chip takes up to three lines, so most titles read
+// in full in a cell a seventh of the image wide; the slots are spaced for three.
+const CHIP_FONT = 23;
+const CHIP_LINE = 27;
+const CHIP_LINES = 3;
+const CHIP_MIN_FONT = 19;
+const chipHeight = (lines: number) => Math.max(2, lines) * CHIP_LINE + 8;
+
+/**
+ * A chip's text size: 23 px, or down to 19 px when that lets a long opening
+ * word ("Anniversary", "Christmas") sit on a line whole instead of being
+ * split. Only the first two words count: later ones are the ones a long
+ * title loses to the "…" anyway.
+ */
+function chipFont(text: string, m: Measures, width: number) {
+  const longest = text.split(/\s+|(?<=-)/).filter(Boolean).slice(0, 2);
+  for (let size = CHIP_FONT; size > CHIP_MIN_FONT; size--) {
+    if (longest.every((word) => m.bodySemi(word, size) <= width)) return size;
+  }
+  return CHIP_MIN_FONT;
+}
+const CHIP_PITCH = chipHeight(CHIP_LINES) + 5;
 
 function rowHeight(weeks: number) {
-  return weeks >= 6 ? 160 : 210;
+  return weeks >= 6 ? 240 : 254;
 }
 
 function maxSlots(weeks: number) {
@@ -192,7 +213,7 @@ function Grid({ layout, m }: { layout: MonthLayout; m: Measures }) {
               width: (IW - 4) / 7,
               fontFamily: DISPLAY,
               fontWeight: 800,
-              fontSize: 24,
+              fontSize: 28,
               color: C.white,
               letterSpacing: 1,
             }}
@@ -219,7 +240,7 @@ function Grid({ layout, m }: { layout: MonthLayout; m: Measures }) {
                 padding: "4px 0 0 10px",
                 fontFamily: DISPLAY,
                 fontWeight: 800,
-                fontSize: 28,
+                fontSize: 34,
                 color: day.inMonth ? C.blueDark : "#c4b998",
               }}
             >
@@ -229,8 +250,10 @@ function Grid({ layout, m }: { layout: MonthLayout; m: Measures }) {
           {week.chips.map((chip, i) => {
             const s = CHIP_STYLE[chip.kind];
             const unit = (IW - 4) / 7;
-            const left = chip.startCol * unit + (chip.continuesBefore ? 0 : 4);
-            const right = (chip.endCol + 1) * unit - (chip.continuesAfter ? 0 : 4);
+            const left = chip.startCol * unit + (chip.continuesBefore ? 0 : 3);
+            const right = (chip.endCol + 1) * unit - (chip.continuesAfter ? 0 : 3);
+            const fontSize = chipFont(chip.text, m, right - left - 14);
+            const lines = wrapNarrow(chip.text, m.bodySemi, fontSize, right - left - 14, CHIP_LINES);
             const border = chip.important
               ? `3px solid ${chip.kind === "pack-night" ? C.redDark : C.goldDark}`
               : chip.either
@@ -244,11 +267,11 @@ function Grid({ layout, m }: { layout: MonthLayout; m: Measures }) {
                   left,
                   top: CHIP_TOP + chip.slot * CHIP_PITCH,
                   width: right - left,
-                  height: CHIP_H,
+                  height: chipHeight(lines.length),
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "center",
-                  padding: "0 7px",
+                  padding: "0 5px",
                   background: s.bg,
                   border,
                   borderTopLeftRadius: chip.continuesBefore ? 0 : 7,
@@ -257,14 +280,14 @@ function Grid({ layout, m }: { layout: MonthLayout; m: Measures }) {
                   borderBottomRightRadius: chip.continuesAfter ? 0 : 7,
                   fontFamily: BODY,
                   fontWeight: 600,
-                  fontSize: CHIP_FONT,
-                  lineHeight: "21px",
+                  fontSize,
+                  lineHeight: `${CHIP_LINE}px`,
                   color: s.fg,
                   overflow: "hidden",
                 }}
               >
-                {wrapText(chip.text, m.bodySemi, CHIP_FONT, right - left - 18, 2).map((line, li) => (
-                  <div key={li} style={{ height: 21, whiteSpace: "nowrap" }}>
+                {lines.map((line, li) => (
+                  <div key={li} style={{ height: CHIP_LINE, whiteSpace: "nowrap" }}>
                     {line}
                   </div>
                 ))}
@@ -278,10 +301,10 @@ function Grid({ layout, m }: { layout: MonthLayout; m: Measures }) {
                 style={{
                   position: "absolute",
                   left: c * ((IW - 4) / 7) + 10,
-                  top: CHIP_TOP + (slots - 1) * CHIP_PITCH + 12,
+                  top: CHIP_TOP + (slots - 1) * CHIP_PITCH + 14,
                   fontFamily: BODY,
                   fontWeight: 700,
-                  fontSize: 19,
+                  fontSize: 24,
                   color: C.inkSoft,
                 }}
               >
@@ -305,15 +328,15 @@ interface LaidDetail {
 const DETAIL_TEXT_W = IW - 24 - 48;
 
 function layDetail(item: DetailItem, m: Measures): LaidDetail {
-  const titleLines = wrapText(item.title, item.important ? m.bodyBold : m.bodySemi, 30, DETAIL_TEXT_W, 2);
-  const detailLines = item.detail ? wrapText(item.detail, m.body, 24, DETAIL_TEXT_W, 3) : [];
-  return { item, titleLines, detailLines, height: 20 + 36 + titleLines.length * 40 + detailLines.length * 33 + 18 };
+  const titleLines = wrapText(item.title, item.important ? m.bodyBold : m.bodySemi, 36, DETAIL_TEXT_W, 2);
+  const detailLines = item.detail ? wrapText(item.detail, m.body, 30, DETAIL_TEXT_W, 3) : [];
+  return { item, titleLines, detailLines, height: 20 + 42 + titleLines.length * 48 + detailLines.length * 41 + 18 };
 }
 
 function Detail({ d, m }: { d: LaidDetail; m: Measures }) {
   const s = CHIP_STYLE[d.item.kind];
   const tags = d.item.tags.length ? `· ${d.item.tags.join(" · ")}` : "";
-  const whenW = m.display(d.item.when, 26);
+  const whenW = m.display(d.item.when, 32);
   return (
     <div
       style={{
@@ -329,11 +352,11 @@ function Detail({ d, m }: { d: LaidDetail; m: Measures }) {
     >
       <div style={{ width: 24, height: "100%", background: s.border ?? s.bg }} />
       <div style={{ display: "flex", flexDirection: "column", padding: "18px 24px 0 22px", width: IW - 24 }}>
-        <div style={{ display: "flex", alignItems: "center", height: 36 }}>
-          <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 26, color: C.blue }}>{d.item.when}</div>
+        <div style={{ display: "flex", alignItems: "center", height: 42 }}>
+          <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 32, color: C.blue }}>{d.item.when}</div>
           {tags ? (
-            <div style={{ fontFamily: BODY, fontWeight: 600, fontSize: 21, color: C.redDark, whiteSpace: "nowrap", marginLeft: 10 }}>
-              {fitText(tags, m.bodySemi, 21, DETAIL_TEXT_W - whenW - 10)}
+            <div style={{ fontFamily: BODY, fontWeight: 600, fontSize: 26, color: C.redDark, whiteSpace: "nowrap", marginLeft: 10 }}>
+              {fitText(tags, m.bodySemi, 26, DETAIL_TEXT_W - whenW - 10)}
             </div>
           ) : null}
         </div>
@@ -343,9 +366,9 @@ function Detail({ d, m }: { d: LaidDetail; m: Measures }) {
             style={{
               fontFamily: BODY,
               fontWeight: d.item.important ? 700 : 600,
-              fontSize: 30,
-              lineHeight: "40px",
-              height: 40,
+              fontSize: 36,
+              lineHeight: "48px",
+              height: 48,
               color: d.item.kind === "fundraiser" ? C.redDark : C.ink,
               whiteSpace: "nowrap",
             }}
@@ -354,7 +377,7 @@ function Detail({ d, m }: { d: LaidDetail; m: Measures }) {
           </div>
         ))}
         {d.detailLines.map((line, i) => (
-          <div key={`d${i}`} style={{ fontFamily: BODY, fontWeight: 400, fontSize: 24, lineHeight: "33px", height: 33, color: C.inkSoft, whiteSpace: "nowrap" }}>
+          <div key={`d${i}`} style={{ fontFamily: BODY, fontWeight: 400, fontSize: 30, lineHeight: "41px", height: 41, color: C.inkSoft, whiteSpace: "nowrap" }}>
             {line}
           </div>
         ))}
@@ -365,7 +388,7 @@ function Detail({ d, m }: { d: LaidDetail; m: Measures }) {
 
 function SectionTitle({ children }: { children: string }) {
   return (
-    <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 800, fontSize: 40, color: C.blue, height: 64, alignItems: "center" }}>
+    <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 800, fontSize: 46, color: C.blue, height: 70, alignItems: "center" }}>
       {children}
     </div>
   );
@@ -377,12 +400,12 @@ function monthImage(cal: ExportCalendar, month: string, m: Measures) {
   const laid = layout.details.map((d) => layDetail(d, m));
 
   const meetingText = layout.meetings ? [layout.meetings.when, layout.meetings.detail].filter(Boolean).join(" · ") : "";
-  const meetingLines = meetingText ? wrapText(meetingText, m.bodySemi, 24, IW - 56, 2) : [];
-  const meetingH = layout.meetings ? 24 + 36 + meetingLines.length * 34 + 20 + 14 : 0;
+  const meetingLines = meetingText ? wrapText(meetingText, m.bodySemi, 30, IW - 56, 2) : [];
+  const meetingH = layout.meetings ? 24 + 42 + meetingLines.length * 41 + 20 + 14 : 0;
 
   const gridH = 4 + DOW_H + weeks * rowHeight(weeks);
   const detailsH = laid.length ? laid.reduce((s, d) => s + d.height, 0) : 60;
-  const height = HEADER_H + 32 + gridH + 20 + 64 + meetingH + detailsH + LEGEND_H + FOOTER_H + 24;
+  const height = HEADER_H + 32 + gridH + 20 + 70 + meetingH + detailsH + LEGEND_H + FOOTER_H + 24;
 
   const element = (
     <Page height={height}>
@@ -404,9 +427,9 @@ function monthImage(cal: ExportCalendar, month: string, m: Measures) {
               background: CHIP_STYLE.meeting.bg,
             }}
           >
-            <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 28, color: C.blueDark, height: 36 }}>{layout.meetings.title}</div>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 34, color: C.blueDark, height: 42 }}>{layout.meetings.title}</div>
             {meetingLines.map((line, i) => (
-              <div key={i} style={{ fontFamily: BODY, fontWeight: 600, fontSize: 24, lineHeight: "34px", height: 34, color: C.blueDark }}>
+              <div key={i} style={{ fontFamily: BODY, fontWeight: 600, fontSize: 30, lineHeight: "41px", height: 41, color: C.blueDark }}>
                 {line}
               </div>
             ))}
@@ -415,7 +438,7 @@ function monthImage(cal: ExportCalendar, month: string, m: Measures) {
         {laid.length ? (
           laid.map((d, i) => <Detail key={i} d={d} m={m} />)
         ) : (
-          <div style={{ display: "flex", height: 60, fontSize: 26, color: C.inkSoft }}>No special pack events scheduled this month.</div>
+          <div style={{ display: "flex", height: 60, fontSize: 30, color: C.inkSoft }}>No special pack events scheduled this month.</div>
         )}
         <Legend />
       </div>
@@ -432,8 +455,8 @@ function monthImage(cal: ExportCalendar, month: string, m: Measures) {
 const MINI_GAP = 20;
 const MINI_W = (IW - 2 * MINI_GAP) / 3;
 const MINI_CELL = (MINI_W - 24) / 7;
-const MINI_ROW = 40;
-const MINI_H = 14 + 44 + 30 + 6 * MINI_ROW + 14;
+const MINI_ROW = 46;
+const MINI_H = 14 + 48 + 32 + 6 * MINI_ROW + 14;
 
 function MiniMonth({ month, cal }: { month: string; cal: ExportCalendar }) {
   const mini = miniMonth(cal, month);
@@ -450,12 +473,12 @@ function MiniMonth({ month, cal }: { month: string; cal: ExportCalendar }) {
         border: `2px solid ${C.line}`,
       }}
     >
-      <div style={{ display: "flex", height: 44, fontFamily: DISPLAY, fontWeight: 800, fontSize: 30, color: C.blue, paddingLeft: 4 }}>
+      <div style={{ display: "flex", height: 48, fontFamily: DISPLAY, fontWeight: 800, fontSize: 36, color: C.blue, paddingLeft: 4 }}>
         {mini.title}
       </div>
-      <div style={{ display: "flex", height: 30 }}>
+      <div style={{ display: "flex", height: 32 }}>
         {WEEKDAYS.map((d) => (
-          <div key={d} style={{ display: "flex", justifyContent: "center", width: MINI_CELL, fontFamily: BODY, fontWeight: 600, fontSize: 18, color: C.inkSoft }}>
+          <div key={d} style={{ display: "flex", justifyContent: "center", width: MINI_CELL, fontFamily: BODY, fontWeight: 600, fontSize: 22, color: C.inkSoft }}>
             {d[0]}
           </div>
         ))}
@@ -473,8 +496,8 @@ function MiniMonth({ month, cal }: { month: string; cal: ExportCalendar }) {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      width: MINI_CELL - 5,
-                      height: MINI_ROW - 5,
+                      width: MINI_CELL - 3,
+                      height: MINI_ROW - 4,
                       borderRadius: 8,
                       background: s ? s.bg : "transparent",
                       border: day.important
@@ -484,7 +507,7 @@ function MiniMonth({ month, cal }: { month: string; cal: ExportCalendar }) {
                           : "2px solid transparent",
                       fontFamily: DISPLAY,
                       fontWeight: 700,
-                      fontSize: 21,
+                      fontSize: 26,
                       color: s ? s.fg : C.ink,
                     }}
                   >
@@ -512,11 +535,11 @@ const GLANCE_W = (IW - 20) / 2;
 function layGlance(cal: ExportCalendar, m: Measures): LaidGroup[] {
   return yearOverview(cal).glance.map((g) => {
     const rows = g.items.map((item) => {
-      const when = fitText(item.when, m.display, 24, GLANCE_W * 0.4);
-      const lines = wrapText(item.label, m.bodySemi, 24, GLANCE_W - 44 - m.display(when, 24) - 14, 2);
-      return { lines, when, h: lines.length * 32 + 12 };
+      const when = fitText(item.when, m.display, 28, GLANCE_W * 0.4);
+      const lines = wrapText(item.label, m.bodySemi, 28, GLANCE_W - 44 - m.display(when, 28) - 14, 2);
+      return { lines, when, h: lines.length * 37 + 12 };
     });
-    return { title: g.title, kind: g.category, rows, height: 58 + 14 + rows.reduce((s, r) => s + r.h, 0) + 12 + 20 };
+    return { title: g.title, kind: g.category, rows, height: 64 + 14 + rows.reduce((s, r) => s + r.h, 0) + 12 + 20 };
   });
 }
 
@@ -536,7 +559,7 @@ function GlanceCard({ g }: { g: LaidGroup }) {
         overflow: "hidden",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", height: 58, padding: "0 20px", background: s.bg, fontFamily: DISPLAY, fontWeight: 800, fontSize: 30, color: s.fg }}>
+      <div style={{ display: "flex", alignItems: "center", height: 64, padding: "0 20px", background: s.bg, fontFamily: DISPLAY, fontWeight: 800, fontSize: 36, color: s.fg }}>
         {g.title}
       </div>
       <div style={{ display: "flex", flexDirection: "column", padding: "14px 20px 0" }}>
@@ -544,12 +567,12 @@ function GlanceCard({ g }: { g: LaidGroup }) {
           <div key={i} style={{ display: "flex", justifyContent: "space-between", height: row.h }}>
             <div style={{ display: "flex", flexDirection: "column" }}>
               {row.lines.map((line, li) => (
-                <div key={li} style={{ fontFamily: BODY, fontWeight: 600, fontSize: 24, lineHeight: "32px", height: 32, color: C.ink, whiteSpace: "nowrap" }}>
+                <div key={li} style={{ fontFamily: BODY, fontWeight: 600, fontSize: 28, lineHeight: "37px", height: 37, color: C.ink, whiteSpace: "nowrap" }}>
                   {line}
                 </div>
               ))}
             </div>
-            <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 24, lineHeight: "32px", color: C.blueDark, whiteSpace: "nowrap" }}>{row.when}</div>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 28, lineHeight: "37px", color: C.blueDark, whiteSpace: "nowrap" }}>{row.when}</div>
           </div>
         ))}
       </div>
@@ -562,7 +585,7 @@ function pillRows(labels: string[], m: Measures, width: number) {
   const rows: string[][] = [];
   let x = 0;
   for (const label of labels) {
-    const w = m.bodySemi(label, 22) + 32 + 10;
+    const w = m.bodySemi(label, 27) + 36 + 10;
     if (!rows.length || (x + w > width && x > 0)) {
       rows.push([]);
       x = 0;
@@ -577,17 +600,17 @@ function Ribbon({ kind, title, note, rows, tint, ink, height }: { kind: ChipKind
   const s = CHIP_STYLE[kind];
   return (
     <div style={{ display: "flex", flexDirection: "column", width: IW, height: height - 20, marginBottom: 20, background: C.white, borderRadius: 16, border: `2px solid ${C.line}`, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", height: 58, padding: "0 20px", background: s.bg }}>
-        <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 30, color: s.fg }}>{title}</div>
-        <div style={{ fontFamily: BODY, fontWeight: 600, fontSize: 22, color: s.fg, marginLeft: 16 }}>{note}</div>
+      <div style={{ display: "flex", alignItems: "center", height: 64, padding: "0 20px", background: s.bg }}>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 36, color: s.fg }}>{title}</div>
+        <div style={{ fontFamily: BODY, fontWeight: 600, fontSize: 26, color: s.fg, marginLeft: 16 }}>{note}</div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", padding: "16px 20px 0" }}>
         {rows.map((row, r) => (
-          <div key={r} style={{ display: "flex", height: 48 }}>
+          <div key={r} style={{ display: "flex", height: 56 }}>
             {row.map((label) => (
               <div
                 key={label}
-                style={{ display: "flex", alignItems: "center", height: 38, padding: "0 16px", marginRight: 10, borderRadius: 19, background: tint, fontFamily: BODY, fontWeight: 600, fontSize: 22, color: ink }}
+                style={{ display: "flex", alignItems: "center", height: 46, padding: "0 18px", marginRight: 10, borderRadius: 23, background: tint, fontFamily: BODY, fontWeight: 600, fontSize: 27, color: ink }}
               >
                 {label}
               </div>
@@ -627,17 +650,17 @@ function yearImage(cal: ExportCalendar, m: Measures) {
     .filter((r) => r !== null)
     .map((r) => {
       const rows = pillRows(r.labels, m, IW - 40);
-      return { ...r, rows, height: 58 + 16 + rows.length * 48 + 8 + 20 };
+      return { ...r, rows, height: 64 + 16 + rows.length * 56 + 8 + 20 };
     });
   const ribbonsH = ribbons.reduce((s, r) => s + r.height, 0);
 
   const meetingText = overview.meetings
     ? [overview.meetings.when, overview.meetings.detail, "Not held on camping weekends or No Meeting nights"].filter(Boolean).join(" · ")
     : "";
-  const meetingLines = meetingText ? wrapText(meetingText, m.bodySemi, 24, IW - 56, 3) : [];
-  const meetingH = overview.meetings ? 24 + 36 + meetingLines.length * 34 + 20 + 20 : 0;
+  const meetingLines = meetingText ? wrapText(meetingText, m.bodySemi, 30, IW - 56, 3) : [];
+  const meetingH = overview.meetings ? 24 + 42 + meetingLines.length * 41 + 20 + 20 : 0;
 
-  const height = HEADER_H + 32 + monthsH + LEGEND_H - 24 + 20 + 64 + glanceH + ribbonsH + meetingH + FOOTER_H + 24;
+  const height = HEADER_H + 32 + monthsH + LEGEND_H - 24 + 20 + 70 + glanceH + ribbonsH + meetingH + FOOTER_H + 24;
 
   const element = (
     <Page height={height}>
@@ -684,9 +707,9 @@ function yearImage(cal: ExportCalendar, m: Measures) {
               background: CHIP_STYLE.meeting.bg,
             }}
           >
-            <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 28, color: C.blueDark, height: 36 }}>{overview.meetings.title}</div>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 34, color: C.blueDark, height: 42 }}>{overview.meetings.title}</div>
             {meetingLines.map((line, i) => (
-              <div key={i} style={{ fontFamily: BODY, fontWeight: 600, fontSize: 24, lineHeight: "34px", height: 34, color: C.blueDark }}>
+              <div key={i} style={{ fontFamily: BODY, fontWeight: 600, fontSize: 30, lineHeight: "41px", height: 41, color: C.blueDark }}>
                 {line}
               </div>
             ))}

@@ -1,7 +1,8 @@
 /*
- * The shareable Calendar of Events: a month, or the whole scouting year, as a
- * PDF or a PNG (src/app/calendar/export/[file]/route.ts, linked from the
- * Download or Share card on /calendar and the admin calendar page).
+ * The Calendar of Events to print or share: a month, or the whole scouting
+ * year, as a PDF or a PNG (src/app/api/calendar/export/[file]/route.ts, linked
+ * from the Download or Share card on the portal Calendar page — Admin, Junior
+ * Admin and Den Leaders only).
  *
  * This module is the one layout both renderers read — calendarExportPdf.ts
  * and calendarExportPng.tsx only draw what it decides — so the two files can't
@@ -214,6 +215,57 @@ export function wrapText(text: string, measure: Measure, size: number, maxWidth:
     const last = lines.length - 1;
     lines[last] = fitText(`${lines[last]}…`, measure, size, maxWidth).replace(/……$/, "…");
   }
+  return lines;
+}
+
+/**
+ * Wrap for a narrow box (a day's event chip in the picture): like wrapText,
+ * but a line may also end after a hyphen ("Bring-a-" / "Friend"), and a word
+ * too long for a line of its own is hyphenated onto the next line instead of
+ * cut, so "Anniversary" reads in full while lines remain. The last line still
+ * ends in "…" when text is left over.
+ */
+export function wrapNarrow(text: string, measure: Measure, size: number, maxWidth: number, maxLines: number): string[] {
+  const pieces: { text: string; glue: string }[] = [];
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    word.split(/(?<=-)(?=.)/).forEach((part, i) => pieces.push({ text: part, glue: i ? "" : " " }));
+  }
+  const fits = (t: string) => measure(t, size) <= maxWidth;
+  const lines: string[] = [];
+  let line = "";
+  let leftOver = false;
+  for (let i = 0; i < pieces.length; i++) {
+    const { text: piece, glue } = pieces[i];
+    const candidate = line ? `${line}${glue}${piece}` : piece;
+    if (fits(candidate)) {
+      line = candidate;
+      continue;
+    }
+    if (line) {
+      lines.push(line);
+      line = "";
+      if (lines.length === maxLines) {
+        leftOver = true;
+        break;
+      }
+    }
+    // The piece starts a line; hyphenate it while it's too long and lines remain.
+    let rest = piece;
+    while (!fits(rest) && lines.length < maxLines - 1) {
+      const chars = Array.from(rest);
+      let n = chars.length - 1;
+      while (n > 2 && !fits(`${chars.slice(0, n).join("")}-`)) n--;
+      if (n <= 2) break;
+      lines.push(`${chars.slice(0, n).join("")}-`);
+      rest = chars.slice(n).join("");
+    }
+    line = rest;
+  }
+  if (line && lines.length < maxLines) lines.push(line);
+  if (!lines.length) return lines;
+  const last = lines.length - 1;
+  if (leftOver) lines[last] = fitText(`${lines[last]}…`, measure, size, maxWidth).replace(/……$/, "…");
+  else if (!fits(lines[last])) lines[last] = fitText(lines[last], measure, size, maxWidth);
   return lines;
 }
 

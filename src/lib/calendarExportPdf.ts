@@ -40,15 +40,18 @@ const H = 8.5 * 72;
 const M = 30;
 const CW = W - 2 * M;
 
-const LEGEND_TOP = 578;
-const CONTENT_BOTTOM = 570;
+const LEGEND_TOP = 573;
+const CONTENT_BOTTOM = 565;
 
-const GRID_TOP = 100;
-const GRID_H = 312;
-const DOW_H = 16;
-const CHIP_TOP = 14;
-const CHIP_H = 10;
-const CHIP_PITCH = 11.5;
+// Sized to read on a printed page held at arm's length: event chips 8.5 pt,
+// the details list 9–10 pt (the first version was 6–8 pt and too small).
+const GRID_TOP = 102;
+const GRID_H = 330;
+const DOW_H = 18;
+const CHIP_TOP = 17;
+const CHIP_H = 12.5;
+const CHIP_PITCH = 14;
+const CHIP_FONT = 8.5;
 
 const DETAIL_COLS = 3;
 const DETAIL_GAP = 14;
@@ -157,10 +160,10 @@ function newPage(doc: Doc) {
 function header(doc: Doc, pen: Pen, eyebrow: string, title: string, right: string) {
   pen.rect(0, 0, W, 62, C.blue);
   pen.page.drawImage(doc.emblem, { x: M, y: H - 54, width: 46, height: 46 });
-  pen.text(eyebrow, M + 56, 25, 9, "display", C.gold);
-  pen.text(title, M + 56, 52, 25, "display", C.white);
-  pen.text(right, W - M, 31, 12, "display", C.white, "right");
-  pen.text(EXPORT_SITE, W - M, 46, 9, "display", C.gold, "right");
+  pen.text(eyebrow, M + 56, 24, 10.5, "display", C.gold);
+  pen.text(title, M + 56, 53, 28, "display", C.white);
+  pen.text(right, W - M, 31, 14, "display", C.white, "right");
+  pen.text(EXPORT_SITE, W - M, 48, 10.5, "display", C.gold, "right");
   // A boardwalk awning: carnival red and white, with a gold edge under it.
   const stripe = 16;
   for (let i = 0, x = 0; x < W; i++, x += stripe) pen.rect(x, 62, stripe, 8, i % 2 ? C.white : C.red);
@@ -174,14 +177,14 @@ function swatch(pen: Pen, kind: ChipKind, x: number, top: number, w: number, h: 
 
 function legendAndFooter(doc: Doc, pen: Pen) {
   let x = M;
-  x += pen.text("KEY", x, LEGEND_TOP + 7.5, 7.5, "display", C.blueDark) + 10;
+  x += pen.text("KEY", x, LEGEND_TOP + 9, 9, "display", C.blueDark) + 10;
   for (const item of LEGEND) {
-    swatch(pen, item.kind, x, LEGEND_TOP + 1.5, 11, 7);
-    x += 15 + pen.text(item.label, x + 15, LEGEND_TOP + 7.5, 7, "body", C.inkSoft) + 14;
+    swatch(pen, item.kind, x, LEGEND_TOP + 1.5, 13, 8.5);
+    x += 17 + pen.text(item.label, x + 17, LEGEND_TOP + 9, 9, "body", C.inkSoft) + 12;
   }
-  pen.line(M, 592, W - M, 592, C.line);
-  pen.text(`${EXPORT_SITE} · Updated ${exportLongDate(doc.cal.generatedOn)}`, M, 604, 7.5, "bodySemi", C.blueDark);
-  pen.text(EXPORT_DISCLAIMER, W - M, 604, 7.5, "body", C.inkSoft, "right");
+  pen.line(M, 589, W - M, 589, C.line);
+  pen.text(`${EXPORT_SITE} · Updated ${exportLongDate(doc.cal.generatedOn)}`, M, 603, 9, "bodySemi", C.blueDark);
+  pen.text(EXPORT_DISCLAIMER, W - M, 603, 9, "body", C.inkSoft, "right");
 }
 
 // ---------------------------------------------------------------------------
@@ -194,14 +197,14 @@ function grid(pen: Pen, layout: MonthLayout) {
   const colX = (c: number) => M + c * cellW;
 
   pen.rect(M, GRID_TOP - DOW_H, CW, DOW_H, C.creamDark);
-  WEEKDAYS.forEach((d, c) => pen.text(d.toUpperCase(), colX(c) + cellW / 2, GRID_TOP - 4.5, 8.5, "display", C.blueDark, "center"));
+  WEEKDAYS.forEach((d, c) => pen.text(d.toUpperCase(), colX(c) + cellW / 2, GRID_TOP - 5, 10, "display", C.blueDark, "center"));
 
   const chipMeasure = pen.measure("bodySemi");
   layout.weeks.forEach((week, r) => {
     const top = GRID_TOP + r * rowH;
     week.days.forEach((day, c) => {
       pen.rect(colX(c), top, cellW, rowH, !day.inMonth ? C.outside : day.noMeeting ? "#f1eee6" : C.white);
-      pen.text(String(day.day), colX(c) + 4, top + 10.5, 9.5, "display", day.inMonth ? C.blueDark : "#bdb394");
+      pen.text(String(day.day), colX(c) + 4, top + 13, 12, "display", day.inMonth ? C.blueDark : "#bdb394");
     });
   });
 
@@ -229,13 +232,13 @@ function grid(pen: Pen, layout: MonthLayout) {
         squareLeft: chip.continuesBefore,
         squareRight: chip.continuesAfter,
       });
-      const label = fitText(chip.text, chipMeasure, 6.4, right - left - 6);
-      pen.text(label, left + 3, chipTop + 7.1, 6.4, "bodySemi", style.fg);
+      const label = fitText(chip.text, chipMeasure, CHIP_FONT, right - left - 7);
+      pen.text(label, left + 3.5, chipTop + 9, CHIP_FONT, "bodySemi", style.fg);
     }
     week.more.forEach((n, c) => {
       if (!n) return;
       const slotTop = top + CHIP_TOP + (maxSlotsFor(layout.weeks.length) - 1) * CHIP_PITCH;
-      pen.text(`+${n} more, see below`, colX(c) + 4, slotTop + 7.1, 6.2, "bodySemi", C.inkSoft);
+      pen.text(`+${n} more, see below`, colX(c) + 4, slotTop + 9, 8, "bodySemi", C.inkSoft);
     });
   });
 }
@@ -251,32 +254,32 @@ interface PlacedDetail {
   height: number;
 }
 
-const DETAIL_TEXT_X = 10;
+const DETAIL_TEXT_X = 12;
 
 function measureDetail(pen: Pen, item: DetailItem, width: number): PlacedDetail {
   const textW = width - DETAIL_TEXT_X;
-  const titleLines = wrapText(item.title, pen.measure(item.important ? "bodyBold" : "bodySemi"), 8, textW, 2);
-  const detailLines = item.detail ? wrapText(item.detail, pen.measure("body"), 7, textW, 2) : [];
-  return { item, titleLines, detailLines, height: 9.5 + titleLines.length * 9.6 + detailLines.length * 8.6 + 6 };
+  const titleLines = wrapText(item.title, pen.measure(item.important ? "bodyBold" : "bodySemi"), 10, textW, 2);
+  const detailLines = item.detail ? wrapText(item.detail, pen.measure("body"), 8.8, textW, 2) : [];
+  return { item, titleLines, detailLines, height: 11.5 + titleLines.length * 12 + detailLines.length * 10.8 + 7 };
 }
 
 function drawDetail(pen: Pen, d: PlacedDetail, x: number, top: number, width: number) {
-  swatch(pen, d.item.kind, x, top + 1.5, 6.5, 6.5);
+  swatch(pen, d.item.kind, x, top + 1.5, 8, 8);
   const tx = x + DETAIL_TEXT_X;
-  let used = pen.text(d.item.when, tx, top + 7.5, 7.8, "display", C.blueDark);
+  let used = pen.text(d.item.when, tx, top + 9, 9.5, "display", C.blueDark);
   if (d.item.tags.length) {
-    const tags = fitText(` · ${d.item.tags.join(" · ")}`, pen.measure("bodySemi"), 6.6, width - DETAIL_TEXT_X - used);
-    used += pen.text(tags, tx + used, top + 7.5, 6.6, "bodySemi", C.redDark);
+    const tags = fitText(` · ${d.item.tags.join(" · ")}`, pen.measure("bodySemi"), 8, width - DETAIL_TEXT_X - used);
+    used += pen.text(tags, tx + used, top + 9, 8, "bodySemi", C.redDark);
   }
-  let baseline = top + 9.5 + 7.6;
+  let baseline = top + 11.5 + 9.5;
   for (const line of d.titleLines) {
-    pen.text(line, tx, baseline, 8, d.item.important ? "bodyBold" : "bodySemi", d.item.kind === "fundraiser" ? C.redDark : C.ink);
-    baseline += 9.6;
+    pen.text(line, tx, baseline, 10, d.item.important ? "bodyBold" : "bodySemi", d.item.kind === "fundraiser" ? C.redDark : C.ink);
+    baseline += 12;
   }
   baseline -= 1;
   for (const line of d.detailLines) {
-    pen.text(line, tx, baseline, 7, "body", C.inkSoft);
-    baseline += 8.6;
+    pen.text(line, tx, baseline, 8.8, "body", C.inkSoft);
+    baseline += 10.8;
   }
 }
 
@@ -333,28 +336,28 @@ function monthPages(doc: Doc, month: string) {
 
   const colW = (CW - (DETAIL_COLS - 1) * DETAIL_GAP) / DETAIL_COLS;
   const top = GRID_TOP + GRID_H + 10;
-  let x = M + pen.text("THIS MONTH", M, top + 10, 10.5, "display", C.blue) + 12;
+  let x = M + pen.text("THIS MONTH", M, top + 12, 12.5, "display", C.blue) + 12;
   if (layout.meetings) {
     const m = layout.meetings;
-    const text = [m.title, m.when, m.detail].filter(Boolean).join(" · ");
-    const w = pen.measure("bodySemi")(text, 7.5) + 14;
-    pen.round(x, top + 1.5, w, 11, 5.5, { fill: CHIP_STYLE.meeting.bg });
-    pen.text(text, x + 7, top + 9.4, 7.5, "bodySemi", C.blueDark);
+    const text = fitText([m.title, m.when, m.detail].filter(Boolean).join(" · "), pen.measure("bodySemi"), 9.5, W - M - x - 16);
+    const w = pen.measure("bodySemi")(text, 9.5) + 16;
+    pen.round(x, top + 1, w, 14, 7, { fill: CHIP_STYLE.meeting.bg });
+    pen.text(text, x + 8, top + 11.3, 9.5, "bodySemi", C.blueDark);
     x += w;
   }
   const placed = layout.details.map((item) => measureDetail(pen, item, colW));
   if (placed.length === 0) {
-    pen.text("No special pack events scheduled this month.", M, top + 30, 8.5, "body", C.inkSoft);
+    pen.text("No special pack events scheduled this month.", M, top + 34, 10, "body", C.inkSoft);
   }
-  let left = details(pen, placed, top + 18, colW);
+  let left = details(pen, placed, top + 22, colW);
   legendAndFooter(doc, pen);
 
   while (left.length) {
     const more = newPage(doc);
     header(doc, more, "PACK 376 · CALENDAR OF EVENTS", `${layout.title} (continued)`, right);
-    more.text("THIS MONTH (CONTINUED)", M, 96, 10.5, "display", C.blue);
+    more.text("THIS MONTH (CONTINUED)", M, 98, 12.5, "display", C.blue);
     const before = left.length;
-    left = details(more, left, 106, colW);
+    left = details(more, left, 110, colW);
     legendAndFooter(doc, more);
     if (left.length === before) break; // can't happen (one item always fits a column); never loop forever
   }
@@ -370,28 +373,28 @@ function pillRows(pen: Pen, labels: string[], x0: number, top: number, maxX: num
   let x = x0;
   let y = top;
   for (const label of labels) {
-    const w = measure(label, 7.8) + 12;
+    const w = measure(label, 9.5) + 14;
     if (x + w > maxX && x > x0) {
       x = x0;
-      y += 15;
+      y += 18;
     }
     if (draw) {
-      pen.round(x, y, w, 12, 6, { fill });
-      pen.text(label, x + 6, y + 8.6, 7.8, "bodySemi", ink);
+      pen.round(x, y, w, 14.5, 7, { fill });
+      pen.text(label, x + 7, y + 10.4, 9.5, "bodySemi", ink);
     }
     x += w + 5;
   }
-  return labels.length ? y - top + 12 : 0;
+  return labels.length ? y - top + 14.5 : 0;
 }
 
 function ribbon(pen: Pen, top: number, kind: ChipKind, title: string, note: string, labels: string[], tint: string, ink: string, draw: boolean) {
-  const labelW = 132;
-  const height = Math.max(30, pillRows(pen, labels, M + labelW + 12, top + 9, W - M - 8, tint, ink, false) + 18);
+  const labelW = 150;
+  const height = Math.max(34, pillRows(pen, labels, M + labelW + 12, top + 9, W - M - 8, tint, ink, false) + 18);
   if (!draw) return height;
   pen.round(M, top, CW, height, 6, { fill: C.white, border: C.line });
   pen.round(M, top, labelW, height, 6, { fill: CHIP_STYLE[kind].bg, squareRight: true });
-  pen.text(title, M + 10, top + 14, 10.5, "display", CHIP_STYLE[kind].fg);
-  pen.text(note, M + 10, top + 24, 7, "bodySemi", CHIP_STYLE[kind].fg);
+  pen.text(title, M + 10, top + 16, 12.5, "display", CHIP_STYLE[kind].fg);
+  pen.text(note, M + 10, top + 28, 8.5, "bodySemi", CHIP_STYLE[kind].fg);
   pillRows(pen, labels, M + labelW + 12, top + 9, W - M - 8, tint, ink, true);
   return height;
 }
@@ -405,28 +408,29 @@ function miniMonths(doc: Doc, pen: Pen, top: number, bottom: number) {
   const perRow = 6;
   const gap = 10;
   const rows = Math.ceil(doc.cal.months.length / perRow);
-  const heading = 16;
+  const heading = 18;
   const miniW = (CW - (perRow - 1) * gap) / perRow;
   const cell = miniW / 7;
   // Title + weekday letters + 6 weeks + padding per little month.
-  const rowH = Math.min(13, (bottom - top - heading - rows * (14 + 10 + 6) - (rows - 1) * gap) / (rows * 6));
-  if (rowH < 9) return;
-  const miniH = 14 + 10 + 6 * rowH + 6;
-  pen.text("MONTH BY MONTH", M, top + 10, 10.5, "display", C.blue);
+  const rowH = Math.min(15, (bottom - top - heading - rows * (14 + 8 + 4) - (rows - 1) * gap) / (rows * 6));
+  if (rowH < 8.5) return;
+  const miniH = 14 + 8 + 6 * rowH + 4;
+  const numberSize = Math.min(7.5, rowH * 0.78);
+  pen.text("MONTH BY MONTH", M, top + 12, 12.5, "display", C.blue);
 
   doc.cal.months.forEach((month, i) => {
     const x = M + (i % perRow) * (miniW + gap);
     const y = top + heading + Math.floor(i / perRow) * (miniH + gap);
     const mini = miniMonth(doc.cal, month);
     pen.round(x, y, miniW, miniH, 5, { fill: C.white, border: C.line });
-    pen.text(mini.title, x + 5, y + 11, 8.5, "display", C.blue);
-    WEEKDAYS.forEach((d, c) => pen.text(d[0], x + c * cell + cell / 2, y + 21, 5.5, "bodySemi", C.inkSoft, "center"));
+    pen.text(mini.title, x + 5, y + 11.5, 10, "display", C.blue);
+    WEEKDAYS.forEach((d, c) => pen.text(d[0], x + c * cell + cell / 2, y + 20, 6, "bodySemi", C.inkSoft, "center"));
     mini.weeks.forEach((week, r) =>
       week.forEach((day, c) => {
         if (day.day === null) return;
         const kind: ChipKind | null = day.kind ?? (day.meeting ? "meeting" : null);
         const cx = x + c * cell;
-        const cy = y + 24 + r * rowH;
+        const cy = y + 22 + r * rowH;
         if (kind) {
           const style = CHIP_STYLE[kind];
           pen.round(cx + 1, cy + 0.5, cell - 2, rowH - 1, 2, {
@@ -435,7 +439,7 @@ function miniMonths(doc: Doc, pen: Pen, top: number, bottom: number) {
             borderWidth: day.important ? 1 : 0.5,
           });
         }
-        pen.text(String(day.day), cx + cell / 2, cy + rowH / 2 + 2.2, 6, "display", kind ? CHIP_STYLE[kind].fg : C.ink, "center");
+        pen.text(String(day.day), cx + cell / 2, cy + rowH / 2 + numberSize * 0.36, numberSize, "display", kind ? CHIP_STYLE[kind].fg : C.ink, "center");
       }),
     );
   });
@@ -448,8 +452,8 @@ function coverPage(doc: Doc) {
   pen.text(
     "The year's camping trips, pack nights, one-day events and fundraisers. A page for each month follows.",
     M,
-    92,
-    8.5,
+    94,
+    10,
     "body",
     C.inkSoft,
   );
@@ -459,9 +463,9 @@ function coverPage(doc: Doc) {
   if (overview.scoutSundays.length) ribbons.push(["scout-sunday", "Scout Sundays", "10 AM Mass", overview.scoutSundays, "#ede4f8", "#4a2a7a"]);
   if (overview.noMeetings.length) ribbons.push(["no-meeting", "No Meetings", "No scout meeting these days", overview.noMeetings, "#efece3", "#4a463c"]);
   const ribbonHeights = ribbons.map((r) => ribbon(pen, 0, ...r, false));
-  const meetingH = overview.meetings ? 22 : 0;
+  const meetingH = overview.meetings ? 26 : 0;
   const below = ribbonHeights.reduce((sum, h) => sum + h + 8, 0) + (meetingH ? meetingH + 8 : 0);
-  const cardsTop = 102;
+  const cardsTop = 106;
   const cardsMaxBottom = CONTENT_BOTTOM - below - 4;
 
   const groups = overview.glance;
@@ -473,32 +477,32 @@ function coverPage(doc: Doc) {
     const whenMeasure = pen.measure("display");
     const laid = groups.map((g) => {
       const rows = g.items.map((item) => {
-        const when = fitText(item.when, whenMeasure, 8.5, cardW * 0.42);
-        const whenW = whenMeasure(when, 8.5);
-        const lines = wrapText(item.label, labelMeasure, 8.5, cardW - 18 - whenW - 6, 2);
-        return { when, lines, h: lines.length * 10.4 + 5 };
+        const when = fitText(item.when, whenMeasure, 10, cardW * 0.42);
+        const whenW = whenMeasure(when, 10);
+        const lines = wrapText(item.label, labelMeasure, 10, cardW - 18 - whenW - 6, 2);
+        return { when, lines, h: lines.length * 12.4 + 5 };
       });
       return { g, rows };
     });
-    const tallest = Math.max(...laid.map((l) => 30 + l.rows.reduce((s, r) => s + r.h, 0) + 4));
+    const tallest = Math.max(...laid.map((l) => 34 + l.rows.reduce((s, r) => s + r.h, 0) + 4));
     const cardH = Math.min(tallest, cardsMaxBottom - cardsTop);
     laid.forEach(({ g, rows }, i) => {
       const x = M + i * (cardW + gap);
       const style = CHIP_STYLE[g.category];
       pen.round(x, cardsTop, cardW, cardH, 7, { fill: C.white, border: C.line });
-      pen.round(x, cardsTop, cardW, 22, 7, { fill: style.bg, border: style.border });
-      pen.rect(x + 0.3, cardsTop + 14, cardW - 0.6, 8, style.bg);
-      pen.text(g.title, x + 9, cardsTop + 15, 11, "display", style.fg);
-      let y = cardsTop + 30;
+      pen.round(x, cardsTop, cardW, 25, 7, { fill: style.bg, border: style.border });
+      pen.rect(x + 0.3, cardsTop + 17, cardW - 0.6, 8, style.bg);
+      pen.text(g.title, x + 9, cardsTop + 17.5, 13, "display", style.fg);
+      let y = cardsTop + 34;
       for (let r = 0; r < rows.length; r++) {
         const row = rows[r];
         // Room for this row, and for the "+N more" line if rows remain after it.
-        if (y + row.h > cardsTop + cardH - (r < rows.length - 1 ? 14 : 0)) {
-          pen.text(`+${rows.length - r} more on the month pages`, x + 9, y + 7.5, 7.5, "bodySemi", C.inkSoft);
+        if (y + row.h > cardsTop + cardH - (r < rows.length - 1 ? 16 : 0)) {
+          pen.text(`+${rows.length - r} more on the month pages`, x + 9, y + 9, 9, "bodySemi", C.inkSoft);
           break;
         }
-        row.lines.forEach((line, li) => pen.text(line, x + 9, y + 7.5 + li * 10.4, 8.5, "bodySemi", C.ink));
-        pen.text(row.when, x + cardW - 9, y + 7.5, 8.5, "display", C.blueDark, "right");
+        row.lines.forEach((line, li) => pen.text(line, x + 9, y + 9 + li * 12.4, 10, "bodySemi", C.ink));
+        pen.text(row.when, x + cardW - 9, y + 9, 10, "display", C.blueDark, "right");
         y += row.h;
       }
     });
@@ -513,12 +517,17 @@ function coverPage(doc: Doc) {
     const m = overview.meetings;
     pen.round(M, y, CW, meetingH, 6, { fill: CHIP_STYLE.meeting.bg });
     let x = M + 10;
-    x += pen.text(m.title, x, y + 14.5, 10.5, "display", C.blueDark) + 10;
+    x += pen.text(m.title, x, y + 17, 12.5, "display", C.blueDark) + 10;
     pen.text(
-      [m.when, m.detail, "Not held on camping weekends or No Meeting nights"].filter(Boolean).join(" · "),
+      fitText(
+        [m.when, m.detail, "Not held on camping weekends or No Meeting nights"].filter(Boolean).join(" · "),
+        pen.measure("bodySemi"),
+        9.5,
+        W - M - 10 - x,
+      ),
       x,
-      y + 14,
-      8,
+      y + 16.5,
+      9.5,
       "bodySemi",
       C.blueDark,
     );

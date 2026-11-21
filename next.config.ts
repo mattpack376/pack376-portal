@@ -81,7 +81,7 @@ const nextConfig: NextConfig = {
   // run time (src/lib/calendarExportFonts.ts). Nothing imports them, so
   // they're listed here or the deployed route wouldn't have them.
   outputFileTracingIncludes: {
-    "/calendar/export/[file]": ["./src/assets/fonts/*.ttf"],
+    "/api/calendar/export/[file]": ["./src/assets/fonts/*.ttf"],
   },
   experimental: {
     serverActions: {

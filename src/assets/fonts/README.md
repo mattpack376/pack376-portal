@@ -1,7 +1,7 @@
 # Fonts for the shareable calendar files
 
 The site's two typefaces, read at run time by `src/lib/calendarExportFonts.ts`
-for the PDF and PNG calendar exports (`/calendar/export/…`). Both are under the
+for the PDF and PNG calendar exports (`/api/calendar/export/…`, staff only). Both are under the
 SIL Open Font License 1.1 (texts beside them), and neither declares a Reserved
 Font Name.
 

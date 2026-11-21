@@ -367,6 +367,18 @@ export const CALENDAR_VIEW_ROLES: SessionPayload["role"][] = [
   "PHOTOGRAPHER",
 ];
 
+/**
+ * Who may download or share the calendar as a PDF/PNG (the card on the
+ * portal Calendar page, and /api/calendar/export): Admin, Junior Admin and
+ * Den Leaders. Not on the public site, and not Committee, Attendance Only or
+ * Photographer, at the pack's request (2026-11-21).
+ */
+export const CALENDAR_EXPORT_ROLES: SessionPayload["role"][] = ["ADMIN", "JUNIOR_ADMIN", "DEN"];
+
+export function canExportCalendar(session: Pick<SessionPayload, "role">) {
+  return CALENDAR_EXPORT_ROLES.includes(session.role);
+}
+
 /** For Server Components / pages: the calendar list — see CALENDAR_VIEW_ROLES. Only an Admin gets the controls. */
 export async function requireCalendarViewSession(): Promise<SessionPayload> {
   const session = await requireSession();

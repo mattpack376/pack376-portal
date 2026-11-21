@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireCalendarViewSession } from "@/lib/authorize";
+import { canExportCalendar, requireCalendarViewSession } from "@/lib/authorize";
 import SaveButton from "@/components/SaveButton";
 import CalendarDateFields from "@/components/CalendarDateFields";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
@@ -66,7 +66,12 @@ export default async function CalendarAdminPage() {
   // Every staff level reads the calendar here; only an Admin changes it.
   const canEdit = session.role === "ADMIN";
   const today = todayDateOnlyString();
-  const [events, rule, published] = await Promise.all([getAllCalendarEvents(), getMeetingRule(), getCalendarExport(today)]);
+  const canDownload = canExportCalendar(session);
+  const [events, rule, published] = await Promise.all([
+    getAllCalendarEvents(),
+    getMeetingRule(),
+    canDownload ? getCalendarExport(today) : null,
+  ]);
 
   const undated = events.filter((e) => !e.date);
   const byMonth = new Map<string, AdminCalendarEvent[]>();
@@ -100,16 +105,13 @@ export default async function CalendarAdminPage() {
         </div>
       </div>
 
-      {published.months.length > 0 && (
-        // The same PDF/PNG files as the public page, so a leader can grab a
-        // copy after editing. They're on the public host: a root-relative
-        // link would 404 on the portal subdomain.
+      {published && published.months.length > 0 && (
+        // Admin, Junior Admin and Den Leaders only (canExportCalendar): the
+        // public calendar as a PDF or picture to print or send to families.
         <CalendarExportCard
           months={published.months}
           yearLabel={published.yearLabel}
           defaultScope={published.months.includes(today.slice(0, 7)) ? today.slice(0, 7) : "full"}
-          baseUrl={getPublicBaseUrl()}
-          allowShare={false}
         />
       )}
 

@@ -4,7 +4,6 @@ import Header from "@/components/Header";
 import SiteBanner from "@/components/SiteBanner";
 import Footer from "@/components/Footer";
 import CalendarView from "@/components/CalendarView";
-import CalendarExportCard from "@/components/CalendarExportCard";
 import { getPublicCalendar } from "@/lib/calendarEventsData";
 import { isUpcoming, noMeetingReason, shortDate } from "@/lib/calendarData";
 import { todayDateOnlyString } from "@/lib/dateOnly";
@@ -94,12 +93,6 @@ export default async function CalendarPage() {
       return chipFor(e, reason ? `${shortDate(e.date)} · ${reason}` : shortDate(e.date));
     });
   const hasGlance = glance.length > 0 || scoutSundays.length > 0 || noMeetings.length > 0;
-  // The Download or Share card starts on this month while it's on the
-  // calendar, and on the full year before the first month or after the last.
-  const thisMonth = today.slice(0, 7);
-  const exportCard = (
-    <CalendarExportCard months={months} yearLabel={yearLabel} defaultScope={months.includes(thisMonth) ? thisMonth : "full"} />
-  );
 
   return (
     <>
@@ -166,14 +159,12 @@ export default async function CalendarPage() {
                     )}
                   </div>
                 )}
-                {exportCard}
               </div>
             </section>
           )}
 
           <section style={{ background: "var(--white)" }}>
             <div className="container">
-              {!hasGlance && exportCard}
               <CalendarView events={events} months={months} today={today} />
             </div>
           </section>

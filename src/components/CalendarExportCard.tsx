@@ -5,9 +5,11 @@ import { monthTitle } from "@/lib/calendarData";
 import { exportFileName, type ExportFormat } from "@/lib/calendarExport";
 
 /*
- * "Download or Share": pick a month (or the full year) and PDF or picture,
- * then download it, or on a phone hand it straight to the share sheet (text,
- * WhatsApp, email). The files come from src/app/calendar/export/[file].
+ * "Download or Share", on the portal Calendar page for Admin, Junior Admin and
+ * Den Leaders (canExportCalendar): pick a month (or the full year) and PDF or
+ * picture, then download it, or on a phone hand it straight to the share
+ * sheet (text, WhatsApp, email). The files come from
+ * src/app/api/calendar/export/[file], which checks the sign-in itself.
  *
  * Sharing a file needs the file in hand at the moment of the tap — iPhone
  * Safari refuses navigator.share once the tap is more than a moment old, so
@@ -16,10 +18,6 @@ import { exportFileName, type ExportFormat } from "@/lib/calendarExport";
  * again for each new choice), and Share uses that copy — one small file,
  * cached by the server. If it isn't ready yet, Share fetches it and asks for
  * one more tap.
- *
- * On the portal (admin calendar page) the file lives on the public host, so
- * `baseUrl` is absolute and the link opens in a new tab; sharing is left to
- * the public page, where the fetch is same-origin.
  */
 
 /** Whether this browser can hand a file to the share sheet (phones and tablets, mostly). */
@@ -42,24 +40,19 @@ export default function CalendarExportCard({
   months,
   yearLabel,
   defaultScope,
-  baseUrl = "",
-  allowShare = true,
 }: {
   /** The month keys the calendar has a section for. */
   months: string[];
   yearLabel: string;
   /** "full" or a month key. */
   defaultScope: string;
-  /** "" on the public site; the public origin from the portal. */
-  baseUrl?: string;
-  allowShare?: boolean;
 }) {
   const id = useId();
   const [scope, setScope] = useState(defaultScope);
   const [format, setFormat] = useState<ExportFormat>("pdf");
   // False on the server and in the first render, so the page hydrates cleanly.
   const shareSupported = useSyncExternalStore(noSubscription, browserCanShareFiles, () => false);
-  const canShare = allowShare && shareSupported;
+  const canShare = shareSupported;
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const engaged = useRef(false);
@@ -68,7 +61,7 @@ export default function CalendarExportCard({
   const pending = useRef(new Map<string, Promise<File>>());
 
   const fileName = exportFileName(scope, format, yearLabel);
-  const href = `${baseUrl}/calendar/export/${fileName}`;
+  const href = `/api/calendar/export/${fileName}`;
   const label = scope === "full" ? `${yearLabel} calendar` : monthTitle(scope);
 
   function load(name: string, url: string): Promise<File> {
@@ -186,13 +179,7 @@ export default function CalendarExportCard({
         </select>
       </div>
       <div className="cal-export-actions">
-        <a
-          className="btn btn-primary"
-          href={href}
-          download={baseUrl ? undefined : fileName}
-          target={baseUrl ? "_blank" : undefined}
-          rel={baseUrl ? "noopener noreferrer" : undefined}
-        >
+        <a className="btn btn-primary" href={href} download={fileName}>
           <span aria-hidden="true">⬇</span> Download
         </a>
         {canShare && (

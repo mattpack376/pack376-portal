@@ -101,8 +101,7 @@ const audienceLabel = (db: string | null | undefined) =>
 function revalidateCalendar(id?: string) {
   revalidatePath(CALENDAR_ADMIN_PATH);
   if (id) revalidatePath(`${CALENDAR_ADMIN_PATH}/${id}`);
-  // "layout" also refreshes the shareable PDF/PNG files under /calendar/export.
-  revalidatePath(CALENDAR_PUBLIC_PATH, "layout");
+  revalidatePath(CALENDAR_PUBLIC_PATH);
 }
 
 export async function createCalendarEventAction(formData: FormData) {
