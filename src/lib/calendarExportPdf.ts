@@ -46,6 +46,7 @@ const CONTENT_BOTTOM = 565;
 // Sized to read on a printed page held at arm's length: event chips 8.5 pt,
 // the details list 9–10 pt (the first version was 6–8 pt and too small).
 const GRID_TOP = 102;
+/** The grid's full height; it gives some back when a month's list needs the room (see monthPages). */
 const GRID_H = 330;
 const DOW_H = 18;
 const CHIP_TOP = 17;
@@ -191,9 +192,9 @@ function legendAndFooter(doc: Doc, pen: Pen) {
 // A month
 // ---------------------------------------------------------------------------
 
-function grid(pen: Pen, layout: MonthLayout) {
+function grid(pen: Pen, layout: MonthLayout, gridH: number) {
   const cellW = CW / 7;
-  const rowH = GRID_H / layout.weeks.length;
+  const rowH = gridH / layout.weeks.length;
   const colX = (c: number) => M + c * cellW;
 
   pen.rect(M, GRID_TOP - DOW_H, CW, DOW_H, C.creamDark);
@@ -210,7 +211,7 @@ function grid(pen: Pen, layout: MonthLayout) {
 
   // Grid lines over the cell fills and under the event bars, so a trip's bar
   // reads as one piece across the days it covers.
-  for (let c = 0; c <= 7; c++) pen.line(colX(c), GRID_TOP - DOW_H, colX(c), GRID_TOP + GRID_H, C.line);
+  for (let c = 0; c <= 7; c++) pen.line(colX(c), GRID_TOP - DOW_H, colX(c), GRID_TOP + gridH, C.line);
   for (let r = 0; r <= layout.weeks.length; r++) pen.line(M, GRID_TOP + r * rowH, W - M, GRID_TOP + r * rowH, C.line);
   pen.line(M, GRID_TOP - DOW_H, W - M, GRID_TOP - DOW_H, C.line);
 
@@ -237,14 +238,20 @@ function grid(pen: Pen, layout: MonthLayout) {
     }
     week.more.forEach((n, c) => {
       if (!n) return;
-      const slotTop = top + CHIP_TOP + (maxSlotsFor(layout.weeks.length) - 1) * CHIP_PITCH;
+      const slotTop = top + CHIP_TOP + (slotsFor(rowH) - 1) * CHIP_PITCH;
       pen.text(`+${n} more, see below`, colX(c) + 4, slotTop + 9, 8, "bodySemi", C.inkSoft);
     });
   });
 }
 
-function maxSlotsFor(weeks: number) {
-  return Math.max(1, Math.floor((GRID_H / weeks - CHIP_TOP - 1) / CHIP_PITCH));
+/** How many event chips fit in a week row this tall. */
+function slotsFor(rowH: number) {
+  return Math.max(1, Math.floor((rowH - CHIP_TOP - 1) / CHIP_PITCH));
+}
+
+/** The row height that holds this many chips. */
+function rowHeightFor(slots: number) {
+  return CHIP_TOP + slots * CHIP_PITCH + 2;
 }
 
 interface PlacedDetail {
@@ -252,15 +259,25 @@ interface PlacedDetail {
   titleLines: string[];
   detailLines: string[];
   height: number;
+  sp: DetailSpacing;
 }
 
 const DETAIL_TEXT_X = 12;
 
-function measureDetail(pen: Pen, item: DetailItem, width: number): PlacedDetail {
+/** Line spacing in the details list; `tight` is for a month whose list wouldn't otherwise fit on the page. */
+interface DetailSpacing {
+  title: number;
+  detail: number;
+  after: number;
+}
+const ROOMY: DetailSpacing = { title: 12, detail: 10.8, after: 7 };
+const TIGHT: DetailSpacing = { title: 11.2, detail: 10, after: 3 };
+
+function measureDetail(pen: Pen, item: DetailItem, width: number, sp: DetailSpacing): PlacedDetail {
   const textW = width - DETAIL_TEXT_X;
   const titleLines = wrapText(item.title, pen.measure(item.important ? "bodyBold" : "bodySemi"), 10, textW, 2);
   const detailLines = item.detail ? wrapText(item.detail, pen.measure("body"), 8.8, textW, 2) : [];
-  return { item, titleLines, detailLines, height: 11.5 + titleLines.length * 12 + detailLines.length * 10.8 + 7 };
+  return { item, titleLines, detailLines, sp, height: 11.5 + titleLines.length * sp.title + detailLines.length * sp.detail + sp.after };
 }
 
 function drawDetail(pen: Pen, d: PlacedDetail, x: number, top: number, width: number) {
@@ -274,12 +291,12 @@ function drawDetail(pen: Pen, d: PlacedDetail, x: number, top: number, width: nu
   let baseline = top + 11.5 + 9.5;
   for (const line of d.titleLines) {
     pen.text(line, tx, baseline, 10, d.item.important ? "bodyBold" : "bodySemi", d.item.kind === "fundraiser" ? C.redDark : C.ink);
-    baseline += 12;
+    baseline += d.sp.title;
   }
   baseline -= 1;
   for (const line of d.detailLines) {
     pen.text(line, tx, baseline, 8.8, "body", C.inkSoft);
-    baseline += 10.8;
+    baseline += d.sp.detail;
   }
 }
 
@@ -325,17 +342,40 @@ function details(pen: Pen, items: PlacedDetail[], top: number, colW: number): Pl
   return items.slice(i);
 }
 
+/** The shortest column height that fits every item in DETAIL_COLS columns. */
+function detailsHeight(items: PlacedDetail[]) {
+  if (!items.length) return 30;
+  let h = Math.max(...items.map((d) => d.height));
+  while (columnsNeeded(items, 0, h) > DETAIL_COLS) h += 2;
+  return h;
+}
+
+/** Space between the grid and the first detail: the gap, the THIS MONTH line and the gap under it. */
+const DETAILS_OFFSET = 10 + 22;
+
 function monthPages(doc: Doc, month: string) {
-  const weeks = layoutMonth(doc.cal, month, 99).weeks.length;
-  const layout = layoutMonth(doc.cal, month, maxSlotsFor(weeks));
   const right = `${doc.cal.yearLabel} Scouting Year`;
-
   const pen = newPage(doc);
-  header(doc, pen, "PACK 376 · CALENDAR OF EVENTS", layout.title, right);
-  grid(pen, layout);
-
   const colW = (CW - (DETAIL_COLS - 1) * DETAIL_GAP) / DETAIL_COLS;
-  const top = GRID_TOP + GRID_H + 10;
+
+  // Keep a month to one page. A long list of events first gets tighter line
+  // spacing, then the grid gives back the empty space in its rows: it never
+  // gets shorter than its busiest week needs (up to three events a day), so
+  // only a month that still can't fit spills onto a continuation page.
+  const full = layoutMonth(doc.cal, month, 99);
+  const weeks = full.weeks.length;
+  const busiest = Math.max(1, ...full.weeks.flatMap((w) => w.chips.map((c) => c.slot + 1)));
+  const minGridH = weeks * rowHeightFor(Math.min(busiest, 3));
+  const room = (items: PlacedDetail[]) => CONTENT_BOTTOM - GRID_TOP - DETAILS_OFFSET - detailsHeight(items);
+  let placed = full.details.map((item) => measureDetail(pen, item, colW, ROOMY));
+  if (room(placed) < GRID_H) placed = full.details.map((item) => measureDetail(pen, item, colW, TIGHT));
+  const gridH = Math.min(GRID_H, Math.max(minGridH, Math.floor(room(placed))));
+  const layout = layoutMonth(doc.cal, month, slotsFor(gridH / weeks));
+
+  header(doc, pen, "PACK 376 · CALENDAR OF EVENTS", layout.title, right);
+  grid(pen, layout, gridH);
+
+  const top = GRID_TOP + gridH + 10;
   let x = M + pen.text("THIS MONTH", M, top + 12, 12.5, "display", C.blue) + 12;
   if (layout.meetings) {
     const m = layout.meetings;
@@ -345,11 +385,10 @@ function monthPages(doc: Doc, month: string) {
     pen.text(text, x + 8, top + 11.3, 9.5, "bodySemi", C.blueDark);
     x += w;
   }
-  const placed = layout.details.map((item) => measureDetail(pen, item, colW));
   if (placed.length === 0) {
     pen.text("No special pack events scheduled this month.", M, top + 34, 10, "body", C.inkSoft);
   }
-  let left = details(pen, placed, top + 22, colW);
+  let left = details(pen, placed, top + DETAILS_OFFSET - 10, colW);
   legendAndFooter(doc, pen);
 
   while (left.length) {
