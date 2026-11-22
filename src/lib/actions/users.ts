@@ -28,7 +28,7 @@ import { sendAccountLinkEmail } from "@/lib/email";
 import { formatPhoneNumber } from "@/lib/phone";
 import { denDisplayName } from "@/lib/rankConfig";
 import { recordAudit, recordAuditInTransaction, changedFields } from "@/lib/audit";
-import { isValidEmail, MAX_NAME_LENGTH } from "@/lib/formValues";
+import { contactFieldsError, isValidEmail, MAX_NAME_LENGTH } from "@/lib/formValues";
 import { isUsernameTooLong, USERNAME_TOO_LONG_MESSAGE } from "@/lib/credentialInput";
 import type { CreatedInvite } from "@/lib/actions/dens";
 import type { Rank } from "@/generated/prisma/enums";
@@ -254,6 +254,8 @@ export async function updateUserEmailAction(formData: FormData) {
 
   const userId = String(formData.get("userId") || "");
   const email = String(formData.get("email") || "").trim();
+  const invalid = contactFieldsError({ email });
+  if (invalid) throw new Error(invalid);
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -294,6 +296,8 @@ export async function updateUserPhoneAction(formData: FormData) {
 
   const userId = String(formData.get("userId") || "");
   const phone = formatPhoneNumber(String(formData.get("phone") || ""));
+  const invalid = contactFieldsError({ phone });
+  if (invalid) throw new Error(invalid);
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -336,6 +340,8 @@ export async function updateUserDisplayNameAction(formData: FormData) {
   const userId = String(formData.get("userId") || "");
   const displayName = String(formData.get("displayName") || "").trim();
   if (!displayName) throw new Error("Display name is required.");
+  const invalid = contactFieldsError({ name: displayName });
+  if (invalid) throw new Error(invalid);
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -400,6 +406,13 @@ export async function updateUserRoleAction(
   if (isMasterAdminUsername(user.username)) {
     return { error: "Master admins can't be changed from the admin panel." };
   }
+  // A role change also signs the account out (sessionVersion below), so it's
+  // held to the same line as every other change to the row.
+  try {
+    await assertCanMutateUser(session, user);
+  } catch {
+    return { error: MASTER_ONLY_ACCOUNT_MESSAGE };
+  }
   try {
     await assertCanGrantRole(session, role, user.role);
   } catch {
@@ -451,6 +464,9 @@ export async function updateUserDensAction(formData: FormData) {
   const userId = String(formData.get("userId") || "");
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("User not found.");
+  // Den assignments decide what the account can open, and saving them signs
+  // it out (sessionVersion below): a master-only account's are the master's.
+  await assertCanMutateUser(session, user);
   if (!DEN_ASSIGNABLE_ROLES.includes(user.role as (typeof DEN_ASSIGNABLE_ROLES)[number])) {
     throw new Error("This account's role can't be assigned to dens.");
   }
@@ -570,6 +586,13 @@ export async function deleteUserAction(userId: string) {
   if (!user) return { ok: false as const, error: "User not found." };
   if (isProtectedUsername(user.username)) {
     return { ok: false as const, error: "This is a protected account and can't be deleted from the admin panel." };
+  }
+  // An unprotected but master-only account (a Den Leader test login) is still
+  // only the master admin's to delete.
+  try {
+    await assertCanMutateUser(session, user);
+  } catch {
+    return { ok: false as const, error: MASTER_ONLY_ACCOUNT_MESSAGE };
   }
   // Admins can edit each other, but deleting an Admin account is the master
   // admin's call — the counterpart of assertCanGrantRole on creation.

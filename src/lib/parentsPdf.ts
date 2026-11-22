@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import { RECEIPT_EMBLEM_PNG_BASE64 } from "@/lib/receiptEmblem";
 import { RECEIPT_ORG_NAME } from "@/lib/receipts";
 import { formatPhoneNumber } from "@/lib/phone";
+import { safeDownloadFilename } from "@/lib/csv";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
 
@@ -108,7 +109,7 @@ export function parentsPdfResponse(bytes: Uint8Array, filename: string): Respons
   return new Response(Buffer.from(bytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": `attachment; filename="${safeDownloadFilename(filename)}"`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },

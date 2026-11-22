@@ -9,6 +9,6 @@ import {
 /** Audits -> Advancement as a CSV: every record the page's filters match. Who may download: see loadAdvancementAuditExport. */
 export async function GET(request: NextRequest) {
   const result = await loadAdvancementAuditExport(request.nextUrl.searchParams);
-  if ("status" in result) return new Response("Not authorized.", { status: result.status });
+  if ("status" in result) return new Response("Not authorized.", { status: result.status, headers: { "Cache-Control": "private, no-store" } });
   return csvResponse(buildAdvancementAuditCsv(result.records), advancementAuditFilename(result.filters, "csv"));
 }

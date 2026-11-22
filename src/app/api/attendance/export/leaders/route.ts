@@ -9,11 +9,11 @@ import { csvFileBody } from "@/lib/csv";
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
-  if (!session) return new NextResponse("Not authorized.", { status: 401 });
+  if (!session) return new NextResponse("Not authorized.", { status: 401, headers: { "Cache-Control": "private, no-store" } });
   try {
     assertLeaderAttendanceAccess(session);
   } catch {
-    return new NextResponse("Not authorized.", { status: 403 });
+    return new NextResponse("Not authorized.", { status: 403, headers: { "Cache-Control": "private, no-store" } });
   }
 
   const scoutingYear = request.nextUrl.searchParams.get("scoutingYear");

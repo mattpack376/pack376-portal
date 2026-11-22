@@ -439,6 +439,11 @@ describe("the consent buttons when the server never answers", () => {
   });
 });
 
+/** The public form is posted by an anonymous visitor: a request with headers (the rate limit reads them), no session. */
+async function submitConsent(...args: Parameters<typeof consent.submitPhotoConsentAction>) {
+  return (await asAnonymous(() => consent.submitPhotoConsentAction(...args))).result;
+}
+
 describe("public consent submission", () => {
   const answers = { facebook: "CONSENT", website: "DECLINE", fliers: "CONSENT" };
   const submission = (overrides: Record<string, string>) =>
@@ -451,10 +456,25 @@ describe("public consent submission", () => {
     assert.equal(await db.prisma.photoConsentHistory.count({ where: { photoConsentId: record.id } }), 0);
   }
 
+  it("is rate-limited per address before any database work, keeping what was entered", async () => {
+    const { record } = await makeScout({});
+    testState.rateLimited = true;
+    try {
+      const result = await submitConsent({}, submission({ token: record!.token }));
+      assert.match(result.error ?? "", /Too many tries/);
+      assert.equal(result.values?.signedByName, "Pat Parent");
+      assert.equal(result.saved, undefined);
+    } finally {
+      testState.rateLimited = false;
+    }
+    assert.deepEqual(testState.rateLimitCalls.at(-1), { rateLimitId: "portal-login", rateLimitKey: "photo-consent:127.0.0.1" });
+    await unchanged(record!);
+  });
+
   it("refuses an over-long name before any write, keeping what was entered", async () => {
     const { record } = await makeScout({});
     const longName = "N".repeat(121);
-    const result = await consent.submitPhotoConsentAction({}, submission({ token: record!.token, signedByName: longName }));
+    const result = await submitConsent({}, submission({ token: record!.token, signedByName: longName }));
     assert.equal(result.field, "signedByName");
     assert.match(result.error ?? "", /at most 120 characters/);
     assert.equal(result.values?.signedByName, "N".repeat(120));
@@ -475,7 +495,7 @@ describe("public consent submission", () => {
       [{ token: record!.token, signedByName: " \u0000\u0007 " }, "signedByName"],
     ];
     for (const [overrides, field] of cases) {
-      const result = await consent.submitPhotoConsentAction({}, submission(overrides));
+      const result = await submitConsent({}, submission(overrides));
       assert.ok(result.error, JSON.stringify(overrides).slice(0, 80));
       assert.equal(result.field, field);
       assert.equal(result.saved, undefined);
@@ -488,14 +508,14 @@ describe("public consent submission", () => {
 
   it("records once, rotates the token, and stores a name cleaned to one line", async () => {
     const { record } = await makeScout({});
-    const result = await consent.submitPhotoConsentAction({}, submission({ token: record!.token, signedByName: " Pat\u0000 \n Parent " }));
+    const result = await submitConsent({}, submission({ token: record!.token, signedByName: " Pat\u0000 \n Parent " }));
     assert.deepEqual(result, { saved: { facebook: "CONSENT", website: "DECLINE", fliers: "CONSENT" } });
     const after = await db.prisma.photoConsent.findUniqueOrThrow({ where: { id: record!.id } });
     assert.notEqual(after.token, record!.token);
     assert.equal(after.signedByName, "Pat Parent");
     assert.equal(await db.prisma.photoConsentHistory.count({ where: { photoConsentId: record!.id } }), 1);
 
-    const again = await consent.submitPhotoConsentAction({}, submission({ token: record!.token }));
+    const again = await submitConsent({}, submission({ token: record!.token }));
     assert.match(again.error ?? "", /This link isn't valid/);
     assert.equal(await db.prisma.photoConsentHistory.count({ where: { photoConsentId: record!.id } }), 1);
   });
@@ -507,7 +527,7 @@ describe("public consent submission", () => {
       // The other submission: it holds the row and has rotated the token, not yet committed.
       await holder.query(`SELECT "id" FROM "PhotoConsent" WHERE "id" = $1 FOR UPDATE`, [record!.id]);
       await holder.query(`UPDATE "PhotoConsent" SET "token" = $2 WHERE "id" = $1`, [record!.id, token()]);
-      const pending = consent.submitPhotoConsentAction({}, submission({ token: record!.token }));
+      const pending = submitConsent({}, submission({ token: record!.token }));
       await waitForLockWait(db.pool);
       await holder.commit();
       const result = await pending;
@@ -523,7 +543,7 @@ describe("public consent submission", () => {
     const holder = await openTransaction(db.pool);
     try {
       await holder.query(`SELECT "id" FROM "PhotoConsent" WHERE "id" = $1 FOR UPDATE`, [record!.id]);
-      const pending = consent.submitPhotoConsentAction({}, submission({ token: record!.token }));
+      const pending = submitConsent({}, submission({ token: record!.token }));
       await waitForLockWait(db.pool);
       await holder.rollback();
       assert.ok((await pending).saved);
@@ -537,8 +557,8 @@ describe("public consent submission", () => {
     for (let i = 0; i < 20; i++) {
       const { record } = await makeScout({});
       const results = await Promise.all([
-        consent.submitPhotoConsentAction({}, submission({ token: record!.token, signedByName: "First" })),
-        consent.submitPhotoConsentAction({}, submission({ token: record!.token, signedByName: "Second" })),
+        submitConsent({}, submission({ token: record!.token, signedByName: "First" })),
+        submitConsent({}, submission({ token: record!.token, signedByName: "Second" })),
       ]);
       assert.equal(results.filter((r) => r.saved).length, 1, `iteration ${i}`);
       assert.equal(results.filter((r) => r.error).length, 1, `iteration ${i}`);

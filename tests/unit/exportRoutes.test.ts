@@ -80,6 +80,24 @@ describe("export and download routes", () => {
     });
   }
 
+  it("every refusal from a route handler is private, no-store too", () => {
+    for (const route of routes) {
+      for (const line of route.source.split("\n").filter((l) => /Response\("Not authorized\./.test(l))) {
+        assert.match(line, /"Cache-Control":\s*"private, no-store"|NO_STORE/, `${route.file}: ${line.trim()}`);
+      }
+    }
+  });
+
+  it("the album photo route only fetches our own event photos, with no redirects and a timeout", () => {
+    const photo = routes.find((route) => route.file === "src/app/album-photos/[photoId]/[size]/route.ts");
+    assert.ok(photo);
+    const check = photo.source.indexOf("isOwnedAlbumPhotoUrl(source)");
+    const fetchAt = photo.source.indexOf("await fetch(source");
+    assert.ok(check >= 0 && fetchAt > check, "source isn't checked before fetch");
+    assert.match(photo.source, /redirect: "error"/);
+    assert.match(photo.source, /signal: AbortSignal\.timeout\(10_000\)/);
+  });
+
   it("the trip export helpers only answer through the no-store helpers", () => {
     const source = readFileSync(join(ROOT, "src", "lib", "tripExports.ts"), "utf8");
     assert.doesNotMatch(source, /new (Next)?Response\(/);

@@ -5,9 +5,9 @@ import { buildParentsPdf, parentsPdfResponse } from "@/lib/parentsPdf";
 
 export async function GET() {
   const session = await getSession();
-  if (!session) return new NextResponse("Not authorized.", { status: 401 });
+  if (!session) return new NextResponse("Not authorized.", { status: 401, headers: { "Cache-Control": "private, no-store" } });
   if (session.role !== "ADMIN" && session.role !== "JUNIOR_ADMIN") {
-    return new NextResponse("Not authorized.", { status: 403 });
+    return new NextResponse("Not authorized.", { status: 403, headers: { "Cache-Control": "private, no-store" } });
   }
 
   const dens = await prisma.den.findMany({

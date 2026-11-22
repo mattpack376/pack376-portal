@@ -31,12 +31,17 @@ async function loadAlbum(albumId: string) {
   return album && album.isVisible ? album : null;
 }
 
+const NOINDEX = { index: false, follow: false } as const;
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const album = await loadAlbum((await params).albumId);
-  if (!album) return { title: "Photo Albums — Pack 376" };
+  if (!album) return { title: "Photo Albums — Pack 376", robots: NOINDEX };
   return {
     title: `${album.title} — Photo Albums — Pack 376`,
     description: album.description ?? `Photos from ${album.title}, a Pack 376 event.`,
+    // Photos of scouts: the album is for families following a link, not for
+    // search results (the pictures themselves already send X-Robots-Tag).
+    robots: NOINDEX,
   };
 }
 

@@ -4,7 +4,8 @@ import { checkRateLimit } from "@vercel/firewall";
 /**
  * The one Vercel Firewall rate-limit rule every public form checks. The
  * Hobby plan allows a single rate-limit rule, so sign-in, the reset/invite
- * link form and public trip registration all use this one. Each form still
+ * link form, public trip registration and the photo consent form all use
+ * this one. Each form still
  * counts separately, per IP address: sign-in uses the rule's own per-IP
  * count, and the other two pass their own key (see FORM_KEY_PREFIX), so a
  * family that has just registered for a trip can still sign in.
@@ -14,7 +15,7 @@ import { checkRateLimit } from "@vercel/firewall";
  */
 export const RATE_LIMIT_RULE_ID = "portal-login";
 
-export type RateLimitedForm = "login" | "reset" | "trip-registration";
+export type RateLimitedForm = "login" | "reset" | "trip-registration" | "photo-consent";
 
 /**
  * Sign-in has no prefix: it keeps the rule's default per-IP count, exactly
@@ -26,6 +27,7 @@ const FORM_KEY_PREFIX: Record<RateLimitedForm, string | null> = {
   login: null,
   reset: "reset",
   "trip-registration": "trip-registration",
+  "photo-consent": "photo-consent",
 };
 
 type HeaderReader = { get(name: string): string | null };

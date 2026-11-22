@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import PhotoConsentForm from "@/components/PhotoConsentForm";
 import { toDateOnlyString, todayDateOnlyString } from "@/lib/dateOnly";
 import { isPhotoConsentTokenShape } from "@/lib/photoConsentTokens";
+
+// A one-time link to one family's record: never for search results.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function PhotoConsentPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

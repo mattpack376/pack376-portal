@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { assertAdmin } from "@/lib/authorize";
+import { assertAdmin, assertCanMutateUser } from "@/lib/authorize";
 import { recordAudit, changedFields } from "@/lib/audit";
 
 /** A household's name for audit text — they're optionally named, hence the fallback. */
@@ -150,6 +150,11 @@ export async function addUserToHouseholdAction(formData: FormData) {
   const userId = String(formData.get("userId") || "");
   if (!householdId || !userId) throw new Error("Missing household or login.");
 
+  // Writes to the User row itself, so it passes the same guard as every other change to one.
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  if (!target) throw new Error("Login not found.");
+  await assertCanMutateUser(session, target);
+
   const user = await prisma.user.update({ where: { id: userId }, data: { householdId } });
 
   await recordAudit(session, {
@@ -170,6 +175,10 @@ export async function removeUserFromHouseholdAction(formData: FormData) {
   const userId = String(formData.get("userId") || "");
   const householdId = String(formData.get("householdId") || "");
   if (!userId) throw new Error("Missing user id.");
+
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  if (!target) throw new Error("Login not found.");
+  await assertCanMutateUser(session, target);
 
   const label = await householdLabel(householdId);
   const user = await prisma.user.update({ where: { id: userId }, data: { householdId: null } });

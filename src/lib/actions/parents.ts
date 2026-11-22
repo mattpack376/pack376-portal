@@ -12,6 +12,15 @@ import { formatPhoneNumber } from "@/lib/phone";
 import { recordAudit, changedFields } from "@/lib/audit";
 import type { CreatedInvite } from "@/lib/actions/dens";
 import { isUsernameTooLong, USERNAME_TOO_LONG_MESSAGE } from "@/lib/credentialInput";
+import { contactFieldsError } from "@/lib/formValues";
+import type { SessionPayload } from "@/lib/session";
+
+/** The login a contact row points at, for assertCanMutateUser before anything writes to it. */
+async function assertCanMutateLinkedUser(session: SessionPayload, userId: string | null) {
+  if (!userId) return;
+  const account = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  if (account) await assertCanMutateUser(session, account);
+}
 
 /**
  * If this email already belongs to a PARENT-role portal login (e.g. a
@@ -57,8 +66,12 @@ export async function addParentAction(formData: FormData) {
   const email = String(formData.get("email") || "").trim();
   const phone = formatPhoneNumber(String(formData.get("phone") || ""));
   if (!scoutId || !name) throw new Error("A parent name is required.");
+  const invalid = contactFieldsError({ name, email, phone });
+  if (invalid) throw new Error(invalid);
 
   const userId = await findExistingParentAccountId(email);
+  // Linking signs that login out (refreshParentSession), a write to its row.
+  await assertCanMutateLinkedUser(session, userId);
 
   const [parent] = await prisma.$transaction([
     prisma.parent.create({
@@ -96,6 +109,8 @@ export async function updateParentAction(formData: FormData) {
   const email = String(formData.get("email") || "").trim();
   const phone = formatPhoneNumber(String(formData.get("phone") || ""));
   if (!parentId || !name) throw new Error("A parent name is required.");
+  const invalid = contactFieldsError({ name, email, phone });
+  if (invalid) throw new Error(invalid);
 
   const before = await prisma.parent.findUnique({
     where: { id: parentId },
@@ -174,6 +189,8 @@ export async function removeParentAction(formData: FormData) {
     where: { id: parentId },
     select: { userId: true, name: true, email: true, phone: true, scoutId: true },
   });
+  // Removing a linked contact signs that login out (sessionVersion below).
+  await assertCanMutateLinkedUser(session, parent?.userId ?? null);
 
   // scoutIds is baked into the parent's session JWT at login time and lives
   // for up to 45 days; deleting the Parent row alone leaves any already-issued
@@ -240,6 +257,11 @@ export async function inviteParentPortalAction(parentId: string) {
   if (existing) {
     if (existing.role !== "PARENT") {
       return { ok: false as const, error: "That email is already in use by a different portal account." };
+    }
+    try {
+      await assertCanMutateUser(session, existing);
+    } catch {
+      return { ok: false as const, error: "Only a master admin can change that account." };
     }
     await prisma.$transaction([
       prisma.parent.update({ where: { id: parentId }, data: { userId: existing.id } }),
@@ -314,6 +336,12 @@ export async function unlinkParentScoutAction(parentId: string) {
   const parent = await prisma.parent.findUnique({ where: { id: parentId } });
   if (!parent) return { ok: false as const, error: "Parent contact not found." };
   if (!parent.userId) return { ok: false as const, error: "This contact isn't linked to a portal account." };
+  // Unlinking changes what that login can see and signs it out (sessionVersion below).
+  try {
+    await assertCanMutateLinkedUser(session, parent.userId);
+  } catch {
+    return { ok: false as const, error: "Only a master admin can change that account." };
+  }
 
   await prisma.$transaction([
     // Every contact row tying this login to this scout, not just the one
@@ -364,6 +392,8 @@ export async function attachParentToScoutAction(formData: FormData) {
   // side without a second login (see /portal/my-family).
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("Account not found.");
+  // Changes what the account can see and signs it out (sessionVersion below).
+  await assertCanMutateUser(session, user);
 
   const existing = await prisma.parent.findFirst({ where: { userId, scoutId } });
   if (existing) throw new Error("This account is already attached to that scout.");
@@ -491,12 +521,25 @@ export async function createParentAccountAction(
     return { ok: false as const, error: "Not authorized." };
   }
 
+  // Called with arguments rather than a form, but still straight from the
+  // browser: anything could arrive here, so check the types too.
+  if (
+    typeof username !== "string" ||
+    typeof displayName !== "string" ||
+    (email != null && typeof email !== "string") ||
+    (phone != null && typeof phone !== "string") ||
+    (scoutId != null && typeof scoutId !== "string")
+  ) {
+    return { ok: false as const, error: "Login and display name are required." };
+  }
   const clean = username.trim().toLowerCase();
   const name = displayName.trim();
   const cleanEmail = email?.trim().toLowerCase() || null;
   const cleanPhone = phone?.trim() ? formatPhoneNumber(phone.trim()) : null;
   if (!clean || !name) return { ok: false as const, error: "Login and display name are required." };
   if (isUsernameTooLong(clean)) return { ok: false as const, error: USERNAME_TOO_LONG_MESSAGE };
+  const invalid = contactFieldsError({ name, email: cleanEmail ?? "", phone: cleanPhone ?? "" });
+  if (invalid) return { ok: false as const, error: invalid };
   // Same reservation as createAdminAction in actions/users.ts — this form
   // creates a User row too, so it's a second way to claim a freed master name.
   if (isReservedUsername(clean)) {

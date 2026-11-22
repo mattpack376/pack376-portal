@@ -11,7 +11,7 @@ import { csvFileBody } from "@/lib/csv";
 export async function GET(request: NextRequest) {
   const view = parsePhotoConsentView(request.nextUrl.searchParams.get("view"));
   const result = await loadPhotoConsentExport(view);
-  if ("status" in result) return new NextResponse("Not authorized.", { status: result.status });
+  if ("status" in result) return new NextResponse("Not authorized.", { status: result.status, headers: { "Cache-Control": "private, no-store" } });
 
   return new NextResponse(csvFileBody(buildPhotoConsentCsv(result.dens)), {
     headers: {

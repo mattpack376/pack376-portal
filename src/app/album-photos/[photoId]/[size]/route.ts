@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ALBUM_PHOTO_SIZES, type AlbumPhotoSize } from "@/lib/albumPhotoRules";
+import { isOwnedAlbumPhotoUrl } from "@/lib/blobCleanup";
 
 /**
  * Serves one event photo to the public album page (src/app/gallery/[albumId]).
@@ -26,9 +27,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pho
   if (!photo || !photo.album.isVisible) return notFound();
 
   const source = (size as AlbumPhotoSize) === "full" ? photo.imageUrl : photo.thumbUrl;
+  // Only ever our own Blob store's event photos: never a redirect elsewhere,
+  // and never left hanging on a slow upstream.
+  if (!isOwnedAlbumPhotoUrl(source)) {
+    console.error(`[album photos] photo ${photoId} (${size}) doesn't point at an uploaded event photo`);
+    return notFound();
+  }
   let upstream: Response;
   try {
-    upstream = await fetch(source, { cache: "no-store" });
+    upstream = await fetch(source, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10_000) });
   } catch (error) {
     console.error("[album photos] couldn't fetch a photo from Blob storage", error);
     return new Response("Photo unavailable.", { status: 502, headers: { "Cache-Control": "no-store" } });

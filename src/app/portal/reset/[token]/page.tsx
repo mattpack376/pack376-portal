@@ -1,6 +1,10 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { resetLinkStatus } from "@/lib/resetTokens";
 import SetPasswordForm, { DeadLinkNotice } from "@/components/SetPasswordForm";
+
+// A one-time link to setting one account's password: never for search results.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function ResetPasswordPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

@@ -52,15 +52,16 @@ export default async function ManageUserPage({
   // (assertCanMutateUser); protected accounts can't be deleted; moving anyone
   // into or out of Admin, and deleting any Admin, is the master admin's call
   // (assertCanGrantRole).
-  const roleEditable = !masterAccount && (user.role !== "ADMIN" || viewerIsMaster);
   const detailsEditable = !masterOnlyAccount || viewerIsMaster;
-  const deletable = !protectedAccount && (user.role !== "ADMIN" || viewerIsMaster);
+  const roleEditable = !masterAccount && detailsEditable && (user.role !== "ADMIN" || viewerIsMaster);
+  const deletable = !protectedAccount && detailsEditable && (user.role !== "ADMIN" || viewerIsMaster);
   // Mirrors setUserActiveAction: the switch is only drawn where it would go through.
   const activeSwitchable = canSetUserActive({ userId: session.userId, isMaster: viewerIsMaster }, user);
   const assignedDenIds = new Set(user.denAssignments.map((a) => a.denId));
   const canAssignDens = DEN_ASSIGNABLE_ROLES.includes(user.role as (typeof DEN_ASSIGNABLE_ROLES)[number]);
   // Mirrors getSessionState in src/lib/auth.ts: a den test login reaches every den without being assigned to any.
-  const allDensTestLogin = user.role === "DEN" && isAllDensTestUsername(user.username);
+  const allDensTestUsername = isAllDensTestUsername(user.username);
+  const allDensTestLogin = user.role === "DEN" && allDensTestUsername;
 
   const allDens = canAssignDens ? await prisma.den.findMany() : [];
   allDens.sort((a, b) => {
@@ -116,6 +117,14 @@ export default async function ManageUserPage({
             {masterOnlyAccount && " It keeps the pack's books, so only a master admin can change its details or reset its password."}
           </p>
         </div>
+      ) : allDensTestUsername ? (
+        <div className="info-card" style={{ marginBottom: 24 }}>
+          <h3>🔒 Den Leader Test Login</h3>
+          <p>
+            This login can see every den, so only a master admin can change it, reset its password or delete it. Its
+            name is reserved: it can&apos;t be created again from the admin panel.
+          </p>
+        </div>
       ) : null}
 
       {roleEditable ? (
@@ -127,7 +136,10 @@ export default async function ManageUserPage({
         <div className="info-card" style={{ marginBottom: 24, maxWidth: 420 }}>
           <h3>Permission Level</h3>
           <p>
-            {ROLE_LABELS[user.role] ?? user.role}. Only the master admin can change an Admin&apos;s permission level.
+            {ROLE_LABELS[user.role] ?? user.role}.{" "}
+            {detailsEditable
+              ? "Only the master admin can change an Admin's permission level."
+              : "Only a master admin can change this account's permission level."}
           </p>
         </div>
       ) : null}
@@ -218,21 +230,31 @@ export default async function ManageUserPage({
       {canAssignDens && (
         <div className="info-card" style={{ marginBottom: 24 }}>
           <h3>Assigned Dens</h3>
-          <p>
-            {user.role === "DEN"
-              ? "Check every den this leader should have advancement & attendance access to."
-              : user.role === "COMMITTEE"
-                ? "Optional — for a committee member who also leads a den. Checking a den lists them as its leader and adds that den's Den Leader view: parent contacts, Family View, and sending photo consent links."
-                : "Optional — check any den(s) this account should be listed as a leader of on the dashboard and roster. Admins and Junior Admins already have access to every den regardless."}
-          </p>
-          {allDensTestLogin && (
+          {detailsEditable && (
+            <p>
+              {user.role === "DEN"
+                ? "Check every den this leader should have advancement & attendance access to."
+                : user.role === "COMMITTEE"
+                  ? "Optional — for a committee member who also leads a den. Checking a den lists them as its leader and adds that den's Den Leader view: parent contacts, Family View, and sending photo consent links."
+                  : "Optional — check any den(s) this account should be listed as a leader of on the dashboard and roster. Admins and Junior Admins already have access to every den regardless."}
+            </p>
+          )}
+          {allDensTestLogin && detailsEditable && (
             <p className="form-note">
               Test login: this account already has Den Leader access to every den, without being listed as a
               leader of any of them. Leave these unchecked — checking a den would list this account as that
               den&apos;s leader on the dashboard and roster.
             </p>
           )}
-          {allDens.length === 0 ? (
+          {!detailsEditable ? (
+            // Mirrors updateUserDensAction's assertCanMutateUser: read-only, like the Contact card.
+            <p style={{ marginBottom: 0 }}>
+              {user.denAssignments.length > 0
+                ? user.denAssignments.map((a) => denDisplayName(a.den.rank, a.den.scoutingYear, a.den.label)).join(", ")
+                : "No dens assigned."}{" "}
+              Only a master admin can change this account&apos;s dens.
+            </p>
+          ) : allDens.length === 0 ? (
             <p style={{ marginBottom: 0 }}>No dens exist yet.</p>
           ) : (
             <form action={updateUserDensAction}>
@@ -293,12 +315,19 @@ export default async function ManageUserPage({
                 <strong>{c.scout.firstName} {c.scout.lastName}</strong> ·{" "}
                 {denDisplayName(c.scout.den.rank, c.scout.den.scoutingYear, c.scout.den.label)}
               </span>
-              <UnlinkParentScoutButton parentId={c.id} scoutName={`${c.scout.firstName} ${c.scout.lastName}`} />
+              {detailsEditable && (
+                <UnlinkParentScoutButton parentId={c.id} scoutName={`${c.scout.firstName} ${c.scout.lastName}`} />
+              )}
             </div>
           ))
         )}
 
-        {attachableScouts.length > 0 && (
+        {!detailsEditable ? (
+          // Mirrors attachParentToScoutAction / unlinkParentScoutAction: read-only, like the Contact card.
+          <p className="form-note" style={{ marginBottom: 0 }}>
+            Only a master admin can link or unlink this account&apos;s children.
+          </p>
+        ) : attachableScouts.length > 0 && (
           <form action={attachParentToScoutAction} className="form-row" style={{ alignItems: "flex-end", marginTop: 16 }}>
             <input type="hidden" name="userId" value={user.id} />
             <div className="form-field">

@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { isRateLimited } from "@/lib/rateLimit";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertPhotoConsentDenAccess, canManagePhotoConsentForDen } from "@/lib/authorize";
@@ -87,6 +89,13 @@ export async function submitPhotoConsentAction(
     signedDate: isDateOnlyString(signedDateRaw) ? signedDateRaw : "",
   };
   const refuse = (error: string, field?: ConsentField): SubmitConsentState => ({ error, field, values });
+
+  // A public form keyed only by an unguessable token: the shared rule (see
+  // src/lib/rateLimit.ts) stops one address hammering it, before any
+  // database work. What was entered comes back so the parent can retry.
+  if (await isRateLimited("photo-consent", await headers())) {
+    return refuse("Too many tries from this connection. Wait a few minutes, then submit again.");
+  }
 
   // Every check below runs before any database work, so a malformed or
   // oversized request costs nothing but this.

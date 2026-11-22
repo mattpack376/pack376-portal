@@ -43,4 +43,11 @@ describe("parentsPdfResponse", () => {
     assert.equal(response.headers.get("X-Content-Type-Options"), "nosniff");
     assert.equal(response.headers.get("Content-Type"), "application/pdf");
   });
+
+  it("cleans the filename before it goes in Content-Disposition", () => {
+    const response = parentsPdfResponse(new Uint8Array([0x25]), 'Wolf "Den"\r\nX-Evil: 1.pdf');
+    assert.equal(response.headers.get("Content-Disposition"), 'attachment; filename="Wolf-Den-X-Evil-1.pdf"');
+    const plain = parentsPdfResponse(new Uint8Array([0x25]), "pack376-parent-contacts-all.pdf");
+    assert.equal(plain.headers.get("Content-Disposition"), 'attachment; filename="pack376-parent-contacts-all.pdf"');
+  });
 });

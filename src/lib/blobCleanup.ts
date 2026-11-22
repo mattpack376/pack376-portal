@@ -35,7 +35,7 @@ function isOwnedHostname(hostname: string) {
  * and a delete is not undoable — so cleanup refuses anything it can't prove
  * it owns rather than trusting whatever string is in the column.
  */
-function isOwnedBlobUrl(raw: string): boolean {
+function isOwnedBlobUrl(raw: string, prefixes: readonly string[] = OWNED_PREFIXES): boolean {
   let url: URL;
   try {
     url = new URL(raw);
@@ -43,7 +43,17 @@ function isOwnedBlobUrl(raw: string): boolean {
     return false;
   }
   if (url.protocol !== "https:" || !isOwnedHostname(url.hostname)) return false;
-  return OWNED_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
+  return prefixes.some((prefix) => url.pathname.startsWith(prefix));
+}
+
+/**
+ * True only for an event photo this app uploaded (https, our Blob store,
+ * under /album-photos/). The public photo route fetches whatever URL the row
+ * holds, so it checks this first: a bad or tampered row can never make the
+ * server fetch some other address on a visitor's behalf.
+ */
+export function isOwnedAlbumPhotoUrl(raw: string): boolean {
+  return isOwnedBlobUrl(raw, ["/album-photos/"]);
 }
 
 /**

@@ -40,6 +40,11 @@ describe("isRateLimited", () => {
     ]);
   });
 
+  it("gives the public photo consent form its own per-IP count", async () => {
+    await isRateLimited("photo-consent", fromIp("203.0.113.9"));
+    assert.deepEqual(testState.rateLimitCalls, [{ rateLimitId: "portal-login", rateLimitKey: "photo-consent:203.0.113.9" }]);
+  });
+
   it("passes the firewall's answer through", async () => {
     testState.rateLimited = true;
     assert.equal(await isRateLimited("login", fromIp("203.0.113.9")), true);

@@ -13,5 +13,7 @@ export async function GET(request: NextRequest) {
   const res = NextResponse.redirect(new URL("/portal/login", request.url));
   // Host-only delete, matching how createSessionCookie sets it (no domain).
   res.cookies.delete({ name: SESSION_COOKIE, path: "/" });
+  // A response that clears a session cookie is never one to keep or share.
+  res.headers.set("Cache-Control", "private, no-store");
   return res;
 }

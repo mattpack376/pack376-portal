@@ -9,7 +9,7 @@ import {
 /** Audits -> Advancement as a PDF: every record the page's filters match. Who may download: see loadAdvancementAuditExport. */
 export async function GET(request: NextRequest) {
   const result = await loadAdvancementAuditExport(request.nextUrl.searchParams);
-  if ("status" in result) return new Response("Not authorized.", { status: result.status });
+  if ("status" in result) return new Response("Not authorized.", { status: result.status, headers: { "Cache-Control": "private, no-store" } });
   const pdf = await buildAdvancementAuditPdf(result.records, result.filters);
   return parentsPdfResponse(pdf, advancementAuditFilename(result.filters, "pdf"));
 }

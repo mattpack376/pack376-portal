@@ -86,3 +86,24 @@ const EMAIL_PATTERN = /^[^\s@,;<>()"]+@[^\s@,;<>()"]+\.[^\s@,;<>()"]+$/;
 export function isValidEmail(value: string): boolean {
   return value.length <= MAX_EMAIL_LENGTH && !hasControlCharacters(value) && EMAIL_PATTERN.test(value);
 }
+
+/**
+ * The one check for a person's contact fields — name, email, phone — on
+ * the Users panel, parent contacts and Parent Portal logins. Each is only
+ * checked when given; a blank email or phone means "none" and passes (the
+ * caller decides whether the name may be blank). Returns the message to show,
+ * or null when everything is acceptable.
+ */
+export function contactFieldsError(fields: { name?: string; email?: string; phone?: string }): string | null {
+  const { name, email, phone } = fields;
+  if (name !== undefined) {
+    if (name.length > MAX_NAME_LENGTH) return `Names can be at most ${MAX_NAME_LENGTH} characters.`;
+    if (hasControlCharacters(name)) return "Names can't contain control characters.";
+  }
+  if (email && !isValidEmail(email)) return "Enter a single email address, like name@example.com.";
+  if (phone) {
+    if (phone.length > MAX_PHONE_LENGTH) return `Phone numbers can be at most ${MAX_PHONE_LENGTH} characters.`;
+    if (hasControlCharacters(phone)) return "Phone numbers can't contain control characters.";
+  }
+  return null;
+}

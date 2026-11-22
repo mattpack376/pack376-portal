@@ -1,3 +1,5 @@
+import { isAllDensTestUsername } from "@/lib/denTestAccounts";
+
 /**
  * The master admin(s): full access, including the audit log, Start a Fresh
  * Year, and creating or deleting Admin accounts. Master status is decided by
@@ -38,13 +40,17 @@ export function isLedgerUsername(username: string) {
 
 /**
  * Accounts only a master admin may change — password reset, email, phone,
- * display name and the rest: the master admins themselves, and the ledger
- * accounts, since whoever controls one of those logins reads and writes the
- * pack's books. Without this an ordinary Admin could reset a ledger account's
- * password and, if it has no email, be shown the new link on screen.
+ * display name, role, dens, linked children, households, deleting it and the
+ * rest: the master admins themselves; the ledger accounts, since whoever
+ * controls one of those logins reads and writes the pack's books; and the
+ * all-dens Den Leader test logins (ALL_DENS_TEST_USERNAMES in
+ * src/lib/denTestAccounts.ts), since whoever controls one of those sees every
+ * den's parent contacts. Without this an ordinary Admin could reset such an
+ * account's password and, if it has no email, be shown the new link on
+ * screen.
  */
 export function isMasterOnlyMutableUsername(username: string) {
-  return isMasterAdminUsername(username) || isLedgerUsername(username);
+  return isMasterAdminUsername(username) || isLedgerUsername(username) || isAllDensTestUsername(username);
 }
 
 export function isProtectedUsername(username: string) {
@@ -65,6 +71,7 @@ export function canSetUserActive(
 ) {
   if (target.role === "PARENT") return false;
   if (isProtectedUsername(target.username)) return false;
+  if (isMasterOnlyMutableUsername(target.username) && !viewer.isMaster) return false;
   if (target.id === viewer.userId) return false;
   if (target.role === "ADMIN" && !viewer.isMaster) return false;
   return true;

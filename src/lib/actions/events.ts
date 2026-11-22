@@ -1171,21 +1171,22 @@ export async function removeMyGuestGroupAction(formData: FormData) {
 export async function deleteEventPaymentAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
+  // Before any lookup, so a non-admin can't tell which payment ids exist.
+  assertAdmin(session);
 
   const paymentId = String(formData.get("paymentId") || "");
   const registrationId = String(formData.get("registrationId") || "");
   const eventId = String(formData.get("eventId") || "");
   if (!paymentId) throw new Error("Missing payment id.");
 
-  // Look up den access from the payment's own registration — never trust a
-  // client-submitted registrationId for this check, since it travels in the
-  // same form as (and independently of) paymentId.
+  // Check the payment really belongs to the submitted registration — the two
+  // ids travel in the same form, independently — before using
+  // registrationId for anything.
   const payment = await prisma.eventPayment.findUnique({
     where: { id: paymentId },
     select: { eventRegistration: { select: { id: true, scout: { select: { denId: true } } } } },
   });
   if (!payment || payment.eventRegistration.id !== registrationId) throw new Error("Payment not found.");
-  assertAdmin(session);
 
   const context = await registrationContext(registrationId);
 
@@ -1495,21 +1496,22 @@ export async function addGuestGroupPaymentAction(formData: FormData): Promise<Ev
 export async function deleteGuestGroupPaymentAction(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("Not authorized.");
+  // Before any lookup, so a non-admin can't tell which payment ids exist.
+  assertAdmin(session);
 
   const paymentId = String(formData.get("paymentId") || "");
   const guestGroupId = String(formData.get("guestGroupId") || "");
   const eventId = String(formData.get("eventId") || "");
   if (!paymentId) throw new Error("Missing payment id.");
 
-  // Look up ownership from the payment's own guest group — never trust a
-  // client-submitted guestGroupId for this check, since it travels in the
-  // same form as (and independently of) paymentId.
+  // Check the payment really belongs to the submitted guest group — the two
+  // ids travel in the same form, independently — before using guestGroupId
+  // for anything.
   const payment = await prisma.eventGuestGroupPayment.findUnique({
     where: { id: paymentId },
     select: { eventGuestGroupId: true, eventGuestGroup: { select: { addedByUserId: true } } },
   });
   if (!payment || payment.eventGuestGroupId !== guestGroupId) throw new Error("Payment not found.");
-  assertAdmin(session);
 
   await prisma.$transaction(async (tx) => {
     // Locked first, then read, in the same transaction as the delete and the

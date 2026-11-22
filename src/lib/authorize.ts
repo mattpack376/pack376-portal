@@ -10,6 +10,7 @@ import {
   isMasterOnlyMutableUsername,
   isProtectedUsername,
 } from "@/lib/masterAdmins";
+import { isAllDensTestUsername } from "@/lib/denTestAccounts";
 
 /*
  * Permission levels, most to least access:
@@ -688,7 +689,11 @@ export async function assertCanGrantRole(session: SessionPayload, role: string, 
  * is a way back in: recreate it and that account inherits master privileges
  * or undeletability. Account creation reserves every protected name so the
  * name alone can never be claimed, whatever happened to the original row.
+ *
+ * The all-dens Den Leader test logins (src/lib/denTestAccounts.ts) are
+ * reserved too: that access also comes from the username alone, so whoever
+ * recreated "denmatt" as a Den Leader would see every den.
  */
 export function isReservedUsername(username: string) {
-  return isProtectedUsername(username);
+  return isProtectedUsername(username) || isAllDensTestUsername(username);
 }

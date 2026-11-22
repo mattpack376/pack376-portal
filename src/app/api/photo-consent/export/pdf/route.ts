@@ -12,7 +12,7 @@ import { parentsPdfResponse } from "@/lib/parentsPdf";
 export async function GET(request: NextRequest) {
   const view = parsePhotoConsentView(request.nextUrl.searchParams.get("view"));
   const result = await loadPhotoConsentExport(view);
-  if ("status" in result) return new NextResponse("Not authorized.", { status: result.status });
+  if ("status" in result) return new NextResponse("Not authorized.", { status: result.status, headers: { "Cache-Control": "private, no-store" } });
 
   const pdf = await buildPhotoConsentPdf(result.dens, { scope: PHOTO_CONSENT_VIEW_LABELS[view] });
   return parentsPdfResponse(pdf, `pack376-photo-consent-${PHOTO_CONSENT_VIEW_SLUGS[view]}.pdf`);

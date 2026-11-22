@@ -8,13 +8,13 @@ import { buildParentsPdf, parentsPdfResponse } from "@/lib/parentsPdf";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ denId: string }> }) {
   const session = await getSession();
-  if (!session) return new NextResponse("Not authorized.", { status: 401 });
+  if (!session) return new NextResponse("Not authorized.", { status: 401, headers: { "Cache-Control": "private, no-store" } });
 
   const { denId } = await params;
   try {
     assertParentContactsDenAccess(session, denId);
   } catch {
-    return new NextResponse("Not authorized.", { status: 403 });
+    return new NextResponse("Not authorized.", { status: 403, headers: { "Cache-Control": "private, no-store" } });
   }
 
   const den = await prisma.den.findUnique({
