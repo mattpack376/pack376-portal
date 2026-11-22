@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { saveBlob, shareableFile, shareFileOnly, sharesOnTap } from "@/lib/saveFile";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { isAndroid, saveBlob, shareableFile, shareFileOnly, sharesOnTap } from "@/lib/saveFile";
 
 /*
  * A link to a file download (a PDF or CSV export), saved the way the receipt
@@ -21,6 +21,12 @@ import { saveBlob, shareableFile, shareFileOnly, sharesOnTap } from "@/lib/saveF
  * pictures alike; a type the phone can't share is saved as before.
  * `viewerOnPhone` keeps the viewer — for documents people open to read
  * rather than send.
+ *
+ * Android's share sheet has no plain "save" choice (iPhone's has Save to
+ * Files), so on Android a small "Save to phone instead" link sits under the
+ * button and downloads the file to the phone's Downloads. It's added after the
+ * page loads, so the server render and every other device keep the button
+ * alone.
  */
 
 function filenameFrom(res: Response, href: string) {
@@ -29,6 +35,24 @@ function filenameFrom(res: Response, href: string) {
   const last = new URL(href, window.location.origin).pathname.split("/").pop();
   return last ? decodeURIComponent(last) : "pack376-download";
 }
+
+/**
+ * Fetches the export, or returns null after sending the browser to it: a
+ * redirect means the session ran out (or the role changed), and following it
+ * here would "save" the login page as the export — or, in some browsers, just
+ * throw. Navigating, as the plain link would have, lets the server place them.
+ */
+async function fetchExport(href: string): Promise<{ blob: Blob; name: string } | null> {
+  const res = await fetch(href, { credentials: "same-origin", redirect: "manual" });
+  if (res.type === "opaqueredirect") {
+    window.location.assign(href);
+    return null;
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return { blob: await res.blob(), name: filenameFrom(res, href) };
+}
+
+const noSubscription = () => () => {};
 
 export default function FileExportButton({
   href,
@@ -46,6 +70,26 @@ export default function FileExportButton({
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   // A file already fetched, waiting for the second tap the share sheet asked for.
   const fileRef = useRef<File | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "loading" | "error">("idle");
+  // False on the server and in the first render, so the page hydrates cleanly.
+  const offerSave = useSyncExternalStore(
+    noSubscription,
+    () => !viewerOnPhone && isAndroid() && sharesOnTap("application/pdf"),
+    () => false,
+  );
+
+  async function onSave(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    if (saveStatus === "loading") return;
+    setSaveStatus("loading");
+    try {
+      const fetched = await fetchExport(href);
+      if (fetched) saveBlob(fetched.blob, fetched.name);
+      setSaveStatus("idle");
+    } catch {
+      setSaveStatus("error");
+    }
+  }
 
   async function onClick(event: React.MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
@@ -61,19 +105,12 @@ export default function FileExportButton({
 
     setStatus("loading");
     try {
-      // Not followed: a redirect here means the session ran out (or the role
-      // changed), and following it would "save" the login page as the export —
-      // or, in some browsers, just throw. Navigate instead, as the plain link
-      // would have, and let the server place them (the login page).
-      const res = await fetch(href, { credentials: "same-origin", redirect: "manual" });
-      if (res.type === "opaqueredirect") {
+      const fetched = await fetchExport(href);
+      if (!fetched) {
         setStatus("idle");
-        window.location.assign(href);
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const name = filenameFrom(res, href);
+      const { blob, name } = fetched;
       if (!viewerOnPhone && sharesOnTap(blob.type)) {
         const file = shareableFile(blob, name);
         fileRef.current = file;
@@ -89,7 +126,7 @@ export default function FileExportButton({
     }
   }
 
-  return (
+  const button = (
     // data-file-download: SaveButton's unsaved-changes guard skips it — this saves a file, it doesn't leave the page.
     <a
       href={href}
@@ -108,5 +145,15 @@ export default function FileExportButton({
             ? "Couldn't download — Try Again"
             : label}
     </a>
+  );
+
+  if (!offerSave) return button;
+  return (
+    <span className="export-save-wrap">
+      {button}
+      <a href={href} className="export-save-link no-print" onClick={onSave} aria-busy={saveStatus === "loading"} aria-live="polite" data-file-download="">
+        {saveStatus === "loading" ? "Saving…" : saveStatus === "error" ? "Couldn't save — Try Again" : "Save to phone instead"}
+      </a>
+    </span>
   );
 }

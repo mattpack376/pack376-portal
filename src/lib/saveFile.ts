@@ -44,6 +44,15 @@ export function sharesOnTap(type: string) {
 }
 
 /**
+ * An Android phone or tablet. Its share sheet has no plain "save" choice
+ * (iPhone's has Save to Files), so exports there also offer "Save to phone
+ * instead", which downloads the file to the phone's Downloads.
+ */
+export function isAndroid() {
+  return typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+}
+
+/**
  * Client-side, phones: opens the share sheet with the file and nothing else —
  * Messages, Mail, Save to Files, Print. Saved with saveBlob instead, a PDF
  * opens in the phone's own viewer, and sharing from there also sends a "blob:"

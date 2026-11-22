@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import EventFlyer from "@/components/EventFlyer";
 import TripRegistrationForm from "@/components/TripRegistrationForm";
 import Linkify from "@/components/Linkify";
+import ShareLinks from "@/components/ShareLinks";
 import {
   getOrCreateTripPage,
   getTripMeals,
@@ -123,6 +124,13 @@ export default async function TripPublicView({ site }: { site: TripSite }) {
                 />
               </div>
             )}
+
+            <ShareLinks
+              heading="Share this event"
+              url={site.publicUrl}
+              text={`${trip.title} — details and registration:`}
+              subject={`${trip.title} — Pack 376`}
+            />
 
             <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
             <div className="info-card" style={{ flex: "1 1 200px" }}>

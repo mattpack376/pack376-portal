@@ -135,6 +135,31 @@ section { padding: 64px 0; }
  * on a 320px phone.
  */
 .btn-block { width: 100%; white-space: normal; text-align: center; }
+
+/* ShareLinks: Text / WhatsApp / Email / Copy Link on public pages. */
+.share-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 auto 20px;
+}
+.share-links-label { flex-basis: 100%; text-align: center; font-weight: 700; color: var(--ink-soft); font-size: 15px; }
+/* An sms: link opens nothing on most computers. */
+@media (hover: hover) and (pointer: fine) { .share-links .share-sms { display: none; } }
+
+/* Android only (FileExportButton): an export button with "Save to phone instead" under it. */
+.export-save-wrap { display: inline-flex; flex-direction: column; align-items: flex-start; }
+.export-save-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--scout-blue);
+  text-decoration: underline;
+}
 /*
  * Hover lifts only where there's a real pointer. A phone fires :hover on tap
  * and then leaves it on, so every tapped button stayed raised until the

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { bareType, shareableFile, shareFileOnly, sharesOnTap } from "@/lib/saveFile";
+import { bareType, isAndroid, shareableFile, shareFileOnly, sharesOnTap } from "@/lib/saveFile";
 
 /*
  * The phone share path every export uses (FileExportButton, the calendar
@@ -118,5 +118,14 @@ describe("shareFileOnly", () => {
       URL.createObjectURL = realCreate;
     }
     assert.deepEqual(saved, ["pack376-receipt.pdf"]);
+  });
+});
+
+describe("isAndroid", () => {
+  it("reads the browser's user agent", () => {
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/131" } });
+    assert.equal(isAndroid(), true);
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)" } });
+    assert.equal(isAndroid(), false);
   });
 });

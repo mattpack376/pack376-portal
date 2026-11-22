@@ -4,6 +4,8 @@ import Header from "@/components/Header";
 import SiteBanner from "@/components/SiteBanner";
 import Footer from "@/components/Footer";
 import CalendarView from "@/components/CalendarView";
+import ShareLinks from "@/components/ShareLinks";
+import { getPublicBaseUrl } from "@/lib/appUrl";
 import { getPublicCalendar } from "@/lib/calendarEventsData";
 import { isUpcoming, noMeetingReason, shortDate } from "@/lib/calendarData";
 import { todayDateOnlyString } from "@/lib/dateOnly";
@@ -111,6 +113,15 @@ export default async function CalendarPage() {
             style={{ transform: "scaleY(-1)", transformOrigin: "center" }}
           />
         </svg>
+      </div>
+
+      <div className="container" style={{ paddingTop: 12 }}>
+        <ShareLinks
+          heading="Share the calendar"
+          url={`${getPublicBaseUrl()}/calendar`}
+          text={`Pack 376's ${yearLabel} Calendar of Events:`}
+          subject={`Pack 376 ${yearLabel} Calendar of Events`}
+        />
       </div>
 
       {events.length === 0 ? (
