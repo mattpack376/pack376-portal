@@ -43,6 +43,8 @@ export async function getDuesOverview(scoutingYear: string) {
           id: s.id,
           firstName: s.firstName,
           lastName: s.lastName,
+          active: s.active,
+          payments: s.duesPayments.map((p) => ({ paidOn: p.paidOn, amountCents: p.amountCents, note: p.note })),
           paidCents,
           dueCents,
           isOverridden: s.duesOverrideCents !== null,

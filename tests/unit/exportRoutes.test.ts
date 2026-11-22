@@ -33,7 +33,7 @@ const NO_STORE_HELPERS = [
 ];
 
 /** Ways a route establishes who is asking (each then checks the role or den). */
-const AUTH_CHECKS = [/\bgetSession\(\)/, /\brequire[A-Za-z]*Session\(\)/, /\bloadPhotoConsentExport\(/, /\bloadAdvancementAuditExport\(/];
+const AUTH_CHECKS = [/\bgetSession\(\)/, /\brequire[A-Za-z]*Session\(\)/, /\bloadPhotoConsentExport\(/, /\bloadAdvancementAuditExport\(/, /\bloadDuesExport\(/];
 
 function routeFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -90,6 +90,12 @@ describe("export and download routes", () => {
   it("the advancement audit exports check the session in their loader", () => {
     const source = readFileSync(join(ROOT, "src", "lib", "advancementAuditExport.ts"), "utf8");
     assert.match(source, /\bgetSession\(\)/);
+  });
+
+  it("the dues exports check the session and the Admin-only rule in their loader", () => {
+    const source = readFileSync(join(ROOT, "src", "lib", "duesExport.ts"), "utf8");
+    assert.match(source, /\bgetSession\(\)/);
+    assert.match(source, /\bcanExportDues\(session\)/);
   });
 
   it("the photo consent exports check the session in their loader", () => {

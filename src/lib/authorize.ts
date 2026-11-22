@@ -425,6 +425,15 @@ export function canViewDues(session: Session) {
   return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "COMMITTEE";
 }
 
+/**
+ * Who may download the dues tracker as a CSV or PDF (the Dues page buttons
+ * and /api/dues/export): Admin only. Junior Admin and Committee Member can
+ * read the page but don't get a copy of every family's balance to take away.
+ */
+export function canExportDues(session: Pick<Session, "role">) {
+  return session.role === "ADMIN";
+}
+
 export function canViewEventMoney(session: Session) {
   return session.role === "ADMIN" || session.role === "JUNIOR_ADMIN";
 }

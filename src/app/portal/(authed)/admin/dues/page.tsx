@@ -1,6 +1,7 @@
 import Link from "next/link";
 import SaveButton from "@/components/SaveButton";
-import { requireDuesViewSession } from "@/lib/authorize";
+import FileExportButton from "@/components/FileExportButton";
+import { canExportDues, requireDuesViewSession } from "@/lib/authorize";
 import { getDuesScoutingYears, getDuesOverview, formatCents } from "@/lib/duesData";
 import { RANK_INFO } from "@/lib/rankConfig";
 import { setDuesAmountAction } from "@/lib/actions/dues";
@@ -14,6 +15,7 @@ export default async function AdminDuesPage({
   // Junior Admin and Committee Member read this page; only Admin sets fees.
   const session = await requireDuesViewSession();
   const canEdit = session.role === "ADMIN";
+  const canExport = canExportDues(session);
   const years = await getDuesScoutingYears();
   const { year: requestedYear } = await searchParams;
   const scoutingYear = requestedYear && years.includes(requestedYear) ? requestedYear : years[0];
@@ -51,6 +53,27 @@ export default async function AdminDuesPage({
           </button>
         </form>
       </div>
+
+      {canExport && (
+        // Admin only: Junior Admin and Committee Member read this page but don't take a copy away. The routes check it too.
+        <p style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: -16, marginBottom: 24 }}>
+          <FileExportButton
+            href={`/api/dues/export/pdf?year=${encodeURIComponent(scoutingYear)}`}
+            label="Export PDF"
+            className="btn btn-quiet btn-small"
+          />
+          <FileExportButton
+            href={`/api/dues/export?year=${encodeURIComponent(scoutingYear)}`}
+            label="Export CSV"
+            className="btn btn-quiet btn-small"
+          />
+          <FileExportButton
+            href={`/api/dues/export/payments?year=${encodeURIComponent(scoutingYear)}`}
+            label="Payments CSV"
+            className="btn btn-quiet btn-small"
+          />
+        </p>
+      )}
 
       <div className="card-row">
         <div className="info-card">
