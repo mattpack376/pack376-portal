@@ -298,7 +298,7 @@ export function PhotoConsentFields({
           </p>
         </div>
 
-        <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={pending}>
+        <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
           {pending ? "Saving…" : `Save Photo Consent for ${scoutFirstName}`}
         </button>
       </form>

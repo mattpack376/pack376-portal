@@ -66,7 +66,7 @@ export default function LedgerSyncStatus({ view }: { view: LedgerSyncView }) {
             </p>
           )}
         </div>
-        <div className="form-field" style={{ flexGrow: 0, minWidth: 0, marginBottom: 0 }}>
+        <div className="form-field" style={{ flex: "0 0 auto", minWidth: 0, marginBottom: 0 }}>
           <button type="submit" className="btn btn-quiet btn-small" disabled={pending}>
             {pending ? "Syncing…" : "Sync Now"}
           </button>

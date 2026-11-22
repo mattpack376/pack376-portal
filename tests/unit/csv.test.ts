@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { csvResponse, escapeCsvField, safeDownloadFilename, toCsv } from "@/lib/csv";
+import { csvFileBody, csvResponse, escapeCsvField, safeDownloadFilename, toCsv } from "@/lib/csv";
 import { parentsPdfResponse } from "@/lib/parentsPdf";
 
 describe("csvResponse", () => {
@@ -11,6 +11,13 @@ describe("csvResponse", () => {
     assert.equal(response.headers.get("Content-Type"), "text/csv; charset=utf-8");
     assert.equal(response.headers.get("Content-Disposition"), 'attachment; filename="pack376-all-attendees.csv"');
     assert.equal(await response.text(), "Name,Owes\r\nPat,10.00");
+  });
+
+  it("starts the file with a UTF-8 byte order mark, so Excel reads accented names", async () => {
+    const response = csvResponse(toCsv([["Name"], ["José Rodríguez"]]), "pack376-test.csv");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    assert.deepEqual([...bytes.slice(0, 3)], [0xef, 0xbb, 0xbf]);
+    assert.equal(csvFileBody(csvFileBody("a")), "﻿a");
   });
 
   it("keeps the quoted filename well-formed whatever it is given", () => {

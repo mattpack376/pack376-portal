@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { buildParentsCsv, type ParentCsvRow } from "@/lib/parentsCsv";
+import { csvFileBody } from "@/lib/csv";
 
 export async function GET() {
   const session = await getSession();
@@ -40,7 +41,7 @@ export async function GET() {
 
   const csv = buildParentsCsv(rows);
 
-  return new NextResponse(csv, {
+  return new NextResponse(csvFileBody(csv), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="pack376-parent-contacts-all.csv"`,

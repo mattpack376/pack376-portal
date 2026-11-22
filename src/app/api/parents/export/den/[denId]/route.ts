@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertParentContactsDenAccess } from "@/lib/authorize";
 import { buildParentsCsv, type ParentCsvRow } from "@/lib/parentsCsv";
+import { csvFileBody } from "@/lib/csv";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ denId: string }> }) {
   const session = await getSession();
@@ -47,7 +48,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const csv = buildParentsCsv(rows);
   const filename = `pack376-parent-contacts-${den.rank.toLowerCase()}-${den.scoutingYear}.csv`;
 
-  return new NextResponse(csv, {
+  return new NextResponse(csvFileBody(csv), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,

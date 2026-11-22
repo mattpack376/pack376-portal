@@ -17,9 +17,8 @@ export function buildLeaderContactsCsv(sections: LeaderContactSection[]): string
         [
           escapeCsvField(label),
           escapeCsvField(person.name),
-          // Semicolons, not the "·" the portal shows: Excel opens a BOM-less
-          // UTF-8 file as Windows-1252 and would garble it (same as the
-          // leader attendance CSV).
+          // Semicolons, not the "·" the portal shows: plain text that reads
+          // the same in any spreadsheet (same as the leader attendance CSV).
           escapeCsvField(person.positions.join("; ")),
           escapeCsvField(person.email ?? ""),
           escapeCsvField(person.phone ? formatPhoneNumber(person.phone) : ""),

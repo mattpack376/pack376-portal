@@ -43,7 +43,7 @@ export default function ContactForm() {
           placeholder="Tell us a bit about what you're looking for..."
         />
       </div>
-      <button type="submit" className="btn btn-primary" style={{ width: "100%" }}>
+      <button type="submit" className="btn btn-primary btn-block">
         Send Message
       </button>
     </form>

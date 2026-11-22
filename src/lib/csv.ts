@@ -50,9 +50,20 @@ export function safeDownloadFilename(filename: string): string {
   return cleaned || "pack376-download";
 }
 
+/**
+ * The CSV as a downloaded file's body, starting with a UTF-8 byte order mark.
+ * Excel (on a computer and on phones) reads a CSV without one as Windows-1252,
+ * so "José" or "Zoë" opens as "JosÃ©" / "ZoÃ«"; with it, Excel, Numbers and
+ * Google Sheets all read the file as UTF-8. Every CSV export sends its body
+ * through this.
+ */
+export function csvFileBody(csv: string): string {
+  return csv.startsWith("\uFEFF") ? csv : "\uFEFF" + csv;
+}
+
 /** A CSV download of private records: see PRIVATE_DOWNLOAD_CACHE_CONTROL. */
 export function csvResponse(csv: string, filename: string): Response {
-  return new Response(csv, {
+  return new Response(csvFileBody(csv), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${safeDownloadFilename(filename)}"`,

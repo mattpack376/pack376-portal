@@ -337,7 +337,7 @@ function TripRegistrationFields({
           : `Total due: ${(totalCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })}`}
       </p>
 
-      <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={isPending}>
+      <button type="submit" className="btn btn-primary btn-block" disabled={isPending}>
         {isPending ? "Submitting…" : "Register"}
       </button>
     </>

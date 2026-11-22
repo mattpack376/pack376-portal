@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { canExportLeaderContacts } from "@/lib/authorize";
 import { getLeaderContactList } from "@/lib/adultLeaderAttendanceData";
 import { buildLeaderContactsCsv } from "@/lib/leadersCsv";
+import { csvFileBody } from "@/lib/csv";
 
 // Admin and Junior Admin, like the parent contact exports (canExportLeaderContacts).
 export async function GET() {
@@ -12,7 +13,7 @@ export async function GET() {
 
   const csv = buildLeaderContactsCsv(await getLeaderContactList());
 
-  return new NextResponse(csv, {
+  return new NextResponse(csvFileBody(csv), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="pack376-committee-leaders-contacts.csv"`,

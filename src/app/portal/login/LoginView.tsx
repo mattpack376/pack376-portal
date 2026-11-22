@@ -73,7 +73,7 @@ export default function LoginView({
             {...fieldProps("password")}
           />
         </div>
-        <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={pending}>
+        <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
           {pending ? "Signing in…" : "Sign In"}
         </button>
       </form>

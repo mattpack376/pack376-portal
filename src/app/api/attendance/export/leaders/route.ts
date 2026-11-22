@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { assertLeaderAttendanceAccess } from "@/lib/authorize";
 import { attendanceWindowForScoutingYear, meetingDatesForYear } from "@/lib/attendanceSchedule";
 import { buildAdultLeaderAttendanceCsv, type AdultLeaderAttendanceCsvRow } from "@/lib/attendanceCsv";
+import { csvFileBody } from "@/lib/csv";
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
   const csv = buildAdultLeaderAttendanceCsv(rows);
   const filename = `pack376-leader-attendance-${scoutingYear}.csv`;
 
-  return new NextResponse(csv, {
+  return new NextResponse(csvFileBody(csv), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,

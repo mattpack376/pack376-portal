@@ -98,7 +98,7 @@ export default function LedgerImportFlow({
                 ))}
               </select>
             </div>
-            <div className="form-field" style={{ flexGrow: 0, minWidth: 0 }}>
+            <div className="form-field" style={{ flex: "0 0 auto", minWidth: 0 }}>
               <button type="submit" className="btn btn-primary" disabled={pending}>
                 {pending ? "Reading the Sheet…" : "Preview"}
               </button>
@@ -130,7 +130,7 @@ export default function LedgerImportFlow({
               <label htmlFor="import-file">CSV file</label>
               <input id="import-file" type="file" name="file" accept=".csv,text/csv" required />
             </div>
-            <div className="form-field" style={{ flexGrow: 0, minWidth: 0 }}>
+            <div className="form-field" style={{ flex: "0 0 auto", minWidth: 0 }}>
               <button type="submit" className="btn btn-quiet" disabled={pending}>
                 {pending ? "Reading the file…" : "Preview File"}
               </button>

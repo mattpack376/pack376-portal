@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { assertAttendanceDenAccess } from "@/lib/authorize";
 import { meetingDatesForYear } from "@/lib/attendanceSchedule";
 import { buildAttendanceCsv, type AttendanceCsvRow } from "@/lib/attendanceCsv";
+import { csvFileBody } from "@/lib/csv";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ denId: string }> }) {
   const session = await getSession();
@@ -53,7 +54,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const csv = buildAttendanceCsv(rows);
   const filename = `pack376-attendance-${den.rank.toLowerCase()}-${den.scoutingYear}.csv`;
 
-  return new NextResponse(csv, {
+  return new NextResponse(csvFileBody(csv), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { monthTitle } from "@/lib/calendarData";
 import { exportFileName, type ExportFormat } from "@/lib/calendarExport";
+import { saveBlob, shareableFile, shareFileOnly } from "@/lib/saveFile";
 
 /*
  * "Download or Share", on the portal Calendar page for Admin, Junior Admin and
@@ -62,7 +63,6 @@ export default function CalendarExportCard({
 
   const fileName = exportFileName(scope, format, yearLabel);
   const href = `/api/calendar/export/${fileName}`;
-  const label = scope === "full" ? `${yearLabel} calendar` : monthTitle(scope);
 
   function load(name: string, url: string): Promise<File> {
     const existing = pending.current.get(name);
@@ -71,7 +71,9 @@ export default function CalendarExportCard({
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
-        const file = new File([blob], name, { type: blob.type || (name.endsWith(".pdf") ? "application/pdf" : "image/png") });
+        const file = blob.type
+          ? shareableFile(blob, name)
+          : new File([blob], name, { type: name.endsWith(".pdf") ? "application/pdf" : "image/png" });
         files.current.set(name, file);
         return file;
       })
@@ -109,15 +111,30 @@ export default function CalendarExportCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- engage reads refs; run once sharing is known
   }, [canShare]);
 
+  // Saved as an in-page file, not followed as a link: in the installed
+  // home-screen app a link to a file takes over the whole window (see
+  // FileExportButton). With JavaScript off it's still a plain download link.
+  async function download(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    if (busy) return;
+    setStatus("");
+    setBusy(true);
+    try {
+      const file = files.current.get(fileName) ?? (await load(fileName, href));
+      saveBlob(file, file.name);
+    } catch {
+      setStatus("The file couldn't be loaded. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function share() {
     setStatus("");
     const ready = files.current.get(fileName);
     if (ready) {
-      try {
-        await navigator.share({ files: [ready], title: `Pack 376 ${label}` });
-      } catch (error) {
-        if ((error as DOMException)?.name !== "AbortError") setStatus("Sharing didn't work here. Use Download instead.");
-      }
+      // Only the file: a title or text would arrive in Messages as an extra line.
+      if ((await shareFileOnly(ready)) === "needs-tap") setStatus("Ready. Tap Share again to send it.");
       return;
     }
     setBusy(true);
@@ -179,7 +196,7 @@ export default function CalendarExportCard({
         </select>
       </div>
       <div className="cal-export-actions">
-        <a className="btn btn-primary" href={href} download={fileName}>
+        <a className="btn btn-primary" href={href} download={fileName} onClick={download} aria-busy={busy} data-file-download="">
           <span aria-hidden="true">⬇</span> Download
         </a>
         {canShare && (

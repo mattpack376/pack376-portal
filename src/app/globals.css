@@ -130,6 +130,12 @@ section { padding: 64px 0; }
   white-space: nowrap;
 }
 /*
+ * A full-width button (a form's one Submit). It wraps a long label instead of
+ * running past its own edges: "Save Photo Consent for Maximilian-Alexander"
+ * on a 320px phone.
+ */
+.btn-block { width: 100%; white-space: normal; text-align: center; }
+/*
  * Hover lifts only where there's a real pointer. A phone fires :hover on tap
  * and then leaves it on, so every tapped button stayed raised until the
  * next tap somewhere else.
@@ -1438,6 +1444,15 @@ section { padding: 64px 0; }
 /* A select centers its own text in the height above; the text-field padding
    left it a 20px box for a taller line, pushing the text low and clipping it. */
 .form-field select { padding-top: 0; padding-bottom: 0; }
+/*
+ * WebKit — the engine behind every browser on an iPhone or iPad — counts a
+ * dropdown's longest option toward the page's width, even though the box
+ * itself fits: the Accounts page's Access Level list made a 320px-wide phone
+ * page 776px wide and scrollable sideways. Clipping the select's own overflow
+ * stops that without changing how it looks (its text is cut off inside the
+ * box either way).
+ */
+select { overflow: hidden; }
 /* iPhone Safari centers a date's value and draws its own rounded control
    over the border and background above; give it the plain text-field look. */
 .form-field input::-webkit-date-and-time-value { text-align: left; }

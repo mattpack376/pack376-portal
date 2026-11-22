@@ -15,12 +15,29 @@ export function saveBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/** A touch device (phone, tablet) whose browser can hand a file of this type to the share sheet. */
+/**
+ * A file's media type without parameters: "text/csv; charset=utf-8" becomes
+ * "text/csv". Android Chrome only shares files whose type is on its list, and
+ * it compares the whole string, so a CSV carrying its charset is refused.
+ */
+export function bareType(type: string) {
+  return type.split(";")[0].trim().toLowerCase();
+}
+
+/** The blob as a File named `name`, with a bare media type, ready for the share sheet. */
+export function shareableFile(blob: Blob, name: string) {
+  return new File([blob], name, { type: bareType(blob.type) });
+}
+
+/**
+ * A touch device (phone, tablet) whose browser can hand a file of this type
+ * to the share sheet: PDFs, CSVs and pictures on iPhone, iPad and Android.
+ */
 export function sharesOnTap(type: string) {
   if (typeof navigator.canShare !== "function") return false;
   if (!window.matchMedia("(pointer: coarse)").matches) return false;
   try {
-    return navigator.canShare({ files: [new File([""], "file", { type })] });
+    return navigator.canShare({ files: [new File([""], "file", { type: bareType(type) })] });
   } catch {
     return false;
   }

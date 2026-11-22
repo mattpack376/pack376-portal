@@ -189,13 +189,13 @@ export default async function LedgerPage({
             <label htmlFor="ledger-q">Search</label>
             <input id="ledger-q" name="q" type="search" maxLength={100} defaultValue={params.q ?? ""} placeholder="Description or note" />
           </div>
-          <div className="form-field" style={{ flexGrow: 0, minWidth: 0 }}>
+          <div className="form-field" style={{ flex: "0 0 auto", minWidth: 0 }}>
             <button className="btn btn-primary btn-small" type="submit">
               Apply
             </button>
           </div>
           {hasFilters && (
-            <div className="form-field" style={{ flexGrow: 0, minWidth: 0 }}>
+            <div className="form-field" style={{ flex: "0 0 auto", minWidth: 0 }}>
               <Link className="btn btn-quiet btn-small" href={yearHref(activeYear)}>
                 Clear
               </Link>
