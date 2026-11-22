@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { monthTitle } from "@/lib/calendarData";
 import { exportFileName, type ExportFormat } from "@/lib/calendarExport";
-import { saveBlob, shareableFile, shareFileOnly } from "@/lib/saveFile";
+import { saveBlob, shareableFile, shareFileOnly, sharesOnTap } from "@/lib/saveFile";
 
 /*
  * "Download or Share", on the portal Calendar page for Admin, Junior Admin and
@@ -21,15 +21,13 @@ import { saveBlob, shareableFile, shareFileOnly } from "@/lib/saveFile";
  * one more tap.
  */
 
-/** Whether this browser can hand a file to the share sheet (phones and tablets, mostly). */
-function browserCanShareFiles() {
-  if (typeof navigator === "undefined" || !navigator.canShare) return false;
-  try {
-    return navigator.canShare({ files: [new File(["x"], "test.png", { type: "image/png" })] });
-  } catch {
-    return false;
-  }
-}
+/**
+ * Share is offered on phones and tablets only — the same rule as every other
+ * export (sharesOnTap in saveFile.ts). Mac Safari can share files too, but its
+ * share sheet comes up empty for a file on its own, and on a computer Download
+ * already does the job.
+ */
+const browserCanShareFiles = () => sharesOnTap("image/png");
 const noSubscription = () => () => {};
 
 const FORMATS: { value: ExportFormat; label: string }[] = [
