@@ -3674,7 +3674,6 @@ html { -webkit-tap-highlight-color: transparent; }
 .progress-pill-awarded { background: #e3f1e5; color: #1f5c2a; }
 .rank-badge-chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--cream-dark); color: var(--scout-blue-dark); white-space: nowrap; }
 .rank-badge-chip.is-awarded { background: #e3f1e5; color: #1f5c2a; }
-.rank-badge-chip.is-muted { background: transparent; color: var(--ink-soft); font-weight: 600; padding-left: 0; }
 .roster-scout { font-size: 16px; margin-bottom: 6px; }
 .roster-scout > span:first-child { margin-right: 8px; }
 .roster-rank-chips { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; vertical-align: middle; }

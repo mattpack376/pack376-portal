@@ -25,7 +25,7 @@ export default async function RosterPage() {
   });
 
   const years = Array.from(new Set(dens.map((d) => d.scoutingYear)));
-  // Each scout's rank badge (read-only): awarded with its date, earned, or in progress — plus earlier seasons' ranks.
+  // Each scout's rank badge (read-only): awarded with its date or earned (nothing while in progress) — plus earlier seasons' ranks.
   const rankStatuses = await loadRankStatuses(dens.flatMap((d) => d.scouts.map((s) => s.id)));
 
   return (
@@ -123,6 +123,8 @@ export default async function RosterPage() {
 
 function RankChips({ status }: { status: ScoutRankStatus | undefined }) {
   if (!status) return null;
+  // A rank still in progress shows nothing on the roster.
+  if (!status.award && !status.progress.earned && status.previous.length === 0) return null;
   return (
     <span className="roster-rank-chips">
       {status.previous.map((p) => (
@@ -138,9 +140,7 @@ function RankChips({ status }: { status: ScoutRankStatus | undefined }) {
         <span className="rank-badge-chip" title={`${status.rankLabel} rank badge earned, not yet awarded`}>
           {status.rankLabel} earned
         </span>
-      ) : (
-        <span className="rank-badge-chip is-muted">{status.rankLabel} in progress</span>
-      )}
+      ) : null}
     </span>
   );
 }
