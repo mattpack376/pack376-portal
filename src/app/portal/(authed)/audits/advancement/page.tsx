@@ -161,6 +161,11 @@ export default async function AdvancementAuditPage({
           </span>
         </Link>
       </div>
+      {metrics.readyForAward > 0 && (
+        <p className="form-note no-print" style={{ marginTop: -8, marginBottom: 16 }}>
+          Handed those out? <Link href="/portal/awards">Pending Awards</Link> marks them awarded in bulk.
+        </p>
+      )}
 
       <form method="get" className="info-card no-print" style={{ marginBottom: 20, padding: 20 }}>
         {filters.pageSize !== 25 && <input type="hidden" name="per" value={filters.pageSize} />}

@@ -252,8 +252,12 @@ export type AdvancementAuditRecord = {
   denId: string;
   denName: string;
   rank: Rank;
+  adventureId: string;
   adventureName: string;
   adventureType: AdventureType;
+  /** The adventure's place in its rank's checklist. */
+  sortOrder: number;
+  completed: boolean;
   /** YYYY-MM-DD or null. */
   completedDate: string | null;
   awardedDate: string | null;

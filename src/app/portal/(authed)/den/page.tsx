@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireSession, homeForRole } from "@/lib/authorize";
 import { getDenChecklist } from "@/lib/denData";
@@ -38,7 +39,10 @@ export default async function DenPortalPage({
         <div>
           <div className="eyebrow">My Den</div>
           <h2>{denDisplayName(den.rank, den.scoutingYear, den.label)}</h2>
-          <p>Tap an adventure to mark it complete.</p>
+          <p>
+            Tap an adventure to mark it complete. Handed out a batch of badges?{" "}
+            <Link href={`/portal/awards?denId=${den.id}`}>Pending Awards</Link> marks them all awarded at once.
+          </p>
         </div>
         <span className="badge-pill badge-den badge-count" style={{ whiteSpace: "nowrap" }}>
           {scouts.length} scout{scouts.length === 1 ? "" : "s"}

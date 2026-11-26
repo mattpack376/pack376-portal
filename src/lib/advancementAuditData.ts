@@ -125,10 +125,12 @@ export type AdvancementAuditMetrics = {
  * Which dens the viewer may audit. Admin and Junior Admin: every den. A Den
  * Leader: their assigned dens only.
  */
-function denScope(session: SessionPayload, year: string) {
-  return isAdvancementAuditEditor(session)
-    ? { scoutingYear: year }
-    : { scoutingYear: year, id: { in: session.denIds } };
+function auditDenIds(session: SessionPayload): "all" | string[] {
+  return isAdvancementAuditEditor(session) ? "all" : session.denIds;
+}
+
+function denScope(denIds: "all" | string[], year: string) {
+  return denIds === "all" ? { scoutingYear: year } : { scoutingYear: year, id: { in: denIds } };
 }
 
 /** "Wolf Den", "Bear B Den" — the season is already chosen on the page, so it's left off. */
@@ -214,10 +216,21 @@ export function requirementAuditInputFor(
   return inputs.get(pairKey(scoutId, adventureId)) ?? null;
 }
 
-/** Every record in scope that passes the den, rank, date and name filters, checked, sorted, unpaged. */
-export async function loadAdvancementAudit(session: SessionPayload, filters: AdvancementAuditFilters) {
+/**
+ * Every record in scope that passes the den, rank, date and name filters, checked, sorted, unpaged.
+ *
+ * `denIds` widens or narrows which dens are read; it defaults to the audit's
+ * own rule (every den for an audit editor, a Den Leader's own otherwise).
+ * Pending Awards passes its own (Committee Members see every den there), so
+ * both pages judge "Ready for award" with this one function.
+ */
+export async function loadAdvancementAudit(
+  session: SessionPayload,
+  filters: AdvancementAuditFilters,
+  { denIds = auditDenIds(session) }: { denIds?: "all" | string[] } = {},
+) {
   const today = todayDateOnly();
-  const scope = denScope(session, filters.year);
+  const scope = denScope(denIds, filters.year);
 
   const [dens, yearRows] = await Promise.all([
     prisma.den.findMany({
@@ -240,7 +253,7 @@ export async function loadAdvancementAudit(session: SessionPayload, filters: Adv
       },
     }),
     prisma.den.findMany({
-      where: isAdvancementAuditEditor(session) ? {} : { id: { in: session.denIds } },
+      where: denIds === "all" ? {} : { id: { in: denIds } },
       distinct: ["scoutingYear"],
       select: { scoutingYear: true },
       orderBy: { scoutingYear: "desc" },
@@ -321,8 +334,11 @@ export async function loadAdvancementAudit(session: SessionPayload, filters: Adv
           denId: den.id,
           denName,
           rank: den.rank,
+          adventureId: record.adventureId,
           adventureName: record.adventure.name,
           adventureType: record.adventure.type,
+          sortOrder: record.adventure.sortOrder,
+          completed: record.completed,
           completedDate: toDateOnlyString(record.completedDate),
           awardedDate: toDateOnlyString(record.awardedDate),
           enteredBy: record.updatedByUser?.displayName ?? null,

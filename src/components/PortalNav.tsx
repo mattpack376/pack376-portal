@@ -100,6 +100,8 @@ export default function PortalNav({
             label: "Audits",
             children: [
               { href: "/portal/audits/advancement", label: "Advancement Audits" },
+              // Completed adventures waiting to be handed out, and the bulk "Mark as Awarded".
+              { href: "/portal/awards", label: "Pending Awards" },
               // Master admin only; the page itself also checks.
               ...(isMasterAdmin ? [{ href: "/portal/admin/audit", label: "Audit Log" }] : []),
             ],
@@ -136,11 +138,13 @@ export default function PortalNav({
           { href: "/portal/admin/albums", label: "Photo Albums" },
           { href: "/portal/admin/calendar", label: "Calendar" },
           { href: "/portal/audits/advancement", label: "Advancement Audits" },
+          { href: "/portal/awards", label: "Pending Awards" },
         ];
       case "COMMITTEE":
         return [
           { href: "/portal/admin", label: "Dashboard" },
           { href: "/portal/admin/attendance", label: "Attendance" },
+          { href: "/portal/awards", label: "Pending Awards" },
           { href: "/portal/admin/dues", label: "Dues" },
           { href: "/portal/roster", label: "Roster" },
           { href: "/portal/roster/leaders", label: "Committee & Leaders" },
@@ -173,6 +177,7 @@ export default function PortalNav({
         return [
           { href: withDenId("/portal/den"), label: "My Den" },
           { href: withDenId("/portal/den/attendance"), label: "Attendance" },
+          { href: "/portal/awards", label: "Pending Awards" },
           { href: "/portal/roster", label: "Roster" },
           { href: "/portal/roster/leaders", label: "Committee & Leaders" },
           { href: withDenId("/portal/roster/family-view"), label: "Family View" },

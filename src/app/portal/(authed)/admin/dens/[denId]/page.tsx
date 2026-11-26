@@ -224,6 +224,10 @@ export default async function AdminDenDetailPage({
         </InitiallyOpenDetails>
       </div>
 
+      <p className="form-note no-print" style={{ marginBottom: 12 }}>
+        Handed out a batch of badges? <Link href={`/portal/awards?denId=${den.id}`}>Pending Awards</Link> marks them all
+        awarded at once.
+      </p>
       <ScoutChecklist scouts={scouts} editable collapsible />
     </>
   );

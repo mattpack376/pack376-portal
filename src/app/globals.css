@@ -3628,6 +3628,59 @@ html { -webkit-tap-highlight-color: transparent; }
   .aa-history-body { max-width: none; }
 }
 
+/* ---------- Pending Awards (/portal/awards) ---------- */
+.pa-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pa-metrics .aa-metric:hover { box-shadow: var(--shadow-card); }
+.pa-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.pa-skip-list { margin: 6px 0 0; padding-left: 20px; flex-basis: 100%; font-size: 14px; }
+.pa-skip-list li { margin: 2px 0; }
+/* The award bar stays in reach while ticking down a long list. */
+.pa-bar { position: sticky; top: calc(var(--portal-header-h, 0px) + 8px); z-index: 5; margin-bottom: 16px; padding: 14px 20px; }
+.pa-bar-tools { margin-top: 10px; gap: 14px; }
+.pa-skip-preview { margin-top: 8px; color: #7a5200; }
+.pa-view-switch { margin-bottom: 16px; align-items: center; }
+.pa-group-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
+.pa-den { margin-bottom: 24px; }
+.pa-den-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px; }
+.pa-den-head h3 { margin: 0; margin-right: auto; font-size: 18px; }
+.pa-scout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.pa-scout { padding: 14px 16px; }
+.pa-scout > .pa-group-check { font-size: 16px; }
+.pa-items { list-style: none; margin: 8px 0 0; padding: 0; }
+.pa-items li { border-top: 1px solid var(--cream-dark); }
+.pa-items label { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; cursor: pointer; }
+.pa-items input[type="checkbox"] { margin-top: 3px; }
+.pa-items .form-note { display: block; margin-top: 0; }
+.pa-item-name { font-weight: 600; }
+.pa-award { margin-bottom: 16px; padding: 16px 20px; }
+.pa-held { margin-top: 8px; }
+.pa-held > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.award-dialog-list { margin: 0 0 14px; padding-left: 20px; }
+.award-dialog-list li { margin: 4px 0; }
+.award-dialog-list .form-note { display: block; margin-top: 0; }
+.award-dialog-list li.award-skip .award-name { color: var(--ink-soft); text-decoration: line-through; }
+.award-dialog-list li.award-skip .form-note { color: #7a5200; }
+.award-notice { margin-top: 12px; }
+.advancement-apply-row .award-all-button { margin-right: auto; }
+@media screen and (max-width: 900px) {
+  .pa-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Phones and touch screens: 22px boxes on 48px rows; the bar scrolls with the page (sticky would cover half a phone screen). */
+@media screen and (max-width: 820px), screen and (pointer: coarse) {
+  .pa-bar { position: static; padding: 14px 16px; }
+  /* :has() matches the global 44px checkbox-row rule's specificity so these win. */
+  .pa-items label:has(> input[type="checkbox"]), label.pa-group-check:has(> input[type="checkbox"]) { min-height: 48px; align-items: center; }
+  .pa-bar .btn, .pa-view-switch .btn { min-height: var(--control-height); }
+  .pa-bar .form-field { flex: 1 1 100%; }
+  .pa-bar .form-field .btn { width: 100%; }
+  .pa-items input[type="checkbox"], .pa-group-check input[type="checkbox"], .pa-award .aa-scout input[type="checkbox"] {
+    width: 22px; height: 22px; flex-shrink: 0; margin: 0; accent-color: var(--scout-blue);
+  }
+  .pa-award .aa-scout { min-height: 44px; align-items: center; }
+  .pa-award { padding: 14px 16px; }
+  .advancement-apply-row { flex-wrap: wrap; }
+}
+
 /* Requirement checklist on a phone / touch screen: 48px rows and toggles, 16px date field (no iOS zoom), less indent. */
 @media screen and (max-width: 820px), screen and (pointer: coarse) {
   .req-expander { margin-left: 0; }

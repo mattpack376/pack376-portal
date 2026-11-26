@@ -317,6 +317,31 @@ export function assertAdvancementDenAccess(session: SessionPayload, denId: strin
 }
 
 /**
+ * Pending Awards (/portal/awards and its CSV/PDF): the roles that edit
+ * advancement. Admin, Junior Admin and Committee Member see and award every
+ * den; a Den Leader only their own den(s), which pendingAwardsDenIds narrows
+ * the loader to and assertAdvancementDenAccess re-checks in every action.
+ * Mirrors the proxy.ts rule.
+ */
+export function canViewPendingAwards(session: Pick<Session, "role">) {
+  return (
+    session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "COMMITTEE" || session.role === "DEN"
+  );
+}
+
+export async function requirePendingAwardsSession(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (!canViewPendingAwards(session)) redirect(homeForRole(session.role));
+  return session;
+}
+
+/** "all" for the pack-wide roles; otherwise the dens a Den Leader leads (none for anyone else). */
+export function pendingAwardsDenIds(session: Session): "all" | string[] {
+  if (session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "COMMITTEE") return "all";
+  return session.role === "DEN" ? session.denIds : [];
+}
+
+/**
  * Adding a scout to a den's roster — Admin and Junior Admin. Renaming or
  * removing a scout, creating a den and promoting one stay admin-only.
  */

@@ -4,9 +4,17 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { assertAdvancementDenAccess } from "@/lib/authorize";
-import { InvalidDateError, parseDateOnlyString } from "@/lib/dateOnly";
+import { InvalidDateError, parseDateOnlyString, todayDateOnlyString } from "@/lib/dateOnly";
 import { recordAudit, auditDate, EMPTY, type AuditDetail } from "@/lib/audit";
 import type { SessionPayload } from "@/lib/session";
+import { Prisma } from "@/generated/prisma/client";
+import {
+  pendingAwardKey,
+  readAwardRequest,
+  readUndoRequest,
+  type AwardItemInput,
+  type AwardUndoToken,
+} from "@/lib/pendingAwardsRules";
 
 export type AdventureChange = {
   adventureId: string;
@@ -365,4 +373,318 @@ function describeAdventureState(completed: boolean, completedDate: Date | null, 
   const parts = [`Complete ${auditDate(completedDate)}`];
   if (awardedDate) parts.push(`awarded ${auditDate(awardedDate)}`);
   return parts.join(" · ");
+}
+
+// ---- Bulk award (Pending Awards, and the card's "Award all pending") ----
+
+export type AwardSkip = {
+  scoutId: string;
+  adventureId: string;
+  scoutName: string;
+  adventureName: string;
+  /** completed_after: finished after the award date. not_pending: already awarded, or unchecked, since the page loaded. */
+  reason: "completed_after" | "not_pending";
+};
+
+export type AwardPendingResult =
+  | {
+      ok: true;
+      /** Adventures marked awarded, and how many scouts they belong to. */
+      awarded: number;
+      scouts: number;
+      awardedDate: string;
+      skipped: AwardSkip[];
+      /** Null when nothing was awarded. */
+      undo: AwardUndoToken | null;
+    }
+  | { ok: false; error: string };
+
+export type UndoAwardResult =
+  | {
+      ok: true;
+      cleared: number;
+      scouts: number;
+      /** Named in the undo but saved by someone since (or no longer awarded that day), so left as they are. */
+      changedSince: number;
+      /** pendingAwardKey of each record cleared. */
+      clearedKeys: string[];
+    }
+  | { ok: false; error: string };
+
+type LockedScout = { id: string; denId: string; firstName: string; lastName: string; active: boolean; den: { rank: string } };
+
+/**
+ * Locks every scout in `scoutIds` (sorted — the same order every batch takes
+ * them in, so two batches can't each hold one scout the other is waiting for)
+ * and re-checks each one the way Apply Changes does: still there, still in a
+ * den this session may edit, still active. Any one failing fails the batch.
+ */
+async function lockScoutsForAdvancement(tx: Prisma.TransactionClient, session: SessionPayload, scoutIds: string[]) {
+  await tx.$queryRaw`SELECT id FROM "Scout" WHERE id IN (${Prisma.join(scoutIds)}) ORDER BY id FOR UPDATE`;
+  const scouts: LockedScout[] = await tx.scout.findMany({
+    where: { id: { in: scoutIds } },
+    select: { id: true, denId: true, firstName: true, lastName: true, active: true, den: { select: { rank: true } } },
+  });
+  if (scouts.length !== scoutIds.length) {
+    throw new AdvancementInputError("One or more of those scouts couldn't be found. Reload the page and try again.");
+  }
+  for (const scout of scouts) {
+    if (!canEditDen(session, scout.denId)) throw new AdvancementInputError("Not authorized for this den.");
+    if (!scout.active) {
+      throw new AdvancementInputError(
+        `${scout.firstName} ${scout.lastName} is inactive — make them active to update advancement. Nothing was saved.`,
+      );
+    }
+  }
+  return new Map(scouts.map((s) => [s.id, s]));
+}
+
+/** Turns away, before any lock, a request naming a scout this session can't edit. */
+async function precheckScouts(session: SessionPayload, scoutIds: string[]): Promise<string | null> {
+  const found = await prisma.scout.findMany({ where: { id: { in: scoutIds } }, select: { denId: true } });
+  if (found.length !== scoutIds.length) return "One or more of those scouts couldn't be found. Reload the page and try again.";
+  if (found.some((s) => !canEditDen(session, s.denId))) return "Not authorized for this den.";
+  return null;
+}
+
+/**
+ * Marks many scouts' completed adventures as awarded on one date. The same
+ * rules as Apply Changes: everything sent is checked before anything is read,
+ * the scouts are locked and re-checked inside the transaction, every adventure
+ * must be one of its scout's rank, and the whole batch saves or none of it
+ * does. It only ever sets awardedDate — completion and its date are left alone
+ * — and only on records that are still complete and unawarded when it writes.
+ * Adventures finished after the award date are skipped and listed back, as are
+ * ones someone awarded or unchecked since the page loaded.
+ */
+export async function awardPendingAction(items: AwardItemInput[], awardedDate: string): Promise<AwardPendingResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Not authorized." };
+
+  const read = readAwardRequest(items, awardedDate, todayDateOnlyString());
+  if (!read.ok) return read;
+  const { request } = read;
+  const awardedOn = parseDateOnlyString(request.awardedDate) as Date;
+
+  const refusal = await precheckScouts(session, request.scoutIds);
+  if (refusal) return { ok: false, error: refusal };
+
+  let saved;
+  try {
+    saved = await prisma.$transaction(
+      async (tx) => {
+        const scouts = await lockScoutsForAdvancement(tx, session, request.scoutIds);
+
+        const adventureIds = [...new Set(request.items.map((i) => i.adventureId))];
+        const adventures = await tx.adventure.findMany({
+          where: { id: { in: adventureIds } },
+          select: { id: true, name: true, rank: true },
+        });
+        const adventureById = new Map(adventures.map((a) => [a.id, a]));
+        for (const item of request.items) {
+          const adventure = adventureById.get(item.adventureId);
+          if (!adventure || adventure.rank !== scouts.get(item.scoutId)?.den.rank) {
+            throw new AdvancementInputError(
+              "One or more of those adventures isn't part of its scout's rank. Reload the page and try again.",
+            );
+          }
+        }
+
+        const records = await tx.advancementRecord.findMany({
+          where: { OR: request.items.map((i) => ({ scoutId: i.scoutId, adventureId: i.adventureId })) },
+          select: { id: true, scoutId: true, adventureId: true, completed: true, completedDate: true, awardedDate: true },
+        });
+        const recordByKey = new Map(records.map((r) => [pendingAwardKey(r.scoutId, r.adventureId), r]));
+
+        const skipped: AwardSkip[] = [];
+        const toAward: typeof records = [];
+        for (const item of request.items) {
+          const scout = scouts.get(item.scoutId)!;
+          const record = recordByKey.get(pendingAwardKey(item.scoutId, item.adventureId));
+          const label = {
+            scoutId: item.scoutId,
+            adventureId: item.adventureId,
+            scoutName: `${scout.firstName} ${scout.lastName}`,
+            adventureName: adventureById.get(item.adventureId)!.name,
+          };
+          if (!record || !record.completed || !record.completedDate || record.awardedDate) {
+            skipped.push({ ...label, reason: "not_pending" });
+          } else if (record.completedDate > awardedOn) {
+            skipped.push({ ...label, reason: "completed_after" });
+          } else {
+            toAward.push(record);
+          }
+        }
+
+        if (toAward.length > 0) {
+          await tx.advancementRecord.updateMany({
+            // The completed/unawarded conditions repeat what was just read under
+            // the scout locks, so a write can never land on anything else.
+            where: { id: { in: toAward.map((r) => r.id) }, completed: true, awardedDate: null },
+            data: { awardedDate: awardedOn, updatedByUserId: session.userId },
+          });
+        }
+        const after = await tx.advancementRecord.findMany({
+          where: { id: { in: toAward.map((r) => r.id) } },
+          select: { scoutId: true, adventureId: true, updatedAt: true },
+        });
+        return { scouts, adventureById, toAward, skipped, after };
+      },
+      { timeout: 20_000, maxWait: 10_000 },
+    );
+  } catch (error) {
+    if (error instanceof AdvancementInputError) return { ok: false, error: error.message };
+    throw error;
+  }
+
+  const { scouts, adventureById, toAward, skipped, after } = saved;
+  const awardedScouts = await auditAwardsByScout(session, scouts, adventureById, toAward, (record) => ({
+    from: describeAdventureState(true, record.completedDate, null),
+    to: describeAdventureState(true, record.completedDate, awardedOn),
+  }), (count, name) =>
+    `Awarded ${count === 1 ? "1 adventure" : `${count} adventures`} for ${name} (award date ${auditDate(awardedOn)})`,
+  );
+
+  revalidateAdvancement(scouts);
+  return {
+    ok: true,
+    awarded: toAward.length,
+    scouts: awardedScouts,
+    awardedDate: request.awardedDate,
+    skipped,
+    undo:
+      after.length === 0
+        ? null
+        : {
+            awardedDate: request.awardedDate,
+            items: after.map((r) => ({ scoutId: r.scoutId, adventureId: r.adventureId, updatedAt: r.updatedAt.toISOString() })),
+          },
+  };
+}
+
+/**
+ * Undoes one bulk award: clears awardedDate back to empty on exactly the
+ * records that batch set — still awarded on the batch's date, by this same
+ * login, and not saved by anyone since (their updatedAt is unchanged). Any
+ * other record named is left alone and counted as changed since. Locks and
+ * checks the scouts the same way the award did.
+ */
+export async function undoAwardBatchAction(token: AwardUndoToken): Promise<UndoAwardResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Not authorized." };
+  const read = readUndoRequest(token);
+  if (!read.ok) return read;
+  const { request } = read;
+  const awardedOn = parseDateOnlyString(request.awardedDate) as Date;
+
+  const refusal = await precheckScouts(session, request.scoutIds);
+  if (refusal) return { ok: false, error: refusal };
+
+  let saved;
+  try {
+    saved = await prisma.$transaction(
+      async (tx) => {
+        const scouts = await lockScoutsForAdvancement(tx, session, request.scoutIds);
+        const records = await tx.advancementRecord.findMany({
+          where: { OR: request.items.map((i) => ({ scoutId: i.scoutId, adventureId: i.adventureId })) },
+          select: {
+            id: true,
+            scoutId: true,
+            adventureId: true,
+            completed: true,
+            completedDate: true,
+            awardedDate: true,
+            updatedAt: true,
+            updatedByUserId: true,
+            adventure: { select: { id: true, name: true, rank: true } },
+          },
+        });
+        const recordByKey = new Map(records.map((r) => [pendingAwardKey(r.scoutId, r.adventureId), r]));
+        const toClear: typeof records = [];
+        for (const item of request.items) {
+          const record = recordByKey.get(pendingAwardKey(item.scoutId, item.adventureId));
+          if (
+            record &&
+            record.completed &&
+            record.awardedDate?.getTime() === awardedOn.getTime() &&
+            record.updatedByUserId === session.userId &&
+            record.updatedAt.getTime() === item.updatedAt.getTime() &&
+            record.adventure.rank === scouts.get(record.scoutId)?.den.rank
+          ) {
+            toClear.push(record);
+          }
+        }
+        if (toClear.length > 0) {
+          await tx.advancementRecord.updateMany({
+            where: { id: { in: toClear.map((r) => r.id) }, awardedDate: awardedOn },
+            data: { awardedDate: null, updatedByUserId: session.userId },
+          });
+        }
+        return { scouts, toClear };
+      },
+      { timeout: 20_000, maxWait: 10_000 },
+    );
+  } catch (error) {
+    if (error instanceof AdvancementInputError) return { ok: false, error: error.message };
+    throw error;
+  }
+
+  const { scouts, toClear } = saved;
+  const adventureById = new Map(toClear.map((r) => [r.adventure.id, r.adventure]));
+  const clearedScouts = await auditAwardsByScout(session, scouts, adventureById, toClear, (record) => ({
+    from: describeAdventureState(true, record.completedDate, awardedOn),
+    to: describeAdventureState(true, record.completedDate, null),
+  }), (count, name) =>
+    `Undid the award of ${count === 1 ? "1 adventure" : `${count} adventures`} for ${name} (award date ${auditDate(awardedOn)} cleared)`,
+  );
+
+  revalidateAdvancement(scouts);
+  return {
+    ok: true,
+    cleared: toClear.length,
+    scouts: clearedScouts,
+    changedSince: request.items.length - toClear.length,
+    clearedKeys: toClear.map((r) => pendingAwardKey(r.scoutId, r.adventureId)),
+  };
+}
+
+/**
+ * One "advancement.update" audit entry per scout — the same shape Apply
+ * Changes writes, so the audit page's History and the Audit Log's Main tab
+ * show a bulk award exactly like one typed on the card. Returns how many
+ * scouts got an entry.
+ */
+async function auditAwardsByScout<R extends { scoutId: string; adventureId: string; completedDate: Date | null }>(
+  session: SessionPayload,
+  scouts: Map<string, LockedScout>,
+  adventureById: Map<string, { name: string }>,
+  records: R[],
+  describe: (record: R) => { from: string; to: string },
+  summary: (count: number, scoutName: string) => string,
+) {
+  const byScout = new Map<string, R[]>();
+  for (const record of records) byScout.set(record.scoutId, [...(byScout.get(record.scoutId) ?? []), record]);
+  for (const [scoutId, list] of byScout) {
+    const scout = scouts.get(scoutId)!;
+    const details: AuditDetail[] = list.map((record) => ({
+      label: adventureById.get(record.adventureId)?.name ?? record.adventureId,
+      ...describe(record),
+    }));
+    await recordAudit(session, {
+      action: "advancement.update",
+      summary: summary(list.length, `${scout.firstName} ${scout.lastName}`),
+      entityType: "Scout",
+      entityId: scoutId,
+      denId: scout.denId,
+      details,
+    });
+  }
+  return byScout.size;
+}
+
+function revalidateAdvancement(scouts: Map<string, LockedScout>) {
+  revalidatePath("/portal/den");
+  revalidatePath("/portal/awards");
+  revalidatePath("/portal/audits/advancement");
+  for (const denId of new Set([...scouts.values()].map((s) => s.denId))) revalidatePath(`/portal/admin/dens/${denId}`);
 }

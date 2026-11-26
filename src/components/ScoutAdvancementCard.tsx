@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { applyAdventureChangesAction } from "@/lib/actions/advancement";
+import { applyAdventureChangesAction, awardPendingAction, undoAwardBatchAction } from "@/lib/actions/advancement";
+import AwardDateDialog from "@/components/AwardDateDialog";
+import { formatDateOnly } from "@/lib/dateOnly";
+import { pendingAwardKey, type AwardUndoToken } from "@/lib/pendingAwardsRules";
 import type { ChecklistScout } from "@/lib/denData";
 import AdventureCheckbox from "@/components/AdventureCheckbox";
 import AdventureDatesDialog, { type AdventureDates } from "@/components/AdventureDatesDialog";
@@ -53,6 +56,11 @@ export default function ScoutAdvancementCard({
   const [dialogAdventureId, setDialogAdventureId] = useState<string | null>(null);
   /** Completion date to suggest when the dialog opens from "All requirements met". */
   const [dialogPrefill, setDialogPrefill] = useState<string | null>(null);
+  /** "Award all pending": its dialog, its own save, and what it last did (with an Undo). */
+  const [awardOpen, setAwardOpen] = useState(false);
+  const [awardPending, startAward] = useTransition();
+  const [awardError, setAwardError] = useState<string | null>(null);
+  const [awardNotice, setAwardNotice] = useState<{ text: string; undo: AwardUndoToken | null } | null>(null);
 
   const dirtyIds = scout.adventures
     .map((a) => a.id)
@@ -170,6 +178,84 @@ export default function ScoutAdvancementCard({
     });
   }
 
+  /*
+   * Award all pending: every adventure saved as complete (with its date) but
+   * not yet awarded. It writes straight away, so it waits until the card has
+   * no unsaved edits — otherwise it'd be unclear which version was awarded.
+   */
+  const pendingAwards = scout.adventures.filter((a) => {
+    const saved = savedState[a.id];
+    return saved.completed && !!saved.completedDate && !saved.awardedDate;
+  });
+
+  /** Writes `awardedDate` into the saved state (and the draft, where it hadn't been touched) for these adventures. */
+  function setSavedAwardDates(adventureIds: string[], awardedDate: string | null) {
+    const apply = (prev: Record<string, DraftRecord>, onlyIfMatches?: Record<string, DraftRecord>) => {
+      const next = { ...prev };
+      for (const id of adventureIds) {
+        if (onlyIfMatches && !sameRecord(prev[id], onlyIfMatches[id])) continue;
+        next[id] = { ...prev[id], awardedDate };
+      }
+      return next;
+    };
+    setDraftState((prev) => apply(prev, savedState));
+    setSavedState((prev) => apply(prev));
+  }
+
+  function handleAwardAll(awardedDate: string) {
+    if (awardPending) return;
+    setAwardError(null);
+    startAward(async () => {
+      try {
+        const result = await awardPendingAction(
+          pendingAwards.map((a) => ({ scoutId: scout.id, adventureId: a.id })),
+          awardedDate,
+        );
+        if (!result.ok) {
+          setAwardError(result.error);
+          return;
+        }
+        setSavedAwardDates(result.undo?.items.map((i) => i.adventureId) ?? [], awardedDate);
+        const skipped = result.skipped.length;
+        setAwardNotice({
+          text:
+            `Marked ${result.awarded} adventure${result.awarded === 1 ? "" : "s"} awarded on ${formatDateOnly(awardedDate)}.` +
+            (skipped > 0 ? ` Skipped ${skipped}: ${result.skipped.map((x) => x.adventureName).join(", ")}.` : ""),
+          undo: result.undo,
+        });
+        setAwardOpen(false);
+      } catch {
+        setAwardError("Save failed — check your connection and try again.");
+      }
+    });
+  }
+
+  function handleUndoAward(token: AwardUndoToken) {
+    if (awardPending) return;
+    startAward(async () => {
+      try {
+        const result = await undoAwardBatchAction(token);
+        if (!result.ok) {
+          setAwardNotice({ text: result.error, undo: null });
+          return;
+        }
+        const cleared = new Set(result.clearedKeys);
+        setSavedAwardDates(
+          scout.adventures.filter((a) => cleared.has(pendingAwardKey(scout.id, a.id))).map((a) => a.id),
+          null,
+        );
+        setAwardNotice({
+          text:
+            `Undone — cleared ${result.cleared} award date${result.cleared === 1 ? "" : "s"}.` +
+            (result.changedSince > 0 ? ` ${result.changedSince} had been edited since and were left as they are.` : ""),
+          undo: null,
+        });
+      } catch {
+        setAwardNotice({ text: "Undo failed — check your connection and try again.", undo: token });
+      }
+    });
+  }
+
   const required = scout.adventures.filter((a) => a.type === "REQUIRED");
   const electives = scout.adventures.filter((a) => a.type === "ELECTIVE");
   const requiredDone = required.filter((a) => draftState[a.id].completed).length;
@@ -223,8 +309,38 @@ export default function ScoutAdvancementCard({
       </div>
       <div className="adventure-checklist">{electives.map(renderAdventure)}</div>
 
+      {editable && awardNotice && (
+        <p className="form-success award-notice" role="status">
+          {awardNotice.text}{" "}
+          {awardNotice.undo && (
+            <button
+              type="button"
+              className="btn-link"
+              disabled={awardPending}
+              onClick={() => awardNotice.undo && handleUndoAward(awardNotice.undo)}
+            >
+              {awardPending ? "Undoing…" : "Undo"}
+            </button>
+          )}
+        </p>
+      )}
+
       {editable && (
         <div className="advancement-apply-row">
+          {pendingAwards.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-quiet btn-small award-all-button"
+              disabled={isDirty || isPending || awardPending}
+              title={isDirty ? "Apply or discard your changes first" : undefined}
+              onClick={() => {
+                setAwardError(null);
+                setAwardOpen(true);
+              }}
+            >
+              Award all pending ({pendingAwards.length})
+            </button>
+          )}
           {error && (
             <span className="advancement-apply-error" role="alert">
               {error}
@@ -244,6 +360,21 @@ export default function ScoutAdvancementCard({
             {isPending ? "Saving…" : isDirty ? `Apply Changes (${changeCount})` : "Apply Changes"}
           </button>
         </div>
+      )}
+
+      {awardOpen && (
+        <AwardDateDialog
+          scoutName={`${scout.firstName} ${scout.lastName}`}
+          items={pendingAwards.map((a) => ({
+            key: a.id,
+            adventureName: a.name,
+            completedDate: savedState[a.id].completedDate as string,
+          }))}
+          pending={awardPending}
+          error={awardError}
+          onConfirm={handleAwardAll}
+          onCancel={() => setAwardOpen(false)}
+        />
       )}
 
       {dialogAdventure && (
