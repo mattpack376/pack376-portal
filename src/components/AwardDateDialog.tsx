@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { formatDateOnly, todayDateOnlyString } from "@/lib/dateOnly";
 import { awardDateProblem, completedAfter } from "@/lib/pendingAwardsRules";
 
-export type AwardDialogItem = { key: string; adventureName: string; completedDate: string };
+export type AwardDialogItem = {
+  key: string;
+  adventureName: string;
+  completedDate: string;
+  /** "earned" for a rank badge; "completed" otherwise. */
+  verb?: string;
+};
 
 /*
  * "Award all pending" on a scout's card: one award date for every adventure
@@ -49,7 +55,7 @@ export default function AwardDateDialog({
       return;
     }
     if (count === 0) {
-      setLocalError("Every one of these was completed after that date — pick a later award date.");
+      setLocalError("Every one of these was finished after that date — pick a later award date.");
       return;
     }
     onConfirm(awardedDate);
@@ -73,7 +79,7 @@ export default function AwardDateDialog({
             <li key={item.key} className={skipped.includes(item) ? "award-skip" : undefined}>
               <span className="award-name">{item.adventureName}</span>
               <span className="form-note">
-                completed {formatDateOnly(item.completedDate)}
+                {item.verb ?? "completed"} {formatDateOnly(item.completedDate)}
                 {skipped.includes(item) ? " — after the award date, will be skipped" : ""}
               </span>
             </li>

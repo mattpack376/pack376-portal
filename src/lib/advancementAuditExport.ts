@@ -16,6 +16,7 @@ import {
   DISCREPANCY_LABELS,
   STATUS_LABELS,
   type AdvancementAuditRecord,
+  awardTypeLabel,
 } from "@/lib/advancementAuditRules";
 
 /*
@@ -63,7 +64,7 @@ export function buildAdvancementAuditCsv(records: AdvancementAuditRecord[]): str
       r.denName,
       RANK_INFO[r.rank].label,
       r.adventureName,
-      r.adventureType === "REQUIRED" ? "Required" : "Elective",
+      awardTypeLabel(r.adventureType),
       date(r.completedDate),
       date(r.awardedDate),
       r.enteredBy ?? "",
@@ -159,7 +160,7 @@ export async function buildAdvancementAuditPdf(
     const note = r.mark ? `Note: ${r.mark.note}${r.mark.by ? ` (${r.mark.by})` : ""}` : "";
     const cells: { lines: string[]; font: PDFFont; color: ReturnType<typeof rgb> }[] = [
       { lines: [...fit(r.scoutName, 0, fonts.bold), ...fit(r.denName, 0)], font: fonts.regular, color: DARK },
-      { lines: fit(`${r.adventureName} (${r.adventureType === "REQUIRED" ? "Required" : "Elective"})`, 1), font: fonts.regular, color: DARK },
+      { lines: fit(`${r.adventureName} (${awardTypeLabel(r.adventureType)})`, 1), font: fonts.regular, color: DARK },
       { lines: fit(date(r.completedDate) || "—", 2), font: fonts.regular, color: DARK },
       { lines: fit(date(r.awardedDate) || "—", 3), font: fonts.regular, color: DARK },
       { lines: fit(r.enteredBy ?? "—", 4), font: fonts.regular, color: DARK },

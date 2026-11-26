@@ -3,6 +3,8 @@ import { LEADER_CONTACT_ROLES, canViewParentContacts, requireRosterSession } fro
 import { prisma } from "@/lib/prisma";
 import { RANK_ORDER, denDisplayName } from "@/lib/rankConfig";
 import type { Rank } from "@/generated/prisma/enums";
+import { loadRankStatuses, type ScoutRankStatus } from "@/lib/rankStatus";
+import { formatDateOnly } from "@/lib/dateOnly";
 
 export default async function RosterPage() {
   const session = await requireRosterSession();
@@ -23,6 +25,8 @@ export default async function RosterPage() {
   });
 
   const years = Array.from(new Set(dens.map((d) => d.scoutingYear)));
+  // Each scout's rank badge (read-only): awarded with its date, earned, or in progress — plus earlier seasons' ranks.
+  const rankStatuses = await loadRankStatuses(dens.flatMap((d) => d.scouts.map((s) => s.id)));
 
   return (
     <>
@@ -98,8 +102,11 @@ export default async function RosterPage() {
                   ) : (
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
                       {den.scouts.map((scout) => (
-                        <li key={scout.id} style={{ fontSize: 16, marginBottom: 4 }}>
-                          {scout.firstName} {scout.lastName}
+                        <li key={scout.id} className="roster-scout">
+                          <span>
+                            {scout.firstName} {scout.lastName}
+                          </span>
+                          <RankChips status={rankStatuses.get(scout.id)} />
                         </li>
                       ))}
                     </ul>
@@ -111,5 +118,29 @@ export default async function RosterPage() {
         );
       })}
     </>
+  );
+}
+
+function RankChips({ status }: { status: ScoutRankStatus | undefined }) {
+  if (!status) return null;
+  return (
+    <span className="roster-rank-chips">
+      {status.previous.map((p) => (
+        <span key={`${p.rank}-${p.awardedDate}`} className="rank-badge-chip is-awarded" title={`${p.rankLabel} awarded ${formatDateOnly(p.awardedDate)}`}>
+          {p.rankLabel} ✓ {formatDateOnly(p.awardedDate)}
+        </span>
+      ))}
+      {status.award ? (
+        <span className="rank-badge-chip is-awarded" title={`${status.rankLabel} rank badge awarded`}>
+          {status.rankLabel} ✓ {formatDateOnly(status.award.awardedDate)}
+        </span>
+      ) : status.progress.earned ? (
+        <span className="rank-badge-chip" title={`${status.rankLabel} rank badge earned, not yet awarded`}>
+          {status.rankLabel} earned
+        </span>
+      ) : (
+        <span className="rank-badge-chip is-muted">{status.rankLabel} in progress</span>
+      )}
+    </span>
   );
 }

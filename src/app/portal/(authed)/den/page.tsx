@@ -5,6 +5,7 @@ import { getDenChecklist } from "@/lib/denData";
 import { denDisplayName } from "@/lib/rankConfig";
 import ScoutChecklist from "@/components/ScoutChecklist";
 import DenSwitcher from "@/components/DenSwitcher";
+import DenRankSummary from "@/components/DenRankSummary";
 
 export default async function DenPortalPage({
   searchParams,
@@ -49,6 +50,7 @@ export default async function DenPortalPage({
         </span>
       </div>
       <DenSwitcher denIds={session.denIds} currentDenId={denId} basePath="/portal/den" />
+      <DenRankSummary scouts={scouts} denId={den.id} />
       <ScoutChecklist scouts={scouts} editable />
     </>
   );

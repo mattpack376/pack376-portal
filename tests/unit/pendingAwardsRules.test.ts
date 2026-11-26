@@ -19,6 +19,7 @@ let n = 0;
 function record(overrides: Partial<AdvancementAuditRecord> = {}): AdvancementAuditRecord {
   n += 1;
   return {
+    kind: "adventure",
     recordId: `r${n}`,
     scoutId: "s1",
     scoutName: "Avery Adams",
@@ -88,7 +89,7 @@ describe("pending awards: filters and grouping", () => {
 
   it("filters by den, exact adventure name and completed-on-or-before", () => {
     const f = (o: Partial<ReturnType<typeof parsePendingAwardFilters>>) =>
-      filterPendingItems(items, { denId: null, adventure: null, before: null, ...o }).length;
+      filterPendingItems(items, { denId: null, type: "all", adventure: null, before: null, ...o }).length;
     assert.equal(f({}), 4);
     assert.equal(f({ denId: "d1" }), 3);
     assert.equal(f({ adventure: "Bobcat" }), 3, "every rank's Bobcat");
@@ -99,17 +100,18 @@ describe("pending awards: filters and grouping", () => {
   });
 
   it("reads filters from the URL, dropping junk", () => {
-    assert.deepEqual(parsePendingAwardFilters({ denId: "d1", adventure: " Bobcat ", before: "2026-10-01" }), {
+    assert.deepEqual(parsePendingAwardFilters({ denId: "d1", type: "ranks", adventure: " Bobcat ", before: "2026-10-01" }), {
       denId: "d1",
+      type: "ranks",
       adventure: "Bobcat",
       before: "2026-10-01",
     });
-    assert.deepEqual(parsePendingAwardFilters({ denId: "x".repeat(65), adventure: "", before: "2026-02-31" }), {
-      denId: null,
-      adventure: null,
-      before: null,
-    });
+    assert.deepEqual(
+      parsePendingAwardFilters({ denId: "x".repeat(65), type: "badges", adventure: "", before: "2026-02-31" }),
+      { denId: null, type: "all", adventure: null, before: null },
+    );
     assert.deepEqual(parsePendingAwardFilters({ denId: ["d1", "d2"] }).denId, "d1");
+    assert.equal(parsePendingAwardFilters({ type: "constructor" }).type, "all", "own keys only");
   });
 
   it("groups by den and scout", () => {
@@ -205,5 +207,59 @@ describe("pending awards: reading a bulk award request", () => {
     ]) {
       assert.equal(readUndoRequest(bad).ok, false, JSON.stringify(bad)?.slice(0, 80));
     }
+  });
+});
+
+describe("pending awards: rank badges", () => {
+  const items = toPendingItems([
+    record({ scoutId: "s1", adventureName: "Bobcat", completedDate: "2026-10-01" }),
+    record({
+      kind: "rank",
+      scoutId: "s1",
+      adventureId: "rank:WOLF",
+      adventureName: "Wolf rank badge",
+      adventureType: null,
+      sortOrder: -1,
+      completedDate: "2026-10-05",
+    }),
+    record({
+      kind: "rank",
+      scoutId: "s2",
+      scoutName: "Blake",
+      adventureId: "rank:WOLF",
+      adventureName: "Wolf rank badge",
+      adventureType: null,
+      sortOrder: -1,
+      completedDate: "2026-10-07",
+    }),
+  ]).awardable;
+
+  it("keys a badge by scout and rank, and lists it first under its scout", () => {
+    const avery = items.filter((i) => i.scoutId === "s1");
+    assert.equal(avery.length, 2);
+    assert.equal(avery[0].key, "s1:rank:WOLF");
+    assert.equal(avery[0].kind, "rank");
+    assert.equal(avery[1].adventureName, "Bobcat");
+  });
+
+  it("filters by award type", () => {
+    const f = (type: "all" | "adventures" | "ranks") =>
+      filterPendingItems(items, { denId: null, type, adventure: null, before: null }).length;
+    assert.equal(f("all"), 3);
+    assert.equal(f("adventures"), 1);
+    assert.equal(f("ranks"), 2);
+  });
+
+  it("groups every scout's badge into one Scout Shop line", () => {
+    const groups = groupByAward(items);
+    assert.equal(groups[0].adventureName, "Wolf rank badge", "the badge comes first");
+    assert.equal(groups[0].items.length, 2);
+    assert.equal(groups[0].adventureType, null);
+  });
+
+  it("accepts rank items in an award request", () => {
+    const read = readAwardRequest([{ scoutId: "s1", adventureId: "rank:WOLF" }], "2026-10-10", "2026-11-01");
+    assert.ok(read.ok);
+    assert.deepEqual(read.ok && read.request.items, [{ scoutId: "s1", adventureId: "rank:WOLF" }]);
   });
 });

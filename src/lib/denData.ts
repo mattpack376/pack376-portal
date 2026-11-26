@@ -4,6 +4,7 @@ import { ELECTIVES_REQUIRED } from "@/lib/rankConfig";
 import { toDateOnlyString } from "@/lib/dateOnly";
 import type { AdventureType, Rank } from "@/generated/prisma/enums";
 import type { RequirementRow } from "@/lib/requirementProgress";
+import { loadRankStatuses, type ScoutRankStatus } from "@/lib/rankStatus";
 
 /** One requirement as the card shows it: the official text plus this scout's check. */
 export type ChecklistRequirement = RequirementRow & {
@@ -41,6 +42,8 @@ export type ChecklistScout = {
   electivesDone: number;
   electivesRequired: number;
   adventures: ChecklistAdventure[];
+  /** The den's rank badge: earned, awarded (and when), earlier seasons' ranks. See rankStatus.ts. */
+  rankStatus: ScoutRankStatus | null;
 };
 
 type ScoutWithRecords = {
@@ -89,7 +92,11 @@ const REQUIREMENT_RECORDS_INCLUDE = {
   select: { requirementId: true, completed: true, completedDate: true },
 } as const;
 
-function toChecklistScout(scout: ScoutWithRecords, adventures: AdventureRow[]): ChecklistScout {
+function toChecklistScout(
+  scout: ScoutWithRecords,
+  adventures: AdventureRow[],
+  rankStatus: ScoutRankStatus | null,
+): ChecklistScout {
   const recordByAdventureId = new Map(scout.records.map((r) => [r.adventureId, r]));
   const requirementRecordById = new Map(scout.requirementRecords.map((r) => [r.requirementId, r]));
   const list: ChecklistAdventure[] = adventures.map((adv) => {
@@ -126,6 +133,7 @@ function toChecklistScout(scout: ScoutWithRecords, adventures: AdventureRow[]): 
     electivesDone: electives.filter((a) => a.completed).length,
     electivesRequired: ELECTIVES_REQUIRED,
     adventures: list,
+    rankStatus,
   };
 }
 
@@ -163,7 +171,10 @@ export async function getDenChecklist(denId: string) {
     a.firstName.localeCompare(b.firstName, "en", { sensitivity: "base" }) ||
     a.lastName.localeCompare(b.lastName, "en", { sensitivity: "base" });
 
-  const scouts: ChecklistScout[] = den.scouts.map((scout) => toChecklistScout(scout, adventures)).sort(byName);
+  const rankStatuses = await loadRankStatuses(den.scouts.map((s) => s.id));
+  const scouts: ChecklistScout[] = den.scouts
+    .map((scout) => toChecklistScout(scout, adventures, rankStatuses.get(scout.id) ?? null))
+    .sort(byName);
   inactiveScouts.sort(byName);
 
   return { den, scouts, inactiveScouts };
@@ -171,10 +182,12 @@ export async function getDenChecklist(denId: string) {
 
 /** Read-only advancement checklist for an arbitrary set of scouts (e.g. a parent's linked kids), which may span more than one den/rank. */
 export async function getScoutsAdvancementByIds(scoutIds: string[]): Promise<ChecklistScout[]> {
-  if (scoutIds.length === 0) return [];
+  // Deduped: a repeated id in a Prisma `in:` list breaks included relations (adapter-pg).
+  const ids = [...new Set(scoutIds)];
+  if (ids.length === 0) return [];
 
   const scouts = await prisma.scout.findMany({
-    where: { id: { in: scoutIds }, active: true },
+    where: { id: { in: ids }, active: true },
     orderBy: [{ firstName: "asc" }],
     include: {
       den: true,
@@ -207,5 +220,8 @@ export async function getScoutsAdvancementByIds(scoutIds: string[]): Promise<Che
     adventuresByRank.set(adv.rank, list);
   }
 
-  return withDen.map((scout) => toChecklistScout(scout, adventuresByRank.get(scout.den.rank) ?? []));
+  const rankStatuses = await loadRankStatuses(withDen.map((s) => s.id));
+  return withDen.map((scout) =>
+    toChecklistScout(scout, adventuresByRank.get(scout.den.rank) ?? [], rankStatuses.get(scout.id) ?? null),
+  );
 }

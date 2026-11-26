@@ -19,7 +19,7 @@ let admin: SessionUser;
 
 // The fixture dens are 2026-2027; the loader is pinned to a day in that season.
 const NOW = new Date("2026-11-25T15:00:00Z");
-const NO_FILTERS = { denId: null, adventure: null, before: null };
+const NO_FILTERS = { denId: null, type: "all" as const, adventure: null, before: null };
 const d = (ymd: string) => new Date(`${ymd}T00:00:00Z`);
 const ymd = (date: Date | null) => date?.toISOString().slice(0, 10) ?? null;
 

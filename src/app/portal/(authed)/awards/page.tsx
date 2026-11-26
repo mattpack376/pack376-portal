@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { requirePendingAwardsSession } from "@/lib/authorize";
 import { loadPendingAwards } from "@/lib/pendingAwardsData";
-import { parsePendingAwardFilters, pendingAwardQuery, type PendingAwardSearchParams } from "@/lib/pendingAwardsRules";
+import {
+  AWARD_TYPE_FILTERS,
+  parsePendingAwardFilters,
+  pendingAwardQuery,
+  type PendingAwardSearchParams,
+} from "@/lib/pendingAwardsRules";
 import PendingAwardsView from "@/components/PendingAwardsView";
 
 /**
- * Pending Awards: every adventure this season's scouts have finished but not
- * been handed yet, by scout or by award, with a bulk "Mark as Awarded" for
+ * Pending Awards: every adventure and rank badge this season's scouts have
+ * finished but not been handed yet, by scout or by award, with a bulk "Mark as Awarded" for
  * after a pack meeting and a Scout Shop list (CSV/PDF) of how many of each.
  *
  * Admin, Junior Admin and Committee Member see every den; a Den Leader their
@@ -21,7 +26,7 @@ export default async function PendingAwardsPage({ searchParams }: { searchParams
   const allDens = session.role !== "DEN";
   const canSeeAudit = session.role === "ADMIN" || session.role === "JUNIOR_ADMIN" || session.role === "DEN";
   const denHref = (denId: string) => (allDens ? `/portal/admin/dens/${denId}` : `/portal/den?denId=${denId}`);
-  const hasFilters = !!(filters.denId || filters.adventure || filters.before);
+  const hasFilters = !!(filters.denId || filters.adventure || filters.before || filters.type !== "all");
 
   return (
     <>
@@ -29,7 +34,7 @@ export default async function PendingAwardsPage({ searchParams }: { searchParams
         <div className="eyebrow">Advancement</div>
         <h2>Pending Awards</h2>
         <p>
-          Adventures scouts have finished but haven&apos;t been handed yet, {data.year}. After a pack meeting, tick what
+          Adventures and rank badges scouts have earned but haven&apos;t been handed yet, {data.year}. After a pack meeting, tick what
           was given out and mark it awarded in one go. <strong>By award</strong> is the shopping list for the Scout Shop.
         </p>
       </div>
@@ -49,6 +54,16 @@ export default async function PendingAwardsPage({ searchParams }: { searchParams
               </select>
             </div>
           )}
+          <div className="form-field">
+            <label htmlFor="pa-type">Award type</label>
+            <select id="pa-type" name="type" defaultValue={filters.type}>
+              {Object.entries(AWARD_TYPE_FILTERS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="form-field">
             <label htmlFor="pa-adventure">Adventure</label>
             <select id="pa-adventure" name="adventure" defaultValue={filters.adventure ?? ""}>
@@ -90,6 +105,7 @@ export default async function PendingAwardsPage({ searchParams }: { searchParams
         hasFilters={hasFilters}
         readyForAwardTotal={data.readyForAwardTotal}
         exportQuery={pendingAwardQuery(filters).toString()}
+        ranksExportQuery={new URLSearchParams(filters.denId ? { denId: filters.denId } : {}).toString()}
         auditHref={canSeeAudit ? `/portal/audits/advancement?year=${data.year}&status=review` : null}
         denLinks={Object.fromEntries(data.dens.map((d) => [d.id, denHref(d.id)]))}
       />

@@ -95,6 +95,7 @@ model User {
   advancementUpdates       AdvancementRecord[]
   requirementUpdates       RequirementRecord[]
   advancementAuditMarks    AdvancementAuditMark[]
+  rankAwardUpdates         ScoutRankAward[]
   attendanceUpdates        Attendance[]
   leaderAttendanceUpdates  AdultLeaderAttendance[]
   duesPaymentsLogged       DuesPayment[]
@@ -233,6 +234,14 @@ model Scout {
   guestGroupsGuestOf    EventGuestGroup[]
   householdId           String?
   household             Household?          @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  rankAwards            ScoutRankAward[]
+  // Promote Den makes a new Scout row per child each season; this points at
+  // last season's row, so earlier rank awards can be shown as "Previous
+  // ranks". Null for scouts added directly, and for rows promoted before the
+  // link existed (2026-11-25).
+  previousScoutId       String?             @unique
+  previousScout         Scout?              @relation("ScoutPreviousSeason", fields: [previousScoutId], references: [id], onDelete: SetNull)
+  nextScout             Scout?              @relation("ScoutPreviousSeason")
 
   @@index([householdId])
 }
@@ -340,6 +349,27 @@ model AdvancementRecord {
   @@unique([scoutId, adventureId])
 }
 
+// The day a scout was handed their rank badge itself (Wolf, Bear, …) — the
+// rank-level twin of AdvancementRecord.awardedDate. A row exists only once
+// the badge is presented: "earned but not awarded" is worked out from the
+// adventures (hasEarnedRank in advancementAuditRules.ts), never stored.
+// If an adventure is unchecked afterwards the row is kept and the audit page
+// flags it. Every change is in the audit log (advancement.update).
+model ScoutRankAward {
+  id              String                @id @default(cuid())
+  scoutId         String
+  scout           Scout                 @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  rank            Rank
+  awardedDate     DateTime              @db.Date
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  updatedByUserId String?
+  updatedByUser   User?                 @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  auditMark       AdvancementAuditMark?
+
+  @@unique([scoutId, rank])
+}
+
 enum AdvancementAuditMarkKind {
   // An Admin looked at the flags on this record and accepted them as they are.
   RESOLVED
@@ -358,8 +388,12 @@ enum AdvancementAuditMarkKind {
  */
 model AdvancementAuditMark {
   id              String                   @id @default(cuid())
-  recordId        String                   @unique
-  record          AdvancementRecord        @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  // Exactly one of recordId (an adventure) and rankAwardId (a rank badge) is
+  // set — a CHECK constraint in the migration enforces it.
+  recordId        String?                  @unique
+  record          AdvancementRecord?       @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  rankAwardId     String?                  @unique
+  rankAward       ScoutRankAward?          @relation(fields: [rankAwardId], references: [id], onDelete: Cascade)
   kind            AdvancementAuditMarkKind
   note            String
   recordUpdatedAt DateTime

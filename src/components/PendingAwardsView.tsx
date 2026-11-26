@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { awardPendingAction, undoAwardBatchAction, type AwardSkip } from "@/lib/actions/advancement";
-import { DISCREPANCY_LABELS } from "@/lib/advancementAuditRules";
+import { DISCREPANCY_LABELS, awardTypeLabel } from "@/lib/advancementAuditRules";
 import { formatDateOnly, todayDateOnlyString } from "@/lib/dateOnly";
 import { RANK_INFO } from "@/lib/rankConfig";
 import {
@@ -101,6 +101,7 @@ export default function PendingAwardsView({
   hasFilters,
   readyForAwardTotal,
   exportQuery,
+  ranksExportQuery,
   auditHref,
   denLinks,
 }: {
@@ -110,6 +111,8 @@ export default function PendingAwardsView({
   /** This season's "Ready for award" count, unfiltered — the audit page shows the same number. */
   readyForAwardTotal: number;
   exportQuery: string;
+  /** For the "Ranks awarded" CSV (badges already handed out this season). */
+  ranksExportQuery: string;
   /** The audit page (its review filter), or null for a role that can't open it. */
   auditHref: string | null;
   /** Each den's advancement page, for "Open den". */
@@ -367,6 +370,11 @@ export default function PendingAwardsView({
           <>
             <FileExportButton className="btn btn-quiet btn-small" href={`/api/awards/export?${exportQuery}`} label="Export CSV" />
             <FileExportButton className="btn btn-quiet btn-small" href={`/api/awards/export/pdf?${exportQuery}`} label="Export PDF" />
+            <FileExportButton
+              className="btn btn-quiet btn-small"
+              href={`/api/awards/ranks?${ranksExportQuery}`}
+              label="Ranks awarded CSV"
+            />
           </>
         )}
       </div>
@@ -417,7 +425,8 @@ export default function PendingAwardsView({
                           <span>
                             <span className="pa-item-name">{item.adventureName}</span>
                             <span className="form-note">
-                              {item.adventureType === "REQUIRED" ? "Required" : "Elective"} · completed {formatDateOnly(item.completedDate)}
+                              {awardTypeLabel(item.adventureType)} · {item.kind === "rank" ? "earned" : "completed"}{" "}
+                              {formatDateOnly(item.completedDate)}
                             </span>
                             {resolvedTag(item)}
                           </span>
@@ -441,7 +450,7 @@ export default function PendingAwardsView({
             <section key={group.key} className="info-card pa-award">
               <div className="pa-den-head">
                 <h3>
-                  {RANK_INFO[group.rank].label} — {group.adventureName}{" "}
+                  {group.adventureType === null ? group.adventureName : `${RANK_INFO[group.rank].label} — ${group.adventureName}`}{" "}
                   <span className="badge-pill badge-den badge-count" aria-label={`${group.items.length} needed`}>
                     {group.items.length}
                   </span>

@@ -15,6 +15,7 @@ import {
   MAX_AUDIT_NOTE_LENGTH,
   STATUS_LABELS,
   type AdvancementAuditStatus,
+  awardTypeLabel,
 } from "@/lib/advancementAuditRules";
 import { RANK_INFO, RANK_ORDER } from "@/lib/rankConfig";
 import { formatDateOnly } from "@/lib/dateOnly";
@@ -352,7 +353,7 @@ export default async function AdvancementAuditPage({
                 <tr key={record.recordId} className={`aa-row-${record.status.toLowerCase()}`}>
                   <td>
                     <label className="aa-scout">
-                      {canEdit && (
+                      {canEdit && !record.recordId.startsWith("rank-pending:") && (
                         <input
                           type="checkbox"
                           form={BULK_FORM}
@@ -373,12 +374,17 @@ export default async function AdvancementAuditPage({
                     <div>
                       {record.adventureName}
                       <span className="form-note" style={{ display: "block", marginTop: 0 }}>
-                        {RANK_INFO[record.rank].label} · {record.adventureType === "REQUIRED" ? "Required" : "Elective"}
+                        {RANK_INFO[record.rank].label} · {awardTypeLabel(record.adventureType)}
                       </span>
                     </div>
                   </td>
                   <td data-label="Completed" style={{ whiteSpace: "nowrap" }}>
                     {record.completedDate ? formatDateOnly(record.completedDate) : "—"}
+                    {record.kind === "rank" && record.completedDate && (
+                      <span className="form-note" style={{ display: "block", marginTop: 0 }}>
+                        earned
+                      </span>
+                    )}
                   </td>
                   <td data-label="Awarded" style={{ whiteSpace: "nowrap" }}>
                     {record.awardedDate ? formatDateOnly(record.awardedDate) : "—"}

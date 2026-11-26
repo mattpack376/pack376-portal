@@ -230,7 +230,10 @@ export async function promoteDenAction(
   const createLogin = formData.get("createLogin") === "on";
   const username = String(formData.get("username") || "").trim();
 
-  const den = await prisma.den.findUnique({ where: { id: denId }, include: { scouts: { include: { parents: true } } } });
+  const den = await prisma.den.findUnique({
+    where: { id: denId },
+    include: { scouts: { include: { parents: true, nextScout: { select: { id: true } } } } },
+  });
   if (!den) return { error: "Den not found." };
 
   const next = computeNextRank(den.rank);
@@ -274,6 +277,10 @@ export async function promoteDenAction(
           // Someone on leave is carried to the next rank still on leave, so
           // switching them back on later puts them in the right den.
           active: s.active,
+          // Links the seasons, so the new card can list the ranks awarded
+          // before ("Previous ranks"). A den promoted a second time keeps the
+          // first link — each season's row has one next season.
+          previousScoutId: s.nextScout ? null : s.id,
           parents: {
             create: s.parents.map((p) => ({ name: p.name, email: p.email, phone: p.phone, userId: p.userId })),
           },

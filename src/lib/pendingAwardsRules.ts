@@ -29,6 +29,8 @@ export const MAX_AWARD_BATCH = 500;
 const AWARDABLE: readonly AdvancementAuditStatus[] = ["READY_FOR_AWARD", "RESOLVED"];
 
 export type PendingAwardItem = {
+  /** An adventure, or the scout's rank badge (adventureId "rank:WOLF", see rankItemId). */
+  kind: "adventure" | "rank";
   /** scoutId + adventureId — what the checkboxes and the action use. */
   key: string;
   scoutId: string;
@@ -38,9 +40,10 @@ export type PendingAwardItem = {
   rank: Rank;
   adventureId: string;
   adventureName: string;
-  adventureType: AdventureType;
+  /** Null for a rank badge. */
+  adventureType: AdventureType | null;
   sortOrder: number;
-  /** YYYY-MM-DD. */
+  /** YYYY-MM-DD. For a rank badge, the day it was earned. */
   completedDate: string;
   auditStatus: AdvancementAuditStatus;
   discrepancies: AdvancementDiscrepancyType[];
@@ -63,6 +66,7 @@ export function toPendingItems(records: readonly AdvancementAuditRecord[]): {
   for (const r of records) {
     if (!isPendingAward(r)) continue;
     const item: PendingAwardItem = {
+      kind: r.kind,
       key: pendingAwardKey(r.scoutId, r.adventureId),
       scoutId: r.scoutId,
       scoutName: r.scoutName,
@@ -96,15 +100,19 @@ function sortItems(items: PendingAwardItem[]) {
   );
 }
 
+export const AWARD_TYPE_FILTERS = { all: "Adventures and ranks", adventures: "Adventures", ranks: "Rank badges" } as const;
+export type AwardTypeFilter = keyof typeof AWARD_TYPE_FILTERS;
+
 export type PendingAwardFilters = {
   denId: string | null;
+  type: AwardTypeFilter;
   /** An adventure's name, matched exactly — "Bobcat" picks every rank's Bobcat. */
   adventure: string | null;
   /** YYYY-MM-DD: completed on or before this day. */
   before: string | null;
 };
 
-export type PendingAwardSearchParams = Partial<Record<"denId" | "adventure" | "before", string | string[]>>;
+export type PendingAwardSearchParams = Partial<Record<"denId" | "type" | "adventure" | "before", string | string[]>>;
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
@@ -112,8 +120,10 @@ export function parsePendingAwardFilters(params: PendingAwardSearchParams): Pend
   const denId = one(params.denId);
   const adventure = one(params.adventure)?.trim();
   const before = one(params.before);
+  const type = one(params.type);
   return {
     denId: denId && denId.length <= 64 ? denId : null,
+    type: type && Object.hasOwn(AWARD_TYPE_FILTERS, type) ? (type as AwardTypeFilter) : "all",
     adventure: adventure && adventure.length <= 120 ? adventure : null,
     before: before && isDateOnlyString(before) ? before : null,
   };
@@ -122,6 +132,7 @@ export function parsePendingAwardFilters(params: PendingAwardSearchParams): Pend
 export function pendingAwardQuery(filters: PendingAwardFilters): URLSearchParams {
   const query = new URLSearchParams();
   if (filters.denId) query.set("denId", filters.denId);
+  if (filters.type !== "all") query.set("type", filters.type);
   if (filters.adventure) query.set("adventure", filters.adventure);
   if (filters.before) query.set("before", filters.before);
   return query;
@@ -131,6 +142,7 @@ export function filterPendingItems<T extends PendingAwardItem>(items: readonly T
   return items.filter(
     (item) =>
       (!filters.denId || item.denId === filters.denId) &&
+      (filters.type === "all" || (filters.type === "ranks") === (item.kind === "rank")) &&
       (!filters.adventure || item.adventureName === filters.adventure) &&
       (!filters.before || item.completedDate <= filters.before),
   );
@@ -169,7 +181,7 @@ export type PendingAwardGroup = {
   key: string;
   rank: Rank;
   adventureName: string;
-  adventureType: AdventureType;
+  adventureType: AdventureType | null;
   sortOrder: number;
   items: PendingAwardItem[];
 };

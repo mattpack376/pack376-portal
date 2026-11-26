@@ -9,8 +9,12 @@ import { isAdvancementAuditEditor } from "@/lib/authorize";
 import { buildRequirementTree } from "@/lib/requirementProgress";
 import {
   AUDIT_STATUS_FILTERS,
+  auditRank,
   auditRecord,
-  hasEarnedRank,
+  rankBadgeName,
+  rankItemId,
+  rankLastEdited,
+  rankProgress,
   isAuditStatusFilter,
   statusMatchesFilter,
   activeMark,
@@ -248,6 +252,12 @@ export async function loadAdvancementAudit(
                 auditMark: { include: { markedByUser: { select: { displayName: true } } } },
               },
             },
+            rankAwards: {
+              include: {
+                updatedByUser: { select: { displayName: true } },
+                auditMark: { include: { markedByUser: { select: { displayName: true } } } },
+              },
+            },
           },
         },
       },
@@ -263,9 +273,9 @@ export async function loadAdvancementAudit(
   const ranks = Array.from(new Set(dens.map((d) => d.rank)));
   const adventures = await prisma.adventure.findMany({
     where: { rank: { in: ranks } },
-    select: { rank: true, type: true, sortOrder: true },
+    select: { id: true, rank: true, type: true, sortOrder: true },
   });
-  const adventuresByRank = new Map<Rank, { type: AdventureType }[]>();
+  const adventuresByRank = new Map<Rank, { id: string; type: AdventureType }[]>();
   for (const adventure of adventures) {
     adventuresByRank.set(adventure.rank, [...(adventuresByRank.get(adventure.rank) ?? []), adventure]);
   }
@@ -281,6 +291,7 @@ export async function loadAdvancementAudit(
   );
 
   const needle = filters.q?.toLowerCase() ?? null;
+  const todayString = toDateOnlyString(today) as string;
   const from = filters.from ? new Date(`${filters.from}T00:00:00Z`) : null;
   const to = filters.to ? new Date(`${filters.to}T00:00:00Z`) : null;
 
@@ -299,8 +310,59 @@ export async function loadAdvancementAudit(
       // rank's, so a stray one couldn't be fixed from the den page anyway.
       const records = scout.records.filter((r) => r.adventure.rank === den.rank);
 
-      const completedTypes = records.filter((r) => r.completed).map((r) => r.adventure.type);
-      if (hasEarnedRank(adventuresByRank.get(den.rank) ?? [], completedTypes)) scoutsRankEarned += 1;
+      const progress = rankProgress(
+        adventuresByRank.get(den.rank) ?? [],
+        records.map((r) => ({ adventureId: r.adventureId, completed: r.completed, completedDate: toDateOnlyString(r.completedDate) })),
+      );
+      if (progress.earned) scoutsRankEarned += 1;
+
+      // The rank badge itself: one row once it's earned or awarded.
+      const award = scout.rankAwards.find((a) => a.rank === den.rank) ?? null;
+      const badgeName = rankBadgeName(RANK_INFO[den.rank].label);
+      const inDates =
+        (!filters.from || (!!progress.earnedDate && progress.earnedDate >= filters.from)) &&
+        (!filters.to || (!!progress.earnedDate && progress.earnedDate <= filters.to));
+      const nameMatch = !needle || scoutName.toLowerCase().includes(needle) || badgeName.toLowerCase().includes(needle);
+      if (inDates && nameMatch) {
+        const rankInput = {
+          earned: progress.earned,
+          earnedDate: progress.earnedDate,
+          awardedDate: toDateOnlyString(award?.awardedDate ?? null),
+          updatedAt: award ? rankLastEdited(award.updatedAt, records) : rankLastEdited(new Date(0), records),
+          mark: award?.auditMark
+            ? { kind: award.auditMark.kind, recordUpdatedAt: award.auditMark.recordUpdatedAt }
+            : null,
+        };
+        const result = auditRank(rankInput, todayString);
+        if (result) {
+          const mark = activeMark(rankInput) && award?.auditMark ? award.auditMark : null;
+          const recordId = award ? `rank:${award.id}` : `rank-pending:${scout.id}`;
+          rows.push({
+            kind: "rank",
+            recordId,
+            scoutId: scout.id,
+            scoutName,
+            denId: den.id,
+            denName,
+            rank: den.rank,
+            adventureId: rankItemId(den.rank),
+            adventureName: badgeName,
+            adventureType: null,
+            sortOrder: -1,
+            completed: progress.earned,
+            completedDate: progress.earnedDate,
+            awardedDate: rankInput.awardedDate,
+            enteredBy: award?.updatedByUser?.displayName ?? null,
+            updatedAt: rankInput.updatedAt,
+            status: result.status,
+            discrepancies: result.discrepancies,
+            mark: mark
+              ? { kind: mark.kind, note: mark.note, by: mark.markedByUser?.displayName ?? null, at: mark.createdAt }
+              : null,
+          });
+          sortOrder.set(recordId, -1);
+        }
+      }
 
       for (const record of records) {
         if (from && (!record.completedDate || record.completedDate < from)) continue;
@@ -328,6 +390,7 @@ export async function loadAdvancementAudit(
         const mark = activeMark(input) && record.auditMark ? record.auditMark : null;
 
         rows.push({
+          kind: "adventure",
           recordId: record.id,
           scoutId: scout.id,
           scoutName,
@@ -422,6 +485,12 @@ export async function getAdvancementHistory(
           entityType: "AdvancementRecord",
           entityId: { in: records.map((r) => r.recordId) },
         },
+        // A rank badge's marks are logged against its ScoutRankAward ("rank:<id>" on the page).
+        {
+          action: { startsWith: "advancement.audit." },
+          entityType: "ScoutRankAward",
+          entityId: { in: records.flatMap((r) => (r.recordId.startsWith("rank:") ? [r.recordId.slice(5)] : [])) },
+        },
       ],
     },
     orderBy: { createdAt: "desc" },
@@ -446,7 +515,8 @@ export async function getAdvancementHistory(
         }
       }
     } else if (entry.entityId) {
-      history.get(entry.entityId)?.push({ at: entry.createdAt, who: entry.actorDisplayName, text: entry.summary });
+      const key = history.has(entry.entityId) ? entry.entityId : `rank:${entry.entityId}`;
+      history.get(key)?.push({ at: entry.createdAt, who: entry.actorDisplayName, text: entry.summary });
     }
   }
   return history;

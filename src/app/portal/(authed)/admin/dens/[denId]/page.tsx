@@ -9,6 +9,7 @@ import { denDisplayName, nextRank } from "@/lib/rankConfig";
 import { addScoutAction, removeScoutAction, updateScoutNameAction } from "@/lib/actions/dens";
 import { setScoutActiveAction } from "@/lib/actions/scouts";
 import ScoutChecklist from "@/components/ScoutChecklist";
+import DenRankSummary from "@/components/DenRankSummary";
 import { paymentSummariesByScout, type PaymentSummary } from "@/lib/scoutDeletion";
 import { paymentDeletionWarning } from "@/lib/paymentRecords";
 import InitiallyOpenDetails from "@/components/InitiallyOpenDetails";
@@ -228,6 +229,7 @@ export default async function AdminDenDetailPage({
         Handed out a batch of badges? <Link href={`/portal/awards?denId=${den.id}`}>Pending Awards</Link> marks them all
         awarded at once.
       </p>
+      <DenRankSummary scouts={scouts} denId={den.id} />
       <ScoutChecklist scouts={scouts} editable collapsible />
     </>
   );

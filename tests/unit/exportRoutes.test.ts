@@ -33,7 +33,7 @@ const NO_STORE_HELPERS = [
 ];
 
 /** Ways a route establishes who is asking (each then checks the role or den). */
-const AUTH_CHECKS = [/\bgetSession\(\)/, /\brequire[A-Za-z]*Session\(\)/, /\bloadPhotoConsentExport\(/, /\bloadAdvancementAuditExport\(/, /\bloadDuesExport\(/, /\bloadPendingAwardsExport\(/];
+const AUTH_CHECKS = [/\bgetSession\(\)/, /\brequire[A-Za-z]*Session\(\)/, /\bloadPhotoConsentExport\(/, /\bloadAdvancementAuditExport\(/, /\bloadDuesExport\(/, /\bloadPendingAwardsExport\(/, /\bloadRankAwardsExport\(/];
 
 function routeFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {

@@ -34,7 +34,7 @@ export async function loadPendingAwards(session: SessionPayload, filters: Pendin
     year,
     dens,
     /** Every adventure name with something pending in the chosen den, for the dropdown. */
-    adventureNames: adventureNameOptions(filterPendingItems(awardable, { denId: filters.denId, adventure: null, before: null })),
+    adventureNames: adventureNameOptions(filterPendingItems(awardable, { denId: filters.denId, type: filters.type, adventure: null, before: null })),
     items: filterPendingItems(awardable, filters),
     heldBack: filterPendingItems(heldBack, filters),
     /** Unfiltered — the same number as the audit page's "Ready for award" for this season. */

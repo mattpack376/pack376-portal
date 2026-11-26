@@ -1,8 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { applyAdventureChangesAction, awardPendingAction, undoAwardBatchAction } from "@/lib/actions/advancement";
-import AwardDateDialog from "@/components/AwardDateDialog";
+import {
+  applyAdventureChangesAction,
+  awardPendingAction,
+  setRankAwardAction,
+  undoAwardBatchAction,
+} from "@/lib/actions/advancement";
+import AwardDateDialog, { type AwardDialogItem } from "@/components/AwardDateDialog";
+import RankAwardDialog from "@/components/RankAwardDialog";
+import { rankBadgeName, rankItemId, rankProgress } from "@/lib/advancementAuditRules";
 import { formatDateOnly } from "@/lib/dateOnly";
 import { pendingAwardKey, type AwardUndoToken } from "@/lib/pendingAwardsRules";
 import type { ChecklistScout } from "@/lib/denData";
@@ -61,6 +68,12 @@ export default function ScoutAdvancementCard({
   const [awardPending, startAward] = useTransition();
   const [awardError, setAwardError] = useState<string | null>(null);
   const [awardNotice, setAwardNotice] = useState<{ text: string; undo: AwardUndoToken | null } | null>(null);
+  /** The rank badge's award (null until handed out), its dialog and its own save. */
+  const rankStatus = scout.rankStatus;
+  const [rankAward, setRankAward] = useState(rankStatus?.award ?? null);
+  const [rankDialogOpen, setRankDialogOpen] = useState(false);
+  const [rankPending, startRank] = useTransition();
+  const [rankError, setRankError] = useState<string | null>(null);
 
   const dirtyIds = scout.adventures
     .map((a) => a.id)
@@ -188,6 +201,22 @@ export default function ScoutAdvancementCard({
     return saved.completed && !!saved.completedDate && !saved.awardedDate;
   });
 
+  /** The rank badge as saved (not the draft): what the server will judge an award by. */
+  const savedRank = rankProgress(
+    scout.adventures,
+    scout.adventures.map((a) => ({ adventureId: a.id, completed: savedState[a.id].completed, completedDate: savedState[a.id].completedDate })),
+  );
+  const badgeName = rankStatus ? rankBadgeName(rankStatus.rankLabel) : null;
+  const rankItemKey = rankStatus ? rankItemId(rankStatus.rank) : null;
+  /** The badge goes into "Award all pending" once earned with every date known. */
+  const rankAwardable = !!rankStatus && !rankAward && savedRank.earned && !!savedRank.earnedDate;
+  const awardAllItems: AwardDialogItem[] = [
+    ...(rankAwardable
+      ? [{ key: rankItemKey!, adventureName: badgeName!, completedDate: savedRank.earnedDate!, verb: "earned" }]
+      : []),
+    ...pendingAwards.map((a) => ({ key: a.id, adventureName: a.name, completedDate: savedState[a.id].completedDate as string })),
+  ];
+
   /** Writes `awardedDate` into the saved state (and the draft, where it hadn't been touched) for these adventures. */
   function setSavedAwardDates(adventureIds: string[], awardedDate: string | null) {
     const apply = (prev: Record<string, DraftRecord>, onlyIfMatches?: Record<string, DraftRecord>) => {
@@ -208,18 +237,21 @@ export default function ScoutAdvancementCard({
     startAward(async () => {
       try {
         const result = await awardPendingAction(
-          pendingAwards.map((a) => ({ scoutId: scout.id, adventureId: a.id })),
+          awardAllItems.map((i) => ({ scoutId: scout.id, adventureId: i.key })),
           awardedDate,
         );
         if (!result.ok) {
           setAwardError(result.error);
           return;
         }
-        setSavedAwardDates(result.undo?.items.map((i) => i.adventureId) ?? [], awardedDate);
+        const done = result.undo?.items ?? [];
+        setSavedAwardDates(done.filter((i) => i.adventureId !== rankItemKey).map((i) => i.adventureId), awardedDate);
+        const badge = done.find((i) => i.adventureId === rankItemKey);
+        if (badge) setRankAward({ awardedDate, updatedAt: badge.updatedAt, enteredBy: null });
         const skipped = result.skipped.length;
         setAwardNotice({
           text:
-            `Marked ${result.awarded} adventure${result.awarded === 1 ? "" : "s"} awarded on ${formatDateOnly(awardedDate)}.` +
+            `Marked ${result.awarded} award${result.awarded === 1 ? "" : "s"} as handed out on ${formatDateOnly(awardedDate)}.` +
             (skipped > 0 ? ` Skipped ${skipped}: ${result.skipped.map((x) => x.adventureName).join(", ")}.` : ""),
           undo: result.undo,
         });
@@ -240,6 +272,7 @@ export default function ScoutAdvancementCard({
           return;
         }
         const cleared = new Set(result.clearedKeys);
+        if (rankItemKey && cleared.has(pendingAwardKey(scout.id, rankItemKey))) setRankAward(null);
         setSavedAwardDates(
           scout.adventures.filter((a) => cleared.has(pendingAwardKey(scout.id, a.id))).map((a) => a.id),
           null,
@@ -252,6 +285,44 @@ export default function ScoutAdvancementCard({
         });
       } catch {
         setAwardNotice({ text: "Undo failed — check your connection and try again.", undo: token });
+      }
+    });
+  }
+
+  function handleRankAward(awardedDate: string) {
+    if (rankPending) return;
+    setRankError(null);
+    startRank(async () => {
+      try {
+        const result = await setRankAwardAction(scout.id, awardedDate);
+        if (!result.ok) {
+          setRankError(result.error);
+          return;
+        }
+        setRankAward(result.award && { ...result.award, enteredBy: null });
+        setRankDialogOpen(false);
+      } catch {
+        setRankError("Save failed — check your connection and try again.");
+      }
+    });
+  }
+
+  function handleRankClear() {
+    if (rankPending || !badgeName) return;
+    if (!window.confirm(`Clear the ${badgeName} award for ${scout.firstName} ${scout.lastName}? It will show as earned but not awarded.`)) {
+      return;
+    }
+    setRankError(null);
+    startRank(async () => {
+      try {
+        const result = await setRankAwardAction(scout.id, null);
+        if (!result.ok) {
+          setRankError(result.error);
+          return;
+        }
+        setRankAward(null);
+      } catch {
+        setRankError("Save failed — check your connection and try again.");
       }
     });
   }
@@ -291,16 +362,76 @@ export default function ScoutAdvancementCard({
     </AdventureCheckbox>
   );
 
+  const rankLabel = rankStatus?.rankLabel ?? "Rank";
   const pill = (
-    <span className="progress-pill">
-      {rankComplete
-        ? "🏅 Rank Complete"
-        : `${requiredDone}/${required.length} required · ${electivesDone}/${scout.electivesRequired}+ electives`}
+    <span className={`progress-pill${rankAward ? " progress-pill-awarded" : ""}`}>
+      {rankAward
+        ? `🏅 ${rankLabel} awarded ${formatDateOnly(rankAward.awardedDate)}`
+        : rankComplete
+          ? `🏅 ${rankLabel} earned — not yet awarded`
+          : `${requiredDone}/${required.length} required · ${electivesDone}/${scout.electivesRequired}+ electives`}
     </span>
+  );
+
+  const rankBusy = isDirty || isPending || awardPending || rankPending;
+  const rankLine = rankStatus && badgeName && (
+    <div className="rank-award-line">
+      <span className="rank-award-text">
+        <strong>{badgeName}:</strong>{" "}
+        {rankAward ? (
+          <>
+            awarded {formatDateOnly(rankAward.awardedDate)}
+            {!savedRank.earned && <span className="rank-award-warn"> — no longer earned (an adventure was unchecked)</span>}
+          </>
+        ) : savedRank.earned ? (
+          savedRank.earnedDate ? (
+            `earned ${formatDateOnly(savedRank.earnedDate)} — not yet awarded`
+          ) : (
+            "earned — not yet awarded"
+          )
+        ) : (
+          "in progress"
+        )}
+      </span>
+      {editable && (rankAward || savedRank.earned) && (
+        <span className="rank-award-actions">
+          <button
+            type="button"
+            className="btn btn-quiet btn-small"
+            disabled={rankBusy}
+            title={isDirty ? "Apply or discard your changes first" : undefined}
+            onClick={() => {
+              setRankError(null);
+              setRankDialogOpen(true);
+            }}
+          >
+            {rankAward ? "Edit date" : "Award…"}
+          </button>
+          {rankAward && (
+            <button type="button" className="btn btn-quiet btn-small" disabled={rankBusy} onClick={handleRankClear}>
+              {rankPending && !rankDialogOpen ? "Clearing…" : "Clear"}
+            </button>
+          )}
+        </span>
+      )}
+      {rankError && !rankDialogOpen && (
+        <span className="advancement-apply-error" role="alert">
+          {rankError}
+        </span>
+      )}
+      {rankStatus.previous.length > 0 && (
+        <span className="form-note rank-award-previous">
+          Previous ranks:{" "}
+          {rankStatus.previous.map((p) => `${p.rankLabel} (awarded ${formatDateOnly(p.awardedDate)})`).join(" · ")}
+        </span>
+      )}
+    </div>
   );
 
   const body = (
     <>
+      {rankLine}
+
       <div className="adventure-group-label">Required Adventures</div>
       <div className="adventure-checklist">{required.map(renderAdventure)}</div>
 
@@ -327,18 +458,18 @@ export default function ScoutAdvancementCard({
 
       {editable && (
         <div className="advancement-apply-row">
-          {pendingAwards.length > 0 && (
+          {awardAllItems.length > 0 && (
             <button
               type="button"
               className="btn btn-quiet btn-small award-all-button"
-              disabled={isDirty || isPending || awardPending}
+              disabled={isDirty || isPending || awardPending || rankPending}
               title={isDirty ? "Apply or discard your changes first" : undefined}
               onClick={() => {
                 setAwardError(null);
                 setAwardOpen(true);
               }}
             >
-              Award all pending ({pendingAwards.length})
+              Award all pending ({awardAllItems.length})
             </button>
           )}
           {error && (
@@ -365,15 +496,24 @@ export default function ScoutAdvancementCard({
       {awardOpen && (
         <AwardDateDialog
           scoutName={`${scout.firstName} ${scout.lastName}`}
-          items={pendingAwards.map((a) => ({
-            key: a.id,
-            adventureName: a.name,
-            completedDate: savedState[a.id].completedDate as string,
-          }))}
+          items={awardAllItems}
           pending={awardPending}
           error={awardError}
           onConfirm={handleAwardAll}
           onCancel={() => setAwardOpen(false)}
+        />
+      )}
+
+      {rankDialogOpen && rankStatus && badgeName && (
+        <RankAwardDialog
+          scoutName={`${scout.firstName} ${scout.lastName}`}
+          badgeName={badgeName}
+          earnedDate={savedRank.earned ? savedRank.earnedDate : null}
+          initialDate={rankAward?.awardedDate ?? null}
+          pending={rankPending}
+          error={rankError}
+          onConfirm={handleRankAward}
+          onCancel={() => setRankDialogOpen(false)}
         />
       )}
 

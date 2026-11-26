@@ -8,7 +8,12 @@ import { InvalidDateError, parseDateOnlyString, todayDateOnlyString } from "@/li
 import { recordAudit, auditDate, EMPTY, type AuditDetail } from "@/lib/audit";
 import type { SessionPayload } from "@/lib/session";
 import { Prisma } from "@/generated/prisma/client";
+import type { Rank } from "@/generated/prisma/enums";
+import { RANK_INFO } from "@/lib/rankConfig";
+import { rankBadgeName, rankFromItemId, rankItemId } from "@/lib/advancementAuditRules";
+import { rankProgressFor } from "@/lib/rankStatus";
 import {
+  awardDateProblem,
   pendingAwardKey,
   readAwardRequest,
   readUndoRequest,
@@ -475,13 +480,17 @@ export async function awardPendingAction(items: AwardItemInput[], awardedDate: s
       async (tx) => {
         const scouts = await lockScoutsForAdvancement(tx, session, request.scoutIds);
 
-        const adventureIds = [...new Set(request.items.map((i) => i.adventureId))];
+        // Rank badges ("rank:WOLF") and adventures travel in the same list.
+        const rankItems = request.items.filter((i) => rankFromItemId(i.adventureId));
+        const adventureItems = request.items.filter((i) => !rankFromItemId(i.adventureId));
+
+        const adventureIds = [...new Set(adventureItems.map((i) => i.adventureId))];
         const adventures = await tx.adventure.findMany({
           where: { id: { in: adventureIds } },
           select: { id: true, name: true, rank: true },
         });
-        const adventureById = new Map(adventures.map((a) => [a.id, a]));
-        for (const item of request.items) {
+        const adventureById = new Map<string, { id: string; name: string; rank: Rank }>(adventures.map((a) => [a.id, a]));
+        for (const item of adventureItems) {
           const adventure = adventureById.get(item.adventureId);
           if (!adventure || adventure.rank !== scouts.get(item.scoutId)?.den.rank) {
             throw new AdvancementInputError(
@@ -489,28 +498,71 @@ export async function awardPendingAction(items: AwardItemInput[], awardedDate: s
             );
           }
         }
+        for (const item of rankItems) {
+          const rank = rankFromItemId(item.adventureId)!;
+          if (rank !== scouts.get(item.scoutId)?.den.rank) {
+            throw new AdvancementInputError(
+              "One or more of those rank badges isn't its scout's rank. Reload the page and try again.",
+            );
+          }
+          adventureById.set(item.adventureId, { id: item.adventureId, name: rankBadgeName(RANK_INFO[rank].label), rank });
+        }
 
-        const records = await tx.advancementRecord.findMany({
-          where: { OR: request.items.map((i) => ({ scoutId: i.scoutId, adventureId: i.adventureId })) },
-          select: { id: true, scoutId: true, adventureId: true, completed: true, completedDate: true, awardedDate: true },
-        });
+        const records = adventureItems.length
+          ? await tx.advancementRecord.findMany({
+              where: { OR: adventureItems.map((i) => ({ scoutId: i.scoutId, adventureId: i.adventureId })) },
+              select: { id: true, scoutId: true, adventureId: true, completed: true, completedDate: true, awardedDate: true },
+            })
+          : [];
         const recordByKey = new Map(records.map((r) => [pendingAwardKey(r.scoutId, r.adventureId), r]));
 
         const skipped: AwardSkip[] = [];
-        const toAward: typeof records = [];
-        for (const item of request.items) {
+        const label = (item: AwardItemInput) => {
           const scout = scouts.get(item.scoutId)!;
-          const record = recordByKey.get(pendingAwardKey(item.scoutId, item.adventureId));
-          const label = {
+          return {
             scoutId: item.scoutId,
             adventureId: item.adventureId,
             scoutName: `${scout.firstName} ${scout.lastName}`,
             adventureName: adventureById.get(item.adventureId)!.name,
           };
+        };
+
+        // Rank badges: earned right now (judged under the locks), not already
+        // awarded, and earned on or before the award date.
+        const rankAwardsToCreate: { scoutId: string; rank: Rank; earnedDate: Date }[] = [];
+        if (rankItems.length > 0) {
+          const progress = await rankProgressFor(
+            tx,
+            rankItems.map((i) => ({ id: i.scoutId, rank: scouts.get(i.scoutId)!.den.rank as Rank })),
+          );
+          const existing = await tx.scoutRankAward.findMany({
+            where: { OR: rankItems.map((i) => ({ scoutId: i.scoutId, rank: rankFromItemId(i.adventureId)! })) },
+            select: { scoutId: true },
+          });
+          const alreadyAwarded = new Set(existing.map((e) => e.scoutId));
+          for (const item of rankItems) {
+            const p = progress.get(item.scoutId);
+            if (!p?.earned || !p.earnedDate || alreadyAwarded.has(item.scoutId)) {
+              skipped.push({ ...label(item), reason: "not_pending" });
+            } else if (p.earnedDate > request.awardedDate) {
+              skipped.push({ ...label(item), reason: "completed_after" });
+            } else {
+              rankAwardsToCreate.push({
+                scoutId: item.scoutId,
+                rank: rankFromItemId(item.adventureId)!,
+                earnedDate: parseDateOnlyString(p.earnedDate) as Date,
+              });
+            }
+          }
+        }
+
+        const toAward: typeof records = [];
+        for (const item of adventureItems) {
+          const record = recordByKey.get(pendingAwardKey(item.scoutId, item.adventureId));
           if (!record || !record.completed || !record.completedDate || record.awardedDate) {
-            skipped.push({ ...label, reason: "not_pending" });
+            skipped.push({ ...label(item), reason: "not_pending" });
           } else if (record.completedDate > awardedOn) {
-            skipped.push({ ...label, reason: "completed_after" });
+            skipped.push({ ...label(item), reason: "completed_after" });
           } else {
             toAward.push(record);
           }
@@ -528,7 +580,27 @@ export async function awardPendingAction(items: AwardItemInput[], awardedDate: s
           where: { id: { in: toAward.map((r) => r.id) } },
           select: { scoutId: true, adventureId: true, updatedAt: true },
         });
-        return { scouts, adventureById, toAward, skipped, after };
+        if (rankAwardsToCreate.length > 0) {
+          // @@unique([scoutId, rank]) backs up the "not already awarded" check above.
+          await tx.scoutRankAward.createMany({
+            data: rankAwardsToCreate.map((r) => ({
+              scoutId: r.scoutId,
+              rank: r.rank,
+              awardedDate: awardedOn,
+              updatedByUserId: session.userId,
+            })),
+          });
+          const created = await tx.scoutRankAward.findMany({
+            where: { OR: rankAwardsToCreate.map((r) => ({ scoutId: r.scoutId, rank: r.rank })) },
+            select: { scoutId: true, rank: true, updatedAt: true },
+          });
+          for (const c of created) after.push({ scoutId: c.scoutId, adventureId: rankItemId(c.rank), updatedAt: c.updatedAt });
+        }
+        const awardedRecords: AuditedAward[] = [
+          ...toAward.map((r) => ({ scoutId: r.scoutId, adventureId: r.adventureId, completedDate: r.completedDate })),
+          ...rankAwardsToCreate.map((r) => ({ scoutId: r.scoutId, adventureId: rankItemId(r.rank), completedDate: r.earnedDate })),
+        ];
+        return { scouts, adventureById, awardedRecords, skipped, after };
       },
       { timeout: 20_000, maxWait: 10_000 },
     );
@@ -537,18 +609,21 @@ export async function awardPendingAction(items: AwardItemInput[], awardedDate: s
     throw error;
   }
 
-  const { scouts, adventureById, toAward, skipped, after } = saved;
-  const awardedScouts = await auditAwardsByScout(session, scouts, adventureById, toAward, (record) => ({
-    from: describeAdventureState(true, record.completedDate, null),
-    to: describeAdventureState(true, record.completedDate, awardedOn),
-  }), (count, name) =>
-    `Awarded ${count === 1 ? "1 adventure" : `${count} adventures`} for ${name} (award date ${auditDate(awardedOn)})`,
+  const { scouts, adventureById, awardedRecords, skipped, after } = saved;
+  const awardedScouts = await auditAwardsByScout(session, scouts, adventureById, awardedRecords, (record) =>
+    rankFromItemId(record.adventureId)
+      ? { from: describeRankAward(null), to: describeRankAward(awardedOn) }
+      : {
+          from: describeAdventureState(true, record.completedDate, null),
+          to: describeAdventureState(true, record.completedDate, awardedOn),
+        },
+  (list, name) => `Awarded ${describeAwardCount(list, adventureById)} for ${name} (award date ${auditDate(awardedOn)})`,
   );
 
   revalidateAdvancement(scouts);
   return {
     ok: true,
-    awarded: toAward.length,
+    awarded: awardedRecords.length,
     scouts: awardedScouts,
     awardedDate: request.awardedDate,
     skipped,
@@ -585,8 +660,37 @@ export async function undoAwardBatchAction(token: AwardUndoToken): Promise<UndoA
     saved = await prisma.$transaction(
       async (tx) => {
         const scouts = await lockScoutsForAdvancement(tx, session, request.scoutIds);
-        const records = await tx.advancementRecord.findMany({
-          where: { OR: request.items.map((i) => ({ scoutId: i.scoutId, adventureId: i.adventureId })) },
+        const rankItems = request.items.filter((i) => rankFromItemId(i.adventureId));
+        const adventureItems = request.items.filter((i) => !rankFromItemId(i.adventureId));
+
+        // Rank badges: delete exactly the awards the batch created, untouched since.
+        const rankAwards = rankItems.length
+          ? await tx.scoutRankAward.findMany({
+              where: { OR: rankItems.map((i) => ({ scoutId: i.scoutId, rank: rankFromItemId(i.adventureId)! })) },
+              select: { id: true, scoutId: true, rank: true, awardedDate: true, updatedAt: true, updatedByUserId: true },
+            })
+          : [];
+        const rankToClear: typeof rankAwards = [];
+        for (const item of rankItems) {
+          const award = rankAwards.find((a) => a.scoutId === item.scoutId && a.rank === rankFromItemId(item.adventureId));
+          if (
+            award &&
+            award.awardedDate.getTime() === awardedOn.getTime() &&
+            award.updatedByUserId === session.userId &&
+            award.updatedAt.getTime() === item.updatedAt.getTime() &&
+            award.rank === scouts.get(award.scoutId)?.den.rank
+          ) {
+            rankToClear.push(award);
+          }
+        }
+        if (rankToClear.length > 0) {
+          await tx.scoutRankAward.deleteMany({
+            where: { id: { in: rankToClear.map((a) => a.id) }, awardedDate: awardedOn, updatedByUserId: session.userId },
+          });
+        }
+
+        const records = adventureItems.length === 0 ? [] : await tx.advancementRecord.findMany({
+          where: { OR: adventureItems.map((i) => ({ scoutId: i.scoutId, adventureId: i.adventureId })) },
           select: {
             id: true,
             scoutId: true,
@@ -601,7 +705,7 @@ export async function undoAwardBatchAction(token: AwardUndoToken): Promise<UndoA
         });
         const recordByKey = new Map(records.map((r) => [pendingAwardKey(r.scoutId, r.adventureId), r]));
         const toClear: typeof records = [];
-        for (const item of request.items) {
+        for (const item of adventureItems) {
           const record = recordByKey.get(pendingAwardKey(item.scoutId, item.adventureId));
           if (
             record &&
@@ -620,7 +724,7 @@ export async function undoAwardBatchAction(token: AwardUndoToken): Promise<UndoA
             data: { awardedDate: null, updatedByUserId: session.userId },
           });
         }
-        return { scouts, toClear };
+        return { scouts, toClear, rankToClear };
       },
       { timeout: 20_000, maxWait: 10_000 },
     );
@@ -629,22 +733,120 @@ export async function undoAwardBatchAction(token: AwardUndoToken): Promise<UndoA
     throw error;
   }
 
-  const { scouts, toClear } = saved;
-  const adventureById = new Map(toClear.map((r) => [r.adventure.id, r.adventure]));
-  const clearedScouts = await auditAwardsByScout(session, scouts, adventureById, toClear, (record) => ({
-    from: describeAdventureState(true, record.completedDate, awardedOn),
-    to: describeAdventureState(true, record.completedDate, null),
-  }), (count, name) =>
-    `Undid the award of ${count === 1 ? "1 adventure" : `${count} adventures`} for ${name} (award date ${auditDate(awardedOn)} cleared)`,
+  const { scouts, toClear, rankToClear } = saved;
+  const adventureById = new Map<string, { name: string }>(toClear.map((r) => [r.adventure.id, r.adventure]));
+  for (const a of rankToClear) adventureById.set(rankItemId(a.rank), { name: rankBadgeName(RANK_INFO[a.rank].label) });
+  const cleared: AuditedAward[] = [
+    ...toClear.map((r) => ({ scoutId: r.scoutId, adventureId: r.adventureId, completedDate: r.completedDate })),
+    ...rankToClear.map((a) => ({ scoutId: a.scoutId, adventureId: rankItemId(a.rank), completedDate: null })),
+  ];
+  const clearedScouts = await auditAwardsByScout(session, scouts, adventureById, cleared, (record) =>
+    rankFromItemId(record.adventureId)
+      ? { from: describeRankAward(awardedOn), to: describeRankAward(null) }
+      : {
+          from: describeAdventureState(true, record.completedDate, awardedOn),
+          to: describeAdventureState(true, record.completedDate, null),
+        },
+  (list, name) =>
+    `Undid the award of ${describeAwardCount(list, adventureById)} for ${name} (award date ${auditDate(awardedOn)} cleared)`,
   );
 
   revalidateAdvancement(scouts);
   return {
     ok: true,
-    cleared: toClear.length,
+    cleared: cleared.length,
     scouts: clearedScouts,
-    changedSince: request.items.length - toClear.length,
-    clearedKeys: toClear.map((r) => pendingAwardKey(r.scoutId, r.adventureId)),
+    changedSince: request.items.length - cleared.length,
+    clearedKeys: cleared.map((r) => pendingAwardKey(r.scoutId, r.adventureId)),
+  };
+}
+
+// ---- One scout's rank badge, from their card ----
+
+export type SetRankAwardResult =
+  | { ok: true; award: { awardedDate: string; updatedAt: string } | null }
+  | { ok: false; error: string };
+
+/**
+ * Sets, changes or clears (awardedDate null) the award date of a scout's rank
+ * badge — always their den's rank. A new award needs the badge earned right
+ * now; any date can't be in the future or before the day it was earned. An
+ * award whose badge is no longer earned (an adventure was unchecked since) can
+ * still be changed or cleared — the audit page flags it until someone does.
+ * Logged like every other advancement save.
+ */
+export async function setRankAwardAction(scoutId: string, awardedDate: string | null): Promise<SetRankAwardResult> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Not authorized." };
+  if (typeof scoutId !== "string" || !scoutId || scoutId.length > 64) {
+    return { ok: false, error: "That scout couldn't be found. Reload the page and try again." };
+  }
+  if (awardedDate !== null) {
+    const problem = awardDateProblem(awardedDate, todayDateOnlyString());
+    if (problem) return { ok: false, error: problem };
+  }
+  const refusal = await precheckScouts(session, [scoutId]);
+  if (refusal) return { ok: false, error: refusal };
+
+  let saved;
+  try {
+    saved = await prisma.$transaction(async (tx) => {
+      const scouts = await lockScoutsForAdvancement(tx, session, [scoutId]);
+      const scout = scouts.get(scoutId)!;
+      const rank = scout.den.rank as Rank;
+      const badge = rankBadgeName(RANK_INFO[rank].label);
+      const existing = await tx.scoutRankAward.findUnique({ where: { scoutId_rank: { scoutId, rank } } });
+
+      if (awardedDate === null) {
+        if (!existing) return { scouts, rank, badge, before: null, after: null };
+        await tx.scoutRankAward.delete({ where: { id: existing.id } });
+        return { scouts, rank, badge, before: existing.awardedDate, after: null };
+      }
+
+      const progress = (await rankProgressFor(tx, [{ id: scoutId, rank }])).get(scoutId)!;
+      if (!existing && !progress.earned) {
+        throw new AdvancementInputError(`${scout.firstName} hasn't earned the ${badge} yet — check off its adventures first.`);
+      }
+      if (progress.earned && progress.earnedDate && awardedDate < progress.earnedDate) {
+        throw new AdvancementInputError(
+          `The award date can't be before ${scout.firstName} earned the ${badge} (${auditDate(parseDateOnlyString(progress.earnedDate))}).`,
+        );
+      }
+      const on = parseDateOnlyString(awardedDate) as Date;
+      const row = await tx.scoutRankAward.upsert({
+        where: { scoutId_rank: { scoutId, rank } },
+        create: { scoutId, rank, awardedDate: on, updatedByUserId: session.userId },
+        update: { awardedDate: on, updatedByUserId: session.userId },
+      });
+      return { scouts, rank, badge, before: existing?.awardedDate ?? null, after: row };
+    });
+  } catch (error) {
+    if (error instanceof AdvancementInputError) return { ok: false, error: error.message };
+    throw error;
+  }
+
+  const { scouts, badge, before, after } = saved;
+  const changed = (before?.getTime() ?? null) !== (after?.awardedDate.getTime() ?? null);
+  if (changed) {
+    const scout = scouts.get(scoutId)!;
+    const name = `${scout.firstName} ${scout.lastName}`;
+    await recordAudit(session, {
+      action: "advancement.update",
+      summary: after
+        ? before
+          ? `Changed the ${badge} award date for ${name} to ${auditDate(after.awardedDate)}`
+          : `Awarded the ${badge} for ${name} (award date ${auditDate(after.awardedDate)})`
+        : `Cleared the ${badge} award for ${name}`,
+      entityType: "Scout",
+      entityId: scoutId,
+      denId: scout.denId,
+      details: [{ label: badge, from: describeRankAward(before), to: describeRankAward(after?.awardedDate ?? null) }],
+    });
+    revalidateAdvancement(scouts);
+  }
+  return {
+    ok: true,
+    award: after ? { awardedDate: awardedDate as string, updatedAt: after.updatedAt.toISOString() } : null,
   };
 }
 
@@ -654,13 +856,28 @@ export async function undoAwardBatchAction(token: AwardUndoToken): Promise<UndoA
  * show a bulk award exactly like one typed on the card. Returns how many
  * scouts got an entry.
  */
-async function auditAwardsByScout<R extends { scoutId: string; adventureId: string; completedDate: Date | null }>(
+type AuditedAward = { scoutId: string; adventureId: string; completedDate: Date | null };
+
+/** The rank badge's state in the audit log's from → to. */
+function describeRankAward(awardedDate: Date | null): string {
+  return awardedDate ? `Awarded ${auditDate(awardedDate)}` : EMPTY;
+}
+
+/** "3 adventures", "the Wolf rank badge", "2 adventures and the Wolf rank badge". */
+function describeAwardCount(list: readonly AuditedAward[], names: Map<string, { name: string }>): string {
+  const adventures = list.filter((r) => !rankFromItemId(r.adventureId)).length;
+  const badges = list.filter((r) => rankFromItemId(r.adventureId)).map((r) => `the ${names.get(r.adventureId)?.name ?? "rank badge"}`);
+  const parts = adventures ? [adventures === 1 ? "1 adventure" : `${adventures} adventures`] : [];
+  return [...parts, ...badges].join(" and ");
+}
+
+async function auditAwardsByScout<R extends AuditedAward>(
   session: SessionPayload,
   scouts: Map<string, LockedScout>,
   adventureById: Map<string, { name: string }>,
   records: R[],
   describe: (record: R) => { from: string; to: string },
-  summary: (count: number, scoutName: string) => string,
+  summary: (list: R[], scoutName: string) => string,
 ) {
   const byScout = new Map<string, R[]>();
   for (const record of records) byScout.set(record.scoutId, [...(byScout.get(record.scoutId) ?? []), record]);
@@ -672,7 +889,7 @@ async function auditAwardsByScout<R extends { scoutId: string; adventureId: stri
     }));
     await recordAudit(session, {
       action: "advancement.update",
-      summary: summary(list.length, `${scout.firstName} ${scout.lastName}`),
+      summary: summary(list, `${scout.firstName} ${scout.lastName}`),
       entityType: "Scout",
       entityId: scoutId,
       denId: scout.denId,
@@ -684,6 +901,8 @@ async function auditAwardsByScout<R extends { scoutId: string; adventureId: stri
 
 function revalidateAdvancement(scouts: Map<string, LockedScout>) {
   revalidatePath("/portal/den");
+  revalidatePath("/portal/parent");
+  revalidatePath("/portal/roster");
   revalidatePath("/portal/awards");
   revalidatePath("/portal/audits/advancement");
   for (const denId of new Set([...scouts.values()].map((s) => s.denId))) revalidatePath(`/portal/admin/dens/${denId}`);

@@ -1,7 +1,11 @@
 import "server-only";
+import { awardTypeLabel } from "@/lib/advancementAuditRules";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { getSession } from "@/lib/auth";
-import { canViewPendingAwards } from "@/lib/authorize";
+import { canViewPendingAwards, pendingAwardsDenIds } from "@/lib/authorize";
+import { prisma } from "@/lib/prisma";
+import { scoutingYearForDate } from "@/lib/attendanceSchedule";
+import { todayDateOnly, toDateOnlyString } from "@/lib/dateOnly";
 import { toCsv } from "@/lib/csv";
 import { formatDateOnly } from "@/lib/dateOnly";
 import { RANK_INFO } from "@/lib/rankConfig";
@@ -32,11 +36,68 @@ export async function loadPendingAwardsExport(searchParams: URLSearchParams) {
   return { filters, year: data.year, denName, groups: groupByAward(data.items), heldBack: data.heldBack.length };
 }
 
+/**
+ * "Ranks awarded": every rank badge handed out this season in the dens the
+ * viewer may see (the same dens as Pending Awards) — scout, den, rank, award
+ * date and who entered it. Active scouts only, like the page.
+ */
+export async function loadRankAwardsExport(searchParams: URLSearchParams) {
+  const session = await getSession();
+  if (!session) return { status: 401 as const };
+  if (!canViewPendingAwards(session)) return { status: 403 as const };
+  const denIds = pendingAwardsDenIds(session);
+  const year = scoutingYearForDate(todayDateOnly());
+  const denId = searchParams.get("denId");
+  const dens = await prisma.den.findMany({
+    where: {
+      scoutingYear: year,
+      ...(denIds === "all" ? {} : { id: { in: denIds } }),
+      ...(denId && denId.length <= 64 ? { id: denIds === "all" || denIds.includes(denId) ? denId : "" } : {}),
+    },
+    orderBy: [{ rank: "asc" }, { label: "asc" }],
+    select: {
+      rank: true,
+      label: true,
+      scouts: {
+        where: { active: true },
+        orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+        select: {
+          firstName: true,
+          lastName: true,
+          rankAwards: { select: { rank: true, awardedDate: true, updatedByUser: { select: { displayName: true } } } },
+        },
+      },
+    },
+  });
+  const rows = dens.flatMap((den) =>
+    den.scouts.flatMap((scout) =>
+      scout.rankAwards
+        .filter((a) => a.rank === den.rank)
+        .map((a) => ({
+          scoutName: `${scout.firstName} ${scout.lastName}`.trim(),
+          denName: `${RANK_INFO[den.rank].label}${den.label ? ` ${den.label}` : ""} Den`,
+          rank: RANK_INFO[a.rank].label,
+          awardedDate: toDateOnlyString(a.awardedDate),
+          enteredBy: a.updatedByUser?.displayName ?? "",
+        })),
+    ),
+  );
+  return { year, rows };
+}
+
+export function buildRankAwardsCsv(rows: { scoutName: string; denName: string; rank: string; awardedDate: string; enteredBy: string }[]) {
+  return toCsv([
+    ["Scout", "Den", "Rank", "Awarded", "Entered by"],
+    ...rows.map((r) => [r.scoutName, r.denName, r.rank, formatDateOnly(r.awardedDate), r.enteredBy]),
+  ]);
+}
+
 export function pendingAwardsFilename(year: string, extension: "csv" | "pdf") {
   return `pack376-pending-awards-${year}.${extension}`;
 }
 
-const awardLabel = (g: PendingAwardGroup) => `${RANK_INFO[g.rank].label} — ${g.adventureName}`;
+const awardLabel = (g: PendingAwardGroup) =>
+  g.adventureType === null ? g.adventureName : `${RANK_INFO[g.rank].label} — ${g.adventureName}`;
 
 export function buildPendingAwardsCsv(groups: PendingAwardGroup[]): string {
   const total = groups.reduce((sum, g) => sum + g.items.length, 0);
@@ -45,7 +106,7 @@ export function buildPendingAwardsCsv(groups: PendingAwardGroup[]): string {
     ...groups.map((g) => [
       RANK_INFO[g.rank].label,
       g.adventureName,
-      g.adventureType === "REQUIRED" ? "Required" : "Elective",
+      awardTypeLabel(g.adventureType),
       g.items.length,
       g.items.map((i) => `${i.scoutName} (${i.denName})`).join("; "),
     ]),
@@ -144,7 +205,7 @@ export async function buildPendingAwardsPdf(
     ...groups.map((g) => ({
       award: [
         ...fit(awardLabel(g), 0, fonts.bold),
-        ...fit(g.adventureType === "REQUIRED" ? "Required" : "Elective", 0),
+        ...fit(awardTypeLabel(g.adventureType), 0),
       ],
       awardBoldLines: fit(awardLabel(g), 0, fonts.bold).length,
       count: String(g.items.length),

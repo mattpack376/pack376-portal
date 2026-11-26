@@ -6,8 +6,17 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { isAdvancementAuditEditor } from "@/lib/authorize";
 import { recordAudit } from "@/lib/audit";
-import { todayDateOnly } from "@/lib/dateOnly";
-import { MAX_AUDIT_NOTE_LENGTH, auditRecord, lastEdited } from "@/lib/advancementAuditRules";
+import { toDateOnlyString, todayDateOnly } from "@/lib/dateOnly";
+import {
+  MAX_AUDIT_NOTE_LENGTH,
+  auditRank,
+  auditRecord,
+  lastEdited,
+  rankBadgeName,
+  rankLastEdited,
+} from "@/lib/advancementAuditRules";
+import { rankProgressFor } from "@/lib/rankStatus";
+import { RANK_INFO } from "@/lib/rankConfig";
 import { loadRequirementAuditInputs, requirementAuditInputFor } from "@/lib/advancementAuditData";
 
 /*
@@ -70,8 +79,13 @@ async function applyMarks(
   note: string,
 ) {
   const today = todayDateOnly();
+  // A rank badge's row is "rank:<ScoutRankAward id>"; one not yet awarded has nothing to mark.
+  const rankAwardIds = ids.filter((id) => id.startsWith("rank:")).map((id) => id.slice("rank:".length));
+  const recordIds = ids.filter((id) => !id.startsWith("rank:") && !id.startsWith("rank-pending:"));
+  let applied = await applyRankMarks(session, intent, rankAwardIds, note, today);
+
   const records = await prisma.advancementRecord.findMany({
-    where: { id: { in: ids }, scout: { active: true } },
+    where: { id: { in: recordIds }, scout: { active: true } },
     include: {
       adventure: { select: { name: true, rank: true } },
       scout: { select: { firstName: true, lastName: true, denId: true, den: { select: { scoutingYear: true, rank: true } } } },
@@ -83,7 +97,6 @@ async function applyMarks(
     records.map((r) => ({ scoutId: r.scoutId, adventureId: r.adventureId })),
   );
 
-  let applied = 0;
   for (const record of records) {
     const requirements = requirementAuditInputFor(requirementInputs, record.scoutId, record.adventureId);
     // Pinned to the latest edit of the adventure or its requirement checks, as the page judges it.
@@ -141,4 +154,88 @@ async function applyMarks(
   }
 
   return { applied, skipped: ids.length - applied };
+}
+
+/** The same three marks on rank badges, pinned to the badge's last edit (rankLastEdited). */
+async function applyRankMarks(
+  session: NonNullable<Awaited<ReturnType<typeof getSession>>>,
+  intent: Intent,
+  awardIds: string[],
+  note: string,
+  today: Date,
+) {
+  if (awardIds.length === 0) return 0;
+  const awards = await prisma.scoutRankAward.findMany({
+    where: { id: { in: awardIds }, scout: { active: true } },
+    include: {
+      scout: { select: { firstName: true, lastName: true, denId: true, den: { select: { rank: true } } } },
+      auditMark: true,
+    },
+  });
+  // Only the scout's current den rank shows on the page.
+  const current = awards.filter((a) => a.rank === a.scout.den.rank);
+  const scoutIds = [...new Set(current.map((a) => a.scoutId))];
+  const [progress, records] = await Promise.all([
+    rankProgressFor(prisma, current.map((a) => ({ id: a.scoutId, rank: a.rank }))),
+    prisma.advancementRecord.findMany({
+      where: { scoutId: { in: scoutIds } },
+      select: { scoutId: true, updatedAt: true, adventure: { select: { rank: true } } },
+    }),
+  ]);
+
+  let applied = 0;
+  for (const award of current) {
+    const updatedAt = rankLastEdited(
+      award.updatedAt,
+      records.filter((r) => r.scoutId === award.scoutId && r.adventure.rank === award.rank),
+    );
+    const scoutName = `${award.scout.firstName} ${award.scout.lastName}`.trim();
+    const what = `the ${rankBadgeName(RANK_INFO[award.rank].label)} for ${scoutName}`;
+
+    if (intent === "clear") {
+      if (!award.auditMark) continue;
+      await prisma.advancementAuditMark.delete({ where: { rankAwardId: award.id } });
+      await recordAudit(session, {
+        action: "advancement.audit.clear",
+        summary: `Cleared the audit mark on ${what}`,
+        entityType: "ScoutRankAward",
+        entityId: award.id,
+        denId: award.scout.denId,
+      });
+      applied += 1;
+      continue;
+    }
+
+    if (intent === "resolve") {
+      const p = progress.get(award.scoutId)!;
+      const result = auditRank(
+        {
+          earned: p.earned,
+          earnedDate: p.earnedDate,
+          awardedDate: toDateOnlyString(award.awardedDate),
+          updatedAt,
+          mark: null,
+        },
+        toDateOnlyString(today),
+      );
+      if (!result || result.discrepancies.length === 0) continue;
+    }
+
+    const kind = intent === "flag" ? "NEEDS_CORRECTION" : "RESOLVED";
+    const data = { kind, note, recordUpdatedAt: updatedAt, markedByUserId: session.userId, createdAt: new Date() } as const;
+    await prisma.advancementAuditMark.upsert({
+      where: { rankAwardId: award.id },
+      create: { rankAwardId: award.id, ...data },
+      update: data,
+    });
+    await recordAudit(session, {
+      action: intent === "flag" ? "advancement.audit.flag" : "advancement.audit.resolve",
+      summary: `${intent === "flag" ? "Flagged for correction" : "Marked resolved"}: ${what} — “${note}”`,
+      entityType: "ScoutRankAward",
+      entityId: award.id,
+      denId: award.scout.denId,
+    });
+    applied += 1;
+  }
+  return applied;
 }

@@ -25,7 +25,9 @@ export type AdvancementDiscrepancyType =
   | "OUTSIDE_PROGRAM_YEAR"
   | "REQUIREMENTS_INCOMPLETE"
   | "FUTURE_REQUIREMENT_DATE"
-  | "REQUIREMENT_AFTER_COMPLETED";
+  | "REQUIREMENT_AFTER_COMPLETED"
+  | "RANK_NO_LONGER_EARNED"
+  | "RANK_AWARDED_BEFORE_EARNED";
 
 export const DISCREPANCY_LABELS: Record<AdvancementDiscrepancyType, string> = {
   MISSING_COMPLETED_DATE: "No completion date",
@@ -37,6 +39,8 @@ export const DISCREPANCY_LABELS: Record<AdvancementDiscrepancyType, string> = {
   REQUIREMENTS_INCOMPLETE: "Requirements partly logged",
   FUTURE_REQUIREMENT_DATE: "Requirement dated in the future",
   REQUIREMENT_AFTER_COMPLETED: "Requirement done after completion",
+  RANK_NO_LONGER_EARNED: "Rank awarded, no longer earned",
+  RANK_AWARDED_BEFORE_EARNED: "Rank awarded before earned",
 };
 
 export const DISCREPANCY_HELP: Record<AdvancementDiscrepancyType, string> = {
@@ -50,6 +54,10 @@ export const DISCREPANCY_HELP: Record<AdvancementDiscrepancyType, string> = {
     "Checked complete, but only some of its requirements are logged. Log the rest, or resolve it if the scout finished them another way.",
   FUTURE_REQUIREMENT_DATE: "One of its requirements is dated after today — probably a typo in the year or month.",
   REQUIREMENT_AFTER_COMPLETED: "One of its requirements is dated after the day the adventure was marked complete.",
+  RANK_NO_LONGER_EARNED:
+    "The rank badge has an award date, but an adventure it needs has since been unchecked. The award is kept — recheck the adventure, or clear the award on the scout's card.",
+  RANK_AWARDED_BEFORE_EARNED:
+    "The rank badge's award date is before the last adventure it needs was completed.",
 };
 
 /** Where a record stands on the audit page. */
@@ -234,8 +242,8 @@ export function auditRecord(
 
 /** Whether a scout has finished every required adventure and enough electives for the rank badge itself. */
 export function hasEarnedRank(
-  adventures: { type: AdventureType }[],
-  completedTypes: AdventureType[],
+  adventures: readonly { type: AdventureType }[],
+  completedTypes: readonly AdventureType[],
 ): boolean {
   const requiredTotal = adventures.filter((a) => a.type === "REQUIRED").length;
   if (requiredTotal === 0) return false;
@@ -244,21 +252,149 @@ export function hasEarnedRank(
   return requiredDone >= requiredTotal && electivesDone >= ELECTIVES_REQUIRED;
 }
 
+/**
+ * Where a scout stands on their den's rank badge, from their adventure
+ * records — the one rule every page uses (the card's pill, Pending Awards,
+ * the audit page, the roster, the Parent Dashboard). `earnedDate` is the day
+ * the last adventure the rank needs was completed: every required one plus
+ * the earliest-completed electives that make up ELECTIVES_REQUIRED. It's null
+ * until earned, and also when one of those adventures has no completion date.
+ * Dates are YYYY-MM-DD strings, which compare correctly as text.
+ */
+export type RankProgress = {
+  requiredDone: number;
+  requiredTotal: number;
+  electivesDone: number;
+  electivesRequired: number;
+  earned: boolean;
+  earnedDate: string | null;
+};
+
+export function rankProgress(
+  adventures: readonly { id: string; type: AdventureType }[],
+  records: readonly { adventureId: string; completed: boolean; completedDate: string | null }[],
+): RankProgress {
+  const typeById = new Map(adventures.map((a) => [a.id, a.type]));
+  const done = records.filter((r) => r.completed && typeById.has(r.adventureId));
+  const completedTypes = done.map((r) => typeById.get(r.adventureId) as AdventureType);
+  const earned = hasEarnedRank(adventures, completedTypes);
+  const required = done.filter((r) => typeById.get(r.adventureId) === "REQUIRED");
+  const electives = done.filter((r) => typeById.get(r.adventureId) === "ELECTIVE");
+
+  let earnedDate: string | null = null;
+  if (earned) {
+    const datedElectives = electives
+      .map((r) => r.completedDate)
+      .filter((d): d is string => !!d)
+      .sort()
+      .slice(0, ELECTIVES_REQUIRED);
+    const requiredDates = required.map((r) => r.completedDate);
+    if (requiredDates.every((d) => !!d) && datedElectives.length >= ELECTIVES_REQUIRED) {
+      earnedDate = [...(requiredDates as string[]), ...datedElectives].sort().at(-1) ?? null;
+    }
+  }
+  return {
+    requiredDone: required.length,
+    requiredTotal: adventures.filter((a) => a.type === "REQUIRED").length,
+    electivesDone: electives.length,
+    electivesRequired: ELECTIVES_REQUIRED,
+    earned,
+    earnedDate,
+  };
+}
+
+export type RankAuditInput = {
+  earned: boolean;
+  /** YYYY-MM-DD, see rankProgress. */
+  earnedDate: string | null;
+  /** YYYY-MM-DD, or null while the badge hasn't been handed out. */
+  awardedDate: string | null;
+  /** The later of the award's own save and the scout's adventure saves for this rank. */
+  updatedAt: Date;
+  mark: AuditMarkInput | null;
+};
+
+/** Every check a rank badge fails. `today` is YYYY-MM-DD in the pack's time zone. */
+export function findRankDiscrepancies(input: RankAuditInput, today: string): AdvancementDiscrepancyType[] {
+  const found: AdvancementDiscrepancyType[] = [];
+  const { earned, earnedDate, awardedDate } = input;
+  if (!awardedDate) {
+    // Earned, but one of the adventures it rests on has no completion date —
+    // that adventure is flagged too; the badge waits until it's fixed.
+    if (earned && !earnedDate) found.push("MISSING_COMPLETED_DATE");
+    return found;
+  }
+  if (!earned) found.push("RANK_NO_LONGER_EARNED");
+  if (awardedDate > today) found.push("FUTURE_AWARDED_DATE");
+  if (earned && earnedDate && awardedDate < earnedDate) found.push("RANK_AWARDED_BEFORE_EARNED");
+  return found;
+}
+
+/** A rank badge's status on the audit page, or null when it's neither earned nor awarded. Same precedence as auditRecord. */
+export function auditRank(
+  input: RankAuditInput,
+  today: string,
+): { status: AdvancementAuditStatus; discrepancies: AdvancementDiscrepancyType[] } | null {
+  if (!input.earned && !input.awardedDate) return null;
+  const discrepancies = findRankDiscrepancies(input, today);
+  const mark = activeMark(input);
+  if (mark?.kind === "NEEDS_CORRECTION") return { status: "NEEDS_CORRECTION", discrepancies };
+  if (discrepancies.length > 0) return { status: mark?.kind === "RESOLVED" ? "RESOLVED" : "FLAGGED", discrepancies };
+  return { status: input.awardedDate ? "AWARDED" : "READY_FOR_AWARD", discrepancies };
+}
+
+/**
+ * What a mark on a rank badge is pinned to: the award's own save, or any save
+ * of the scout's adventures for that rank — unchecking one changes whether the
+ * badge is still earned, so it has to reopen the mark.
+ */
+export function rankLastEdited(awardUpdatedAt: Date, records: readonly { updatedAt: Date }[]): Date {
+  let latest = awardUpdatedAt;
+  for (const r of records) if (r.updatedAt > latest) latest = r.updatedAt;
+  return latest;
+}
+
+/** "Required", "Elective", or "Rank badge" for the badge itself. */
+export function awardTypeLabel(type: AdventureType | null): string {
+  return type === null ? "Rank badge" : type === "REQUIRED" ? "Required" : "Elective";
+}
+
+export const rankBadgeName = (rankLabel: string) => `${rankLabel} rank badge`;
+
+/** The rank badge's id in Pending Awards and the award actions, where an adventure id would go. */
+export const rankItemId = (rank: Rank) => `rank:${rank}`;
+
+export function rankFromItemId(id: string): Rank | null {
+  if (!id.startsWith("rank:")) return null;
+  const rank = id.slice("rank:".length);
+  return (["LION", "TIGER", "WOLF", "BEAR", "WEBELOS", "AOL"] as string[]).includes(rank) ? (rank as Rank) : null;
+}
+
 /** One row of the audit, as the page, the CSV and the PDF all see it. */
 export type AdvancementAuditRecord = {
+  /** An adventure, or the rank badge itself (one row per scout once it's earned or awarded). */
+  kind: "adventure" | "rank";
+  /**
+   * The AdvancementRecord id; for a rank badge "rank:<ScoutRankAward id>", or
+   * "rank-pending:<scoutId>" while it hasn't been awarded (nothing to mark yet).
+   */
   recordId: string;
   scoutId: string;
   scoutName: string;
   denId: string;
   denName: string;
   rank: Rank;
+  /** The adventure's id, or rankItemId(rank) for the badge. */
   adventureId: string;
+  /** "Bobcat", or "Wolf rank badge". */
   adventureName: string;
-  adventureType: AdventureType;
-  /** The adventure's place in its rank's checklist. */
+  /** Null for the rank badge. */
+  adventureType: AdventureType | null;
+  /** The adventure's place in its rank's checklist (-1 for the badge, listed first). */
   sortOrder: number;
+  /** For the badge: earned. */
   completed: boolean;
-  /** YYYY-MM-DD or null. */
+  /** YYYY-MM-DD or null. For the badge: the day it was earned (rankProgress). */
   completedDate: string | null;
   awardedDate: string | null;
   /** Who last saved the record — a leader typing it in. */
