@@ -366,10 +366,11 @@ export default function PendingAwardsView({
         >
           By award
         </button>
+        {/* What to buy at the Scout Shop (and, in the PDF, a hand-out checklist) — on both views. */}
+        <FileExportButton className="btn btn-quiet btn-small" href={`/api/awards/export?${exportQuery}`} label="Shopping list CSV" />
+        <FileExportButton className="btn btn-quiet btn-small" href={`/api/awards/export/pdf?${exportQuery}`} label="Shopping list PDF" />
         {view === "award" && (
           <>
-            <FileExportButton className="btn btn-quiet btn-small" href={`/api/awards/export?${exportQuery}`} label="Export CSV" />
-            <FileExportButton className="btn btn-quiet btn-small" href={`/api/awards/export/pdf?${exportQuery}`} label="Export PDF" />
             <FileExportButton
               className="btn btn-quiet btn-small"
               href={`/api/awards/ranks?${ranksExportQuery}`}

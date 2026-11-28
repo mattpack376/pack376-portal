@@ -12,7 +12,8 @@ import PendingAwardsView from "@/components/PendingAwardsView";
 /**
  * Pending Awards: every adventure and rank badge this season's scouts have
  * finished but not been handed yet, by scout or by award, with a bulk "Mark as Awarded" for
- * after a pack meeting and a Scout Shop list (CSV/PDF) of how many of each.
+ * after a pack meeting and a Scout Shop shopping list (CSV/PDF: how many of
+ * each to buy, plus a hand-out checklist in the PDF) on both views.
  *
  * Admin, Junior Admin and Committee Member see every den; a Den Leader their
  * own. Filters are search params on a plain GET form, like the audit page;
@@ -35,7 +36,8 @@ export default async function PendingAwardsPage({ searchParams }: { searchParams
         <h2>Pending Awards</h2>
         <p>
           Adventures and rank badges scouts have earned but haven&apos;t been handed yet, {data.year}. After a pack meeting, tick what
-          was given out and mark it awarded in one go. <strong>By award</strong> is the shopping list for the Scout Shop.
+          was given out and mark it awarded in one go. <strong>Shopping list</strong> downloads what to buy at the Scout Shop; the PDF
+          also has a hand-out checklist for the meeting.
         </p>
       </div>
 

@@ -358,6 +358,17 @@ describe("/api export routes", () => {
       load: () => import("@/app/api/photo-consent/export/route"),
       allowed: ["ADMIN", "JUNIOR_ADMIN", "MASTER", "COMMITTEE", "COMMITTEE_WITH_DEN", "DEN", "PHOTOGRAPHER"],
     },
+    // Pending Awards' shopping list and "Ranks awarded": the page's roles (canViewPendingAwards).
+    ...["/api/awards/export", "/api/awards/export/pdf", "/api/awards/ranks"].map((path) => ({
+      path,
+      load: () =>
+        path === "/api/awards/export"
+          ? import("@/app/api/awards/export/route")
+          : path === "/api/awards/export/pdf"
+            ? import("@/app/api/awards/export/pdf/route")
+            : import("@/app/api/awards/ranks/route"),
+      allowed: ["ADMIN", "JUNIOR_ADMIN", "MASTER", "COMMITTEE", "COMMITTEE_WITH_DEN", "DEN"],
+    })),
   ];
 
   for (const route of ROUTES) {

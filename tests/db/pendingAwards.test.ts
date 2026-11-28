@@ -114,6 +114,44 @@ describe("pending awards: the list", () => {
   });
 });
 
+describe("pending awards: shopping list downloads", () => {
+  const get = async (user: SessionUser, path: string, query = "") => {
+    const route = path.endsWith("/pdf") ? await import("@/app/api/awards/export/pdf/route") : await import("@/app/api/awards/export/route");
+    const { NextRequest } = await import("next/server");
+    return runAs(user, () => route.GET(new NextRequest(`https://portal.pack376nyc.org${path}${query}`)));
+  };
+  const totalOf = (csv: string) => Number(csv.trim().split("\n").at(-1)!.split(",")[3]);
+
+  it("counts what the page lists; another den's id gives a Den Leader nothing of that den", async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: NOW });
+    const mine = await wolfDen();
+    const theirs = await wolfDen();
+    const pageItems = await runAs(mine.leader, async () => {
+      const { getSession } = await import("@/lib/auth");
+      return (await pending.loadPendingAwards((await getSession())!, NO_FILTERS, NOW)).items;
+    });
+
+    const own = await get(mine.leader, "/api/awards/export");
+    assert.equal(own.status, 200);
+    const csv = await own.text();
+    assert.equal(totalOf(csv), pageItems.length);
+    assert.match(own.headers.get("Content-Disposition") ?? "", /pack376-shopping-list-2026-2027\.csv/);
+
+    const foreign = await get(mine.leader, "/api/awards/export", `?denId=${theirs.den.id}`);
+    assert.equal(foreign.status, 200);
+    assert.equal(totalOf(await foreign.text()), 0);
+    const pdf = await get(mine.leader, "/api/awards/export/pdf", `?denId=${theirs.den.id}`);
+    assert.equal(pdf.status, 200);
+    assert.equal(pdf.headers.get("Content-Type"), "application/pdf");
+
+    const parent = await fx.user("PARENT", { scoutIds: [mine.scouts[0].id] });
+    assert.equal((await get(parent, "/api/awards/export")).status, 403);
+    const { GET } = await import("@/app/api/awards/export/route");
+    const { NextRequest } = await import("next/server");
+    assert.equal((await asAnonymous(() => GET(new NextRequest("https://portal.pack376nyc.org/api/awards/export")))).result.status, 401);
+  });
+});
+
 describe("pending awards: bulk award", () => {
   it("awards every eligible item, skips what can't be, and logs one entry per scout", async () => {
     const { den, bobcat, water, elective, scouts, leader } = await wolfDen();
